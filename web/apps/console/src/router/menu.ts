@@ -1,5 +1,7 @@
 /** 公司后台菜单：沿用原型 admin.html 左侧导航。
  *  每个菜单项带 access：无权限的菜单项隐藏，组内无可见项则整组隐藏。
+ *  Sprint 3/4：驻场组项目经理可查看；人才经纪人组驻场 / 项目经理只读；人员管理与离职申请驻场也可用（后端 SITE/PM 均放行）；
+ *  流转账本后端仅老板可查（BILL_VIEW）；花名册导入（T-503）原型无独立页面，放在「项目经理」组。
  *  决策 D-25：薪酬预支审批（A-17）为「驻场初审 + 项目经理终审」双级，菜单从「劳务公司老板」移至「项目经理」。 */
 import type { TenantRole } from '@shitu/api-client'
 
@@ -29,10 +31,10 @@ export const MENU: MenuGroup[] = [
     title: '驻场',
     en: 'SITE REP',
     items: [
-      { path: '/site/home', title: '驻场工作台', proto: 'A-01', access: { perms: ['SITE_WORKBENCH'] } },
-      { path: '/site/todo', title: '待办清单', proto: 'A-02', access: { perms: ['SITE_WORKBENCH'] } },
-      { path: '/site/follow', title: '24h 响应监控', proto: 'A-03', access: { perms: ['SITE_WORKBENCH'] } },
-      { path: '/site/onboard', title: '确权与签约', proto: 'A-04', access: { roles: ['SITE'] } },
+      { path: '/site/home', title: '驻场工作台', proto: 'A-01', access: { perms: ['SITE_WORKBENCH'], roles: ['PM'] } },
+      { path: '/site/todo', title: '待办清单', proto: 'A-02', access: { perms: ['SITE_WORKBENCH'], roles: ['PM'] } },
+      { path: '/site/follow', title: '24h 响应监控', proto: 'A-03', access: { perms: ['SITE_WORKBENCH'], roles: ['PM'] } },
+      { path: '/site/onboard', title: '确权与签约', proto: 'A-04', access: { perms: ['ONBOARD_CONFIRM'] } },
     ],
   },
   {
@@ -40,9 +42,9 @@ export const MENU: MenuGroup[] = [
     title: '人才经纪人',
     en: 'BROKER',
     items: [
-      { path: '/broker/pool', title: '流转池', proto: 'A-05', access: { perms: ['BROKER_WORKBENCH'] } },
-      { path: '/broker/report', title: 'AI 分析报告', proto: 'A-06', access: { perms: ['BROKER_WORKBENCH'] } },
-      { path: '/broker/rematch', title: '二次匹配 / 释放', proto: 'A-07', access: { perms: ['BROKER_WORKBENCH'] } },
+      { path: '/broker/pool', title: '流转池', proto: 'A-05', access: { perms: ['BROKER_WORKBENCH'], roles: ['SITE', 'PM'] } },
+      { path: '/broker/report', title: 'AI 分析报告', proto: 'A-06', access: { perms: ['BROKER_WORKBENCH'], roles: ['SITE', 'PM'] } },
+      { path: '/broker/rematch', title: '二次匹配 / 释放', proto: 'A-07', access: { perms: ['BROKER_WORKBENCH'], roles: ['SITE', 'PM'] } },
     ],
   },
   {
@@ -59,7 +61,7 @@ export const MENU: MenuGroup[] = [
     title: '人才流转',
     en: 'CIRCULATION',
     items: [
-      { path: '/circulation/ledger', title: '流转账本', proto: 'A-10', access: { roles: ['BROKER', 'PM', 'OWNER'] } },
+      { path: '/circulation/ledger', title: '流转账本', proto: 'A-10', access: { perms: ['BILL_VIEW'] } },
       { path: '/circulation/people', title: '流转人员台账', proto: 'v-circulation-list', access: { roles: ['BROKER', 'PM', 'OWNER'] } },
     ],
   },
@@ -72,8 +74,9 @@ export const MENU: MenuGroup[] = [
       { path: '/pm/jobs', title: '岗位管理', proto: 'v-jobs', access: { perms: ['JOB_MANAGE', 'JOB_VIEW'] } },
       { path: '/pm/jobs/edit', title: '创建 / 编辑岗位', proto: 'v-job-edit', access: { perms: ['JOB_MANAGE'] } },
       { path: '/pm/kb', title: '知识库管理', proto: 'A-11', access: { perms: ['KB_MANAGE'] } },
-      { path: '/pm/staff', title: '人员管理', proto: 'A-12', access: { perms: ['PM_WORKBENCH'] } },
-      { path: '/pm/resign', title: '离职审核', proto: 'A-13', access: { perms: ['RESIGN_AUDIT'] } },
+      { path: '/pm/staff', title: '人员管理', proto: 'A-12', access: { perms: ['STAFF_MANAGE', 'SITE_WORKBENCH'] } },
+      { path: '/pm/resign', title: '离职审核', proto: 'A-13', access: { perms: ['RESIGN_AUDIT', 'SITE_WORKBENCH'] } },
+      { path: '/pm/roster', title: '花名册导入', proto: 'T-503', access: { perms: ['ROSTER_IMPORT'] } },
       { path: '/pm/advance', title: '薪酬预支审批', proto: 'A-17', access: { perms: ['ADVANCE_FINAL_REVIEW', 'ADVANCE_FIRST_REVIEW'] } },
     ],
   },

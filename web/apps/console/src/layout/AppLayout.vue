@@ -5,6 +5,7 @@ import { ElMessageBox } from 'element-plus'
 import { logout, useDict } from '@shitu/api-client'
 import BrandMark from '@/components/BrandMark.vue'
 import DictTag from '@/components/DictTag.vue'
+import MessageBell from '@/components/MessageBell.vue'
 import { visibleMenu } from '@/router/access'
 import { APP_TITLE } from '@/router/menu'
 import { useMeStore } from '@/stores/me'
@@ -80,6 +81,7 @@ async function doLogout() {
           <span class="mn">{{ meStore.me?.name }}</span>
           <span v-for="r in meStore.me?.roles ?? []" :key="r"><DictTag type="ActorRole" :value="r" /></span>
         </div>
+        <MessageBell />
         <el-button size="small" @click="doLogout">退出</el-button>
       </header>
       <div v-if="company?.status === 'THROTTLED'" class="throttle note note--warn">

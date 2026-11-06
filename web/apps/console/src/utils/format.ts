@@ -40,3 +40,23 @@ export async function copyText(text: string): Promise<boolean> {
     return ok
   }
 }
+
+/** 金额：¥ + 千分位 + 两位小数（账单 / 流转费） */
+export function fmtYuan(n?: number | null): string {
+  if (n == null || Number.isNaN(Number(n))) return '—'
+  const v = Number(n)
+  const s = Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `${v < 0 ? '-' : ''}¥${s}`
+}
+
+/** 后端金额字段可能是字符串（BigDecimal），统一转 number */
+export function toNum(n: unknown): number {
+  const v = typeof n === 'number' ? n : Number(n)
+  return Number.isFinite(v) ? v : 0
+}
+
+/** 手机号分段显示：138 0013 8656 */
+export function fmtPhone(p?: string | null): string {
+  if (!p) return '—'
+  return /^\d{11}$/.test(p) ? `${p.slice(0, 3)} ${p.slice(3, 7)} ${p.slice(7)}` : p
+}

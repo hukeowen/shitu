@@ -23,6 +23,24 @@ const TONES: Record<string, Record<string, Tone>> = {
     FORCE_OFFLINE: 'danger',
   },
   ActorRole: { SITE: 'signal', BROKER: 'temp', PM: 'info', OWNER: 'ink' },
+  ApplicationStatus: {
+    PENDING_INTERVIEW: 'temp',
+    PENDING_CONFIRM: 'signal',
+    EMPLOYED: 'ok',
+    CANCELLED: 'muted',
+    TIMEOUT: 'muted',
+    INTERVIEW_FAILED: 'danger',
+    NO_SHOW: 'danger',
+  },
+  ContractStatus: { PENDING_SIGN: 'warn', EFFECTIVE: 'ok', EXPIRED: 'muted', DISSOLVED: 'muted', TERMINATED: 'muted', VOIDED: 'muted' },
+  BillStatus: { GENERATED: 'muted', ISSUED: 'info', DISPUTED: 'warn', CONFIRMED: 'ok', SETTLED: 'ok' },
+  BrokerCaseStatus: { OPEN: 'warn', CONTACTED: 'info', RECOMMENDED: 'signal', APPLIED: 'ok', RELEASED: 'muted', CLOSED: 'muted' },
+  BrokerTriggerType: { LOW_MATCH: 'warn', REMATCH_LIMIT: 'temp', SITE_TRANSFER: 'signal', JOB_CHANGE: 'info' },
+  ResignStatus: { PENDING: 'warn', APPROVED: 'ok', REJECTED: 'danger' },
+  StaffSource: { OWN: 'ok', PLATFORM: 'info', TRANSFER: 'signal' },
+  AbsenceType: { LEAVE: 'info', ABSENT: 'danger' },
+  DisputeStatus: { OPEN: 'warn', ACCEPTED: 'ok', REJECTED: 'danger' },
+  LedgerDirection: { PAYABLE: 'danger', RECEIVABLE: 'ok' },
 }
 
 export function toneOf(type: string, value: string | null | undefined): Tone {

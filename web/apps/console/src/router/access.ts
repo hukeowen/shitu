@@ -13,10 +13,15 @@ export function visibleMenu(me: TenantMe | null | undefined): MenuGroup[] {
   return MENU.map((g) => ({ ...g, items: g.items.filter((it) => canAccess(me, it.access)) })).filter((g) => g.items.length > 0)
 }
 
-/** 登录后的默认落地页：按角色优先给 Sprint 1 已实现的页面 */
+/** 登录后的默认落地页：按角色给最常用的页面 */
 export function homePath(me: TenantMe | null | undefined): string {
   if (!me) return '/login'
-  const preferred = ['/pm/jobs', '/settings/org', '/settings/projects', '/settings/channels']
+  const byRole: string[] = []
+  if (me.roles.includes('SITE')) byRole.push('/site/home')
+  if (me.roles.includes('BROKER')) byRole.push('/broker/pool')
+  if (me.roles.includes('PM')) byRole.push('/pm/jobs')
+  if (me.roles.includes('OWNER')) byRole.push('/owner/bills')
+  const preferred = [...byRole, '/settings/org', '/settings/projects', '/settings/channels']
   const items = visibleMenu(me).flatMap((g) => g.items)
   const hit = preferred.find((p) => items.some((it) => it.path === p))
   return hit ?? items[0]?.path ?? '/settings/channels'
