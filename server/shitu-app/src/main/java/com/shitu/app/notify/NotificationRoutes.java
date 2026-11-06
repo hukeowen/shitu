@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 public class NotificationRoutes implements OutboxHandler {
 
     private static final Set<String> EVENTS = Set.of("APPLICATION_CREATED", "INTERVIEW_INFO_PUSHED", "USER_RELEASED",
-            "BROKER_CASE_CREATED");
+            "BROKER_CASE_CREATED", "ARRIVAL_CONFIRMED", "CONTRACT_SIGN_REQUIRED", "CONTRACT_SIGNED", "FOLLOW_UP_DUE");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -92,6 +92,28 @@ public class NotificationRoutes implements OutboxHandler {
                 case "BROKER_CASE_CREATED" -> notifications.send(outboxId, "BROKER_CASE_CREATED",
                         companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.BROKER)),
                         Map.of("seekerName", seekerName(text(p, "userId"))), "/broker/pool");
+                case "ARRIVAL_CONFIRMED" -> notifications.send(outboxId, "ARRIVAL_CONFIRMED",
+                        List.of(Recipient.seeker(text(p, "userId"))), Map.of(), "/reports");
+                case "CONTRACT_SIGN_REQUIRED" -> notifications.send(outboxId, "CONTRACT_SIGN_REQUIRED",
+                        List.of(Recipient.seeker(text(p, "userId"))), Map.of("signUrl", text(p, "signUrl")), "/contracts");
+                case "CONTRACT_SIGNED" -> {
+                    // M-07：签约完成推送项目经理 + 老板
+                    List<Recipient> to = new java.util.ArrayList<>(projectRoles(text(p, "companyId"), text(p, "projectId"),
+                            EnumSet.of(ActorRole.PM)));
+                    to.addAll(companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)));
+                    notifications.send(outboxId, "CONTRACT_SIGNED_MANAGER", to.stream().distinct().toList(),
+                            Map.of("seekerName", seekerName(text(p, "userId")), "jobTitle", text(p, "jobTitle")), null);
+                }
+                case "FOLLOW_UP_DUE" -> {
+                    String projectId = text(p, "projectId");
+                    List<Recipient> to = projectId.isEmpty()
+                            ? companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.SITE))
+                            : projectStaff(text(p, "companyId"), projectId);
+                    notifications.send(outboxId, "FOLLOW_UP_REMINDER", to, Map.of(
+                            "seekerName", seekerName(text(p, "userId")),
+                            "stage", com.shitu.common.enums.UserStatus.valueOf(text(p, "stage")).label(),
+                            "remaining", remaining(text(p, "deadline"))), "/todo");
+                }
                 default -> {
                 }
             }
@@ -113,6 +135,30 @@ public class NotificationRoutes implements OutboxHandler {
             return onProject;
         }
         return staff.stream().filter(m -> m.roleSet().contains(ActorRole.SITE)).map(m -> Recipient.member(m.getMemberId())).toList();
+    }
+
+    /** 指定项目上拥有某些角色的成员。 */
+    private List<Recipient> projectRoles(String companyId, String projectId, Set<ActorRole> roles) {
+        Set<String> assigned = memberProjects.selectList(new LambdaQueryWrapper<MemberProject>()
+                        .eq(MemberProject::getProjectId, projectId)).stream()
+                .map(MemberProject::getMemberId).collect(Collectors.toSet());
+        return members.selectList(new LambdaQueryWrapper<Member>()
+                        .eq(Member::getCompanyId, companyId).eq(Member::getStatus, MemberStatus.NORMAL)).stream()
+                .filter(m -> assigned.contains(m.getMemberId()) && m.roleSet().stream().anyMatch(roles::contains))
+                .map(m -> Recipient.member(m.getMemberId())).toList();
+    }
+
+    private static String remaining(String deadlineIso) {
+        try {
+            long min = java.time.Duration.between(LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")),
+                    LocalDateTime.parse(deadlineIso)).toMinutes();
+            if (min <= 0) {
+                return "不足 1 分钟";
+            }
+            return (min / 60 > 0 ? min / 60 + " 小时 " : "") + min % 60 + " 分钟";
+        } catch (RuntimeException e) {
+            return "";
+        }
     }
 
     private List<Recipient> companyMembers(String companyId, Set<ActorRole> roles) {

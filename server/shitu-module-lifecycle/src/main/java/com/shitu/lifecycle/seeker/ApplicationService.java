@@ -82,11 +82,13 @@ public class ApplicationService {
     private final FieldCipher cipher;
     private final OutboxWriter outbox;
     private final AuditLogger audit;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final Clock clock;
 
     public ApplicationService(ApplicationMapper applications, InterviewNoticeMapper notices, ResponseWindowMapper windows,
                               SeekerUserMapper users, JobMapper jobs, ProjectMapper projects, CompanyService companies,
-                              DataScope scope, FieldCipher cipher, OutboxWriter outbox, AuditLogger audit, Clock clock) {
+                              DataScope scope, FieldCipher cipher, OutboxWriter outbox, AuditLogger audit,
+                              org.springframework.jdbc.core.JdbcTemplate jdbc, Clock clock) {
         this.applications = applications;
         this.notices = notices;
         this.windows = windows;
@@ -98,6 +100,7 @@ public class ApplicationService {
         this.cipher = cipher;
         this.outbox = outbox;
         this.audit = audit;
+        this.jdbc = jdbc;
         this.clock = clock;
     }
 
@@ -234,14 +237,36 @@ public class ApplicationService {
         return applications.selectById(applicationId);
     }
 
-    /** 后台操作按钮（Sprint 2 只有「知悉 / 推送面试信息」，面试结果、取消、爽约在 Sprint 3 加入）。 */
-    static List<String> actions(Application a, AuthPrincipal p) {
+    /**
+     * 后台操作按钮（前端只按这里显示，A-19 矩阵）：
+     * 待面试：ACKNOWLEDGE / REPUSH（推送面试信息）、ARRIVE（到厂确认）、PASS / FAIL（面试结果）、NO_SHOW（爽约，仅驻场）、CANCEL；
+     * 待确权：CONFIRM（确权并发起电子签）或 RESEND_CONTRACT（重发签约）、CANCEL。
+     */
+    List<String> actions(Application a, AuthPrincipal p) {
         boolean site = p.hasRole(ActorRole.SITE.name());
         boolean pm = p.hasRole(ActorRole.PM.name());
-        if (a.getStatus() == ApplicationStatus.PENDING_INTERVIEW && (site || pm)) {
-            return List.of(a.getAcknowledgedAt() == null ? "ACKNOWLEDGE" : "REPUSH");
+        if (!site && !pm) {
+            return List.of();
         }
-        return List.of();
+        List<String> out = new java.util.ArrayList<>();
+        if (a.getStatus() == ApplicationStatus.PENDING_INTERVIEW) {
+            out.add(a.getAcknowledgedAt() == null ? "ACKNOWLEDGE" : "REPUSH");
+            if (a.getArrivedAt() == null) {
+                out.add("ARRIVE");
+            }
+            out.add("PASS");
+            out.add("FAIL");
+            if (site) {
+                out.add("NO_SHOW");
+            }
+            out.add("CANCEL");
+        } else if (a.getStatus() == ApplicationStatus.PENDING_CONFIRM) {
+            Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM contract WHERE application_id = ? AND status = 'PENDING_SIGN'",
+                    Long.class, a.getApplicationId());
+            out.add(pending != null && pending > 0 ? "RESEND_CONTRACT" : "CONFIRM");
+            out.add("CANCEL");
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------

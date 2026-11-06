@@ -1,5 +1,7 @@
 package com.shitu.integration;
 
+import com.shitu.integration.esign.ESignProvider;
+import com.shitu.integration.esign.MockESignProvider;
 import com.shitu.integration.kyc.IdentityVerifier;
 import com.shitu.integration.kyc.MockIdentityVerifier;
 import com.shitu.integration.sms.MockSmsSender;
@@ -36,5 +38,12 @@ public class IntegrationConfig {
     @ConditionalOnMissingBean(IdentityVerifier.class)
     public IdentityVerifier mockIdentityVerifier() {
         return new MockIdentityVerifier();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ESignProvider.class)
+    public ESignProvider mockESignProvider(@Value("${shitu.h5.public-base:http://localhost:5173}") String h5Base,
+                                           @Value("${shitu.esign.callback-secret:local-mock-esign-secret}") String secret) {
+        return new MockESignProvider(h5Base, secret);
     }
 }

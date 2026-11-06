@@ -32,7 +32,7 @@ public class SecurityConfig {
     static final String[] PUBLIC = {
             "/api/v1/seeker/auth/**", "/api/v1/tenant/auth/**", "/api/v1/ops/auth/**",
             "/api/v1/seeker/public/**", "/api/v1/tenant/onboarding/**",
-            "/api/v1/dict", "/r/**",
+            "/api/v1/dict", "/r/**", "/api/v1/callback/**",
             "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/error"
     };
 

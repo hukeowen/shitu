@@ -57,15 +57,18 @@ public class SeekerJourneyController {
     private final KycService kyc;
     private final ApplicationService applications;
     private final NotificationService notifications;
+    private final com.shitu.lifecycle.employment.EmploymentQueryService employments;
 
     public SeekerJourneyController(SeekerJourneyFacade journey, QuizService quiz, DisclaimerService disclaimer,
-                                   KycService kyc, ApplicationService applications, NotificationService notifications) {
+                                   KycService kyc, ApplicationService applications, NotificationService notifications,
+                                   com.shitu.lifecycle.employment.EmploymentQueryService employments) {
         this.journey = journey;
         this.quiz = quiz;
         this.disclaimer = disclaimer;
         this.kyc = kyc;
         this.applications = applications;
         this.notifications = notifications;
+        this.employments = employments;
     }
 
     @Operation(summary = "当前生效题库（C-302）")
@@ -150,5 +153,11 @@ public class SeekerJourneyController {
     public ApiResponse<Integer> read(@RequestBody(required = false) ReadRequest req) {
         return ApiResponse.ok(notifications.markRead(NotificationService.Recipient.seeker(CurrentUser.subjectId()),
                 req == null ? null : req.ids()));
+    }
+
+    @Operation(summary = "我的工作（C-505：当前在岗；已离职返回最近一段；没有返回空）")
+    @GetMapping("/work")
+    public ApiResponse<com.shitu.lifecycle.employment.EmploymentQueryService.MyWork> work() {
+        return ApiResponse.ok(employments.myWork(CurrentUser.subjectId()).orElse(null));
     }
 }
