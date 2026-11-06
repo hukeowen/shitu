@@ -21,6 +21,22 @@
         </dependency>
         <dependency>
             <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-identity</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-platform</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-tenant</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-job</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
             <artifactId>shitu-module-billing</artifactId>
         </dependency>
         <dependency>

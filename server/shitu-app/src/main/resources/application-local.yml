@@ -1,0 +1,10 @@
+# 本地开发（默认 profile）。第三方全部 Mock。
+shitu:
+  sms:
+    expose-code-in-mock: true
+  ops:
+    init-password: ${SHITU_OPS_INIT_PASSWORD:Shitu@2026}
+
+logging:
+  level:
+    com.shitu: debug

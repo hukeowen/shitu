@@ -35,7 +35,13 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+spring.servlet.multipart.max-file-size: 10MB
+spring.servlet.multipart.max-request-size: 12MB
+
 management:
+  health:
+    redis:
+      enabled: false   # kv.type=redis 时改为 true
   endpoints:
     web:
       exposure:
@@ -46,3 +52,24 @@ shitu:
     # 本地开发用的固定测试密钥；生产环境必须通过环境变量 / KMS 注入，禁止使用以下值
     enc-key: ${SHITU_ENC_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
     mac-key: ${SHITU_MAC_KEY:ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=}
+  jwt:
+    # 本地开发用固定密钥；生产必须通过 SHITU_JWT_SECRET 注入（Base64，至少 32 字节）
+    secret: ${SHITU_JWT_SECRET:c2hpdHUtbG9jYWwtZGV2LWp3dC1zZWNyZXQtZG8tbm90LXVzZS1pbi1wcm9k}
+    access-ttl: PT15M
+    refresh-ttl: P30D
+    reuse-grace: PT30S
+  auth:
+    cookie-secure: ${SHITU_COOKIE_SECURE:false}
+  kv:
+    type: ${SHITU_KV_TYPE:memory}       # memory（单实例开发）/ redis（多实例部署必须）
+  sms:
+    captcha-after-per-ip: 3
+    ip-hourly-limit: 30
+    expose-code-in-mock: false          # 仅 local profile 打开：Mock 短信通道把验证码回显给前端，方便联调
+  storage:
+    local-dir: ${SHITU_STORAGE_DIR:./data/uploads}
+  h5:
+    seeker-entry: ${SHITU_H5_ENTRY:/}   # /r/{code} 302 的落地页
+    public-base: ${SHITU_H5_PUBLIC_BASE:http://localhost:5173}   # 二维码内容前缀（生产 https://m.shitu.com）
+  ops:
+    init-password: ${SHITU_OPS_INIT_PASSWORD:}

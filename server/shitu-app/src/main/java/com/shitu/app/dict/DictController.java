@@ -2,6 +2,7 @@ package com.shitu.app.dict;
 
 import com.shitu.common.api.ApiResponse;
 import com.shitu.common.enums.*;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,8 @@ public class DictController {
     private static final List<Class<? extends LabeledEnum>> ENUMS = List.of(
             UserStatus.class, DomainTag.class, MatchScope.class, ReleaseReason.class, ActorRole.class,
             ChannelType.class, ApplicationStatus.class, JobStatus.class, CompanyStatus.class,
-            ContractStatus.class, AdvanceStatus.class, FeeType.class);
+            ContractStatus.class, AdvanceStatus.class, FeeType.class, JobType.class, ShiftType.class,
+            OpsRole.class, ClientContractStatus.class, ProjectStatus.class, MemberStatus.class, AuthDomain.class);
 
     private static final Map<String, List<DictItem>> DICT = build();
 

@@ -27,3 +27,6 @@ application-secret*.yml
 
 # Generated
 web/packages/api-client/src/generated/
+
+# Local uploads (LocalFileStorage)
+data/

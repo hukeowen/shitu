@@ -8,7 +8,7 @@
         <version>1.0.0-SNAPSHOT</version>
     </parent>
     <artifactId>shitu-framework</artifactId>
-    <description>Web 基础设施：统一异常、traceId、字段加密 / 盲索引、按角色脱敏、MyBatis-Plus 配置</description>
+    <description>Web 基础设施：安全与 JWT、KV 存储与限流、编号生成、审计、统一异常、traceId、字段加密 / 盲索引、按角色脱敏、MyBatis-Plus 配置</description>
     <dependencies>
         <dependency>
             <groupId>com.shitu</groupId>
@@ -29,6 +29,28 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 </project>

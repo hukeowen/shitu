@@ -2,6 +2,7 @@ package com.shitu.common.enums;
 
 public enum JobStatus implements LabeledEnum {
     PENDING_AUDIT("待审核"),
+    REJECTED("审核驳回"),
     RECRUITING("招聘中"),
     PAUSED("暂停招聘"),
     OFFLINE("已下架"),

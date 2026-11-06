@@ -2,6 +2,7 @@ package com.shitu.common.enums;
 
 public enum CompanyStatus implements LabeledEnum {
     PENDING_AUDIT("待审核"),
+    REJECTED("入驻驳回"),
     NORMAL("正常"),
     THROTTLED("限流"),
     BANNED("封禁"),

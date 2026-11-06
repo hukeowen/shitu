@@ -32,6 +32,7 @@ public final class TenantTables {
     /** 平台专属表：租户请求一律禁止访问（含降权数据，R-14）。 */
     public static final Set<String> PLATFORM_ONLY = Set.of(
             "ops_admin", "audit_log", "shedlock", "outbox_event", "channel_visit", "sms_log",
+            "biz_sequence", "auth_session",
             "follow_up_reminder", "esign_callback_log",
             "kyc_record", "kyc_review", "blacklist",
             "job_weight_daily", "complaint", "credit_score_log", "risk_event", "penalty",
