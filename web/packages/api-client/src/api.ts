@@ -44,6 +44,7 @@ import type {
   AcknowledgeRequest,
   MatchSnapshot,
   BillDispute,
+  AdvanceStatus,
   LaborContractView,
   ConfirmOnboardRequest,
   StaffRow,
@@ -62,6 +63,12 @@ import type {
   BillingRuleRow,
   CompanyCloseResult,
   BillStatus,
+  AdvanceQuota,
+  AdvanceRow,
+  DebtLogEntry,
+  Payslip,
+  PayrollBatchResult,
+  ComplaintCategory,
   SeekerLoginResponse,
   SeekerProfile,
   SmsSendResult,
@@ -147,6 +154,19 @@ export const seekerApi = {
   /** 专属顾问推荐的岗位（T-203）；推荐的岗位可以打开详情并报名 */
   recommendations: () => get<MyRecommendation[]>('/seeker/recommendations'),
   decideRecommendation: (id: number, accept: boolean) => post<void>(`/seeker/recommendations/${id}/decision`, { accept }),
+
+  /** 预支额度（C-601） */
+  advanceQuota: () => get<AdvanceQuota>('/seeker/advance/quota'),
+  /** 发起预支（C-602）；不满足条件抛 ADV_4001，message 为原因 */
+  applyAdvance: () => post<string>('/seeker/advance'),
+  /** 预支记录与审批进度（C-603 / C-604） */
+  myAdvances: () => get<AdvanceRow[]>('/seeker/advance'),
+  debtLog: () => get<DebtLogEntry[]>('/seeker/advance/debt-log'),
+  /** 工资条（C-701） */
+  payslips: () => get<Payslip[]>('/seeker/payslips'),
+  /** 岗位投诉（C-402）：只能投诉匹配到或报名过的岗位 */
+  complain: (jobId: string, category: ComplaintCategory, content?: string) =>
+    post<number>('/seeker/complaints', { jobId, category, content }),
 }
 
 // ------------------------------------------------------------------ 公司后台 / 驻场端
@@ -279,6 +299,17 @@ export const tenantApi = {
   disputeBill: (billId: string, content: string) => post<BillDispute>(`/tenant/bills/${billId}/disputes`, { content }),
   /** month：YYYY-MM */
   ledger: (month: string) => get<LedgerLine[]>('/tenant/ledger', { month }),
+
+  /** 预支审批（驻场初审 M-11 / 项目经理终审 T-309 / 登记拨款） */
+  advances: (status?: AdvanceStatus) => get<AdvanceRow[]>('/tenant/advances', { status }),
+  siteReviewAdvance: (id: string, approve: boolean, opinion?: string) =>
+    post<void>(`/tenant/advances/${id}/site-review`, { approve, opinion }),
+  pmReviewAdvance: (id: string, approve: boolean, opinion?: string) =>
+    post<void>(`/tenant/advances/${id}/pm-review`, { approve, opinion }),
+  payoutAdvance: (id: string) => post<void>(`/tenant/advances/${id}/payout`),
+  /** 工资表导入（.xlsx：手机号、工号、应发、社保、个税、其他扣款），month：YYYY-MM */
+  importPayroll: (file: File, month: string) => upload<PayrollBatchResult>('/tenant/payroll/import', file, { month }),
+  payrollBatches: () => get<Record<string, unknown>[]>('/tenant/payroll/batches'),
 }
 
 // ------------------------------------------------------------------ 平台中台
@@ -348,6 +379,18 @@ export const opsApi = {
   stockBases: (companyId?: string) => get<Record<string, unknown>[]>('/ops/stock-bases', { companyId }),
   /** 归属治理 P-08 */
   attribution: (params: { phone?: string; userId?: string }) => get<Record<string, unknown>>('/ops/attribution', params),
+  /** 风控（超管 / 风控） */
+  complaints: (status?: 'PENDING' | 'VERIFIED' | 'REJECTED') => get<Record<string, unknown>[]>('/ops/complaints', { status }),
+  handleComplaint: (id: number, verified: boolean, remark: string) =>
+    post<void>(`/ops/complaints/${id}/handle`, { verified, remark }),
+  companyCredit: (companyId: string) => get<Record<string, unknown>>(`/ops/companies/${companyId}/credit`),
+  adjustCredit: (companyId: string, delta: number, remark: string) =>
+    post<number>(`/ops/companies/${companyId}/credit`, { delta, remark }),
+  penalize: (companyId: string, level: 1 | 2 | 3, reason: string) =>
+    post<void>(`/ops/companies/${companyId}/penalty`, { level, reason }),
+  penalties: () => get<Record<string, unknown>[]>('/ops/penalties'),
+  /** 岗位真实权重（P-05，仅平台可见） */
+  jobWeights: (companyId?: string) => get<Record<string, unknown>[]>('/ops/job-weights', { companyId }),
   /** 公司注销 / 倒闭（不可逆，仅超管） */
   closeCompany: (companyId: string, status: 'DEREGISTERED' | 'BANKRUPT', remark: string) =>
     post<CompanyCloseResult>(`/ops/companies/${companyId}/close`, { status, remark }),

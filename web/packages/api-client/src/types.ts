@@ -855,3 +855,85 @@ export interface CompanyCloseResult {
   offlineJobs: number
   disabledMembers: number
 }
+
+// ------------------------------------------------------------------ Sprint 5：预支、工资、风控
+
+export interface AdvanceQuota {
+  /** 5 项准入全部满足 */
+  eligible: boolean
+  /** 不满足的原因（直接展示） */
+  reasons: string[]
+  /** 有效在岗日（扣除请假旷工） */
+  dutyDays: number
+  /** 当前 7 天周期内已累计天数（进度条 x/7） */
+  progressInCycle: number
+  daysPerChance: number
+  grantedThisMonth: number
+  usedThisMonth: number
+  remainingThisMonth: number
+  monthlyLimit: number
+  /** 单次固定金额 */
+  amount: number
+  debt: number
+}
+
+export type AdvanceStatus = 'SUBMITTED' | 'SITE_APPROVED' | 'PM_APPROVED' | 'PAID' | 'PARTIALLY_REPAID' | 'REPAID' | 'REJECTED'
+
+export interface AdvanceRow {
+  advanceId: string
+  userId: string
+  /** 公司后台返回脱敏姓名 */
+  seekerName?: string
+  projectId: string
+  amount: number
+  bizMonth: string
+  status: AdvanceStatus
+  repaidAmount: number
+  paidAt?: string
+  createdAt: string
+  /** SITE_APPROVE / SITE_REJECT / PM_APPROVE / PM_REJECT / PAYOUT */
+  allowedActions: string[]
+}
+
+export interface DebtLogEntry {
+  change_type: 'PAYOUT' | 'DEDUCT' | 'WRITE_OFF'
+  amount: number
+  balance_after: number
+  advance_id?: string
+  payslip_id?: string
+  created_at: string
+}
+
+export interface Payslip {
+  payslipId: string
+  payMonth: string
+  companyName?: string
+  grossPay: number
+  socialInsurance: number
+  incomeTax: number
+  otherDeduct: number
+  /** 预支抵扣 */
+  advanceDeduct: number
+  netPay: number
+}
+
+export interface PayrollRowResult {
+  rowNo: number
+  success: boolean
+  error?: string
+  payslipId?: string
+  advanceDeduct?: number
+  netPay?: number
+}
+
+export interface PayrollBatchResult {
+  batchId: string
+  payMonth: string
+  headcount: number
+  grossTotal: number
+  advanceDeductTotal: number
+  netTotal: number
+  rows: PayrollRowResult[]
+}
+
+export type ComplaintCategory = 'FULL_STILL_HIRING' | 'INFO_FALSE' | 'MISMATCH_AFTER_INTERVIEW'
