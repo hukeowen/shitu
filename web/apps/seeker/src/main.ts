@@ -14,6 +14,13 @@ app.use(createPinia())
 app.use(router)
 
 const auth = useAuthStore()
-configureAuth({ getToken: () => auth.accessToken, onUnauthorized: () => router.push('/login') })
+configureAuth({
+  domain: 'seeker',
+  getToken: () => auth.accessToken,
+  setToken: (t) => {
+    auth.accessToken = t
+  },
+  onUnauthorized: () => router.push('/login'),
+})
 
 app.mount('#app')

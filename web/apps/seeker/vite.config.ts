@@ -15,6 +15,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    proxy: { '/api': 'http://localhost:8080' },
+    // /r/{code} 扫码入口由后端处理（记访问、写渠道 Cookie、302 回 /?ch=），与生产 Nginx 一致
+    proxy: { '/api': 'http://localhost:8080', '/r': 'http://localhost:8080' },
   },
 })
