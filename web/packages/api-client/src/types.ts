@@ -994,3 +994,33 @@ export interface OpsOverview {
   monthServiceFee: number
   trend: { d: string; registrations: number }[]
 }
+
+// ---------------------------------------------------------------- 岗位知识库（T-305 / C-409）
+export interface KbEntry {
+  id: number
+  project_id: string | null
+  project_name: string | null
+  job_id: string | null
+  job_title: string | null
+  question: string
+  answer: string
+  updated_by: string
+  updated_at: string
+}
+
+export interface KbPending {
+  id: number
+  job_id: string
+  job_title: string
+  project_id: string
+  question: string
+  asked_times: number
+  last_asked_at: string
+}
+
+export interface KbAskResult {
+  answered: boolean
+  question: string
+  answer: string
+  matchedQuestion: string | null
+}

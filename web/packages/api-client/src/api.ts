@@ -81,6 +81,9 @@ import type {
   OwnerOverview,
   ChannelFunnelRow,
   OpsOverview,
+  KbEntry,
+  KbPending,
+  KbAskResult,
 } from './types'
 
 /**
@@ -94,6 +97,7 @@ const get = <T>(url: string, params?: Q) => request<T>({ method: 'GET', url, par
 const post = <T>(url: string, data?: unknown, headers?: Record<string, string>) =>
   request<T>({ method: 'POST', url, data, headers })
 const put = <T>(url: string, data?: unknown) => request<T>({ method: 'PUT', url, data })
+const del = <T>(url: string) => request<T>({ method: 'DELETE', url })
 const upload = <T>(url: string, file: File, params?: Q, headers?: Record<string, string>) => {
   const fd = new FormData()
   fd.append('file', file)
@@ -169,6 +173,7 @@ export const seekerApi = {
   /** 工资条（C-701） */
   payslips: () => get<Payslip[]>('/seeker/payslips'),
   /** 岗位投诉（C-402）：只能投诉匹配到或报名过的岗位 */
+  askJob: (jobId: string, question: string) => post<KbAskResult>(`/seeker/jobs/${jobId}/ask`, { question }),
   complain: (jobId: string, category: ComplaintCategory, content?: string) =>
     post<number>('/seeker/complaints', { jobId, category, content }),
 }
@@ -215,6 +220,14 @@ export const tenantApi = {
   reportBoard: () => get<PmBoard>('/tenant/reports/board'),
   reportOverview: () => get<OwnerOverview>('/tenant/reports/overview'),
   reportChannels: () => get<ChannelFunnelRow[]>('/tenant/reports/channels'),
+
+  kbList: (params?: { projectId?: string; jobId?: string; keyword?: string }) => get<KbEntry[]>('/tenant/kb', params),
+  kbCreate: (req: { projectId?: string | null; jobId?: string | null; question: string; answer: string }) => post<number>('/tenant/kb', req),
+  kbUpdate: (id: number, req: { question: string; answer: string }) => put<void>(`/tenant/kb/${id}`, req),
+  kbDelete: (id: number) => del<void>(`/tenant/kb/${id}`),
+  kbPending: () => get<KbPending[]>('/tenant/kb/pending'),
+  kbAnswer: (id: number, answer: string, question?: string) => post<number>(`/tenant/kb/pending/${id}/answer`, { answer, question }),
+  kbIgnore: (id: number) => post<number>(`/tenant/kb/pending/${id}/ignore`),
 
   channelCodes: () => get<ChannelItem[]>('/tenant/channel-codes'),
   myChannelCode: () => get<ChannelItem>('/tenant/channel-codes/mine'),
