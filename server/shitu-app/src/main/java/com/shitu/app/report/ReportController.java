@@ -1,0 +1,61 @@
+package com.shitu.app.report;
+
+import com.shitu.common.api.ApiResponse;
+import com.shitu.framework.security.AuthPrincipal;
+import com.shitu.framework.security.CurrentUser;
+import com.shitu.tenant.scope.DataScope;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
+
+/** 看板与报表：项目经理看板 T-306、老板总览 T-401、渠道转化 T-402、运营总览 P-01。 */
+@Tag(name = "看板与报表")
+@RestController
+public class ReportController {
+
+    private final ReportService reports;
+    private final DataScope scope;
+
+    public ReportController(ReportService reports, DataScope scope) {
+        this.reports = reports;
+        this.scope = scope;
+    }
+
+    @Operation(summary = "项目经理 / 驻场看板（按负责项目）")
+    @PreAuthorize("hasAnyRole('PM','SITE','OWNER')")
+    @GetMapping("/api/v1/tenant/reports/board")
+    public ApiResponse<Map<String, Object>> board() {
+        AuthPrincipal p = CurrentUser.get();
+        DataScope.Scope s = scope.of(p);
+        if (!s.all() && s.projectIds().isEmpty()) {
+            return ApiResponse.ok(Map.of());
+        }
+        return ApiResponse.ok(reports.pmBoard(p.companyId(), s.all() ? List.of() : s.projectIds()));
+    }
+
+    @Operation(summary = "老板数据总览（仅聚合，不含个人明细）")
+    @PreAuthorize("hasRole('OWNER')")
+    @GetMapping("/api/v1/tenant/reports/overview")
+    public ApiResponse<Map<String, Object>> overview() {
+        return ApiResponse.ok(reports.ownerOverview(CurrentUser.companyId()));
+    }
+
+    @Operation(summary = "渠道转化报表：访问 → 注册 → 报名 → 入职")
+    @PreAuthorize("hasAnyRole('OWNER','PM')")
+    @GetMapping("/api/v1/tenant/reports/channels")
+    public ApiResponse<List<Map<String, Object>>> channels() {
+        return ApiResponse.ok(reports.channelFunnel(CurrentUser.companyId()));
+    }
+
+    @Operation(summary = "运营总览（P-01）")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
+    @GetMapping("/api/v1/ops/reports/overview")
+    public ApiResponse<Map<String, Object>> ops() {
+        return ApiResponse.ok(reports.opsOverview());
+    }
+}

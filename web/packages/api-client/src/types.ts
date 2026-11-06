@@ -937,3 +937,60 @@ export interface PayrollBatchResult {
 }
 
 export type ComplaintCategory = 'FULL_STILL_HIRING' | 'INFO_FALSE' | 'MISMATCH_AFTER_INTERVIEW'
+
+// ---------------------------------------------------------------- 看板与报表（Sprint 5）
+export interface PmBoard {
+  pendingInterview: number
+  pendingConfirm: number
+  employed: number
+  resignedThisMonth: number
+  arrivedToday: number
+  hiredThisMonth: number
+  recruitingJobs: number
+}
+
+export interface OwnerProjectRow {
+  project_id: string
+  name: string
+  city: string | null
+  managers: string | null
+  employed: number
+  hired_this_month: number
+  resigned_this_month: number
+}
+
+export interface OwnerOverview {
+  totalHired: number
+  employed: number
+  hiredThisMonth: number
+  resignedThisMonth: number
+  privatePool: number
+  transferIn: number
+  transferOut: number
+  projects: OwnerProjectRow[]
+}
+
+export interface ChannelFunnelRow {
+  code: string
+  name: string
+  member_id: string | null
+  project_id: string | null
+  visits: number
+  registrations: number
+  applied: number
+  hired: number
+}
+
+export interface OpsOverview {
+  companies: number
+  pendingCompanies: number
+  employed: number
+  hiredToday: number
+  registeredToday: number
+  applicationsToday: number
+  publicSeekers: number
+  recruitingJobs: number
+  yesterday: { date: string; serviceFee: number; transferFee: number; transferCount: number; platformTake: number }
+  monthServiceFee: number
+  trend: { d: string; registrations: number }[]
+}

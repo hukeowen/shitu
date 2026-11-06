@@ -77,6 +77,10 @@ import type {
   TenantRole,
   TokenResponse,
   UploadedFile,
+  PmBoard,
+  OwnerOverview,
+  ChannelFunnelRow,
+  OpsOverview,
 } from './types'
 
 /**
@@ -207,6 +211,10 @@ export const tenantApi = {
   contracts: (clientId?: string) => get<ContractView[]>('/tenant/client-contracts', { clientId }),
   submitContract: (req: { clientId: string; fileKey: string; validFrom: string; validTo: string }) =>
     post<ContractView>('/tenant/client-contracts', req),
+
+  reportBoard: () => get<PmBoard>('/tenant/reports/board'),
+  reportOverview: () => get<OwnerOverview>('/tenant/reports/overview'),
+  reportChannels: () => get<ChannelFunnelRow[]>('/tenant/reports/channels'),
 
   channelCodes: () => get<ChannelItem[]>('/tenant/channel-codes'),
   myChannelCode: () => get<ChannelItem>('/tenant/channel-codes/mine'),
@@ -414,4 +422,6 @@ export const opsApi = {
     page?: number
     pageSize?: number
   }) => get<PageResult<AuditLogEntry>>('/ops/audit-logs', params),
+
+  overview: () => get<OpsOverview>('/ops/reports/overview'),
 }
