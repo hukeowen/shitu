@@ -1,0 +1,246 @@
+﻿/* ============================================================
+   仕兔平台 — 移动端原型画布 & App 组件
+   ============================================================ */
+
+/* ---------- Canvas shell ---------- */
+.proto{ display:flex; min-height:100vh; }
+
+.proto-rail{
+  width:246px; flex:none; background:var(--chrome); color:#fff;
+  position:sticky; top:0; height:100vh; display:flex; flex-direction:column;
+  border-right:1px solid #000;
+}
+.rail-hd{ padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,.09); }
+.rail-hd .logo{ display:flex; align-items:center; gap:9px; }
+.rail-hd .logo b{ font-family:var(--f-dis); font-size:17px; letter-spacing:.02em; }
+.rail-hd .sub{ font-family:var(--f-mono); font-size:10px; letter-spacing:.13em; color:rgba(255,255,255,.42); margin-top:7px; text-transform:uppercase; }
+.rail-nav{ flex:1; overflow:auto; padding:12px 10px 24px; }
+.rail-grp{ font-family:var(--f-mono); font-size:9.5px; letter-spacing:.15em; text-transform:uppercase;
+  color:rgba(255,255,255,.34); padding:14px 8px 6px; }
+.rail-nav a{
+  display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:var(--r-sm);
+  font-size:12.5px; color:rgba(255,255,255,.70); transition:.14s; line-height:1.4;
+}
+.rail-nav a:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.rail-nav a.on{ background:var(--signal); color:#fff; }
+.rail-nav a i{ font-family:var(--f-mono); font-size:9.5px; color:rgba(255,255,255,.35); font-style:normal; flex:none; width:26px; }
+.rail-nav a.on i{ color:rgba(255,255,255,.75); }
+.rail-ft{ padding:12px 16px; border-top:1px solid rgba(255,255,255,.09); font-size:11px; color:rgba(255,255,255,.4); }
+.rail-ft a{ color:var(--signal-300); }
+
+.proto-main{ flex:1; min-width:0; }
+
+.proto-bar{
+  position:sticky; top:0; z-index:60; display:flex; align-items:center; gap:14px;
+  padding:0 22px; height:54px; background:rgba(241,239,233,.88); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.proto-bar h1{ font-family:var(--f-dis); font-size:16px; font-weight:700; }
+.proto-bar .spacer{ flex:1; }
+.seg{ display:flex; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--r-sm); padding:2px; }
+.seg button{ padding:4px 12px; font-size:12px; font-weight:600; color:var(--ink-500); border-radius:3px; transition:.15s; }
+.seg button.on{ background:var(--surface); color:var(--ink-900); box-shadow:var(--sh-1); }
+
+.canvas{ padding:26px 26px 90px; }
+
+/* ---------- Flow group ---------- */
+.flow{ margin-bottom:40px; }
+.flow-hd{ display:flex; align-items:flex-start; gap:14px; margin-bottom:18px; padding-bottom:12px; border-bottom:2px solid var(--ink-900); }
+.flow-hd .idx{ font-family:var(--f-dis); font-size:30px; font-weight:700; color:var(--signal); line-height:1; letter-spacing:-.02em; }
+.flow-hd h2{ font-family:var(--f-dis); font-size:19px; font-weight:700; color:var(--ink-900); }
+.flow-hd p{ font-size:12.5px; color:var(--ink-500); margin-top:2px; max-width:74ch; }
+.phones{ display:flex; flex-wrap:wrap; gap:30px 26px; }
+
+/* ---------- Device frame ---------- */
+.device{ width:352px; }
+.device-cap{ display:flex; align-items:center; gap:7px; margin-bottom:8px; }
+.device-cap b{ font-family:var(--f-mono); font-size:10.5px; color:#fff; background:var(--ink-900); padding:2px 6px; border-radius:var(--r-xs); letter-spacing:.05em; }
+.device-cap span{ font-size:13px; font-weight:700; color:var(--ink-900); }
+.device-note{ font-size:11.5px; color:var(--ink-400); margin-top:9px; line-height:1.55; }
+.device-note b{ color:var(--ink-600); }
+
+.phone{
+  width:352px; height:734px; background:#000; border-radius:38px; padding:10px;
+  box-shadow:var(--sh-3), inset 0 0 0 1.5px #33383F; position:relative;
+}
+.screen{
+  width:100%; height:100%; background:var(--surface-2); border-radius:29px; overflow:hidden;
+  display:flex; flex-direction:column; position:relative;
+}
+.notch{ position:absolute; top:10px; left:50%; transform:translateX(-50%); width:96px; height:23px; background:#000; border-radius:12px; z-index:40; }
+.sbar{
+  height:36px; flex:none; display:flex; align-items:center; justify-content:space-between;
+  padding:0 20px 0 24px; font-family:var(--f-dis); font-size:12.5px; font-weight:600; color:var(--ink-900);
+  position:relative; z-index:30;
+}
+.sbar .sig{ display:flex; align-items:center; gap:4px; }
+.sbar .bat{ width:20px; height:10px; border:1px solid currentColor; border-radius:2.5px; position:relative; opacity:.85; }
+.sbar .bat::before{ content:""; position:absolute; inset:1.5px; right:5px; background:currentColor; border-radius:1px; }
+.sbar .bat::after{ content:""; position:absolute; right:-3px; top:3px; width:1.5px; height:4px; background:currentColor; border-radius:0 1px 1px 0; }
+.sbar.on-dark{ color:#fff; }
+.vp{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; background:var(--surface-2); scrollbar-width:none; -ms-overflow-style:none; }
+.vp::-webkit-scrollbar{ width:0; height:0; }
+.homebar{ height:20px; flex:none; display:grid; place-items:center; background:var(--surface); }
+.homebar::after{ content:""; width:118px; height:4px; border-radius:2px; background:rgba(13,17,23,.28); }
+.screen.dark .homebar{ background:#0D1117; }
+.screen.dark .homebar::after{ background:rgba(255,255,255,.4); }
+
+/* Immersive status bar — the strip above .vp shows the screen background,
+   so it must match whatever sits at the top of the viewport. */
+.screen.dark{ background:#1D2733; }
+.screen:has(> .vp > .hero){ background:#1D2733; }
+.screen:has(> .vp > .hero.pri){ background:#7A3410; }
+.screen:has(> .vp > .hero.pub){ background:#0A5866; }
+.screen.top-ink{ background:#0D1117; }
+.screen.top-pri, .screen:has(> .vp.top-pri-vp){ background:#7A3410; }
+
+/* ---------- Demo (single-screen) mode ---------- */
+body.demo .flow-hd{ display:none; }
+body.demo .flow{ margin:0; }
+body.demo .device{ display:none; }
+body.demo .device.active{ display:block; }
+body.demo .canvas{ display:grid; place-items:start center; padding-top:36px; }
+body.demo .phones{ justify-content:center; }
+body.demo .device-note{ max-width:352px; }
+
+/* ---------- App UI components ---------- */
+.appbar{
+  flex:none; height:46px; display:flex; align-items:center; gap:10px; padding:0 14px;
+  background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20;
+}
+.appbar .ttl{ font-size:15px; font-weight:700; color:var(--ink-900); flex:1; text-align:center; }
+.appbar .ico{ width:26px; height:26px; display:grid; place-items:center; color:var(--ink-700); flex:none; }
+.appbar.plain{ background:transparent; border-bottom:0; }
+
+.pad{ padding:14px; }
+.pad-x{ padding-left:14px; padding-right:14px; }
+/* .stack/.stack-sm/.row/.row-b/.flex1 已下沉至 core.css */
+
+.acard{ background:var(--surface); border-radius:var(--r-lg); border:1px solid var(--line); padding:14px; }
+.acard.flat{ box-shadow:none; }
+.acard-hd{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.acard-hd h4{ font-size:14px; font-weight:700; color:var(--ink-900); display:flex; align-items:center; gap:6px; }
+.acard-hd h4::before{ content:""; width:3px; height:13px; background:var(--signal); border-radius:2px; }
+.acard-hd .more{ font-size:11.5px; color:var(--ink-400); }
+
+/* Hero / status header of the C-side home */
+.hero{
+  padding:12px 14px 20px; color:#fff; position:relative; overflow:hidden;
+  background:linear-gradient(155deg,#1D2733 0%,#0D1117 62%);
+}
+.hero::after{
+  content:""; position:absolute; inset:0; pointer-events:none; opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:22px 22px;
+  mask-image:radial-gradient(120% 90% at 85% 0%,#000 10%,transparent 72%);
+  -webkit-mask-image:radial-gradient(120% 90% at 85% 0%,#000 10%,transparent 72%);
+}
+.hero.pri{ background:linear-gradient(155deg,#7A3410 0%,#2B1408 68%); }
+.hero.pub{ background:linear-gradient(155deg,#0A5866 0%,#062229 68%); }
+.hero > *{ position:relative; z-index:1; }
+.hero-top{ display:flex; align-items:center; gap:10px; }
+.hero-top .who{ flex:1; min-width:0; }
+.hero-top .who b{ font-size:16px; font-weight:700; display:block; }
+.hero-top .who span{ font-size:11.5px; color:rgba(255,255,255,.6); font-family:var(--f-mono); }
+.hero-state{ margin-top:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.hero-meta{ margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:9px 10px; }
+.hero-meta div{ font-size:11.5px; color:rgba(255,255,255,.55); }
+.hero-meta div b{ display:block; font-size:13px; color:#fff; font-weight:600; margin-top:1px; }
+
+/* Quad grid (四宫格) */
+.quad{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.quad-i{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg);
+  padding:13px; display:flex; gap:10px; align-items:flex-start; position:relative; overflow:hidden;
+}
+.quad-i .ic{ width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex:none; background:var(--signal-50); color:var(--signal); }
+.quad-i b{ font-size:13.5px; font-weight:700; color:var(--ink-900); display:block; }
+.quad-i span{ font-size:11px; color:var(--ink-400); display:block; margin-top:2px; line-height:1.35; }
+.quad-i.off{ opacity:.45; }
+.quad-i.off .ic{ background:var(--surface-3); color:var(--ink-400); }
+.quad-i:has(.pill){ padding-right:34px; }
+.quad-i .pill{ position:absolute; right:8px; top:8px; font-size:9px; font-family:var(--f-mono); background:var(--ink-900); color:#fff; padding:1px 4px; border-radius:3px; }
+.quad-i .pill.g{ background:var(--ink-300); }
+
+/* Tabbar */
+.tabbar{
+  flex:none; display:grid; grid-template-columns:repeat(4,1fr); background:var(--surface);
+  border-top:1px solid var(--line); padding:6px 0 2px;
+}
+.tabbar a{ display:grid; justify-items:center; gap:2px; font-size:10px; color:var(--ink-400); }
+.tabbar a.on{ color:var(--signal); font-weight:600; }
+
+/* Segmented tabs inside app */
+.atabs{ display:flex; gap:4px; overflow-x:auto; padding:10px 14px; background:var(--surface); border-bottom:1px solid var(--line); }
+.atabs::-webkit-scrollbar{ height:0; }
+.atabs button{ flex:none; padding:5px 11px; border-radius:20px; font-size:12.5px; color:var(--ink-500); background:var(--surface-3); font-weight:500; }
+.atabs button.on{ background:var(--ink-900); color:#fff; font-weight:600; }
+
+/* .lrow 已下沉至 core.css */
+
+/* AI chat / question */
+.qbubble{ background:var(--surface); border:1px solid var(--line); border-radius:4px 16px 16px 16px; padding:12px 14px; font-size:14px; color:var(--ink-900); line-height:1.55; box-shadow:var(--sh-1); }
+.qopt{
+  width:100%; text-align:left; padding:13px 14px; background:var(--surface); border:1.5px solid var(--line);
+  border-radius:var(--r-lg); font-size:14px; font-weight:600; color:var(--ink-800); display:flex; align-items:center; gap:10px;
+  transition:.15s;
+}
+.qopt:hover{ border-color:var(--ink-700); }
+.qopt.sel{ border-color:var(--signal); background:var(--signal-50); color:var(--signal-700); }
+.qopt .k{ font-family:var(--f-mono); font-size:11px; width:20px; height:20px; border-radius:5px; background:var(--surface-3); display:grid; place-items:center; color:var(--ink-500); flex:none; }
+.qopt.sel .k{ background:var(--signal); color:#fff; }
+.qprog{ display:flex; gap:3px; }
+.qprog i{ flex:1; height:3px; border-radius:2px; background:var(--line-2); }
+.qprog i.on{ background:var(--signal); }
+
+/* Job card */
+.job{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); overflow:hidden; }
+.job-top{ padding:13px 14px 11px; }
+.job-title{ display:flex; align-items:flex-start; gap:8px; }
+.job-title b{ font-size:15px; font-weight:700; color:var(--ink-900); flex:1; line-height:1.35; }
+.match{
+  flex:none; text-align:center; padding:3px 8px; border-radius:var(--r-sm);
+  background:var(--ok-bg); border:1px solid var(--ok-line);
+}
+.match .mv{ font-family:var(--f-dis); font-size:17px; font-weight:700; color:var(--ok); line-height:1; }
+.match .ml{ font-size:9px; color:var(--ok); font-family:var(--f-mono); letter-spacing:.04em; }
+.match.mid{ background:var(--warn-bg); border-color:var(--warn-line); }
+.match.mid .mv,.match.mid .ml{ color:var(--warn); }
+.job-sal{ font-family:var(--f-dis); font-size:20px; font-weight:700; color:var(--signal); margin-top:7px; letter-spacing:-.01em; }
+.job-sal small{ font-size:12px; color:var(--ink-400); font-weight:500; font-family:var(--f-cn); margin-left:3px; }
+/* .chips/.chip 已下沉至 core.css */
+.job-ft{ display:flex; align-items:center; gap:8px; padding:9px 14px; background:var(--surface-2); border-top:1px solid var(--line); }
+.job-ft .co{ flex:1; font-size:11.5px; color:var(--ink-400); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Sheet / modal inside phone */
+.sheet-mask{ position:absolute; inset:0; background:rgba(13,17,23,.5); backdrop-filter:blur(1.5px); z-index:50; display:flex; align-items:flex-end; }
+.sheet{ width:100%; background:var(--surface); border-radius:20px 20px 0 0; padding:18px 16px 16px; max-height:82%; overflow:auto; }
+.sheet-c{ position:absolute; inset:0; z-index:50; display:grid; place-items:center; background:rgba(13,17,23,.5); padding:22px; }
+.sheet-c > .box{ background:var(--surface); border-radius:var(--r-lg); padding:18px 16px 14px; width:100%; }
+.sheet-h{ width:34px; height:4px; border-radius:2px; background:var(--line-2); margin:0 auto 14px; }
+
+/* Countdown ring */
+.ring{ position:relative; width:52px; height:52px; flex:none; }
+.ring svg{ transform:rotate(-90deg); }
+.ring .rv{ position:absolute; inset:0; display:grid; place-items:center; font-family:var(--f-dis); font-size:14px; font-weight:700; color:var(--ink-900); }
+.ring .rv small{ font-size:8px; display:block; color:var(--ink-400); font-family:var(--f-mono); }
+
+/* .steps 已下沉至 core.css */
+
+/* Poster (推荐裂变) */
+.poster{ border-radius:var(--r-lg); overflow:hidden; background:linear-gradient(160deg,#22303F,#0D1117); color:#fff; padding:18px 16px; position:relative; }
+.poster::after{ content:""; position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; background:radial-gradient(circle,rgba(232,89,12,.45),transparent 68%); }
+.qr{ width:88px; height:88px; background:#fff; border-radius:8px; padding:6px; }
+.qr svg{ width:100%; height:100%; }
+
+/* Attendance heat strip */
+.att{ display:grid; grid-template-columns:repeat(15,1fr); gap:3px; }
+.att i{ aspect-ratio:1; border-radius:2px; background:var(--surface-3); }
+.att i.w{ background:var(--ok); }
+.att i.h{ background:var(--warn); }
+.att i.a{ background:var(--danger); }
+.att i.r{ background:var(--ink-200); }
+
+@media (max-width:1100px){
+  .proto-rail{ display:none; }
+}

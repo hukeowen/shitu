@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>技术规格附录 · 仕兔平台 V1.0 MVP</title>
+<link rel="stylesheet" href="assets/css/core.css">
+<link rel="stylesheet" href="assets/css/admin.css">
+<style>
+  .spec-nav{ width:230px; flex:none; background:var(--chrome); color:#fff; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; }
+  .spec-nav .hd{ padding:16px; border-bottom:1px solid rgba(255,255,255,.08); }
+  .spec-nav .hd b{ font-family:var(--f-dis); font-size:16px; display:block; }
+  .spec-nav .hd span{ font-family:var(--f-mono); font-size:9.5px; letter-spacing:.12em; color:rgba(255,255,255,.42); text-transform:uppercase; }
+  .spec-nav nav{ flex:1; overflow:auto; padding:10px; }
+  .spec-nav a{ display:flex; gap:8px; padding:7px 9px; border-radius:var(--r-sm); font-size:12.5px; color:rgba(255,255,255,.68); }
+  .spec-nav a:hover{ background:rgba(255,255,255,.07); color:#fff; }
+  .spec-nav a i{ font-family:var(--f-mono); font-size:9.5px; color:rgba(255,255,255,.35); font-style:normal; width:22px; flex:none; }
+  .spec-nav .g{ font-family:var(--f-mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.32); padding:14px 9px 5px; }
+  .spec-main{ flex:1; min-width:0; padding:0 0 80px; }
+  .spec-sec{ padding:30px 26px 6px; scroll-margin-top:20px; }
+  .spec-sec > h2{ font-family:var(--f-dis); font-size:24px; font-weight:700; color:var(--ink-900); }
+  .spec-sec > p.lede{ font-size:13px; color:var(--ink-500); margin-top:5px; max-width:96ch; line-height:1.75; }
+  .spec-sec h3{ font-size:15px; font-weight:700; color:var(--ink-900); margin:22px 0 10px; display:flex; align-items:center; gap:9px; }
+  .spec-sec h3::before{ content:""; width:3px; height:15px; background:var(--signal); border-radius:2px; }
+  .tbl code, .codeinline{ font-family:var(--f-mono); font-size:11.5px; background:var(--surface-3); padding:1px 5px; border-radius:3px; color:var(--ink-800); }
+  .req{ color:var(--danger); font-weight:700; }
+  .imm{ color:var(--signal-700); font-weight:700; }
+  @media print{ .spec-nav{ display:none; } }
+</style>
+</head>
+<body>
+
+<div class="console">
+<aside class="spec-nav">
+  <div class="hd">
+    <b>技术规格附录</b>
+    <span>SPEC · FOR DEVELOPMENT</span>
+  </div>
+  <nav>
+    <div class="g">数据</div>
+    <a href="#model"><i>01</i>核心数据模型</a>
+    <a href="#enum"><i>02</i>枚举字典</a>
+    <div class="g">状态</div>
+    <a href="#fsm-user"><i>03</i>用户状态机</a>
+    <a href="#fsm-other"><i>04</i>其他状态机</a>
+    <div class="g">运行时</div>
+    <a href="#cron"><i>05</i>定时任务清单</a>
+    <a href="#event"><i>06</i>事件与消息</a>
+    <div class="g">规则</div>
+    <a href="#formula"><i>07</i>关键计算公式</a>
+    <a href="#edge"><i>08</i>边界与幂等约定</a>
+  </nav>
+  <div style="padding:12px 16px; border-top:1px solid rgba(255,255,255,.08); font-size:11px">
+    <a href="index.html" style="color:var(--signal-300)">← 返回原型总览</a>
+  </div>
+</aside>
+
+<div class="spec-main">
+  <header class="topbar">
+    <div class="crumb"><span>仕兔平台 V1.0 MVP</span><span>/</span><b>技术规格附录</b></div>
+    <div class="spacer"></div>
+    <span class="vtag vtag--ext">规划外补充 · 开发交付物</span>
+    <a class="btn btn--sm" href="index.html">总览</a>
+  </header>
+
+  <div class="spec-sec" style="padding-top:26px">
+    <div class="note note--warn">
+      <b>本文档的定位：</b>原型解决「长什么样」，本附录解决「字段叫什么、状态怎么迁、什么时候跑、边界怎么算」。两份产品文档均未定义这些内容，但它们决定后端实现。<b>建议在开发启动前与产品逐条确认并锁定。</b>
+    </div>
+  </div>
+
+  <!-- ============ 01 数据模型 ============ -->
+  <section class="spec-sec" id="model">
+    <h2>01 · 核心数据模型</h2>
+    <p class="lede">字段命名沿用文档中已出现的口径（<code class="codeinline">source_company_id</code> / <code class="codeinline">bound_company_id</code>）。<span class="req">红色</span>标记为业务关键字段，<span class="imm">橙色</span>标记为永不可变字段。</p>
+
+    <h3>user · 用户</h3>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:190px">字段</th><th style="width:90px">类型</th><th style="width:250px">取值 / 示例</th><th style="width:70px">可变</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>user_id</code></td><td>string</td><td class="mono t-xs">U2026072301887</td><td>否</td><td class="t-sm">注册即生成，全局唯一</td></tr>
+        <tr><td><code>phone</code></td><td>string</td><td class="t-sm">加密存储，按角色脱敏展示</td><td>是</td><td class="t-sm">注册唯一凭证，无密码</td></tr>
+        <tr><td><code>real_name</code></td><td>string</td><td class="t-sm">加密存储</td><td>否</td><td class="t-sm">实名认证后写入，绑定后不可改</td></tr>
+        <tr><td><code>id_card</code></td><td>string</td><td class="t-sm">加密存储，一证一号唯一索引</td><td>否</td><td class="t-sm">实名认证后写入</td></tr>
+        <tr><td><code>birth_date</code></td><td>date</td><td class="t-sm">由 OCR 识别，<b>不采用用户自填</b></td><td>否</td><td class="t-sm">年龄硬拦截的唯一依据</td></tr>
+        <tr style="background:var(--signal-50)"><td><code class="imm">source_company_id</code></td><td>string</td><td class="mono t-xs">C10023 / PLATFORM</td><td><b class="imm">永不更改</b></td><td class="t-sm"><b>唯一决定人才流转费 80% 归属</b>。注册时按渠道锁定；公司注销后保留仅存证，流转费改归平台</td></tr>
+        <tr style="background:var(--danger-bg)"><td><code class="req">bound_company_id</code></td><td>string</td><td class="mono t-xs">C10023 / NULL</td><td>是</td><td class="t-sm"><b>公私域的唯一判定依据</b>。为空即公域</td></tr>
+        <tr><td><code>domain_tag</code></td><td>derived</td><td class="t-sm">私域 / 公域 / 临时私域</td><td>派生</td><td class="t-sm">不落库，由 bound_company_id + user_status 实时计算</td></tr>
+        <tr><td><code class="req">user_status</code></td><td>enum</td><td class="t-sm">见 <a href="#enum" style="color:var(--signal)">枚举字典</a></td><td>是</td><td class="t-sm">全局状态机主字段</td></tr>
+        <tr><td><code>match_scope</code></td><td>derived</td><td class="t-sm">全平台 / 仅本公司 / 仅内部调岗 / 不可匹配</td><td>派生</td><td class="t-sm">由 domain_tag + user_status 推导</td></tr>
+        <tr><td><code class="req">response_deadline</code></td><td>datetime</td><td class="mono t-xs">2026-07-24 09:58:00</td><td>是</td><td class="t-sm">24h 响应窗口截止时刻；每次阶段变更重置；公域用户为 NULL</td></tr>
+        <tr><td><code>profile_id</code></td><td>string</td><td class="mono t-xs">PROFILE-…-R1</td><td>是</td><td class="t-sm">AI 问薪画像版本，每次重新匹配 +1</td></tr>
+        <tr><td><code>match_count</code></td><td>int</td><td class="t-sm">0 – 不限</td><td>是</td><td class="t-sm">重新匹配次数，≥3 次触发流转建议</td></tr>
+        <tr><td><code>blacklist_flag</code></td><td>bool</td><td class="t-sm">false</td><td>是</td><td class="t-sm">平台级失信标记</td></tr>
+        <tr><td><code>advance_debt</code></td><td>decimal</td><td class="t-sm">0.00</td><td>是</td><td class="t-sm">未还清预支欠款，离职时强制结清</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <h3>company · 劳务公司（租户）</h3>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:190px">字段</th><th style="width:90px">类型</th><th style="width:250px">取值 / 示例</th><th style="width:70px">可变</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>company_id</code></td><td>string</td><td class="mono t-xs">C10023</td><td>否</td><td class="t-sm">租户主键</td></tr>
+        <tr><td><code>company_status</code></td><td>enum</td><td class="t-sm">正常 / 限流 / 封禁 / 已注销 / 已倒闭</td><td>是</td><td class="t-sm">注销与倒闭触发批量解绑</td></tr>
+        <tr><td><code>onboard_date</code></td><td>date</td><td class="mono t-xs">2025-04-01</td><td>否</td><td class="t-sm">免费期起算日</td></tr>
+        <tr><td><code>free_period_end</code></td><td>date</td><td class="mono t-xs">2025-06-30</td><td>否</td><td class="t-sm">入驻 + 3 个月</td></tr>
+        <tr style="background:var(--signal-50)"><td><code class="imm">stock_base</code></td><td>int</td><td class="t-sm">180</td><td><b class="imm">锁定后不可变</b></td><td class="t-sm"><b>存量基数</b>，免费期内导入人数；期满自动锁定，存量人员永久免费</td></tr>
+        <tr><td><code>stock_locked_at</code></td><td>datetime</td><td class="mono t-xs">2025-07-01 02:00</td><td>否</td><td class="t-sm">由定时任务写入</td></tr>
+        <tr><td><code>credit_score</code></td><td>int</td><td class="t-sm">0 – 100，初始 100</td><td>是</td><td class="t-sm">&lt;60 权重 ×0.2；&lt;30 永久停服</td></tr>
+        <tr><td><code>penalty_level</code></td><td>enum</td><td class="t-sm">无 / 1 级警告 / 2 级限流 / 3 级封禁</td><td>是</td><td class="t-sm">由每日风控任务计算</td></tr>
+        <tr><td><code>verified_clients</code></td><td>array</td><td class="t-sm">已备案甲方企业列表</td><td>是</td><td class="t-sm">岗位审核时校验关联性</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <h3>job · 岗位</h3>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:190px">字段</th><th style="width:90px">类型</th><th style="width:250px">取值 / 示例</th><th style="width:70px">可变</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>job_id</code> / <code>company_id</code> / <code>project_id</code></td><td>string</td><td class="mono t-xs">J20260701008</td><td>否</td><td class="t-sm">归属链</td></tr>
+        <tr><td><code>job_status</code></td><td>enum</td><td class="t-sm">待审核 / 招聘中 / 暂停招聘 / 已下架 / 强制下架</td><td>是</td><td class="t-sm">暂停不删数据，恢复后权重从新岗位重算</td></tr>
+        <tr><td><code>salary_min</code> / <code>salary_max</code></td><td>decimal</td><td class="t-sm">5800 / 6800</td><td>是</td><td class="t-sm">综合月收入区间</td></tr>
+        <tr style="background:var(--danger-bg)"><td><code class="req">quota_remaining</code></td><td>int</td><td class="t-sm">12</td><td>是</td><td class="t-sm"><b>并发热点</b>，报名时乐观锁扣减，取消/爽约回补</td></tr>
+        <tr><td><code>posted_days</code></td><td>derived</td><td class="t-sm">6</td><td>派生</td><td class="t-sm">挂岗天数，驱动权重衰减</td></tr>
+        <tr style="background:var(--warn-bg)"><td><code>match_weight</code></td><td>decimal</td><td class="t-sm">0.00 – 1.15</td><td>是</td><td class="t-sm"><b>企业端与用户端均不可见</b>（文档 12.1 隐形限流）</td></tr>
+        <tr><td><code>client_company</code></td><td>string</td><td class="t-sm">立讯精密工业（昆山）</td><td>是</td><td class="t-sm">须在 <code>verified_clients</code> 内</td></tr>
+        <tr><td><code>contract_file</code></td><td>file</td><td class="t-sm">甲方合作合同</td><td>是</td><td class="t-sm">发布前必传，平台审核依据</td></tr>
+        <tr><td><code>complaint_count</code></td><td>int</td><td class="t-sm">0</td><td>是</td><td class="t-sm">核实属实累计 ≥3 → 自动下架</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <h3>application · 报名 / 报备</h3>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:190px">字段</th><th style="width:90px">类型</th><th style="width:250px">取值 / 示例</th><th style="width:70px">可变</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>application_id</code></td><td>string</td><td class="mono t-xs">BM202607231014</td><td>否</td><td>—</td></tr>
+        <tr><td><code>app_status</code></td><td>enum</td><td class="t-sm">待确认 / 待面试 / 待确权 / 已入职 / 已取消 / 已超时 / 面试未通过 / 爽约</td><td>是</td><td class="t-sm">对应 C 端「我的报备」六标签</td></tr>
+        <tr><td><code>cancel_operator</code></td><td>string</td><td class="t-sm">驻场 / 项目经理 user_id</td><td>是</td><td class="t-sm"><b>用户不可自行取消</b>，必须有后台操作人</td></tr>
+        <tr><td><code>disclaimer_log</code></td><td>json</td><td class="t-sm">{user_id, time, ip}</td><td>否</td><td class="t-sm">告知书同意留痕，<b>永久存档</b></td></tr>
+        <tr><td><code>expire_at</code></td><td>datetime</td><td class="t-sm">报备发起 + N 小时</td><td>否</td><td class="t-sm">超时未确认自动作废</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <h3>billing_daily · 每日计费快照</h3>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:190px">字段</th><th style="width:90px">类型</th><th style="width:250px">取值 / 示例</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>biz_date</code> + <code>company_id</code> + <code>user_id</code></td><td>—</td><td class="t-sm">联合唯一索引</td><td class="t-sm"><b>幂等键</b>，重跑不重复计费</td></tr>
+        <tr><td><code>fee_type</code></td><td>enum</td><td class="t-sm">GROWTH_SERVICE / TRANSFER</td><td class="t-sm">增长技术服务费 / 人才流转费</td></tr>
+        <tr><td><code>unit_price</code></td><td>decimal</td><td class="t-sm">0.10 / 10.00</td><td class="t-sm">V1.0 服务费统一 0.10；阶梯属 V1.5</td></tr>
+        <tr><td><code>payer</code> / <code>payee_supply</code> / <code>payee_platform</code></td><td>string</td><td class="t-sm">接收方 / 供给方 8 元 / 平台 2 元</td><td class="t-sm">供给方为平台时 10 元全归平台</td></tr>
+        <tr><td><code>is_stock</code></td><td>bool</td><td class="t-sm">true 则不计费</td><td class="t-sm">存量人员永久免费</td></tr>
+      </tbody>
+    </table></div></div>
+  </section>
+
+  <!-- ============ 02 枚举 ============ -->
+  <section class="spec-sec" id="enum">
+    <h2>02 · 枚举字典</h2>
+    <p class="lede">全部枚举建议以英文常量落库、中文仅用于展示，避免多端文案不一致导致状态判断出错。</p>
+    <div class="grid g-2">
+      <div class="card">
+        <div class="card__hd"><h3 style="margin:0">user_status · 用户状态</h3></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>常量</th><th>中文</th><th>公私域</th><th>匹配范围</th></tr></thead>
+          <tbody>
+            <tr><td class="mono t-xs">GUEST</td><td>游客</td><td><span class="tag tag--public">公域</span></td><td class="t-sm">不展示岗位</td></tr>
+            <tr><td class="mono t-xs">PUBLIC_SEEKING</td><td>公域求职</td><td><span class="tag tag--public">公域</span></td><td class="t-sm">全平台</td></tr>
+            <tr><td class="mono t-xs">PRIVATE_PENDING</td><td>私域待匹配</td><td><span class="tag tag--private">私域</span></td><td class="t-sm">仅本公司</td></tr>
+            <tr><td class="mono t-xs">PENDING_INTERVIEW</td><td>待面试</td><td><span class="tag tag--temp">临时私域</span></td><td class="t-sm">不可再匹配</td></tr>
+            <tr><td class="mono t-xs">PENDING_CONFIRM</td><td>待确权</td><td><span class="tag tag--temp">临时私域</span></td><td class="t-sm">不可再匹配</td></tr>
+            <tr><td class="mono t-xs">EMPLOYED</td><td>已入职在岗</td><td><span class="tag tag--private">私域</span></td><td class="t-sm">仅本公司内部调岗</td></tr>
+            <tr style="opacity:.55"><td class="mono t-xs"><s>RESIGNED</s></td><td>已离职</td><td colspan="2" class="t-sm"><b>D-08 已取消</b>：离职回到 PUBLIC_SEEKING，另记 last_release_reason = RESIGNED</td></tr>
+            <tr style="opacity:.55"><td class="mono t-xs"><s>UNFOLLOWED</s></td><td>未被跟进</td><td colspan="2" class="t-sm"><b>D-08 已取消</b>：超时释放回到 PUBLIC_SEEKING，另记 last_release_reason = TIMEOUT_24H</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card__hd"><h3 style="margin:0">其他枚举</h3></div>
+        <div class="card__bd">
+          <div class="eyebrow">job_status</div>
+          <div class="chips" style="margin-bottom:14px"><span class="chip">PENDING_AUDIT 待审核</span><span class="chip">RECRUITING 招聘中</span><span class="chip">PAUSED 暂停招聘</span><span class="chip">OFFLINE 已下架</span><span class="chip">FORCE_OFFLINE 强制下架</span></div>
+          <div class="eyebrow">company_status</div>
+          <div class="chips" style="margin-bottom:14px"><span class="chip">NORMAL 正常</span><span class="chip">THROTTLED 限流</span><span class="chip">BANNED 封禁</span><span class="chip">DEREGISTERED 已注销</span><span class="chip">BANKRUPT 已倒闭</span></div>
+          <div class="eyebrow">contract_status</div>
+          <div class="chips" style="margin-bottom:14px"><span class="chip">EFFECTIVE 生效中</span><span class="chip">EXPIRED 已到期</span><span class="chip">DISSOLVED 已解除</span><span class="chip">TERMINATED 已终止</span></div>
+          <div class="eyebrow">advance_status</div>
+          <div class="chips" style="margin-bottom:14px"><span class="chip">SUBMITTED 已提交</span><span class="chip">SITE_APPROVED 驻场初审通过</span><span class="chip">PM_APPROVED 经理终审通过</span><span class="chip">PAID 已拨款</span><span class="chip">REPAID 已抵扣</span><span class="chip">REJECTED 已驳回</span></div>
+          <div class="eyebrow">release_reason · 释放原因</div>
+          <div class="chips"><span class="chip">MANUAL 主动释放</span><span class="chip">TIMEOUT_24H 24h 超时</span><span class="chip">INTERVIEW_FAILED 面试未通过</span><span class="chip">CONFIRM_TIMEOUT 确权超时</span><span class="chip">NO_SHOW 爽约</span><span class="chip">CANCELLED 取消报名</span><span class="chip">RESIGNED 离职</span><span class="chip">COMPANY_CLOSED 公司注销</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 用户状态机 ============ -->
+  <section class="spec-sec" id="fsm-user">
+    <h2>03 · 用户状态机迁移表</h2>
+    <p class="lede">这是全系统最核心的一张表。<b>每一次迁移都必须写入 <code class="codeinline">user_status_log</code>（含操作人、原因、时间、IP）</b> —— 释放与取消在纠纷时是关键证据。</p>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:150px">From</th><th style="width:150px">To</th><th style="width:180px">触发事件</th><th style="width:90px">触发方</th><th>必须执行的副作用</th></tr></thead>
+      <tbody>
+        <tr><td class="mono t-xs">GUEST</td><td class="mono t-xs">PRIVATE_PENDING</td><td class="t-sm">扫码 / 分享链接注册</td><td class="t-sm">用户</td><td class="t-sm">写 <code>source_company_id</code>（永久）+ <code>bound_company_id</code>；启动 24h 窗口；推送驻场</td></tr>
+        <tr><td class="mono t-xs">GUEST</td><td class="mono t-xs">PUBLIC_SEEKING</td><td class="t-sm">自主注册 / 品牌广告 / <b>已入职员工分享</b></td><td class="t-sm">用户</td><td class="t-sm">source = PLATFORM；bound = NULL；<b>不启动 24h 窗口</b></td></tr>
+        <tr><td class="mono t-xs">GUEST</td><td class="mono t-xs">EMPLOYED</td><td class="t-sm">花名册导入</td><td class="t-sm">平台/企业</td><td class="t-sm">直接为私域在岗；计入存量基数（免费期内）</td></tr>
+        <tr style="background:var(--signal-50)"><td class="mono t-xs">PUBLIC_SEEKING</td><td class="mono t-xs">PENDING_INTERVIEW</td><td class="t-sm"><b>报名岗位</b></td><td class="t-sm">用户</td><td class="t-sm"><b>公域→私域唯一转变点</b>：写 <code>bound_company_id</code>；<code>quota_remaining -1</code>；启动 24h；通知驻场</td></tr>
+        <tr><td class="mono t-xs">PRIVATE_PENDING</td><td class="mono t-xs">PENDING_INTERVIEW</td><td class="t-sm">报名岗位</td><td class="t-sm">用户</td><td class="t-sm">bound 不变；<code>quota_remaining -1</code>；重置 24h</td></tr>
+        <tr><td class="mono t-xs">PENDING_INTERVIEW</td><td class="mono t-xs">PENDING_CONFIRM</td><td class="t-sm">到厂确认 + 面试通过</td><td class="t-sm">驻场</td><td class="t-sm">重置 24h（确权窗口）；生成待签合同</td></tr>
+        <tr style="background:var(--ok-bg)"><td class="mono t-xs">PENDING_CONFIRM</td><td class="mono t-xs">EMPLOYED</td><td class="t-sm"><b>入职确权 + 电子签约</b></td><td class="t-sm">驻场</td><td class="t-sm"><b>唯一统计节点</b>：bound 写入；合同生效；<b>启动计费</b>（服务费 + 流转费）；推送项目经理/老板；清空 response_deadline</td></tr>
+        <tr style="background:var(--danger-bg)"><td class="mono t-xs">PENDING_INTERVIEW</td><td class="mono t-xs">PUBLIC_SEEKING</td><td class="t-sm">面试未通过 / 取消报名 / 爽约 / 24h 超时</td><td class="t-sm">驻场 / 系统</td><td class="t-sm">bound 清空；<code>quota_remaining +1</code>；<b>source 不变</b>；记录 release_reason</td></tr>
+        <tr style="background:var(--private-bg)"><td class="mono t-xs">PENDING_INTERVIEW / PENDING_CONFIRM</td><td class="mono t-xs">PRIVATE_PENDING</td><td class="t-sm">面试未通过 / 后台取消报名（报名前为私域）</td><td class="t-sm">驻场 / 项目经理</td><td class="t-sm"><b>D-31</b>：报名前是本公司私域用户 → 回到私域待匹配，bound 不变，<b>重开 24h</b>；<code>quota_remaining +1</code>。报名前为公域则按上一行回公域。爽约、24h 超时仍一律释放到公域</td></tr>
+        <tr style="background:var(--danger-bg)"><td class="mono t-xs">PENDING_CONFIRM</td><td class="mono t-xs">PUBLIC_SEEKING</td><td class="t-sm">确权超时 24h</td><td class="t-sm">系统</td><td class="t-sm">bound 清空；quota +1；作废待签合同</td></tr>
+        <tr style="background:var(--danger-bg)"><td class="mono t-xs">PRIVATE_PENDING</td><td class="mono t-xs">PUBLIC_SEEKING</td><td class="t-sm">主动释放 / 24h 无跟进被动释放</td><td class="t-sm">经纪人 / 系统</td><td class="t-sm">bound 清空；<b>source 保留</b>（后续流转费仍归原公司 8 元/天）</td></tr>
+        <tr><td class="mono t-xs">EMPLOYED</td><td class="mono t-xs">PUBLIC_SEEKING</td><td class="t-sm">离职确认</td><td class="t-sm">项目经理</td><td class="t-sm">bound 清空；<b>停止全部计费</b>；合同 → 已终止；<b>结清 advance_debt</b>；释放宿舍/工号</td></tr>
+        <tr><td class="mono t-xs">EMPLOYED</td><td class="mono t-xs">EMPLOYED</td><td class="t-sm">内部调岗</td><td class="t-sm">项目经理</td><td class="t-sm">bound 不变；计费不中断；换 job_id / project_id</td></tr>
+        <tr style="background:var(--muted-bg)"><td class="mono t-xs">* (bound ≠ NULL)</td><td class="mono t-xs">PUBLIC_SEEKING</td><td class="t-sm"><b>公司注销 / 倒闭</b></td><td class="t-sm">平台</td><td class="t-sm">批量 bound 清空；source 保留仅存证；<b>后续流转费 10 元全归平台</b>；历史数据不删</td></tr>
+      </tbody>
+    </table></div>
+    <div class="card__ft"><div class="note note--danger"><b>禁止的迁移：</b>用户不可自行触发任何释放类迁移；企业不可在 <code class="codeinline">EMPLOYED</code> 状态下单方面置为公域（必须走离职流程）；<code class="codeinline">source_company_id</code> 在任何迁移中都不得写入。</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 04 其他状态机 ============ -->
+  <section class="spec-sec" id="fsm-other">
+    <h2>04 · 其他状态机</h2>
+    <div class="grid g-2">
+      <div class="card">
+        <div class="card__hd"><h3 style="margin:0">job · 岗位</h3></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>From → To</th><th>触发</th><th>副作用</th></tr></thead>
+          <tbody>
+            <tr><td class="t-sm">待审核 → 招聘中</td><td class="t-sm">平台审核通过</td><td class="t-sm">进入匹配池，weight = 1.0</td></tr>
+            <tr><td class="t-sm">待审核 → 已下架</td><td class="t-sm">审核驳回</td><td class="t-sm">同步驳回说明至企业端</td></tr>
+            <tr><td class="t-sm">招聘中 → 暂停招聘</td><td class="t-sm">企业操作 / 满员</td><td class="t-sm">移出匹配池，<b>数据保留</b></td></tr>
+            <tr><td class="t-sm">暂停招聘 → 招聘中</td><td class="t-sm">企业恢复</td><td class="t-sm"><b>posted_days 重置</b>，权重从新岗位算</td></tr>
+            <tr><td class="t-sm">招聘中 → 强制下架</td><td class="t-sm">投诉 ≥3 属实 / 低转化 &gt;90 天</td><td class="t-sm">weight = 0；扣诚信分</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card__hd"><h3 style="margin:0">advance · 薪酬预支</h3></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>From → To</th><th>触发</th><th>副作用</th></tr></thead>
+          <tbody>
+            <tr><td class="t-sm">— → 已提交</td><td class="t-sm"><b>员工本人发起</b></td><td class="t-sm">校验 5 项准入；占用 1 次机会</td></tr>
+            <tr><td class="t-sm">已提交 → 驻场通过</td><td class="t-sm">驻场初审</td><td class="t-sm">推送项目经理</td></tr>
+            <tr><td class="t-sm">驻场通过 → 经理终审通过</td><td class="t-sm">项目经理</td><td class="t-sm"><b>双级即终审</b>，进入拨款</td></tr>
+            <tr><td class="t-sm">终审通过 → 已拨款</td><td class="t-sm">财务</td><td class="t-sm"><code>advance_debt += 500</code></td></tr>
+            <tr><td class="t-sm">已拨款 → 已抵扣</td><td class="t-sm">发薪日定时任务</td><td class="t-sm">实发不足则部分抵扣并结转</td></tr>
+            <tr><td class="t-sm">任意 → 已驳回</td><td class="t-sm">任一节点驳回</td><td class="t-sm"><b>退回本次机会</b></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 定时任务 ============ -->
+  <section class="spec-sec" id="cron">
+    <h2>05 · 定时任务清单</h2>
+    <p class="lede">系统约一半的业务逻辑发生在无人操作的后台任务里 —— 计费、超时释放、账单、抵扣、降权全靠它们。<b>原型无法表达这一层，但它决定系统是否真的能跑起来。</b>所有任务必须幂等。</p>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:190px">任务</th><th style="width:150px">频率</th><th style="width:210px">幂等键</th><th>职责与关键约定</th></tr></thead>
+      <tbody>
+        <tr style="background:var(--signal-50)"><td><code class="req">daily_billing</code></td><td class="t-sm">每日 00:05</td><td class="mono t-xs">biz_date + user_id + fee_type</td><td class="t-sm"><b>核心</b>：按 00:00 在岗快照生成计费明细。增量 = 当前在岗 − 存量基数；流转费按 source 判定分账。<span class="req">离职当日是否计费需产品裁定</span>（原型按不计）</td></tr>
+        <tr style="background:var(--danger-bg)"><td><code class="req">response_timeout_scan</code></td><td class="t-sm">每 5 分钟</td><td class="mono t-xs">user_id + stage + deadline</td><td class="t-sm"><b>核心</b>：扫描 <code>response_deadline</code> 到期的私域用户 → 被动释放为公域，写 release_reason=TIMEOUT_24H，推送用户与企业</td></tr>
+        <tr><td><code>follow_up_push</code></td><td class="t-sm">白天每 6h<br>夜间每 12h</td><td class="mono t-xs">user_id + round_no</td><td class="t-sm">向驻场 / 项目经理 / 老板三方推送跟进提醒（文档第四节）。需定义"白天"时段边界</td></tr>
+        <tr><td><code>job_weight_recalc</code></td><td class="t-sm">每日 01:00</td><td class="mono t-xs">job_id + biz_date</td><td class="t-sm">重算挂岗衰减 × 诚信系数 × 限流系数 × 名额系数；结果仅平台可见</td></tr>
+        <tr><td><code>zombie_job_scan</code></td><td class="t-sm">每日 01:30</td><td class="mono t-xs">job_id</td><td class="t-sm">挂岗 &gt;60 天零报名零入职 → weight=0 移出匹配池</td></tr>
+        <tr><td><code>job_stale_notify</code></td><td class="t-sm">每日 09:00</td><td class="mono t-xs">job_id + rule_code</td><td class="t-sm">15 天无新报名 / 30 天无新入职 / 45 天强制更新三档提醒</td></tr>
+        <tr><td><code>stock_base_lock</code></td><td class="t-sm">每日 02:00</td><td class="mono t-xs">company_id</td><td class="t-sm">免费期满自动锁定存量基数，锁定后不可变</td></tr>
+        <tr><td><code>credit_score_calc</code></td><td class="t-sm">每日 03:00</td><td class="mono t-xs">company_id + biz_date</td><td class="t-sm">诚信分扣分归集 + 三级处罚判定（单月 3 次异常 / 连续 2 月 / 连续 3 月）</td></tr>
+        <tr><td><code>report_expire</code></td><td class="t-sm">每 10 分钟</td><td class="mono t-xs">application_id</td><td class="t-sm">报备超时未确认自动作废（文档 6.3）</td></tr>
+        <tr><td><code class="req">monthly_bill_gen</code></td><td class="t-sm">每月最后一天 23:30</td><td class="mono t-xs">company_id + month</td><td class="t-sm">汇总 billing_daily 生成企业月账单，推送企业端，开启 5 个工作日异议期</td></tr>
+        <tr><td><code>advance_deduct</code></td><td class="t-sm">发薪日（企业可配）</td><td class="mono t-xs">advance_id</td><td class="t-sm">从实发工资抵扣；不足则部分抵扣 + 结转，<b>不计息</b></td></tr>
+        <tr><td><code>advance_quota_grant</code></td><td class="t-sm">每日 04:00</td><td class="mono t-xs">user_id + biz_month</td><td class="t-sm">每满 7 个在岗日 +1 次机会；月上限 4 次；<b>月末清零不结转</b></td></tr>
+        <tr><td><code>contract_expire_notify</code></td><td class="t-sm">每日 10:00</td><td class="mono t-xs">contract_id + days</td><td class="t-sm">合同到期前 60/30/7 天提醒</td></tr>
+      </tbody>
+    </table></div></div>
+  </section>
+
+  <!-- ============ 06 事件 ============ -->
+  <section class="spec-sec" id="event">
+    <h2>06 · 事件与消息清单</h2>
+    <p class="lede">文档定义了十余种推送但没有统一的事件模型。建议以事件驱动，订阅方与通道可配置，避免推送逻辑散落在各业务代码里。</p>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:210px">事件</th><th style="width:180px">触发点</th><th style="width:230px">订阅方</th><th>通道 / 备注</th></tr></thead>
+      <tbody>
+        <tr><td class="mono t-xs">APPLICATION_CREATED</td><td class="t-sm">报名成功</td><td class="t-sm">驻场</td><td class="t-sm">站内 + Push；驻场需「点击知悉」</td></tr>
+        <tr><td class="mono t-xs">INTERVIEW_INFO_PUSHED</td><td class="t-sm">驻场知悉后推送</td><td class="t-sm">求职者</td><td class="t-sm">站内 + 短信；含时间/地点/路线/证件清单</td></tr>
+        <tr><td class="mono t-xs">ARRIVAL_CONFIRMED</td><td class="t-sm">到厂确认</td><td class="t-sm">求职者、项目经理</td><td class="t-sm">站内</td></tr>
+        <tr style="background:var(--ok-bg)"><td class="mono t-xs">CONTRACT_SIGNED</td><td class="t-sm">电子签约完成</td><td class="t-sm"><b>项目经理 + 劳务老板</b></td><td class="t-sm">文档 7.3 明确要求双端推送</td></tr>
+        <tr><td class="mono t-xs">FOLLOW_UP_REMINDER</td><td class="t-sm">24h 窗口定时</td><td class="t-sm">驻场 + 项目经理 + 老板</td><td class="t-sm">三方同步，白天 6h / 夜间 12h</td></tr>
+        <tr style="background:var(--danger-bg)"><td class="mono t-xs">USER_RELEASED</td><td class="t-sm">任意释放路径</td><td class="t-sm">求职者、原归属公司</td><td class="t-sm"><b>必须告知用户</b>，否则产生"莫名看不到岗位"的信任损耗</td></tr>
+        <tr><td class="mono t-xs">TRANSFER_FEE_STARTED</td><td class="t-sm">流转人员入职确权</td><td class="t-sm">供给方公司、平台财务</td><td class="t-sm">流转费开始计费通知</td></tr>
+        <tr><td class="mono t-xs">ADVANCE_PENDING_APPROVAL</td><td class="t-sm">预支流转至下一节点</td><td class="t-sm">驻场 → 项目经理</td><td class="t-sm">逐级推送，含催办</td></tr>
+        <tr style="background:var(--danger-bg)"><td class="mono t-xs">INJURY_ALERT</td><td class="t-sm">工伤上报</td><td class="t-sm">项目经理 + 老板</td><td class="t-sm">文档 10.2「工伤紧急异常推送」，需最高优先级通道</td></tr>
+        <tr><td class="mono t-xs">MONTHLY_BILL_ISSUED</td><td class="t-sm">月账单生成</td><td class="t-sm">劳务老板</td><td class="t-sm">含异议入口</td></tr>
+        <tr><td class="mono t-xs">COMPLAINT_VERIFIED</td><td class="t-sm">投诉核实属实</td><td class="t-sm">企业、平台风控</td><td class="t-sm">触发扣分与下架</td></tr>
+      </tbody>
+    </table></div>
+    <div class="card__ft"><div class="note note--warn"><b>缺口提示：</b>两份文档均未定义<b>通知模板管理与渠道配置</b>（站内 / 短信 / 微信 / Push），也未定义免打扰时段。建议 V1.0 至少支持模板文案可配置，避免改文案就发版。</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 07 公式 ============ -->
+  <section class="spec-sec" id="formula">
+    <h2>07 · 关键计算公式</h2>
+    <div class="grid g-2">
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">公私域与匹配范围（派生，不落库）</div>
+        <div class="codeblk" style="margin-top:10px"><span class="k">domain_tag</span> =<br>　bound_company_id == <span class="s">NULL</span> ? <span class="s">"公域"</span><br>　: status ∈ (PENDING_INTERVIEW, PENDING_CONFIRM) ? <span class="s">"临时私域"</span><br>　: <span class="s">"私域"</span><br><br><span class="k">match_scope</span> =<br>　status ∈ (PENDING_INTERVIEW, PENDING_CONFIRM) ? <span class="s">"不可匹配"</span><br>　: status == EMPLOYED ? <span class="s">"仅本公司内部调岗"</span><br>　: domain_tag == <span class="s">"私域"</span> ? <span class="s">"仅本公司"</span><br>　: <span class="s">"全平台"</span></div>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">增长技术服务费（V1.0）</div>
+        <div class="codeblk" style="margin-top:10px"><span class="c"># 每日 00:00 快照</span><br><span class="k">增量</span> = 当前在岗人数 − stock_base<br><span class="k">当日费用</span> = max(增量, <span class="n">0</span>) × <span class="n">0.10</span><br><span class="c"># 阶梯定价 0.10/0.09/0.08 属 V1.5</span><br><span class="c"># 存量人员永久免费，不受离职影响</span></div>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">人才流转费分账</div>
+        <div class="codeblk" style="margin-top:10px"><span class="k">payer</span> = bound_company_id　<span class="c">// 接收方付 10 元/人/天</span><br><span class="k">if</span> source_company_id == <span class="s">"PLATFORM"</span><br>　　platform_income = <span class="n">10.00</span>　<span class="c">// 全归平台</span><br><span class="k">elif</span> source 公司已注销<br>　　platform_income = <span class="n">10.00</span>　<span class="c">// 平台继承权益</span><br><span class="k">else</span><br>　　supply_income = <span class="n">8.00</span>；platform_income = <span class="n">2.00</span></div>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">薪酬预支准入（5 项全通过）</div>
+        <div class="codeblk" style="margin-top:10px"><span class="k">can_apply</span> =<br>　status == <span class="s">EMPLOYED</span><br>　&amp;&amp; bound_company_id != <span class="s">NULL</span><br>　&amp;&amp; 在岗天数 &gt;= <span class="n">7</span><br>　&amp;&amp; 本月已用次数 &lt; <span class="n">4</span><br>　&amp;&amp; 剩余机会 &gt; <span class="n">0</span>　<span class="c">// 每满 7 在岗日 +1</span></div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============ 08 边界 ============ -->
+  <section class="spec-sec" id="edge">
+    <h2>08 · 边界与幂等约定</h2>
+    <p class="lede">以下均为两份文档未覆盖、但开发必然遇到的问题。<b>需产品逐条裁定并写入验收标准。</b></p>
+    <div class="card"><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:56px">编号</th><th style="width:210px">场景</th><th>问题</th><th style="width:280px">原型采用的口径（待确认）</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">E-01</td><td>岗位名额并发</td><td class="t-sm">多人同时报名最后 1 个名额</td><td class="t-sm">乐观锁 + 版本号；扣减失败提示「名额已满」并引导重新匹配</td></tr>
+        <tr><td class="mono">E-02</td><td>名额扣减时点</td><td class="t-sm">报名时扣还是入职时扣？取消/爽约是否回补？</td><td class="t-sm"><b>报名即扣 −1</b>；取消 / 爽约 / 面试未通过 / 超时均 <b>+1 回补</b></td></tr>
+        <tr><td class="mono">E-03</td><td>计费日切</td><td class="t-sm">当日入职、当日离职是否计费</td><td class="t-sm">按 <b>00:00 在岗快照</b>：当日入职不计，次日起计；离职当日不计</td></tr>
+        <tr><td class="mono">E-04</td><td>跨月入离职</td><td class="t-sm">月中入职的账单归属</td><td class="t-sm">按自然日累计，不做整月折算</td></tr>
+        <tr><td class="mono">E-05</td><td>24h 窗口起点</td><td class="t-sm">从注册算还是从每阶段完成算</td><td class="t-sm"><b>每个阶段完成时刻重置</b>（注册 / 报名 / 面试通过各自起算）</td></tr>
+        <tr><td class="mono">E-06</td><td>存量人员回流</td><td class="t-sm">存量员工离职后再入职原公司</td><td class="t-sm"><b>恢复存量身份</b>，基数不变，仍免费</td></tr>
+        <tr><td class="mono">E-07</td><td>内部调岗计费</td><td class="t-sm">同公司换项目是否中断计费</td><td class="t-sm"><b>不中断</b>，视为持续在岗</td></tr>
+        <tr><td class="mono">E-08</td><td>流转费与服务费叠加</td><td class="t-sm">流转人员是否同时计两种费</td><td class="t-sm"><b>叠加</b>（文档 2.4 资金流向表已明确）</td></tr>
+        <tr><td class="mono">E-09</td><td>预支欠款跨公司</td><td class="t-sm">A 公司欠款未清即入职 B 公司</td><td class="t-sm">离职时强制结清；未清则打失信标记，<b>新公司不承接旧债</b></td></tr>
+        <tr><td class="mono">E-10</td><td>重复实名</td><td class="t-sm">同一身份证多次注册</td><td class="t-sm"><b>一证一号</b>；24h 内多手机号注册判定代刷，扣引流企业 30 分</td></tr>
+        <tr><td class="mono">E-11</td><td>释放后立即再报名</td><td class="t-sm">被释放用户能否马上报回原公司</td><td class="t-sm">可以；但同一岗位 24h 内不重复推荐</td></tr>
+        <tr><td class="mono">E-12</td><td>时区与节假日</td><td class="t-sm">24h / 5 个工作日 / 自然周的口径</td><td class="t-sm">统一 <code class="codeinline">Asia/Shanghai</code>；「工作日」需接入法定节假日日历</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card__hd"><h3 style="margin:0">数据安全与留痕（合规底线）</h3></div>
+      <div class="card__bd">
+        <div class="grid g-3">
+          <div><div class="eyebrow">加密存储</div><p class="t-sm" style="margin-top:6px; line-height:1.8">手机号、姓名、身份证号必须加密落库；证件照片 OCR 后<b>不留存原图</b></p></div>
+          <div><div class="eyebrow">分级脱敏</div><p class="t-sm" style="margin-top:6px; line-height:1.8">驻场可见完整手机号；项目经理隐藏手机与证件；老板<b>仅聚合数据</b></p></div>
+          <div><div class="eyebrow">永久留痕</div><p class="t-sm" style="margin-top:6px; line-height:1.8">告知书同意（ID+时间+IP）、状态迁移、释放/取消操作人、诚信分人工调整</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script src="assets/js/proto.js"></script>
+</body>
+</html>

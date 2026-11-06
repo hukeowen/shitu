@@ -1,0 +1,80 @@
+/* 仕兔设计 Token —— 源自 prototype/assets/css/core.css，修改请同步原型 */
+:root {
+  /* Paper & ink — warm engineering-drawing base */
+  --paper:        #F1EFE9;
+  --paper-grid:   rgba(16, 20, 26, .045);
+  --surface:      #FFFFFF;
+  --surface-2:    #FAF9F5;
+  --surface-3:    #F3F1EB;
+  --chrome:       #12171E;
+  --chrome-2:     #1A212B;
+  --chrome-3:     #232C38;
+
+  --ink-900:      #0D1117;
+  --ink-800:      #1B2430;
+  --ink-700:      #34404F;
+  --ink-600:      #4A5867;
+  --ink-500:      #6B7887;
+  --ink-400:      #8B96A3;
+  --ink-300:      #AEB7C1;
+  --ink-200:      #D3D8DD;
+
+  --line:         #E0DDD5;
+  --line-2:       #CFCBC1;
+  --line-ink:     rgba(13,17,23,.10);
+
+  /* Signal — 仕兔橙, high-voltage accent */
+  --signal:       #E8590C;
+  --signal-700:   #B8460A;
+  --signal-300:   #F6A97A;
+  --signal-50:    #FDEEE3;
+
+  /* Domain semantics — the product's visual signature */
+  --private:      #C2410C;   /* 私域 = 有归属，受保护 */
+  --private-bg:   #FDEDE2;
+  --private-line: #F3C6A8;
+  --public:       #0B7285;   /* 公域 = 无归属，全平台开放 */
+  --public-bg:    #E1F2F4;
+  --public-line:  #A7D3D9;
+  --temp:         #7048A8;   /* 临时私域 */
+  --temp-bg:      #F0EAF9;
+  --temp-line:    #CDBCEB;
+
+  /* Status */
+  --ok:      #12734A;  --ok-bg:      #E3F3EA;  --ok-line:#A9D9C0;
+  --warn:    #A85B00;  --warn-bg:    #FCF1DF;  --warn-line:#EDCB93;
+  --danger:  #AE2B22;  --danger-bg:  #FBE9E7;  --danger-line:#EDB6B0;
+  --info:    #1B5C99;  --info-bg:    #E7F0FA;  --info-line:#AFCAE6;
+  --muted-bg:#EFEDE7;
+
+  /* Typography */
+  --f-cn:  "PingFang SC","HarmonyOS Sans SC","Microsoft YaHei UI","Microsoft YaHei","Source Han Sans SC","Noto Sans CJK SC",sans-serif;
+  --f-dis: "Bahnschrift","DIN Alternate","DIN Condensed","Archivo Narrow","Oswald","PingFang SC","Microsoft YaHei",sans-serif;
+  --f-mono:"Cascadia Mono","Consolas","SFMono-Regular","JetBrains Mono",ui-monospace,monospace;
+
+  /* Elevation */
+  --sh-1: 0 1px 2px rgba(13,17,23,.06), 0 0 0 1px rgba(13,17,23,.05);
+  --sh-2: 0 2px 4px rgba(13,17,23,.05), 0 8px 20px -8px rgba(13,17,23,.14);
+  --sh-3: 0 24px 60px -18px rgba(13,17,23,.30), 0 4px 12px rgba(13,17,23,.10);
+  --sh-in: inset 0 1px 0 rgba(255,255,255,.6);
+
+  --r-xs: 3px; --r-sm: 5px; --r-md: 8px; --r-lg: 14px; --r-xl: 22px;
+}
+
+/* ---------- 基础 ---------- */
+html, body { margin: 0; font-family: var(--f-cn); color: var(--ink-800); background: var(--paper); -webkit-font-smoothing: antialiased; }
+*, *::before, *::after { box-sizing: border-box; }
+.num, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- 公私域徽标（产品视觉签名） ---------- */
+.tag-domain { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--r-sm); font-size: 12px; line-height: 20px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+.tag-private { color: var(--private); background: var(--private-bg); border-color: var(--private-line); }
+.tag-public  { color: var(--public);  background: var(--public-bg);  border-color: var(--public-line); }
+.tag-temp    { color: var(--temp);    background: var(--temp-bg);    border-color: var(--temp-line); }
+
+/* ---------- 状态徽标 ---------- */
+.tag-ok     { color: var(--ok);     background: var(--ok-bg);     border-color: var(--ok-line); }
+.tag-warn   { color: var(--warn);   background: var(--warn-bg);   border-color: var(--warn-line); }
+.tag-danger { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-line); }
+.tag-info   { color: var(--info);   background: var(--info-bg);   border-color: var(--info-line); }
+.tag-muted  { color: var(--ink-500); background: var(--muted-bg); border-color: var(--line); }

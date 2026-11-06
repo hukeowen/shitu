@@ -1,0 +1,1802 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>平台运营中台 · 仕兔平台 V1.0 MVP 原型</title>
+<link rel="stylesheet" href="assets/css/core.css">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body>
+
+<div class="console">
+<aside class="side">
+  <div class="side-brand">
+    <div class="b1">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#7048A8"/><path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      <b>仕兔 · 运营中台</b>
+      <span class="env">OPS</span>
+    </div>
+  </div>
+
+  <div class="tenant" style="background:rgba(112,72,168,.16); border-color:rgba(112,72,168,.4)">
+    <div class="avatar avatar--p avatar--sm">平</div>
+    <div class="tn"><b>平台超级管理员</b><span>ALL TENANTS · 47 家企业</span></div>
+  </div>
+
+  <nav class="side-nav">
+    <div class="side-grp">运营 OPERATIONS</div>
+    <a class="on" data-view="ops" data-sec="运营中台" data-title="平台运营总览"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.6" stroke="currentColor" stroke-width="1.9"/><rect x="13" y="3" width="8" height="5" rx="1.6" stroke="currentColor" stroke-width="1.9"/><rect x="3" y="13" width="8" height="8" rx="1.6" stroke="currentColor" stroke-width="1.9"/><rect x="13" y="10" width="8" height="11" rx="1.6" stroke="currentColor" stroke-width="1.9"/></svg>运营总览</a>
+    <a data-view="domain" data-sec="运营中台" data-title="公域私域归属治理"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3" stroke="currentColor" stroke-width="1.6"/></svg>归属治理</a>
+
+    <div class="side-grp">匹配引擎 ENGINE</div>
+    <a data-view="quiz" data-sec="匹配引擎" data-title="AI 问薪题库配置"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.8.7-.8 1.3v.3m0 2.8v.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>AI 问薪题库</a>
+    <a data-view="engine" data-sec="匹配引擎" data-title="匹配引擎参数"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.9"/></svg>匹配引擎参数</a>
+
+    <div class="side-grp">企业 COMPANIES</div>
+    <a data-view="companies" data-sec="公司管理" data-title="劳务公司管理"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 21V6l7-3v18M10 21h11V10l-7-2" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M13.5 12.5h1.5m-1.5 3.5h1.5M6 8h1.5M6 12h1.5M6 16h1.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>公司管理<span class="bdg">3</span></a>
+    <a data-view="roster" data-sec="公司管理" data-title="花名册与存量基数"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>花名册与存量锁定</a>
+
+    <div class="side-grp">治理 GOVERNANCE</div>
+    <a data-view="job-audit" data-sec="风控治理" data-title="岗位审核"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M14 3v5h5m-9 6 2 2 3.5-3.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>岗位审核<span class="bdg">7</span></a>
+    <a data-view="govern" data-sec="风控治理" data-title="岗位降权与限流"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 19 20 5M4 5h5M4 9h9M4 13h5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>降权与限流</a>
+    <a data-view="compliance" data-sec="风控治理" data-title="实名认证与合规风控"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5" width="19" height="14" rx="2.2" stroke="currentColor" stroke-width="1.9"/><circle cx="8.5" cy="11" r="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 16c.6-1.5 2-2.2 3.5-2.2S11.4 14.5 12 16m2.5-5H19m-4.5 3.5H19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>实名与合规<span class="bdg">6</span></a>
+    <a data-view="complaint" data-sec="风控治理" data-title="投诉管理"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 8v5m0 3.2v.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/></svg>投诉管理<span class="bdg">12</span></a>
+    <a data-view="risk" data-sec="风控治理" data-title="诚信分与处罚"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2.5 20 6v6c0 4.4-3.4 7.2-8 8.5C7.4 19.2 4 16.4 4 12V6z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>诚信与处罚</a>
+
+    <div class="side-grp">结算 SETTLEMENT</div>
+    <a data-view="billing" data-sec="数据与结算" data-title="计费规则配置"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/><path d="M12 6.5v11M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.6 0-2.6.8-2.6 1.9 0 2.6 5.4 1.3 5.4 4 0 1.2-1.1 2.1-2.8 2.1-1.3 0-2.3-.5-2.8-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>计费规则</a>
+    <a data-view="recon" data-sec="数据与结算" data-title="对账与结算"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="2.4" stroke="currentColor" stroke-width="1.9"/><path d="M8 9h8M8 13h8M8 17h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>对账管理</a>
+    <a data-view="audit" data-sec="数据与结算" data-title="系统审计日志"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3.2 2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/></svg>审计日志</a>
+  </nav>
+
+  <div class="side-user">
+    <div class="avatar avatar--p avatar--sm">运</div>
+    <div class="su"><b>运营管理员</b><span>ops@shitu.cn</span></div>
+    <a href="index.html" class="icobtn" style="color:rgba(255,255,255,.5)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="crumb"><span id="crumb-sec">运营中台</span><span>/</span><b id="crumb-title">平台运营总览</b></div>
+    <div class="spacer"></div>
+    <div class="searchbox">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input class="inp" placeholder="搜索企业 / 岗位 / 用户 ID">
+    </div>
+    <a class="icobtn" href="admin.html" title="企业端"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4" width="19" height="16" rx="2.4" stroke="currentColor" stroke-width="1.9"/><path d="M2.5 9h19M8 9v11" stroke="currentColor" stroke-width="1.9"/></svg></a>
+    <button class="icobtn" data-demo="消息中心（原型演示）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M18 8.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><span class="dot-n"></span></button>
+    <div class="avatar avatar--p avatar--sm">运</div>
+  </header>
+
+  <div class="page">
+
+  <!-- =========================================================
+       P-01 运营总览
+  ========================================================== -->
+  <section class="view on" id="v-ops">
+    <div class="page-hd">
+      <div><h2>平台运营总览</h2><p>2026-07-24 · 数据每 10 分钟刷新</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>14.1</b></span>
+      <select class="sel" style="width:130px; height:31px; font-size:12.5px"><option>今日</option><option>本月</option><option>本年度</option></select>
+    </div>
+
+    <div class="grid g-4" data-rise>
+      <div class="stat ticked"><div class="stat-l">入驻企业数</div><div class="stat-v">47</div><div class="stat-d up">↑ 本月新增 6</div></div>
+      <div class="stat ticked"><div class="stat-l">在职总人数</div><div class="stat-v">12,486</div><div class="stat-d up">↑ 本月 +1,842</div></div>
+      <div class="stat ticked"><div class="stat-l">当日增量总人数</div><div class="stat-v">5,842</div><div class="stat-d dim">存量基数外的计费人数</div></div>
+      <div class="stat ticked"><div class="stat-l">当日流转发生量</div><div class="stat-v">1,204</div><div class="stat-d dim">跨公司流转在职人员</div></div>
+    </div>
+
+    <div class="grid g-3" style="margin-top:14px">
+      <div class="stat ticked" style="border-color:var(--signal-300); background:linear-gradient(180deg,var(--signal-50),var(--surface))">
+        <div class="stat-l">当日增长技术服务费</div><div class="stat-v">584.20<small>元</small></div>
+        <div class="stat-d dim">增量 5,842 人 × 0.10 元（V1.0 统一价）</div>
+      </div>
+      <div class="stat ticked" style="border-color:var(--signal-300); background:linear-gradient(180deg,var(--signal-50),var(--surface))">
+        <div class="stat-l">当日流转费总额</div><div class="stat-v">12,040.00<small>元</small></div>
+        <div class="stat-d dim">1,204 人 × 10 元/人/天</div>
+      </div>
+      <div class="stat ticked" style="border-color:var(--ink-900); background:var(--ink-900)">
+        <div class="stat-l" style="color:rgba(255,255,255,.6)">当日平台总收入</div>
+        <div class="stat-v" style="color:#fff">2,992.20<small style="color:rgba(255,255,255,.5)">元</small></div>
+        <div class="stat-d" style="color:var(--signal-300)">服务费 584.20 + 抽佣 2,408.00　<a data-view="domain" style="color:#fff; text-decoration:underline">口径待确认 ⚠</a></div>
+      </div>
+    </div>
+
+    <div class="grid g-32" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>近 30 日平台收入趋势</h3><div class="legend"><span><i style="background:#E8590C"></i>流转费抽佣</span><span><i style="background:#0B7285"></i>增长技术服务费</span></div></div>
+        <div class="card__bd">
+          <svg viewBox="0 0 720 220" width="100%" height="220">
+            <g font-family="Consolas,monospace" font-size="9.5" fill="#AEB7C1">
+              <line x1="44" y1="14" x2="716" y2="14" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="4" y="18">3000</text>
+              <line x1="44" y1="62" x2="716" y2="62" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="4" y="66">2250</text>
+              <line x1="44" y1="110" x2="716" y2="110" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="4" y="114">1500</text>
+              <line x1="44" y1="158" x2="716" y2="158" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="10" y="162">750</text>
+              <line x1="44" y1="192" x2="716" y2="192" stroke="#CFCBC1"/><text x="22" y="196">0</text>
+            </g>
+            <g>
+              <path d="M52 192 L52 108 L74 100 L96 112 L118 96 L140 104 L162 88 L184 92 L206 80 L228 86 L250 74 L272 80 L294 68 L316 74 L338 62 L360 68 L382 58 L404 64 L426 52 L448 58 L470 48 L492 54 L514 44 L536 50 L558 40 L580 46 L602 36 L624 42 L646 32 L668 38 L690 28 L712 34 L712 192 Z" fill="#E8590C" opacity=".14"/>
+              <path d="M52 108 L74 100 L96 112 L118 96 L140 104 L162 88 L184 92 L206 80 L228 86 L250 74 L272 80 L294 68 L316 74 L338 62 L360 68 L382 58 L404 64 L426 52 L448 58 L470 48 L492 54 L514 44 L536 50 L558 40 L580 46 L602 36 L624 42 L646 32 L668 38 L690 28 L712 34" fill="none" stroke="#E8590C" stroke-width="2.2"/>
+              <path d="M52 178 L74 176 L96 178 L118 175 L140 176 L162 173 L184 174 L206 172 L228 173 L250 170 L272 171 L294 169 L316 170 L338 168 L360 169 L382 167 L404 168 L426 166 L448 167 L470 165 L492 166 L514 164 L536 165 L558 163 L580 164 L602 162 L624 163 L646 161 L668 162 L690 160 L712 161" fill="none" stroke="#0B7285" stroke-width="2"/>
+            </g>
+            <g font-family="Consolas,monospace" font-size="9.5" fill="#AEB7C1">
+              <text x="48" y="210">06-25</text><text x="200" y="210">07-02</text><text x="360" y="210">07-09</text><text x="520" y="210">07-16</text><text x="676" y="210">07-24</text>
+            </g>
+          </svg>
+          <div class="note note--info" style="margin-top:6px">收入结构中人才流转费抽佣占 82%，是平台核心收入来源；增长技术服务费单价虽低但覆盖全量在职人员，随企业导入率提升而线性增长。</div>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>增量人员分布</h3><span class="tag tag--warn">阶梯定价 V1.5 上线</span></div>
+          <div class="card__bd">
+            <table class="tbl">
+              <thead><tr><th>年增长率分档</th><th class="r">人数</th><th class="r">V1.0 单价</th><th class="r">当日费用</th><th class="r">V1.5 阶梯价</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">&lt; 30%</td><td class="r num">2,140</td><td class="r mono">0.10</td><td class="r num">214.00</td><td class="r mono dim">0.10</td></tr>
+                <tr><td class="mono">30–50%</td><td class="r num">1,908</td><td class="r mono">0.10</td><td class="r num">190.80</td><td class="r mono dim">0.09</td></tr>
+                <tr><td class="mono">≥ 50%</td><td class="r num">1,794</td><td class="r mono">0.10</td><td class="r num">179.40</td><td class="r mono dim">0.08</td></tr>
+                <tr><td><b>合计</b></td><td class="r num">5,842</td><td class="r mono dim">—</td><td class="r num" style="color:var(--signal)">584.20</td><td class="r mono dim">529.24</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>公私域用户池</h3></div>
+          <div class="card__bd">
+            <div class="hbar"><span class="hn"><span class="tag tag--private">私域</span> 有归属</span><div class="bar"><i style="width:100%; background:var(--private)"></i></div><span class="hv">13,208</span></div>
+            <div class="hbar"><span class="hn"><span class="tag tag--public">公域</span> 无归属</span><div class="bar"><i style="width:47%; background:var(--public)"></i></div><span class="hv">6,214</span></div>
+            <div class="hbar"><span class="hn"><span class="tag tag--temp">临时私域</span> 报名锁定</span><div class="bar"><i style="width:6%; background:var(--temp)"></i></div><span class="hv">812</span></div>
+            <div class="divider"></div>
+            <dl class="kv"><dt>今日新注册</dt><dd class="num">1,046</dd></dl>
+            <dl class="kv"><dt>今日释放至公域</dt><dd class="num" style="color:var(--signal)">287</dd></dl>
+            <dl class="kv"><dt>其中 24h 超时被动释放</dt><dd class="num" style="color:var(--danger)">164</dd></dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g-3" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>待处理事项</h3><span class="tag tag--danger">22</span></div>
+        <div class="card__bd">
+          <div class="lrow" style="padding:9px 0; border-bottom:1px solid var(--line)" data-view="companies"><span class="tag tag--warn">入驻审核</span><div class="lt flex1"><b>3 家企业待审核</b><span>最长等待 2 天</span></div></div>
+          <div class="lrow" style="padding:9px 0; border-bottom:1px solid var(--line)" data-view="job-audit"><span class="tag tag--warn">岗位审核</span><div class="lt flex1"><b>7 个岗位待审</b><span>含 2 个甲方合同关联异常</span></div></div>
+          <div class="lrow" style="padding:9px 0; border-bottom:1px solid var(--line)" data-view="complaint"><span class="tag tag--danger">投诉</span><div class="lt flex1"><b>12 条投诉待核实</b><span>2 个岗位已达 3 次投诉阈值</span></div></div>
+          <div class="lrow" style="padding:9px 0" data-view="recon"><span class="tag tag--info">对账</span><div class="lt flex1"><b>2 家企业提出账单异议</b><span>需 5 个工作日内复核</span></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__hd"><h3>企业规模 TOP 5</h3></div>
+        <div class="card__bd">
+          <div class="hbar"><span class="hn">宏泰人力资源</span><div class="bar"><i style="width:100%"></i></div><span class="hv">1,842</span></div>
+          <div class="hbar"><span class="hn">鑫诚劳务派遣</span><div class="bar"><i style="width:46%"></i></div><span class="hv">838</span></div>
+          <div class="hbar"><span class="hn">汇智劳务</span><div class="bar"><i style="width:41%"></i></div><span class="hv">762</span></div>
+          <div class="hbar"><span class="hn">诚信人力</span><div class="bar"><i style="width:33%"></i></div><span class="hv">614</span></div>
+          <div class="hbar"><span class="hn">安捷人力</span><div class="bar"><i style="width:28%"></i></div><span class="hv">521</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__hd"><h3>岗位健康度</h3><button class="btn btn--xs" data-view="govern">治理看板</button></div>
+        <div class="card__bd">
+          <div class="hbar"><span class="hn"><span class="tag tag--ok">正常</span> 1–14 天</span><div class="bar"><i class="ok" style="width:100%"></i></div><span class="hv">614</span></div>
+          <div class="hbar"><span class="hn"><span class="tag tag--warn">降权</span> 15–30 天</span><div class="bar"><i class="warn" style="width:31%"></i></div><span class="hv">192</span></div>
+          <div class="hbar"><span class="hn"><span class="tag tag--warn">限流</span> 31–60 天</span><div class="bar"><i class="warn" style="width:14%"></i></div><span class="hv">88</span></div>
+          <div class="hbar"><span class="hn"><span class="tag tag--danger">僵尸</span> &gt;60 天</span><div class="bar"><i class="danger" style="width:7%"></i></div><span class="hv">41</span></div>
+          <div class="note note--warn" style="margin-top:10px">降权不向企业做任何提示，企业仅能感知到「岗位推荐量变少了」。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-02 公司管理
+  ========================================================== -->
+  <section class="view" id="v-companies">
+    <div class="page-hd">
+      <div><h2>劳务公司管理</h2><p>入驻审核 · 状态管理（正常 / 已注销 / 已倒闭）· 注销自动解绑</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>11.1</b></span>
+      <button class="btn btn--sm" data-demo="导出企业名录（原型演示）">导出</button>
+    </div>
+
+    <div class="grid g-4">
+      <div class="stat"><div class="stat-l">已入驻企业</div><div class="stat-v">47</div><div class="stat-d up">↑ 本月 +6</div></div>
+      <div class="stat" style="border-color:var(--warn-line)"><div class="stat-l">待入驻审核</div><div class="stat-v" style="color:var(--warn)">3</div><div class="stat-d dim">最长等待 2 天</div></div>
+      <div class="stat"><div class="stat-l">免费期内企业</div><div class="stat-v">11</div><div class="stat-d dim">存量基数未锁定</div></div>
+      <div class="stat"><div class="stat-l">已注销 / 已倒闭</div><div class="stat-v">4</div><div class="stat-d dim">用户已批量解绑</div></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="toolbar">
+        <div class="filter-tabs"><button class="on">全部<span class="n">54</span></button><button>正常<span class="n">47</span></button><button>待审核<span class="n">3</span></button><button>已注销<span class="n">3</span></button><button>已倒闭<span class="n">1</span></button></div>
+        <div class="spacer"></div>
+        <div class="searchbox" style="width:190px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input class="inp" placeholder="企业名称 / 统一社会信用代码"></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>企业名称</th><th>企业 ID</th><th>入驻时间</th><th class="r">在岗人数</th><th class="r">存量基数</th><th class="r">增量</th><th class="r">诚信分</th><th>免费期</th><th>状态</th><th class="r">操作</th></tr></thead>
+          <tbody>
+            <tr style="background:var(--warn-bg)">
+              <td><b>安捷人力资源有限公司</b><div class="t-xs">江苏昆山 · 电子制造</div></td><td class="mono t-sm">—</td><td class="mono t-sm">2026-07-22 申请</td>
+              <td class="r mono dim">—</td><td class="r mono dim">—</td><td class="r mono dim">—</td><td class="r mono dim">—</td><td class="dim">—</td>
+              <td><span class="st-pill" style="color:var(--warn)"><i style="background:currentColor"></i>待审核</span></td>
+              <td class="r"><button class="btn btn--xs btn--primary" data-open="dw-approve">审核</button></td>
+            </tr>
+            <tr>
+              <td><b>宏泰人力资源有限公司</b><div class="t-xs">湖南长沙 · 综合制造</div></td><td class="mono t-sm">C10008</td><td class="mono t-sm">2025-02-11</td>
+              <td class="r num">1,842</td><td class="r num">420</td><td class="r num" style="color:var(--signal)">1,422</td><td class="r num" style="color:var(--ok)">96</td><td><span class="tag tag--ok">已锁定</span></td>
+              <td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>正常</span></td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-company">详情</button></td>
+            </tr>
+            <tr>
+              <td><b>鑫诚劳务派遣有限公司</b><div class="t-xs">江苏昆山 · 电子制造</div></td><td class="mono t-sm">C10023</td><td class="mono t-sm">2025-04-01</td>
+              <td class="r num">838</td><td class="r num">180</td><td class="r num" style="color:var(--signal)">658</td><td class="r num" style="color:var(--ok)">92</td><td><span class="tag tag--ok">已锁定</span></td>
+              <td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>正常</span></td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-company">详情</button></td>
+            </tr>
+            <tr>
+              <td><b>汇智劳务服务有限公司</b><div class="t-xs">江苏苏州 · 电子/仓储</div></td><td class="mono t-sm">C10041</td><td class="mono t-sm">2025-08-19</td>
+              <td class="r num">762</td><td class="r num">310</td><td class="r num" style="color:var(--signal)">452</td><td class="r num" style="color:var(--warn)">74</td><td><span class="tag tag--ok">已锁定</span></td>
+              <td><span class="st-pill" style="color:var(--warn)"><i style="background:currentColor"></i>1 级警告</span></td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-company">详情</button></td>
+            </tr>
+            <tr>
+              <td><b>启航人力科技有限公司</b><div class="t-xs">河南郑州 · 电子制造</div></td><td class="mono t-sm">C10052</td><td class="mono t-sm">2026-06-08</td>
+              <td class="r num">246</td><td class="r mono dim">未锁定</td><td class="r mono dim">—</td><td class="r num" style="color:var(--ok)">100</td>
+              <td><span class="tag tag--warn">剩 45 天</span></td>
+              <td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>正常 · 免费期</span></td>
+              <td class="r"><button class="btn btn--xs" data-view="roster">花名册</button></td>
+            </tr>
+            <tr style="background:var(--danger-bg)">
+              <td><b>恒发劳务派遣有限公司</b><div class="t-xs">广东东莞 · 电子制造</div></td><td class="mono t-sm">C10017</td><td class="mono t-sm">2025-03-05</td>
+              <td class="r num">0</td><td class="r num">260</td><td class="r mono dim">—</td><td class="r num" style="color:var(--danger)">28</td><td><span class="tag">已锁定</span></td>
+              <td><span class="st-pill" style="color:var(--danger)"><i style="background:currentColor"></i>已注销</span></td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-dereg">解绑详情</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager"><span>共 54 家</span><button>‹</button><button class="on">1</button><button>2</button><button>›</button></div>
+    </div>
+
+    <div class="grid g-2" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>公司注销 / 倒闭处理流程</h3><span class="ref">文档 <b>13.3</b></span></div>
+        <div class="card__bd">
+          <p class="t-sm" style="margin-bottom:12px">劳务公司状态变更为「已注销 / 已倒闭」→ 系统自动触发解绑任务，同时要求该公司结清所有员工薪资。</p>
+          <table class="tbl" style="border:1px solid var(--line)">
+            <thead><tr><th>变更项</th><th>处理方式</th></tr></thead>
+            <tbody>
+              <tr><td class="mono t-xs">bound_company_id</td><td class="t-sm">批量清空</td></tr>
+              <tr><td>公域 / 私域</td><td class="t-sm">批量变更为<span class="tag tag--public" style="margin-left:4px">公域</span></td></tr>
+              <tr><td class="mono t-xs">source_company_id</td><td class="t-sm">保留，仅存证</td></tr>
+              <tr><td>用户状态</td><td class="t-sm">批量变更为「公域求职」</td></tr>
+              <tr><td>用户历史数据</td><td class="t-sm">全部保留，只变状态不删数据</td></tr>
+              <tr><td>后续流转费归属</td><td class="t-sm"><b class="strong">平台继承供给方权益，10 元/人/天全部归平台</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__hd"><h3>公司状态定义</h3></div>
+        <div class="card__bd">
+          <div class="stack-sm">
+            <div class="row" style="gap:10px; align-items:flex-start"><span class="tag tag--ok" style="width:64px; justify-content:center">正常</span><span class="t-sm flex1">可发布岗位、接收匹配、正常计费</span></div>
+            <div class="row" style="gap:10px; align-items:flex-start"><span class="tag tag--warn" style="width:64px; justify-content:center">限流</span><span class="t-sm flex1">匹配权重降低 50%，持续 30 天（2 级处罚 / 诚信分 &lt;60）</span></div>
+            <div class="row" style="gap:10px; align-items:flex-start"><span class="tag tag--danger" style="width:64px; justify-content:center">封禁</span><span class="t-sm flex1">永久取消所有收费服务权限（3 级处罚 / 诚信分 &lt;30）</span></div>
+            <div class="row" style="gap:10px; align-items:flex-start"><span class="tag tag--ink" style="width:64px; justify-content:center">已注销</span><span class="t-sm flex1">主动退出，触发批量解绑，平台继承供给方权益</span></div>
+            <div class="row" style="gap:10px; align-items:flex-start"><span class="tag" style="width:64px; justify-content:center">已倒闭</span><span class="t-sm flex1">经营异常，同注销处理，需督促结清员工薪资</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-03 花名册与存量基数
+  ========================================================== -->
+  <section class="view" id="v-roster">
+    <div class="page-hd">
+      <div><h2>花名册导入与存量基数锁定</h2><p>三个月免费期内导入的员工全部计入存量基数，永久免费；期满自动锁定</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>2.2 / 11.1</b></span>
+      <button class="btn btn--primary btn--sm" data-demo="花名册导入向导（原型演示）">代企业导入花名册</button>
+    </div>
+
+    <div class="grid g-23">
+      <div class="card">
+        <div class="card__hd"><h3>免费期企业（存量基数未锁定）</h3><span class="tag tag--warn">11 家</span></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>企业</th><th>入驻时间</th><th>免费期截止</th><th>剩余</th><th class="r">已导入</th><th class="r">在岗</th><th class="r">操作</th></tr></thead>
+            <tbody>
+              <tr style="background:var(--danger-bg)"><td><b>安泰人力</b></td><td class="mono t-sm">2026-04-28</td><td class="mono t-sm">2026-07-27</td><td><span class="tag tag--danger mono">3 天</span></td><td class="r num">412</td><td class="r num">398</td><td class="r"><button class="btn btn--xs btn--danger" data-open="md-lock">立即锁定</button></td></tr>
+              <tr style="background:var(--warn-bg)"><td><b>启航人力科技</b></td><td class="mono t-sm">2026-06-08</td><td class="mono t-sm">2026-09-07</td><td><span class="tag tag--warn mono">45 天</span></td><td class="r num">246</td><td class="r num">246</td><td class="r"><button class="btn btn--xs" data-demo="已发送导入提醒">催导入</button></td></tr>
+              <tr><td><b>华远劳务</b></td><td class="mono t-sm">2026-06-20</td><td class="mono t-sm">2026-09-19</td><td><span class="tag mono">57 天</span></td><td class="r num">88</td><td class="r num">86</td><td class="r"><button class="btn btn--xs" data-demo="已发送导入提醒">催导入</button></td></tr>
+              <tr><td><b>金诺人力</b></td><td class="mono t-sm">2026-07-02</td><td class="mono t-sm">2026-10-01</td><td><span class="tag mono">69 天</span></td><td class="r num">0</td><td class="r num">0</td><td class="r"><button class="btn btn--xs btn--signal" data-demo="已发送导入提醒">催导入</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card__ft">
+          <div class="note"><b>设计目的：</b>倒逼企业快速导入 —— 企业越早把全量员工导入平台，享受的免费基数就越大；三个月足够完成导入并感受平台价值；免费期结束后企业已有明确基数，增量计费顺理成章。</div>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>存量基数锁定记录</h3></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>企业</th><th class="r">存量基数</th><th>锁定时间</th></tr></thead>
+              <tbody>
+                <tr><td>宏泰人力</td><td class="r num">420</td><td class="mono t-sm">2025-05-11</td></tr>
+                <tr><td>鑫诚劳务</td><td class="r num">180</td><td class="mono t-sm">2025-07-01</td></tr>
+                <tr><td>汇智劳务</td><td class="r num">310</td><td class="mono t-sm">2025-11-19</td></tr>
+                <tr><td>诚信人力</td><td class="r num">265</td><td class="mono t-sm">2026-01-08</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>存量基数规则</h3></div>
+          <div class="card__bd">
+            <dl class="kv"><dt>存量基数</dt><dd>免费期内导入的员工总数</dd></dl>
+            <dl class="kv"><dt>免费期</dt><dd>入驻后 3 个月</dd></dl>
+            <dl class="kv"><dt>锁定方式</dt><dd>期满系统自动锁定</dd></dl>
+            <dl class="kv"><dt>存量人员</dt><dd><b class="strong">永久免费，不受离职影响</b></dd></dl>
+            <dl class="kv"><dt>增量定义</dt><dd>企业当前总人数 − 存量基数</dd></dl>
+            <dl class="kv"><dt>计费对象</dt><dd>增量人员中「已入职在岗」的员工</dd></dl>
+            <div class="codeblk" style="margin-top:12px"><span class="c"># 花名册导入后的用户状态</span><br><span class="k">bound_company_id</span> = <span class="n">该公司 ID</span><br><span class="k">domain_tag</span> = <span class="s">"私域"</span><br><span class="k">status</span> = <span class="s">"已入职在岗"</span><br><span class="k">match_scope</span> = <span class="s">"仅该公司内部调岗"</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-04 岗位审核
+  ========================================================== -->
+  <section class="view" id="v-job-audit">
+    <div class="page-hd">
+      <div><h2>岗位审核</h2><p>发布岗位前必须上传与甲方的合同，系统自动抓取订单与甲方企业并校验关联性</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>11.2</b></span>
+    </div>
+
+    <div class="grid g-4">
+      <div class="stat"><div class="stat-l">待审核岗位</div><div class="stat-v">7</div><div class="stat-d dim">平均处理 4.2 小时</div></div>
+      <div class="stat" style="border-color:var(--danger-line)"><div class="stat-l" style="color:var(--danger)">甲方关联异常</div><div class="stat-v" style="color:var(--danger)">2</div><div class="stat-d" style="color:var(--danger)">需人工核实</div></div>
+      <div class="stat"><div class="stat-l">本月通过</div><div class="stat-v">184</div><div class="stat-d up">↑ 通过率 93.4%</div></div>
+      <div class="stat"><div class="stat-l">本月驳回</div><div class="stat-v">13</div><div class="stat-d dim">主要为合同缺失</div></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="toolbar">
+        <div class="filter-tabs"><button class="on">待审核<span class="n">7</span></button><button>已通过<span class="n">184</span></button><button>已驳回<span class="n">13</span></button></div>
+        <div class="spacer"></div>
+        <select class="sel" style="width:170px; height:31px; font-size:12.5px"><option>全部企业</option><option>鑫诚劳务</option><option>宏泰人力</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>岗位名称</th><th>发布企业</th><th>关联甲方</th><th>合同附件</th><th>薪资</th><th>名额</th><th>合规校验</th><th class="r">操作</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>SMT 贴片操作工</b><div class="t-xs">立讯精密昆山二期</div></td>
+              <td>鑫诚劳务</td><td class="t-sm">立讯精密工业（昆山）</td>
+              <td><span class="tag tag--ok">框架协议.pdf</span></td><td class="mono t-sm">5,800–6,800</td><td class="c num">12</td>
+              <td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>甲方一致</span></td>
+              <td class="r"><button class="btn btn--xs btn--danger" data-demo="已驳回">驳回</button> <button class="btn btn--xs btn--primary" data-demo="审核通过，岗位进入匹配池">通过</button></td>
+            </tr>
+            <tr style="background:var(--danger-bg)">
+              <td><b>叉车工</b><div class="t-xs">某物流园区</div></td>
+              <td>汇智劳务</td><td class="t-sm" style="color:var(--danger)">未匹配到已备案甲方</td>
+              <td><span class="tag tag--danger">缺失</span></td><td class="mono t-sm">6,500–7,500</td><td class="c num">30</td>
+              <td><span class="st-pill" style="color:var(--danger)"><i style="background:currentColor"></i>甲方不一致</span></td>
+              <td class="r"><button class="btn btn--xs btn--danger" data-open="md-reject">驳回</button> <button class="btn btn--xs" data-demo="已要求企业补充材料">要求补充</button></td>
+            </tr>
+            <tr style="background:var(--danger-bg)">
+              <td><b>普工（高薪急招）</b><div class="t-xs">未填写项目</div></td>
+              <td>安泰人力</td><td class="t-sm" style="color:var(--danger)">合同甲方为「XX 贸易公司」</td>
+              <td><span class="tag tag--warn">合同存疑</span></td><td class="mono t-sm">9,000–12,000</td><td class="c num">200</td>
+              <td><span class="st-pill" style="color:var(--danger)"><i style="background:currentColor"></i>薪资异常偏高</span></td>
+              <td class="r"><button class="btn btn--xs btn--danger" data-open="md-reject">驳回</button></td>
+            </tr>
+            <tr>
+              <td><b>品质检验员 QC</b><div class="t-xs">纬创资通苏州</div></td>
+              <td>鑫诚劳务</td><td class="t-sm">纬创资通（苏州）</td>
+              <td><span class="tag tag--ok">合作协议.pdf</span></td><td class="mono t-sm">5,400–6,000</td><td class="c num">6</td>
+              <td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>甲方一致</span></td>
+              <td class="r"><button class="btn btn--xs btn--danger" data-demo="已驳回">驳回</button> <button class="btn btn--xs btn--primary" data-demo="审核通过，岗位进入匹配池">通过</button></td>
+            </tr>
+            <tr>
+              <td><b>注塑机操作工</b><div class="t-xs">蓝思科技长沙</div></td>
+              <td>宏泰人力</td><td class="t-sm">蓝思科技（长沙）</td>
+              <td><span class="tag tag--ok">派遣协议.pdf</span></td><td class="mono t-sm">5,200–6,000</td><td class="c num">25</td>
+              <td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>甲方一致</span></td>
+              <td class="r"><button class="btn btn--xs btn--danger" data-demo="已驳回">驳回</button> <button class="btn btn--xs btn--primary" data-demo="审核通过，岗位进入匹配池">通过</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid g-2" style="margin-top:14px">
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">审核规则</div>
+        <ul class="t-sm" style="margin-top:10px; line-height:2">
+          <li>1. 劳务公司发布岗位前，<b class="strong">必须上传与甲方的合同</b></li>
+          <li>2. 系统自动抓取该笔订单与甲方企业，建立企业 ↔ 甲方绑定关系</li>
+          <li>3. 后续该劳务公司上传的岗位<b class="strong">必须与已备案甲方企业相关</b></li>
+          <li>4. 如为虚假岗位信息，用户可在岗位详情页投诉</li>
+          <li>5. 同一岗位累计被投诉 ≥3 次并核实属实 → 自动下架 + 扣诚信分</li>
+        </ul>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">高风险信号</div>
+        <div class="stack-sm" style="margin-top:10px">
+          <div class="row" style="gap:9px"><span class="tag tag--danger">高</span><span class="t-sm flex1">合同甲方与岗位所属厂区不一致</span></div>
+          <div class="row" style="gap:9px"><span class="tag tag--danger">高</span><span class="t-sm flex1">薪资显著高于同区域同工种（&gt;40%）</span></div>
+          <div class="row" style="gap:9px"><span class="tag tag--warn">中</span><span class="t-sm flex1">名额数量异常庞大（单岗 &gt;150 人）</span></div>
+          <div class="row" style="gap:9px"><span class="tag tag--warn">中</span><span class="t-sm flex1">未填写所属项目 / 工作地点模糊</span></div>
+          <div class="row" style="gap:9px"><span class="tag">低</span><span class="t-sm flex1">岗位职责描述与岗位名称不匹配</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-05 降权与限流
+  ========================================================== -->
+  <section class="view" id="v-govern">
+    <div class="page-hd">
+      <div><h2>岗位降权与隐形限流</h2><p>根据岗位转化表现动态调整匹配权重，低转化岗位自动降权直至不再推荐 —— 全程不向企业提示</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>第 12 章</b></span>
+    </div>
+
+    <div class="note note--warn" style="margin-bottom:14px">
+      <b>核心策略：隐形限流，柔性处理。</b>平台起步阶段不具备对 B 端执行刚性处罚的能力，刚性红线容易导致商家流失。因此现阶段采用软处理 —— <b>降权不向企业做任何提示，企业仅能感知到「岗位推荐量变少了」</b>。
+    </div>
+
+    <div class="grid g-32">
+      <div class="card">
+        <div class="card__hd"><h3>权重衰减模型</h3><span class="tag tag--signal">匹配引擎排序输入</span></div>
+        <div class="card__bd">
+          <svg viewBox="0 0 660 210" width="100%" height="210">
+            <g font-family="Consolas,monospace" font-size="10" fill="#AEB7C1">
+              <line x1="46" y1="18" x2="650" y2="18" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="8" y="22">100%</text>
+              <line x1="46" y1="52" x2="650" y2="52" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="14" y="56">80%</text>
+              <line x1="46" y1="104" x2="650" y2="104" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="14" y="108">50%</text>
+              <line x1="46" y1="156" x2="650" y2="156" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="14" y="160">20%</text>
+              <line x1="46" y1="190" x2="650" y2="190" stroke="#CFCBC1"/><text x="20" y="186">0%</text>
+            </g>
+            <defs><linearGradient id="gw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8590C" stop-opacity=".28"/><stop offset="1" stop-color="#E8590C" stop-opacity="0"/></linearGradient></defs>
+            <path d="M46 18 H166 L166 52 H286 L286 104 H406 L406 156 H526 L526 190 H650 V190 H46 Z" fill="url(#gw)"/>
+            <path d="M46 18 H166 L166 52 H286 L286 104 H406 L406 156 H526 L526 190 H650" fill="none" stroke="#E8590C" stroke-width="2.6" stroke-linejoin="round"/>
+            <g font-family="'PingFang SC',sans-serif" font-size="11" fill="#4A5867" text-anchor="middle">
+              <text x="106" y="206">1–7 天</text><text x="226" y="206">8–14 天</text><text x="346" y="206">15–30 天</text><text x="466" y="206">31–60 天</text><text x="588" y="206">60 天以上</text>
+            </g>
+            <g font-family="Bahnschrift,sans-serif" font-size="12" font-weight="700" fill="#B8460A" text-anchor="middle">
+              <text x="106" y="12">优先推荐</text><text x="226" y="46">正常推荐</text><text x="346" y="98">低频推荐</text><text x="466" y="150">极少推荐</text><text x="588" y="184">不推荐</text>
+            </g>
+          </svg>
+          <div class="divider"></div>
+          <table class="tbl" style="border:1px solid var(--line)">
+            <thead><tr><th>阶段</th><th>触发条件</th><th>系统动作</th><th class="r">当前岗位数</th></tr></thead>
+            <tbody>
+              <tr><td><span class="tag tag--ok">正常</span></td><td class="t-sm">岗位正常招人，有报名有入职</td><td class="t-sm">正常匹配权重</td><td class="r num">614</td></tr>
+              <tr><td><span class="tag tag--warn">降权预警</span></td><td class="t-sm">挂岗 &gt;15 天，报名多但入职转化率 &lt;10%</td><td class="t-sm">匹配权重自动降至 50%</td><td class="r num">192</td></tr>
+              <tr><td><span class="tag tag--warn">限流</span></td><td class="t-sm">挂岗 &gt;30 天，无任何入职转化</td><td class="t-sm">匹配权重降至 20%，极少主动推荐</td><td class="r num">88</td></tr>
+              <tr><td><span class="tag tag--danger">僵尸岗位</span></td><td class="t-sm">挂岗 &gt;60 天，零报名零入职</td><td class="t-sm">匹配权重降至 0%，不再进入匹配池</td><td class="r num">41</td></tr>
+              <tr><td><span class="tag tag--ink">人工审核</span></td><td class="t-sm">被投诉且核实属实，或连续低转化 &gt;90 天</td><td class="t-sm">平台运营后台强制下架</td><td class="r num">6</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>降权岗位监控</h3><span class="tag tag--warn">仅平台可见</span></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>岗位</th><th>企业</th><th class="r">挂岗</th><th class="r">权重</th><th class="r">操作</th></tr></thead>
+              <tbody>
+                <tr><td class="t-sm"><b>普工（高薪急招）</b></td><td class="t-sm">安泰人力</td><td class="r mono">92 天</td><td class="r"><span class="tag tag--danger">0%</span></td><td class="r"><button class="btn btn--xs btn--danger" data-open="md-force">强制下架</button></td></tr>
+                <tr><td class="t-sm"><b>叉车工</b></td><td class="t-sm">汇智劳务</td><td class="r mono">71 天</td><td class="r"><span class="tag tag--danger">0%</span></td><td class="r"><button class="btn btn--xs" data-demo="已加入观察名单">观察</button></td></tr>
+                <tr><td class="t-sm"><b>设备维修工</b></td><td class="t-sm">鑫诚劳务</td><td class="r mono">47 天</td><td class="r"><span class="tag tag--warn">20%</span></td><td class="r"><button class="btn btn--xs" data-demo="已发送信息更新提醒">提醒更新</button></td></tr>
+                <tr><td class="t-sm"><b>注塑机操作工</b></td><td class="t-sm">宏泰人力</td><td class="r mono">34 天</td><td class="r"><span class="tag tag--warn">20%</span></td><td class="r"><button class="btn btn--xs" data-demo="已发送信息更新提醒">提醒更新</button></td></tr>
+                <tr><td class="t-sm"><b>仓储分拣员</b></td><td class="t-sm">鑫诚劳务</td><td class="r mono">19 天</td><td class="r"><span class="tag tag--warn">50%</span></td><td class="r"><button class="btn btn--xs" data-demo="已发送信息更新提醒">提醒更新</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>岗位信息陈旧提醒</h3><span class="ref">文档 <b>12.4</b></span></div>
+          <div class="card__bd">
+            <table class="tbl">
+              <thead><tr><th>触发条件</th><th>系统行为</th><th class="r">今日触发</th></tr></thead>
+              <tbody>
+                <tr><td class="t-sm">挂岗 &gt;15 天无新报名</td><td class="t-sm">提醒建议更新信息</td><td class="r num">34</td></tr>
+                <tr><td class="t-sm">挂岗 &gt;30 天无新入职</td><td class="t-sm">提醒是否仍有效</td><td class="r num">18</td></tr>
+                <tr><td class="t-sm">挂岗 &gt;45 天</td><td class="t-sm"><b class="strong">强制更新后方可继续推荐</b></td><td class="r num">9</td></tr>
+              </tbody>
+            </table>
+            <div class="divider"></div>
+            <div class="eyebrow">暂停招聘合规</div>
+            <p class="t-sm" style="margin-top:8px; line-height:1.9">劳务公司从甲方得知招聘满员后，<b class="strong">24 小时内必须暂停招聘</b>，否则用户报名却无法面试会产生投诉。暂停后岗位下架但数据保留，恢复后权重从新岗位重新计算。</p>
+            <div class="row" style="gap:14px; margin-top:12px">
+              <div><div class="t-xs">本月满员未暂停</div><div class="num" style="font-size:20px; color:var(--danger)">4</div></div>
+              <div><div class="t-xs">已扣诚信分</div><div class="num" style="font-size:20px">−20</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-06 投诉管理
+  ========================================================== -->
+  <section class="view" id="v-complaint">
+    <div class="page-hd">
+      <div><h2>投诉管理</h2><p>用户侧反向监督 · 同一岗位累计投诉 ≥3 次并核实属实 → 自动下架 + 扣诚信分</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>12.5</b></span>
+    </div>
+
+    <div class="grid g-4">
+      <div class="stat" style="border-color:var(--danger-line)"><div class="stat-l" style="color:var(--danger)">待核实</div><div class="stat-v" style="color:var(--danger)">12</div><div class="stat-d dim">48h 内需处理</div></div>
+      <div class="stat"><div class="stat-l">已达阈值岗位</div><div class="stat-v">2</div><div class="stat-d" style="color:var(--danger)">≥3 次投诉</div></div>
+      <div class="stat"><div class="stat-l">本月核实属实</div><div class="stat-v">28</div><div class="stat-d dim">属实率 62.2%</div></div>
+      <div class="stat"><div class="stat-l">自动下架岗位</div><div class="stat-v">6</div><div class="stat-d dim">累计扣诚信分 −60</div></div>
+    </div>
+
+    <div class="grid g-32" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>投诉列表</h3>
+          <div class="filter-tabs"><button class="on">待核实<span class="n">12</span></button><button>已核实<span class="n">28</span></button><button>不属实<span class="n">17</span></button></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>投诉类型</th><th>岗位</th><th>企业</th><th>投诉人</th><th class="r">该岗累计</th><th>提交时间</th><th class="r">操作</th></tr></thead>
+            <tbody>
+              <tr style="background:var(--danger-bg)">
+                <td><span class="tag tag--danger">岗位已满仍在招</span></td>
+                <td><b>叉车工</b></td><td>汇智劳务</td><td class="mono t-sm">U2026****1204</td>
+                <td class="r"><span class="tag tag--danger num">3 次</span></td><td class="mono t-sm">07-24 09:12</td>
+                <td class="r"><button class="btn btn--xs btn--danger" data-open="md-verify">核实处理</button></td>
+              </tr>
+              <tr style="background:var(--danger-bg)">
+                <td><span class="tag tag--danger">岗位信息不实</span></td>
+                <td><b>普工（高薪急招）</b></td><td>安泰人力</td><td class="mono t-sm">U2026****0873</td>
+                <td class="r"><span class="tag tag--danger num">5 次</span></td><td class="mono t-sm">07-23 20:41</td>
+                <td class="r"><button class="btn btn--xs btn--danger" data-open="md-verify">核实处理</button></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag--warn">面试后岗位不符</span></td>
+                <td><b>仓储分拣员</b></td><td>鑫诚劳务</td><td class="mono t-sm">U2026****1662</td>
+                <td class="r"><span class="tag num">1 次</span></td><td class="mono t-sm">07-23 16:20</td>
+                <td class="r"><button class="btn btn--xs" data-open="md-verify">核实</button></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag--warn">岗位信息不实</span></td>
+                <td><b>注塑机操作工</b></td><td>宏泰人力</td><td class="mono t-sm">U2026****0448</td>
+                <td class="r"><span class="tag num">2 次</span></td><td class="mono t-sm">07-23 11:05</td>
+                <td class="r"><button class="btn btn--xs" data-open="md-verify">核实</button></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag--warn">岗位已满仍在招</span></td>
+                <td><b>电子组装普工</b></td><td>诚信人力</td><td class="mono t-sm">U2026****2091</td>
+                <td class="r"><span class="tag num">1 次</span></td><td class="mono t-sm">07-22 18:33</td>
+                <td class="r"><button class="btn btn--xs" data-open="md-verify">核实</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>投诉类型分布</h3><span class="tag">本月 45 条</span></div>
+          <div class="card__bd">
+            <div class="hbar"><span class="hn">岗位已满仍在招</span><div class="bar"><i class="danger" style="width:100%"></i></div><span class="hv">21</span></div>
+            <div class="hbar"><span class="hn">岗位信息不实</span><div class="bar"><i class="warn" style="width:76%"></i></div><span class="hv">16</span></div>
+            <div class="hbar"><span class="hn">面试后岗位不符</span><div class="bar"><i style="width:38%"></i></div><span class="hv">8</span></div>
+            <div class="divider"></div>
+            <div class="note note--info">「岗位已满仍在招」占比最高 —— 对应文档要求：劳务公司从甲方得知满员后 24 小时内必须暂停招聘。</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>处理规则</h3></div>
+          <div class="card__bd">
+            <ul class="tl">
+              <li class="now"><div class="tl-t">投诉提交</div><div class="t-sm">自动记录至该岗位与企业诚信档案</div></li>
+              <li class="now"><div class="tl-t">平台核实（48h 内）</div><div class="t-sm">联系企业与投诉人双向核实</div></li>
+              <li class="now"><div class="tl-t">累计 ≥3 次且属实</div><div class="t-sm"><b class="strong">系统自动下架该岗位 + 扣企业诚信分</b></div></li>
+              <li class="now"><div class="tl-t">连续低转化 &gt;90 天</div><div class="t-sm">平台运营后台强制下架</div></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-07 诚信与处罚
+  ========================================================== -->
+  <section class="view" id="v-risk">
+    <div class="page-hd">
+      <div><h2>诚信管理与风控处罚</h2><p>诚信分及变更记录、处罚记录及原因 · 特殊情况可人工调整（操作留痕）</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>11.3 / 第 13 章</b></span>
+      <button class="btn btn--sm" data-open="md-score">人工调整诚信分</button>
+    </div>
+
+    <div class="grid g-4">
+      <div class="stat"><div class="stat-l">平均诚信分</div><div class="stat-v">88.4</div><div class="stat-d dim">47 家企业</div></div>
+      <div class="stat" style="border-color:var(--warn-line)"><div class="stat-l">诚信分 &lt; 60</div><div class="stat-v" style="color:var(--warn)">3</div><div class="stat-d dim">权重降至 20%，持续 30 天</div></div>
+      <div class="stat" style="border-color:var(--danger-line)"><div class="stat-l" style="color:var(--danger)">诚信分 &lt; 30</div><div class="stat-v" style="color:var(--danger)">1</div><div class="stat-d" style="color:var(--danger)">永久取消收费服务权限</div></div>
+      <div class="stat"><div class="stat-l">本月处罚</div><div class="stat-v">9</div><div class="stat-d dim">1 级 6 · 2 级 2 · 3 级 1</div></div>
+    </div>
+
+    <div class="grid g-32" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>企业诚信档案</h3>
+          <div class="filter-tabs"><button class="on">全部</button><button>正常</button><button>警告</button><button>限流</button><button>封禁</button></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>企业</th><th class="r">诚信分</th><th>趋势</th><th>本月异常</th><th>处罚等级</th><th>影响</th><th class="r">操作</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>宏泰人力资源</b></td><td class="r num" style="color:var(--ok)">96</td>
+                <td><div class="spark"><i style="height:60%"></i><i style="height:66%"></i><i style="height:62%"></i><i style="height:70%"></i><i style="height:74%"></i><i class="hi" style="height:78%"></i></div></td>
+                <td class="t-sm">0 次</td><td><span class="tag tag--ok">无</span></td><td class="t-sm">正常匹配权重</td>
+                <td class="r"><button class="btn btn--xs" data-open="dw-score">变更记录</button></td>
+              </tr>
+              <tr>
+                <td><b>鑫诚劳务派遣</b></td><td class="r num" style="color:var(--ok)">92</td>
+                <td><div class="spark"><i style="height:74%"></i><i style="height:70%"></i><i style="height:72%"></i><i style="height:68%"></i><i style="height:70%"></i><i class="hi" style="height:72%"></i></div></td>
+                <td class="t-sm">1 次（长期挂岗）</td><td><span class="tag tag--ok">无</span></td><td class="t-sm">正常匹配权重</td>
+                <td class="r"><button class="btn btn--xs" data-open="dw-score">变更记录</button></td>
+              </tr>
+              <tr style="background:var(--warn-bg)">
+                <td><b>汇智劳务服务</b></td><td class="r num" style="color:var(--warn)">74</td>
+                <td><div class="spark"><i style="height:86%"></i><i style="height:80%"></i><i style="height:72%"></i><i style="height:64%"></i><i style="height:58%"></i><i class="hi" style="height:54%"></i></div></td>
+                <td class="t-sm">3 次（挂岗 2 · 虚报 1）</td><td><span class="tag tag--warn">1 级 · 警告</span></td><td class="t-sm">系统警告 + 人工通知</td>
+                <td class="r"><button class="btn btn--xs" data-open="dw-score">变更记录</button></td>
+              </tr>
+              <tr style="background:var(--warn-bg)">
+                <td><b>诚信人力</b></td><td class="r num" style="color:var(--warn)">58</td>
+                <td><div class="spark"><i style="height:80%"></i><i style="height:70%"></i><i style="height:58%"></i><i style="height:50%"></i><i style="height:44%"></i><i class="hi" style="height:40%"></i></div></td>
+                <td class="t-sm">连续 2 月 1 级问题</td><td><span class="tag tag--danger">2 级 · 限流</span></td><td class="t-sm">匹配权重 −50%，持续 30 天</td>
+                <td class="r"><button class="btn btn--xs" data-open="dw-score">变更记录</button></td>
+              </tr>
+              <tr style="background:var(--danger-bg)">
+                <td><b>恒发劳务派遣</b></td><td class="r num" style="color:var(--danger)">28</td>
+                <td><div class="spark"><i style="height:70%"></i><i style="height:54%"></i><i style="height:40%"></i><i style="height:30%"></i><i style="height:22%"></i><i class="hi" style="height:18%"></i></div></td>
+                <td class="t-sm">确认导流 1 次 + 虚报 3 次</td><td><span class="tag tag--ink">3 级 · 封禁</span></td><td class="t-sm">永久取消所有收费服务权限</td>
+                <td class="r"><button class="btn btn--xs" data-open="dw-score">变更记录</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>诚信分规则</h3></div>
+          <table class="tbl">
+            <thead><tr><th>行为</th><th class="r">扣分</th></tr></thead>
+            <tbody>
+              <tr><td>初始分</td><td class="r num">100</td></tr>
+              <tr><td>单岗长期挂岗无转化</td><td class="r num" style="color:var(--warn)">−5 / 次</td></tr>
+              <tr><td>虚报员工状态</td><td class="r num" style="color:var(--warn)">−10 / 次</td></tr>
+              <tr><td>确认导流行为</td><td class="r num" style="color:var(--danger)">−30 / 次</td></tr>
+              <tr><td>投诉核实属实</td><td class="r num" style="color:var(--danger)">−10 / 次</td></tr>
+            </tbody>
+          </table>
+          <div class="card__ft">
+            <div class="t-sm" style="line-height:1.9"><b class="strong">诚信分 &lt; 60</b> → 匹配权重降至 20%，持续 30 天<br><b class="strong">诚信分 &lt; 30</b> → 永久取消所有收费服务权限</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>三级处罚体系</h3></div>
+          <table class="tbl">
+            <thead><tr><th>等级</th><th>触发条件</th><th>处罚措施</th></tr></thead>
+            <tbody>
+              <tr><td><span class="tag tag--warn">1 级</span></td><td class="t-sm">单月出现 3 次以上异常</td><td class="t-sm">系统警告 + 人工通知</td></tr>
+              <tr><td><span class="tag tag--danger">2 级</span></td><td class="t-sm">连续 2 个月出现 1 级问题</td><td class="t-sm">匹配权重 −50%，持续 30 天</td></tr>
+              <tr><td><span class="tag tag--ink">3 级</span></td><td class="t-sm">连续 3 个月或情节严重</td><td class="t-sm">永久取消所有收费服务权限</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card"><div class="card__bd">
+          <div class="eyebrow">防导流</div>
+          <p class="t-sm" style="margin-top:8px; line-height:1.9">「确认导流行为」指企业绕开平台私下承接用户（如引导用户加微信线下入职以规避计费）。一经确认扣 30 分，是最重的单项扣分，直接把企业推向限流边缘。</p>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-08 归属治理
+  ========================================================== -->
+  <section class="view" id="v-domain">
+    <div class="page-hd">
+      <div><h2>公域 / 私域归属治理</h2><p>用户归属状态池 · 24 小时响应机制全局监控 · 释放与流转链路追溯</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>第 3 / 4 节</b></span>
+    </div>
+
+    <div class="grid g-4">
+      <div class="stat ticked" style="border-color:var(--private-line); background:var(--private-bg)"><div class="stat-l" style="color:var(--private)">私域用户</div><div class="stat-v" style="color:var(--private)">13,208</div><div class="stat-d" style="color:var(--private)">有归属公司</div></div>
+      <div class="stat ticked" style="border-color:var(--public-line); background:var(--public-bg)"><div class="stat-l" style="color:var(--public)">公域用户</div><div class="stat-v" style="color:var(--public)">6,214</div><div class="stat-d" style="color:var(--public)">可匹配全平台</div></div>
+      <div class="stat ticked" style="border-color:var(--temp-line); background:var(--temp-bg)"><div class="stat-l" style="color:var(--temp)">临时私域</div><div class="stat-v" style="color:var(--temp)">812</div><div class="stat-d" style="color:var(--temp)">报名后锁定期</div></div>
+      <div class="stat ticked"><div class="stat-l">24h 窗口内</div><div class="stat-v">2,146</div><div class="stat-d" style="color:var(--danger)">164 人今日已超时释放</div></div>
+    </div>
+
+    <div class="grid g-32" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>今日归属变更流水</h3><button class="btn btn--xs" data-demo="导出（原型演示）">导出</button></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>时间</th><th>用户 ID</th><th>变更类型</th><th>变更前</th><th>变更后</th><th>来源归属</th><th>触发方</th></tr></thead>
+            <tbody>
+              <tr><td class="mono t-sm">09:58:12</td><td class="mono t-sm">U2026****1887</td><td><span class="tag tag--private">注册绑定</span></td><td class="dim">—</td><td>鑫诚劳务 · 私域</td><td>鑫诚劳务</td><td class="t-sm">二维码渠道</td></tr>
+              <tr><td class="mono t-sm">10:14:33</td><td class="mono t-sm">U2026****0512</td><td><span class="tag tag--temp">报名锁定</span></td><td>公域</td><td>宏泰人力 · 临时私域</td><td>平台</td><td class="t-sm">用户报名</td></tr>
+              <tr><td class="mono t-sm">10:42:07</td><td class="mono t-sm">U2026****2201</td><td><span class="tag tag--public">主动释放</span></td><td>汇智劳务 · 私域</td><td>公域</td><td>汇智劳务</td><td class="t-sm">经纪人操作</td></tr>
+              <tr style="background:var(--danger-bg)"><td class="mono t-sm">11:05:44</td><td class="mono t-sm">U2026****0448</td><td><span class="tag tag--danger">24h 超时释放</span></td><td>鑫诚劳务 · 私域</td><td>公域</td><td>鑫诚劳务</td><td class="t-sm">系统被动</td></tr>
+              <tr><td class="mono t-sm">11:22:18</td><td class="mono t-sm">U2026****1662</td><td><span class="tag tag--public">面试未通过</span></td><td>诚信人力 · 临时私域</td><td>公域</td><td>平台</td><td class="t-sm">系统</td></tr>
+              <tr><td class="mono t-sm">13:40:02</td><td class="mono t-sm">U2026****0873</td><td><span class="tag tag--private">入职确权</span></td><td>公域</td><td>鑫诚劳务 · 私域</td><td>宏泰人力</td><td class="t-sm">驻场确权</td></tr>
+              <tr><td class="mono t-sm">14:18:51</td><td class="mono t-sm">U2026****1204</td><td><span class="tag tag--public">离职</span></td><td>宏泰人力 · 私域</td><td>公域</td><td>宏泰人力</td><td class="t-sm">项目经理</td></tr>
+              <tr style="background:var(--danger-bg)"><td class="mono t-sm">15:02:29</td><td class="mono t-sm">U2026****2091</td><td><span class="tag tag--danger">确权超时</span></td><td>安泰人力 · 临时私域</td><td>公域</td><td>平台</td><td class="t-sm">系统被动</td></tr>
+              <tr><td class="mono t-sm">16:11:36</td><td class="mono t-sm">U2025****0771</td><td><span class="tag tag--ink">公司注销解绑</span></td><td>恒发劳务 · 私域</td><td>公域</td><td>恒发劳务（存证）</td><td class="t-sm">平台批量</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>今日释放来源</h3></div>
+          <div class="card__bd">
+            <div class="hbar"><span class="hn">24h 超时被动释放</span><div class="bar"><i class="danger" style="width:100%"></i></div><span class="hv">164</span></div>
+            <div class="hbar"><span class="hn">离职</span><div class="bar"><i style="width:41%"></i></div><span class="hv">67</span></div>
+            <div class="hbar"><span class="hn">面试未通过</span><div class="bar"><i class="warn" style="width:26%"></i></div><span class="hv">42</span></div>
+            <div class="hbar"><span class="hn">主动释放（经纪人）</span><div class="bar"><i style="width:6%"></i></div><span class="hv">9</span></div>
+            <div class="hbar"><span class="hn">确权超时</span><div class="bar"><i class="danger" style="width:3%"></i></div><span class="hv">5</span></div>
+            <div class="divider"></div>
+            <div class="note note--warn"><b>24h 超时释放占比 57%</b> —— 说明部分企业跟进效率不足。这些用户回到公域后可被全平台匹配，将产生人才流转费。</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>公私域判定规则</h3></div>
+          <div class="card__bd">
+            <div class="codeblk"><span class="c">// 公私域是动态标签，非独立字段</span><br><span class="k">domain_tag</span> = <span class="n">bound_company_id</span> ? <span class="s">"私域"</span> : <span class="s">"公域"</span><br><br><span class="c">// 匹配范围</span><br><span class="k">match_scope</span> = <span class="s">"私域"</span> ? <span class="n">该公司岗位</span> : <span class="n">全平台岗位</span><br><br><span class="c">// 流转费归属（永久锁定）</span><br><span class="k">transfer_fee_owner</span> = <span class="n">source_company_id</span></div>
+            <div class="note note--info" style="margin-top:12px">私域和公域不是由「是否入职」决定的，而是由「是否仍有归属公司」决定的。入职不改变公私域；离职 / 释放才改变。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="card__hd">
+        <h3>流转网络矩阵（当日在职流转人员）</h3>
+        <div class="row" style="gap:8px">
+          <span class="t-xs dim">行 = 供给方（来源归属）　列 = 接收方（现用工公司）</span>
+          <span class="tag tag--signal">合计 1,204 人 · 12,040 元/天</span>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th style="min-width:150px">供给方 ＼ 接收方</th>
+            <th class="r">宏泰人力</th><th class="r">鑫诚劳务</th><th class="r">汇智劳务</th><th class="r">诚信人力</th><th class="r">其他 42 家</th>
+            <th class="r">流出合计</th><th class="r">日应收 (×8)</th>
+          </tr></thead>
+          <tbody>
+            <tr><td><b>宏泰人力</b></td><td class="r dim">—</td><td class="r num">14</td><td class="r num">22</td><td class="r num">18</td><td class="r num">146</td><td class="r num">200</td><td class="r num" style="color:var(--ok)">1,600</td></tr>
+            <tr style="background:var(--signal-50)"><td><b>鑫诚劳务</b></td><td class="r num">18</td><td class="r dim">—</td><td class="r num">13</td><td class="r num">10</td><td class="r num">0</td><td class="r num">41</td><td class="r num" style="color:var(--ok)">328</td></tr>
+            <tr><td><b>汇智劳务</b></td><td class="r num">22</td><td class="r num">11</td><td class="r dim">—</td><td class="r num">9</td><td class="r num">118</td><td class="r num">160</td><td class="r num" style="color:var(--ok)">1,280</td></tr>
+            <tr><td><b>诚信人力</b></td><td class="r num">16</td><td class="r num">0</td><td class="r num">7</td><td class="r dim">—</td><td class="r num">94</td><td class="r num">117</td><td class="r num" style="color:var(--ok)">936</td></tr>
+            <tr style="background:var(--public-bg)"><td><b>平台公域</b><div class="t-xs">来源归属 = 平台，10 元全归平台</div></td><td class="r num">38</td><td class="r num">6</td><td class="r num">29</td><td class="r num">24</td><td class="r num">211</td><td class="r num">308</td><td class="r num" style="color:var(--signal)">3,080</td></tr>
+            <tr><td><b>其他 42 家</b></td><td class="r num">61</td><td class="r num">0</td><td class="r num">42</td><td class="r num">33</td><td class="r num">242</td><td class="r num">378</td><td class="r num" style="color:var(--ok)">3,024</td></tr>
+            <tr style="background:var(--surface-3)">
+              <td><b>流入合计</b></td><td class="r num">155</td><td class="r num">31</td><td class="r num">113</td><td class="r num">94</td><td class="r num">811</td>
+              <td class="r num" style="font-size:15px">1,204</td><td class="r num" style="font-size:15px; color:var(--signal)">—</td>
+            </tr>
+            <tr style="background:var(--surface-3)">
+              <td><b>日应付 (×10)</b></td><td class="r num">1,550</td><td class="r num">310</td><td class="r num">1,130</td><td class="r num">940</td><td class="r num">8,110</td>
+              <td class="r num" style="font-size:15px">12,040</td><td class="r"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card__ft">
+        <div class="note note--warn">
+          <b>口径待确认（提请产品确认）：</b>文档 14.1 定义「当日平台抽佣总额 = 当日流转费总额 × 20%」= <b>2,408 元</b>；但文档 2.4 资金流向表中「公域用户入职 B 公司」平台单日收入为 <b>10.10 元</b>，即来源归属为平台时 10 元全归平台。若按后者，当日抽佣应为 896 人 × 2 元 + 308 人 × 10 元 = <b>4,872 元</b>。两种口径相差 2,464 元/天，建议在开发前明确。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-09 计费规则
+  ========================================================== -->
+  <section class="view" id="v-billing">
+    <div class="page-hd">
+      <div><h2>计费规则配置</h2><p>增长技术服务费阶梯定价 + 人才流转费与分成比例</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>第 2 章</b></span>
+      <button class="btn btn--sm" data-demo="已保存草稿">保存草稿</button>
+      <button class="btn btn--primary btn--sm" data-demo="计费规则已发布，次日 00:00 生效">发布规则</button>
+    </div>
+
+    <div class="grid g-2">
+      <div class="card">
+        <div class="card__hd"><h3>增长技术服务费</h3><span class="tag tag--ink">平台 100%</span></div>
+        <div class="card__bd">
+          <div class="codeblk" style="margin-bottom:16px"><span class="c"># 计费公式</span><br><span class="k">当日费用</span> = <span class="n">当日增量人员中在职状态人数</span> × <span class="k">对应单价</span><br><span class="k">增量</span> = <span class="n">企业当前总人数</span> − <span class="s">存量基数</span><br><span class="k">年增长率</span> = <span class="n">增量</span> / <span class="s">存量基数</span></div>
+          <div class="row" style="justify-content:space-between; margin-bottom:4px"><span class="eyebrow">阶梯定价</span><span class="tag tag--warn">V1.5 上线 · V1.0 统一 0.10</span></div>
+          <table class="tbl" style="margin-top:8px; border:1px solid var(--line)">
+            <thead><tr><th>年增长率</th><th>单价（元/人/天）</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">&lt; 30%</td><td><input class="inp mono" style="width:80px; height:28px" value="0.10"></td><td class="t-sm">基础费率</td></tr>
+              <tr><td class="mono">≥ 30% 且 &lt; 50%</td><td><input class="inp mono" style="width:80px; height:28px" value="0.09"></td><td class="t-sm">增长快，降 10%</td></tr>
+              <tr><td class="mono">≥ 50%</td><td><input class="inp mono" style="width:80px; height:28px" value="0.08"></td><td class="t-sm">增长极快，降 20%</td></tr>
+            </tbody>
+          </table>
+          <div class="grid-2" style="margin-top:16px">
+            <div class="field"><label>免费期时长（月）</label><input class="inp mono" value="3"></div>
+            <div class="field"><label>存量基数锁定方式</label><select class="sel"><option>免费期满自动锁定</option><option>人工锁定</option></select></div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>计费上限</label><select class="sel"><option>无上限（按实际在职天数持续计费）</option></select></div>
+          <div class="note" style="margin-top:14px"><b>为什么增长越快反而越便宜？</b> 企业增量不全是平台带来的（BOSS、抖音、内推亦是来源）。若增长快反而涨价，企业会觉得「自己的增长凭什么给你涨价」。降价是激励手段 —— 让企业感受到「把其他渠道招的人也放进来反而更便宜」，最终把平台变成企业人员管理的唯一中枢。</div>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>人才流转费</h3><span class="tag tag--signal">供给方 80% / 平台 20%</span></div>
+          <div class="card__bd">
+            <div class="grid-3">
+              <div class="field"><label>单价（元/人/天）</label><input class="inp mono" value="10.00"></div>
+              <div class="field"><label>供给方分成</label><input class="inp mono" value="80%"></div>
+              <div class="field"><label>平台抽佣</label><input class="inp mono" value="20%"></div>
+            </div>
+            <table class="tbl" style="border:1px solid var(--line)">
+              <thead><tr><th>规则项</th><th>配置</th></tr></thead>
+              <tbody>
+                <tr><td>计费触发</td><td class="t-sm">流转人员状态变更为「已入职在岗」</td></tr>
+                <tr><td>计费停止</td><td class="t-sm">状态变更为「已离职」</td></tr>
+                <tr><td>付费方</td><td class="t-sm">接收方劳务公司</td></tr>
+                <tr><td>收款方</td><td class="t-sm">供给方（<span class="mono">source_company_id</span>）80% + 平台 20%</td></tr>
+                <tr><td>收费上限</td><td class="t-sm">无上限</td></tr>
+                <tr><td>供给方注销</td><td class="t-sm"><b class="strong">平台继承供给方权益，10 元/人/天全部归平台</b></td></tr>
+              </tbody>
+            </table>
+            <div class="note note--info" style="margin-top:12px"><b>定价逻辑：</b>行业招一人综合成本 300–800 元。10 元/天 × 平均在职 90 天 = 900 元/人，接收方买到「已验证员工」比自招划算；供给方得 720 元/人，有动力持续输入人才。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>资金流向模拟</h3></div>
+          <table class="tbl">
+            <thead><tr><th>场景</th><th class="r">技术服务费</th><th class="r">流转费</th><th class="r">平台单日收入</th></tr></thead>
+            <tbody>
+              <tr><td class="t-sm">私域用户首次入职 A 公司</td><td class="r mono">0.10</td><td class="r mono dim">—</td><td class="r num">0.10</td></tr>
+              <tr><td class="t-sm">私域用户从 A 流转到 B 公司</td><td class="r mono">0.10</td><td class="r mono">2.00</td><td class="r num">2.10</td></tr>
+              <tr><td class="t-sm">公域用户入职 B 公司</td><td class="r mono">0.10</td><td class="r mono">10.00</td><td class="r num" style="color:var(--signal)">10.10</td></tr>
+            </tbody>
+          </table>
+          <div class="card__ft t-xs">公域用户入职场景中，流转费 10 元全部归平台（来源归属为平台）；若来源归属为其他劳务公司，则平台仅得 2 元抽佣。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-10 对账管理
+  ========================================================== -->
+  <section class="view" id="v-recon">
+    <div class="page-hd">
+      <div><h2>对账管理</h2><p>每月最后一天自动生成各企业月度账单，次月 15 日前完成结算，异议 5 个工作日内复核</p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>11.4 / 14.3</b></span>
+      <select class="sel" style="width:140px; height:31px; font-size:12.5px"><option>2026 年 6 月</option><option>2026 年 5 月</option></select>
+      <button class="btn btn--primary btn--sm" data-demo="账单已批量生成并推送至各企业">生成月度账单</button>
+    </div>
+
+    <div class="grid g-5">
+      <div class="stat"><div class="stat-l">账单企业数</div><div class="stat-v">47</div><div class="stat-d dim">2026 年 6 月</div></div>
+      <div class="stat"><div class="stat-l">技术服务费合计</div><div class="stat-v">16,800<small>元</small></div><div class="stat-d dim">平台 100%</div></div>
+      <div class="stat"><div class="stat-l">流转费合计</div><div class="stat-v">361,200<small>元</small></div><div class="stat-d dim">供给方 80% 已分配</div></div>
+      <div class="stat" style="border-color:var(--ink-900); background:var(--ink-900)"><div class="stat-l" style="color:rgba(255,255,255,.6)">平台月度总收入</div><div class="stat-v" style="color:#fff">89,040<small style="color:rgba(255,255,255,.5)">元</small></div><div class="stat-d" style="color:var(--signal-300)">服务费 + 抽佣 72,240</div></div>
+      <div class="stat" style="border-color:var(--warn-line)"><div class="stat-l">待处理异议</div><div class="stat-v" style="color:var(--warn)">2</div><div class="stat-d dim">剩余 3 个工作日</div></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="toolbar">
+        <div class="filter-tabs"><button class="on">全部<span class="n">47</span></button><button>已结算<span class="n">41</span></button><button>待结算<span class="n">4</span></button><button>有异议<span class="n">2</span></button></div>
+        <div class="spacer"></div>
+        <button class="btn btn--sm" data-demo="账单已导出（原型演示）">导出全部账单</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>企业</th><th class="r">存量基数</th><th class="r">月均在岗</th><th class="r">月均增量</th><th class="r">单价</th>
+            <th class="r">技术服务费</th><th class="r">流转费应付</th><th class="r">流转费应收</th><th class="r">净结算</th><th>状态</th><th class="r">操作</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><b>宏泰人力资源</b></td><td class="r num">420</td><td class="r num">1,806</td><td class="r num">1,386</td><td class="r mono">0.10</td>
+              <td class="r num">4,158.00</td><td class="r num">42,600</td><td class="r num" style="color:var(--ok)">58,320</td><td class="r num" style="color:var(--ok)">−11,562.00</td>
+              <td><span class="tag tag--ok">已结算</span></td><td class="r"><button class="btn btn--xs" data-open="dw-bill">明细</button></td>
+            </tr>
+            <tr>
+              <td><b>鑫诚劳务派遣</b></td><td class="r num">180</td><td class="r num">812</td><td class="r num">632</td><td class="r mono">0.10</td>
+              <td class="r num">1,896.00</td><td class="r num">8,860</td><td class="r num" style="color:var(--ok)">9,840</td><td class="r num">916.00</td>
+              <td><span class="tag tag--ok">已结算</span></td><td class="r"><button class="btn btn--xs" data-open="dw-bill">明细</button></td>
+            </tr>
+            <tr style="background:var(--warn-bg)">
+              <td><b>汇智劳务服务</b></td><td class="r num">310</td><td class="r num">748</td><td class="r num">438</td><td class="r mono">0.10</td>
+              <td class="r num">1,314.00</td><td class="r num">14,100</td><td class="r num" style="color:var(--ok)">7,680</td><td class="r num">7,734.00</td>
+              <td><span class="tag tag--warn">异议复核中</span></td><td class="r"><button class="btn btn--xs btn--signal" data-open="dw-bill">处理异议</button></td>
+            </tr>
+            <tr>
+              <td><b>诚信人力</b></td><td class="r num">265</td><td class="r num">602</td><td class="r num">337</td><td class="r mono">0.10</td>
+              <td class="r num">1,011.00</td><td class="r num">9,300</td><td class="r num" style="color:var(--ok)">4,560</td><td class="r num">5,751.00</td>
+              <td><span class="tag tag--warn">待结算</span></td><td class="r"><button class="btn btn--xs" data-open="dw-bill">明细</button></td>
+            </tr>
+            <tr style="opacity:.8">
+              <td><b>恒发劳务派遣</b> <span class="tag tag--ink">已注销</span></td><td class="r num">260</td><td class="r num">0</td><td class="r mono dim">—</td><td class="r mono dim">—</td>
+              <td class="r num">0.00</td><td class="r num">0</td><td class="r num dim">平台继承</td><td class="r num">0.00</td>
+              <td><span class="tag">已终止</span></td><td class="r"><button class="btn btn--xs" data-open="dw-bill">明细</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid g-3" style="margin-top:14px">
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">对账规则</div>
+        <dl class="kv" style="margin-top:8px"><dt>结算周期</dt><dd>按月对账</dd></dl>
+        <dl class="kv"><dt>账单生成</dt><dd>每月最后一天自动</dd></dl>
+        <dl class="kv"><dt>结算截止</dt><dd>次月 15 日前</dd></dl>
+        <dl class="kv"><dt>异议期</dt><dd>5 个工作日内</dd></dl>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">平台维度统计口径</div>
+        <ul class="t-sm" style="margin-top:8px; line-height:2">
+          <li>· 入驻企业数：已入驻劳务公司总数</li>
+          <li>· 在职总人数：全平台「已入职在岗」总数</li>
+          <li>· 当日增量总人数：增量人员中在岗总数</li>
+          <li>· 当日技术服务费：增量总人数 × 对应单价</li>
+          <li>· 当日流转发生量：当日跨公司流转在职人数</li>
+          <li>· 当日流转费总额：流转在职人数 × 10 元</li>
+          <li>· 当日抽佣总额：流转费总额 × 20%</li>
+        </ul>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">企业维度统计口径</div>
+        <ul class="t-sm" style="margin-top:8px; line-height:2">
+          <li>· 存量基数：免费期内导入人员总数（永久免费）</li>
+          <li>· 当前总人数：企业当前「已入职在岗」总数</li>
+          <li>· 当日增量人数：当前总人数 − 存量基数</li>
+          <li>· 当日技术服务费：当日增量人数 × 对应单价</li>
+          <li>· 本月累计费用：当月每日技术服务费之和</li>
+        </ul>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-11 审计日志
+  ========================================================== -->
+  <section class="view" id="v-audit">
+    <div class="page-hd">
+      <div><h2>系统审计日志</h2><p>关键操作全程留痕：归属变更、诚信分人工调整、强制下架、账单调整</p></div>
+      <div class="spacer"></div>
+      <button class="btn btn--sm" data-demo="日志已导出（原型演示）">导出日志</button>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="filter-tabs"><button class="on">全部</button><button>归属变更</button><button>诚信分调整</button><button>岗位下架</button><button>账单调整</button><button>权限变更</button></div>
+        <div class="spacer"></div>
+        <input class="inp" style="width:150px; height:31px; font-size:12.5px" value="2026-07-24" readonly>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>时间</th><th>操作类型</th><th>操作人</th><th>对象</th><th>变更内容</th><th>原因</th><th>IP</th></tr></thead>
+          <tbody>
+            <tr><td class="mono t-sm">16:11:36</td><td><span class="tag tag--ink">公司注销解绑</span></td><td>运营管理员</td><td>恒发劳务派遣 C10017</td><td class="t-sm">260 名用户批量解绑 → 公域</td><td class="t-sm">企业注销，诚信分 28 &lt; 30</td><td class="mono t-xs">10.24.***.18</td></tr>
+            <tr><td class="mono t-sm">15:42:08</td><td><span class="tag tag--danger">诚信分人工调整</span></td><td>运营管理员</td><td>汇智劳务 C10041</td><td class="t-sm">84 → 74（−10）</td><td class="t-sm">投诉「岗位已满仍在招」核实属实</td><td class="mono t-xs">10.24.***.18</td></tr>
+            <tr><td class="mono t-sm">15:20:51</td><td><span class="tag tag--danger">强制下架岗位</span></td><td>运营管理员</td><td>普工（高薪急招）· 安泰人力</td><td class="t-sm">状态 → 已下架，权重 0%</td><td class="t-sm">累计 5 次投诉核实属实</td><td class="mono t-xs">10.24.***.18</td></tr>
+            <tr><td class="mono t-sm">14:06:12</td><td><span class="tag tag--info">账单异议受理</span></td><td>运营管理员</td><td>汇智劳务 · 2026-06 账单</td><td class="t-sm">状态 → 异议复核中</td><td class="t-sm">企业对流转费人数有异议</td><td class="mono t-xs">10.24.***.18</td></tr>
+            <tr><td class="mono t-sm">11:05:44</td><td><span class="tag tag--warn">24h 超时释放</span></td><td>系统</td><td>U2026****0448</td><td class="t-sm">bound_company_id 清空 → 公域</td><td class="t-sm">私域待匹配 24h 无跟进</td><td class="mono t-xs">system</td></tr>
+            <tr><td class="mono t-sm">10:30:00</td><td><span class="tag">存量基数锁定</span></td><td>系统</td><td>安泰人力 C10061</td><td class="t-sm">存量基数锁定为 412</td><td class="t-sm">三个月免费期结束</td><td class="mono t-xs">system</td></tr>
+            <tr><td class="mono t-sm">09:12:24</td><td><span class="tag tag--ok">企业入驻审核</span></td><td>运营管理员</td><td>金诺人力 C10063</td><td class="t-sm">状态 → 正常，免费期开始</td><td class="t-sm">营业执照与派遣许可证核验通过</td><td class="mono t-xs">10.24.***.18</td></tr>
+            <tr><td class="mono t-sm">08:00:00</td><td><span class="tag">日终计费</span></td><td>系统</td><td>全平台 47 家企业</td><td class="t-sm">技术服务费 584.20 + 抽佣 2,408.00</td><td class="t-sm">每日 08:00 自动结算前日费用</td><td class="mono t-xs">system</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager"><span>共 1,284 条</span><button>‹</button><button class="on">1</button><button>2</button><button>3</button><button>…</button><button>129</button><button>›</button></div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-12 AI 问薪题库配置
+  ========================================================== -->
+  <section class="view" id="v-quiz">
+    <div class="page-hd">
+      <div><h2>AI 问薪题库配置</h2><p>平台唯一核心引擎的入口层 —— 7 道题决定用户画像，画像决定匹配范围与结果　<span class="vtag vtag--ext">规划外补充 · 建议 V1.0 必备</span></p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>节点三 / 6.2</b></span>
+      <select class="sel" style="width:180px; height:31px; font-size:12.5px"><option>v1.2 · 生效中（全量）</option><option>v1.3 · 草稿</option><option>v1.1 · 已归档</option></select>
+      <button class="btn btn--sm" data-demo="已创建 v1.3 草稿">新建版本</button>
+      <button class="btn btn--primary btn--sm" data-open="md-publish">发布生效</button>
+    </div>
+
+    <div class="note note--warn" style="margin-bottom:14px">
+      <b>为什么必须有这个页面：</b>题目、选项、画像标签映射、硬过滤规则、权重全部写死在代码里的话，运营每调一次问法都要走发版。蓝领用户的表达习惯需要高频试错，题库必须可配置、可灰度、可回滚。
+    </div>
+
+    <div class="grid g-5" data-rise>
+      <div class="stat ticked"><div class="stat-l">题目总数</div><div class="stat-v">7</div><div class="stat-d dim">2 判断题 + 5 选择题</div></div>
+      <div class="stat ticked"><div class="stat-l">近 7 日完成率</div><div class="stat-v">86.4<small>%</small></div><div class="stat-d up">↑ 较 v1.1 +5.2pt</div></div>
+      <div class="stat ticked"><div class="stat-l">平均耗时</div><div class="stat-v">48<small>秒</small></div><div class="stat-d dim">目标 ≤60 秒</div></div>
+      <div class="stat ticked" style="border-color:var(--warn-line)"><div class="stat-l">最高放弃题位</div><div class="stat-v" style="color:var(--warn)">Q6</div><div class="stat-d" style="color:var(--warn)">住宿要求 · 放弃 6.1%</div></div>
+      <div class="stat ticked"><div class="stat-l">≥80% 出岗率</div><div class="stat-v">73.8<small>%</small></div><div class="stat-d dim">其余转人才经纪人</div></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="toolbar">
+        <div class="filter-tabs"><button class="on">全部<span class="n">7</span></button><button>判断题<span class="n">2</span></button><button>选择题<span class="n">5</span></button></div>
+        <div class="spacer"></div>
+        <span class="t-xs dim">拖拽调整题序 · 硬过滤题必须前置</span>
+        <button class="btn btn--sm" data-open="dw-quiz">+ 新增题目</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th style="width:44px">题序</th><th>题干</th><th>题型</th><th>选项数</th><th>画像字段</th><th>匹配作用</th><th class="r">权重</th><th class="r">放弃率</th><th class="r">操作</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">Q1</td>
+              <td><b>你能接受进工厂上班吗？</b><div class="t-xs">车间流水线 / 仓储 / 装配等岗位</div></td>
+              <td><span class="tag tag--ink">判断题</span></td><td class="c num">3</td>
+              <td class="mono t-xs">accept_factory</td>
+              <td><span class="tag tag--danger">硬过滤</span></td><td class="r mono dim">—</td><td class="r num">0.4%</td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-quiz">编辑</button></td>
+            </tr>
+            <tr>
+              <td class="mono">Q2</td>
+              <td><b>是否只考虑某个城市 / 区域？</b><div class="t-xs">选择后仅匹配该地域岗位</div></td>
+              <td><span class="tag tag--ink">判断题</span></td><td class="c num">2</td>
+              <td class="mono t-xs">locked_region</td>
+              <td><span class="tag tag--danger">硬过滤</span></td><td class="r mono dim">—</td><td class="r num">1.2%</td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-quiz">编辑</button></td>
+            </tr>
+            <tr>
+              <td class="mono">Q3</td>
+              <td><b>你想做哪一类工种？</b></td>
+              <td><span class="tag">选择题</span></td><td class="c num">6</td>
+              <td class="mono t-xs">expect_job_type</td>
+              <td><span class="tag tag--signal">软权重</span></td><td class="r num">30%</td><td class="r num">2.0%</td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-quiz">编辑</button></td>
+            </tr>
+            <tr style="background:var(--signal-50)">
+              <td class="mono">Q4</td>
+              <td><b>你期望的月综合收入大概是多少？</b><div class="t-xs">含加班费，按每月出勤 26 天估算</div></td>
+              <td><span class="tag">选择题</span></td><td class="c num">4</td>
+              <td class="mono t-xs">expect_salary</td>
+              <td><span class="tag tag--signal">软权重</span></td><td class="r num" style="color:var(--signal)">25%</td><td class="r num">3.4%</td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-quiz">编辑</button></td>
+            </tr>
+            <tr>
+              <td class="mono">Q5</td>
+              <td><b>能接受什么班次？</b></td>
+              <td><span class="tag">选择题</span></td><td class="c num">4</td>
+              <td class="mono t-xs">shift_pref</td>
+              <td><span class="tag tag--signal">软权重</span></td><td class="r num">10%</td><td class="r num">2.7%</td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-quiz">编辑</button></td>
+            </tr>
+            <tr style="background:var(--warn-bg)">
+              <td class="mono">Q6</td>
+              <td><b>对住宿有什么要求？</b><div class="t-xs" style="color:var(--warn)">放弃率最高，建议简化选项文案</div></td>
+              <td><span class="tag">选择题</span></td><td class="c num">4</td>
+              <td class="mono t-xs">dorm_req</td>
+              <td><span class="tag tag--signal">软权重</span></td><td class="r num">10%</td><td class="r num" style="color:var(--warn)">6.1%</td>
+              <td class="r"><button class="btn btn--xs btn--signal" data-open="dw-quiz">优化</button></td>
+            </tr>
+            <tr>
+              <td class="mono">Q7</td>
+              <td><b>相关工作做过多久？</b></td>
+              <td><span class="tag">选择题</span></td><td class="c num">4</td>
+              <td class="mono t-xs">work_years</td>
+              <td><span class="tag tag--signal">软权重</span></td><td class="r num">5%</td><td class="r num">1.6%</td>
+              <td class="r"><button class="btn btn--xs" data-open="dw-quiz">编辑</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card__ft row" style="gap:10px">
+        <span class="t-sm">软权重合计</span>
+        <div class="bar" style="flex:1; max-width:280px"><i class="sig" style="width:80%"></i></div>
+        <span class="num">80%</span>
+        <span class="t-sm dim">+ 地域距离 20%（由 Q2 与岗位坐标计算，不占题目）= 100%</span>
+        <div class="flex1"></div>
+        <button class="btn btn--sm" data-view="engine">调整权重分配</button>
+      </div>
+    </div>
+
+    <div class="grid g-32" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>答题漏斗（近 7 日 · 12,480 次进入）</h3><span class="tag tag--warn">Q6 为最大流失点</span></div>
+        <div class="card__bd">
+          <div class="funnel">
+            <div class="fs" style="background:#34404F; width:100%"><span class="fn">Q1 是否接受进厂</span><span class="fv">12,480</span></div>
+            <div class="fr">↓ 99.6%</div>
+            <div class="fs" style="background:#3D4A5A; width:98%"><span class="fn">Q2 地域锁定</span><span class="fv">12,430</span></div>
+            <div class="fr">↓ 98.8%</div>
+            <div class="fs" style="background:#4A5867; width:96%"><span class="fn">Q3 期望工种</span><span class="fv">12,281</span></div>
+            <div class="fr">↓ 98.0%</div>
+            <div class="fs" style="background:#8A4A18; width:93%"><span class="fn">Q4 期望薪资</span><span class="fv">12,035</span></div>
+            <div class="fr">↓ 96.6%</div>
+            <div class="fs" style="background:#A8531A; width:90%"><span class="fn">Q5 班次偏好</span><span class="fv">11,710</span></div>
+            <div class="fr" style="color:var(--danger)">↓ 93.9%　⚠ 最大流失</div>
+            <div class="fs" style="background:#B8460A; width:85%"><span class="fn">Q6 住宿要求</span><span class="fv">10,996</span></div>
+            <div class="fr">↓ 98.4%</div>
+            <div class="fs" style="background:#E8590C; width:83%"><span class="fn">Q7 从业年限 → 完成</span><span class="fv">10,820</span></div>
+          </div>
+          <div class="note note--warn" style="margin-top:12px">
+            <b>诊断：</b>Q6「对住宿有什么要求？」选项含"4 人间 / 6 人间 / 8 人间 / 不需要住宿"，蓝领用户对间数无概念且不关心，建议改为「需不需要住？」+「介意几个人一间吗？」两级简化，或降级为可跳过题。
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>版本与灰度</h3></div>
+          <div class="card__bd">
+            <ul class="tl">
+              <li class="now"><div class="tl-t">v1.2 · 生效中</div><div class="t-sm">全量 100% · 完成率 86.4%</div><div class="tl-m">2026-07-08 发布</div></li>
+              <li><div class="tl-t">v1.3 · 草稿</div><div class="t-sm">Q6 拆分为两级简化问法</div><div class="tl-m">待灰度</div></li>
+              <li class="done"><div class="tl-t">v1.1 · 已归档</div><div class="t-sm">完成率 81.2%</div><div class="tl-m">2026-05-20 – 07-08</div></li>
+            </ul>
+            <div class="divider"></div>
+            <div class="field"><label>灰度比例</label>
+              <div class="row" style="gap:10px"><div class="bar" style="flex:1"><i class="sig" style="width:20%"></i></div><span class="num" style="width:44px; text-align:right">20%</span></div>
+              <div class="hint">A/B 分流按 user_id 取模，同一用户始终落在同一分组</div>
+            </div>
+            <button class="btn btn--block btn--sm" data-demo="v1.3 已开启 20% 灰度">开启 v1.3 灰度</button>
+            <button class="btn btn--block btn--sm btn--danger" style="margin-top:8px" data-demo="已回滚至 v1.1">一键回滚</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>硬性约束</h3></div>
+          <div class="card__bd">
+            <div class="stack-sm t-sm" style="line-height:1.85">
+              <div class="row" style="gap:8px"><span style="color:var(--danger)">!</span><span class="flex1">题目总数 <b class="strong">≤ 7</b>（文档节点三硬约束，不可突破）</span></div>
+              <div class="row" style="gap:8px"><span style="color:var(--danger)">!</span><span class="flex1">全部为<b class="strong">判断题 / 选择题</b>，禁止文字输入</span></div>
+              <div class="row" style="gap:8px"><span style="color:var(--danger)">!</span><span class="flex1">硬过滤题必须排在软权重题之前</span></div>
+              <div class="row" style="gap:8px"><span style="color:var(--danger)">!</span><span class="flex1">软权重合计必须 = 100%（含地域因子）</span></div>
+              <div class="row" style="gap:8px"><span style="color:var(--danger)">!</span><span class="flex1">发布前必须通过<b class="strong">回归校验</b>：用历史 1,000 份画像重跑，匹配结果偏移 &gt;15% 需二次确认</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-13 匹配引擎参数
+  ========================================================== -->
+  <section class="view" id="v-engine">
+    <div class="page-hd">
+      <div><h2>匹配引擎参数</h2><p>匹配度算法 · 展示阈值 · 岗位排序权重 —— 决定「哪 3 个岗位会被推给用户」　<span class="vtag vtag--ext">规划外补充 · 建议 V1.0 必备</span></p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>节点三 / 12.2</b></span>
+      <button class="btn btn--sm" data-demo="已保存草稿">保存草稿</button>
+      <button class="btn btn--primary btn--sm" data-open="md-publish">发布生效</button>
+    </div>
+
+    <div class="grid g-23">
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>① 匹配度计算公式</h3><span class="tag tag--signal">用户 ↔ 岗位 契合度</span></div>
+          <div class="card__bd">
+            <div class="codeblk" style="margin-bottom:16px"><span class="c"># 硬过滤（不满足直接剔除，不进入打分）</span><br><span class="k">candidates</span> = 岗位池.<span class="n">filter</span>(<br>　　accept_factory ✓ &amp;&amp; locked_region ✓ &amp;&amp;<br>　　岗位状态 == <span class="s">"招聘中"</span> &amp;&amp; 剩余名额 &gt; <span class="n">0</span> &amp;&amp;<br>　　匹配范围 ∈ (私域 ? 本公司 : 全平台)<br>)<br><br><span class="c"># 软打分</span><br><span class="k">匹配度</span> = Σ（因子得分 × 权重）</div>
+            <table class="tbl" style="border:1px solid var(--line)">
+              <thead><tr><th>因子</th><th>来源</th><th>算法</th><th style="width:170px">权重</th></tr></thead>
+              <tbody>
+                <tr><td><b>工种匹配</b></td><td class="mono t-xs">Q3</td><td class="t-sm">同工种 100 / 相邻工种 70 / 跨工种 30</td>
+                  <td><div class="row" style="gap:8px"><div class="bar" style="flex:1"><i class="sig" style="width:30%"></i></div><input class="inp mono" style="width:52px; height:26px; padding:0 6px" value="30%"></div></td></tr>
+                <tr><td><b>薪资匹配</b></td><td class="mono t-xs">Q4</td><td class="t-sm">岗位薪资区间与期望区间重叠度</td>
+                  <td><div class="row" style="gap:8px"><div class="bar" style="flex:1"><i class="sig" style="width:25%"></i></div><input class="inp mono" style="width:52px; height:26px; padding:0 6px" value="25%"></div></td></tr>
+                <tr><td><b>地域距离</b></td><td class="mono t-xs">Q2 + 岗位坐标</td><td class="t-sm">&lt;10km 100 / &lt;30km 80 / &lt;60km 50 / 其他 20</td>
+                  <td><div class="row" style="gap:8px"><div class="bar" style="flex:1"><i class="sig" style="width:20%"></i></div><input class="inp mono" style="width:52px; height:26px; padding:0 6px" value="20%"></div></td></tr>
+                <tr><td><b>班次偏好</b></td><td class="mono t-xs">Q5</td><td class="t-sm">完全匹配 100 / 可接受 60 / 冲突 0</td>
+                  <td><div class="row" style="gap:8px"><div class="bar" style="flex:1"><i class="sig" style="width:10%"></i></div><input class="inp mono" style="width:52px; height:26px; padding:0 6px" value="10%"></div></td></tr>
+                <tr><td><b>住宿条件</b></td><td class="mono t-xs">Q6</td><td class="t-sm">满足 100 / 部分满足 50 / 不满足 0</td>
+                  <td><div class="row" style="gap:8px"><div class="bar" style="flex:1"><i class="sig" style="width:10%"></i></div><input class="inp mono" style="width:52px; height:26px; padding:0 6px" value="10%"></div></td></tr>
+                <tr><td><b>经验匹配</b></td><td class="mono t-xs">Q7 + 用工档案</td><td class="t-sm">达到岗位要求 100 / 略低 60 / 不足 20</td>
+                  <td><div class="row" style="gap:8px"><div class="bar" style="flex:1"><i class="sig" style="width:5%"></i></div><input class="inp mono" style="width:52px; height:26px; padding:0 6px" value="5%"></div></td></tr>
+                <tr style="background:var(--surface-3)"><td colspan="3"><b>合计（必须 = 100%）</b></td><td><span class="num" style="font-size:16px; color:var(--ok)">100%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>② 岗位排序权重（隐形限流生效点）</h3><span class="tag tag--warn">企业不可见</span></div>
+          <div class="card__bd">
+            <div class="codeblk" style="margin-bottom:14px"><span class="c"># 最终排序分</span><br><span class="k">排序分</span> = <span class="n">匹配度</span> × <span class="n">岗位权重</span><br><span class="k">岗位权重</span> = 挂岗衰减 × 诚信系数 × 限流系数 × 名额系数</div>
+            <table class="tbl" style="border:1px solid var(--line)">
+              <thead><tr><th>权重因子</th><th>规则</th><th class="r">当前配置</th></tr></thead>
+              <tbody>
+                <tr><td>挂岗天数衰减</td><td class="t-sm">1–7 天 100% · 8–14 天 80% · 15–30 天 50% · 31–60 天 20% · &gt;60 天 0%</td><td class="r"><span class="tag tag--ok">启用</span></td></tr>
+                <tr><td>低转化降权</td><td class="t-sm">挂岗 &gt;15 天且入职转化率 &lt;10% → ×0.5</td><td class="r"><span class="tag tag--ok">启用</span></td></tr>
+                <tr><td>诚信分系数</td><td class="t-sm">≥60 分 ×1.0 · &lt;60 分 ×0.2（持续 30 天）· &lt;30 分 ×0</td><td class="r"><span class="tag tag--ok">启用</span></td></tr>
+                <tr><td>处罚限流</td><td class="t-sm">2 级处罚 ×0.5（持续 30 天）· 3 级处罚 ×0</td><td class="r"><span class="tag tag--ok">启用</span></td></tr>
+                <tr><td>名额余量系数</td><td class="t-sm">剩余名额 ≤2 时 ×0.6，避免报名后无法面试</td><td class="r"><span class="tag tag--ok">启用</span></td></tr>
+                <tr><td>新岗位扶持</td><td class="t-sm">上线 &lt;3 天 ×1.15，给新岗位冷启动曝光</td><td class="r"><span class="switch on" style="display:inline-block"></span></td></tr>
+              </tbody>
+            </table>
+            <div class="note note--warn" style="margin-top:12px"><b>降权对企业与用户均不可见</b>（文档 12.1）。企业侧只能感知「岗位推荐量变少了」，本页是唯一可查看真实权重的地方。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>③ 输出规则</h3></div>
+          <div class="card__bd">
+            <div class="grid-2">
+              <div class="field"><label>展示阈值</label><input class="inp mono" value="80%"><div class="hint">&lt; 阈值不展示匹配度，转人才经纪人</div></div>
+              <div class="field"><label>输出岗位数</label><input class="inp mono" value="3"><div class="hint">文档硬约束：固定 3 个</div></div>
+            </div>
+            <div class="grid-2">
+              <div class="field"><label>同公司岗位上限</label><input class="inp mono" value="3"><div class="hint">公域用户避免结果被单一公司垄断</div></div>
+              <div class="field"><label>重复匹配冷却</label><input class="inp mono" value="0 秒"><div class="hint">文档：重新匹配次数不限制</div></div>
+            </div>
+            <div class="field" style="margin-bottom:0"><label>已拒绝岗位处理</label>
+              <select class="sel"><option>同一用户 24 小时内不重复推荐已拒绝岗位</option><option>允许重复推荐</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>匹配度分布（近 7 日）</h3></div>
+          <div class="card__bd">
+            <svg viewBox="0 0 320 150" width="100%" height="150">
+              <g font-family="Consolas,monospace" font-size="9" fill="#AEB7C1">
+                <line x1="26" y1="10" x2="316" y2="10" stroke="#E0DDD5" stroke-dasharray="3 3"/>
+                <line x1="26" y1="50" x2="316" y2="50" stroke="#E0DDD5" stroke-dasharray="3 3"/>
+                <line x1="26" y1="90" x2="316" y2="90" stroke="#E0DDD5" stroke-dasharray="3 3"/>
+                <line x1="26" y1="120" x2="316" y2="120" stroke="#CFCBC1"/>
+              </g>
+              <g>
+                <rect x="34" y="104" width="26" height="16" fill="#AEB7C1" rx="2"/>
+                <rect x="70" y="92" width="26" height="28" fill="#AEB7C1" rx="2"/>
+                <rect x="106" y="74" width="26" height="46" fill="#AEB7C1" rx="2"/>
+                <rect x="142" y="56" width="26" height="64" fill="#F0803C" rx="2"/>
+                <rect x="178" y="30" width="26" height="90" fill="#E8590C" rx="2"/>
+                <rect x="214" y="18" width="26" height="102" fill="#E8590C" rx="2"/>
+                <rect x="250" y="46" width="26" height="74" fill="#E8590C" rx="2"/>
+                <rect x="286" y="86" width="26" height="34" fill="#E8590C" rx="2"/>
+              </g>
+              <line x1="170" y1="10" x2="170" y2="126" stroke="#AE2B22" stroke-width="1.4" stroke-dasharray="4 3"/>
+              <text x="172" y="20" font-family="Consolas,monospace" font-size="9" fill="#AE2B22">80% 阈值</text>
+              <g font-family="Consolas,monospace" font-size="8.5" fill="#8B96A3" text-anchor="middle">
+                <text x="47" y="136">50</text><text x="83" y="136">60</text><text x="119" y="136">70</text><text x="155" y="136">75</text>
+                <text x="191" y="136">80</text><text x="227" y="136">85</text><text x="263" y="136">90</text><text x="299" y="136">95+</text>
+              </g>
+            </svg>
+            <div class="divider"></div>
+            <dl class="kv"><dt>≥80% 占比</dt><dd class="num" style="color:var(--ok)">73.8%</dd></dl>
+            <dl class="kv"><dt>&lt;80% 转经纪人</dt><dd class="num" style="color:var(--warn)">26.2%</dd></dl>
+            <dl class="kv"><dt>匹配结果报名转化率</dt><dd class="num">41.6%</dd></dl>
+            <div class="note note--info" style="margin-top:10px">阈值调至 75% 可将出岗率提升至 88%，但报名转化率预计降至 33%（历史回归数据）—— 阈值本质是「信任 vs 覆盖」的权衡。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>沙盒测试</h3></div>
+          <div class="card__bd">
+            <div class="field"><label>选择历史画像</label><select class="sel"><option>U2026****1887 · 电子厂熟手·稳定型</option><option>U2026****0512 · 无经验·价格敏感</option></select></div>
+            <button class="btn btn--primary btn--block btn--sm" data-demo="沙盒运行完成：命中 3 岗，匹配度 92% / 87% / 83%">用当前参数重跑匹配</button>
+            <div class="divider"></div>
+            <div class="eyebrow">上次运行结果</div>
+            <table class="tbl" style="margin-top:8px">
+              <tbody>
+                <tr><td class="t-sm">SMT 贴片操作工</td><td class="r num" style="color:var(--ok)">92%</td></tr>
+                <tr><td class="t-sm">电子组装普工</td><td class="r num" style="color:var(--ok)">87%</td></tr>
+                <tr><td class="t-sm">仓储分拣员</td><td class="r num" style="color:var(--warn)">83%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       P-14 实名认证与合规风控
+  ========================================================== -->
+  <section class="view" id="v-compliance">
+    <div class="page-hd">
+      <div><h2>实名认证与合规风控</h2><p>身份真实性 · 年龄合规 · 一证一号 · 黑名单　<span class="vtag vtag--ext">规划外补充 · 法律刚性风险</span></p></div>
+      <div class="spacer"></div>
+      <span class="ref">文档 <b>节点四</b></span>
+      <button class="btn btn--sm" data-demo="合规报表已导出">导出合规报表</button>
+    </div>
+
+    <div class="note note--danger" style="margin-bottom:14px">
+      <b>为什么这是刚性风险：</b>文档节点四的实名验证仅要求「身份证号输入两次一致」—— 这只能防手误，<b>防不了冒用他人身份</b>。而岗位普遍要求「18–45 周岁」，注册与报名链路却没有任何年龄拦截。劳务派遣一旦涉未成年用工，平台作为撮合方难以免责。建议 V1.0 即上线 OCR + 二要素核验 + 年龄硬拦截。
+    </div>
+
+    <div class="grid g-5" data-rise>
+      <div class="stat ticked"><div class="stat-l">今日实名认证</div><div class="stat-v">1,046</div><div class="stat-d dim">报名前置环节</div></div>
+      <div class="stat ticked"><div class="stat-l">一次通过率</div><div class="stat-v">94.2<small>%</small></div><div class="stat-d up">↑ OCR 上线后 +11pt</div></div>
+      <div class="stat ticked" style="border-color:var(--danger-line); background:var(--danger-bg)"><div class="stat-l" style="color:var(--danger)">未成年拦截</div><div class="stat-v" style="color:var(--danger)">17</div><div class="stat-d" style="color:var(--danger)">今日 · 已阻断注册</div></div>
+      <div class="stat ticked" style="border-color:var(--warn-line)"><div class="stat-l">证件重复占用</div><div class="stat-v" style="color:var(--warn)">23</div><div class="stat-d" style="color:var(--warn)">一证多号，疑似代刷</div></div>
+      <div class="stat ticked"><div class="stat-l">待人工复核</div><div class="stat-v">6</div><div class="stat-d dim">OCR 置信度不足</div></div>
+    </div>
+
+    <div class="grid g-32" style="margin-top:14px">
+      <div class="card">
+        <div class="card__hd"><h3>拦截与复核队列</h3>
+          <div class="filter-tabs"><button class="on">全部<span class="n">46</span></button><button>年龄拦截<span class="n">17</span></button><button>证件重复<span class="n">23</span></button><button>人工复核<span class="n">6</span></button></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>用户 ID</th><th>手机号</th><th>拦截类型</th><th>识别结果</th><th>渠道来源</th><th>时间</th><th class="r">操作</th></tr></thead>
+            <tbody>
+              <tr style="background:var(--danger-bg)">
+                <td class="mono t-sm">U2026****3312</td><td class="mono t-sm">176 **** 8821</td>
+                <td><span class="tag tag--danger">未成年</span></td><td class="t-sm">OCR 识别出生日期 2009-11-02 · <b>16 周岁</b></td>
+                <td class="t-sm">鑫诚劳务二维码</td><td class="mono t-sm">09:12</td>
+                <td class="r"><span class="t-xs" style="color:var(--danger)">已硬阻断</span></td>
+              </tr>
+              <tr style="background:var(--danger-bg)">
+                <td class="mono t-sm">U2026****3308</td><td class="mono t-sm">199 **** 4470</td>
+                <td><span class="tag tag--danger">未成年</span></td><td class="t-sm">OCR 识别出生日期 2010-03-18 · <b>16 周岁</b></td>
+                <td class="t-sm">自主注册</td><td class="mono t-sm">08:41</td>
+                <td class="r"><span class="t-xs" style="color:var(--danger)">已硬阻断</span></td>
+              </tr>
+              <tr style="background:var(--warn-bg)">
+                <td class="mono t-sm">U2026****3290</td><td class="mono t-sm">135 **** 2204</td>
+                <td><span class="tag tag--warn">证件重复</span></td><td class="t-sm">该身份证已绑定 U2025****0918（在岗中）</td>
+                <td class="t-sm">宏泰人力二维码</td><td class="mono t-sm">08:20</td>
+                <td class="r"><button class="btn btn--xs btn--danger" data-demo="已封禁新号并记入企业异常">判定代刷</button></td>
+              </tr>
+              <tr style="background:var(--warn-bg)">
+                <td class="mono t-sm">U2026****3277</td><td class="mono t-sm">158 **** 6613</td>
+                <td><span class="tag tag--warn">证件重复</span></td><td class="t-sm">同一身份证 24h 内第 3 次注册，手机号均不同</td>
+                <td class="t-sm">安泰人力二维码</td><td class="mono t-sm">07:55</td>
+                <td class="r"><button class="btn btn--xs btn--danger" data-demo="已封禁并扣减企业诚信分 30">判定导流刷单</button></td>
+              </tr>
+              <tr>
+                <td class="mono t-sm">U2026****3265</td><td class="mono t-sm">137 **** 0092</td>
+                <td><span class="tag tag--info">人工复核</span></td><td class="t-sm">身份证照片反光，OCR 置信度 71%（阈值 85%）</td>
+                <td class="t-sm">自主注册</td><td class="mono t-sm">07:33</td>
+                <td class="r"><button class="btn btn--xs" data-demo="已要求用户重新上传">退回重传</button><button class="btn btn--xs btn--primary" data-demo="人工核验通过">通过</button></td>
+              </tr>
+              <tr>
+                <td class="mono t-sm">U2026****3251</td><td class="mono t-sm">180 **** 7741</td>
+                <td><span class="tag tag--ink">黑名单</span></td><td class="t-sm">命中平台黑名单：恶意骗取薪酬预支后离职（2026-03）</td>
+                <td class="t-sm">汇智劳务二维码</td><td class="mono t-sm">07:10</td>
+                <td class="r"><button class="btn btn--xs" data-demo="已解除黑名单">申诉解除</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid" style="gap:14px; align-content:start">
+        <div class="card">
+          <div class="card__hd"><h3>认证方式配置</h3></div>
+          <div class="card__bd">
+            <div class="stack-sm">
+              <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm flex1">身份证 OCR 识别（正反面）</span><span class="vtag vtag--ext">建议 V1.0</span></label>
+              <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm flex1">姓名 + 身份证二要素核验</span><span class="vtag vtag--ext">建议 V1.0</span></label>
+              <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm flex1">身份证号两次输入一致性校验</span><span class="vtag vtag--v10">文档要求</span></label>
+              <label class="row" style="gap:9px"><span class="switch"></span><span class="t-sm flex1">人脸活体核身（三要素）</span><span class="vtag vtag--v15">V1.5</span></label>
+            </div>
+            <div class="divider"></div>
+            <div class="field"><label>OCR 置信度阈值</label><input class="inp mono" value="85%"><div class="hint">低于阈值转人工复核</div></div>
+            <div class="field" style="margin-bottom:0"><label>核验失败重试上限</label><input class="inp mono" value="3 次 / 24 小时"></div>
+          </div>
+        </div>
+
+        <div class="card" style="border-color:var(--danger-line)">
+          <div class="card__hd"><h3>年龄合规规则</h3><span class="tag tag--danger">硬拦截</span></div>
+          <div class="card__bd">
+            <table class="tbl" style="border:1px solid var(--line)">
+              <thead><tr><th>年龄区间</th><th>系统行为</th></tr></thead>
+              <tbody>
+                <tr style="background:var(--danger-bg)"><td class="mono">&lt; 16 周岁</td><td class="t-sm" style="color:var(--danger)"><b>禁止注册</b>，记录并告警</td></tr>
+                <tr style="background:var(--danger-bg)"><td class="mono">16 – 18 周岁</td><td class="t-sm" style="color:var(--danger)"><b>禁止报名任何岗位</b>（未成年工需专项手续，平台不承接）</td></tr>
+                <tr><td class="mono">18 – 岗位下限</td><td class="t-sm">可注册，报名时按岗位年龄区间校验并提示</td></tr>
+                <tr><td class="mono">超过法定退休年龄</td><td class="t-sm">可注册，报名时强提示「不建立劳动关系风险」并需二次确认</td></tr>
+              </tbody>
+            </table>
+            <div class="note note--danger" style="margin-top:12px">年龄由 OCR 识别的身份证出生日期计算，<b>不采用用户自填</b>。这是拦截生效的前提 —— 若仅靠手工输入身份证号，用户可随意编造。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>黑名单库</h3><span class="tag">平台级共享</span></div>
+          <div class="card__bd">
+            <div class="hbar"><span class="hn">骗取薪酬预支</span><div class="bar"><i class="danger" style="width:100%"></i></div><span class="hv">42</span></div>
+            <div class="hbar"><span class="hn">代刷 / 导流套利</span><div class="bar"><i class="danger" style="width:64%"></i></div><span class="hv">27</span></div>
+            <div class="hbar"><span class="hn">严重违纪被辞退</span><div class="bar"><i class="warn" style="width:45%"></i></div><span class="hv">19</span></div>
+            <div class="hbar"><span class="hn">冒用他人身份</span><div class="bar"><i class="danger" style="width:19%"></i></div><span class="hv">8</span></div>
+            <div class="divider"></div>
+            <div class="note note--warn"><b>需产品裁定：</b>黑名单是否跨劳务公司共享？共享可防惯犯流窜，但涉及个人信息跨主体传输合规问题，建议仅共享「平台级严重失信」标记，不共享具体事由。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drawer: 题目编辑 -->
+  <div class="drawer" id="dw-quiz" style="width:600px">
+    <div class="drawer-hd"><h3>编辑题目 · Q6</h3><span class="tag tag--warn">放弃率 6.1%</span><div class="spacer" style="flex:1"></div><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="grid-2">
+        <div class="field"><label>题序</label><input class="inp mono" value="6"></div>
+        <div class="field"><label>题型</label><select class="sel"><option>选择题（单选）</option><option>判断题</option></select></div>
+      </div>
+      <div class="field"><label>题干</label><input class="inp" value="对住宿有什么要求？"></div>
+      <div class="field"><label>副标题（选填）</label><input class="inp" placeholder="补充说明，帮助用户理解"></div>
+      <div class="grid-2">
+        <div class="field"><label>画像字段</label><input class="inp mono" value="dorm_req"></div>
+        <div class="field"><label>匹配作用</label><select class="sel"><option>软权重</option><option>硬过滤</option></select></div>
+      </div>
+      <div class="field"><label>权重占比</label><input class="inp mono" value="10%"><div class="hint">调整后需保证软权重合计 = 100%</div></div>
+
+      <div class="eyebrow" style="margin-top:18px">选项配置</div>
+      <div class="tbl-wrap" style="border:1px solid var(--line); margin-top:8px">
+        <table class="tbl">
+          <thead><tr><th style="width:34px">序</th><th>选项文案</th><th>画像值</th><th class="r">得分</th><th class="r"></th></tr></thead>
+          <tbody>
+            <tr><td class="mono">A</td><td><input class="inp" style="height:28px" value="必须包住，4 人间以内"></td><td class="mono t-xs">dorm_4</td><td class="r mono">100</td><td class="r"><button class="btn btn--xs btn--ghost" data-demo="已删除">✕</button></td></tr>
+            <tr><td class="mono">B</td><td><input class="inp" style="height:28px" value="包住就行，人多点也接受"></td><td class="mono t-xs">dorm_any</td><td class="r mono">80</td><td class="r"><button class="btn btn--xs btn--ghost" data-demo="已删除">✕</button></td></tr>
+            <tr><td class="mono">C</td><td><input class="inp" style="height:28px" value="不用住，我自己解决"></td><td class="mono t-xs">dorm_none</td><td class="r mono">60</td><td class="r"><button class="btn btn--xs btn--ghost" data-demo="已删除">✕</button></td></tr>
+            <tr><td class="mono">D</td><td><input class="inp" style="height:28px" value="不包住要有住宿补贴"></td><td class="mono t-xs">dorm_subsidy</td><td class="r mono">70</td><td class="r"><button class="btn btn--xs btn--ghost" data-demo="已删除">✕</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn--sm btn--block" style="margin-top:10px" data-demo="已新增选项">+ 新增选项</button>
+
+      <div class="card" style="background:var(--warn-bg); border-color:var(--warn-line); margin-top:16px"><div class="card__bd">
+        <div class="eyebrow" style="color:var(--warn)">优化建议（基于放弃率分析）</div>
+        <p class="t-sm" style="color:var(--warn); margin-top:8px; line-height:1.8">当前选项含「4 人间」等规格概念，蓝领用户理解成本高。建议改为二值化问法：<b>「需要公司安排住宿吗？」</b>（要 / 不要），住宿规格降级为岗位详情展示项而非匹配因子。预计放弃率可降至 2% 以下。</p>
+      </div></div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn" data-close data-demo="已保存至 v1.3 草稿">存入草稿</button><button class="btn btn--primary" data-close data-demo="已保存，需发布后生效">保存</button></div>
+  </div>
+
+  <!-- Modal: 发布确认 -->
+  <div class="modal" id="md-publish">
+    <div class="drawer-hd"><h3>发布生效</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="note note--warn" style="margin-bottom:16px">题库与引擎参数变更将<b>立即影响全平台所有用户的匹配结果</b>，请确认已完成回归校验。</div>
+      <dl class="kv"><dt>目标版本</dt><dd>v1.3</dd></dl>
+      <dl class="kv"><dt>变更内容</dt><dd>Q6 选项二值化 · 住宿权重 10% → 5% · 薪资权重 25% → 30%</dd></dl>
+      <div class="eyebrow" style="margin-top:16px">回归校验结果</div>
+      <table class="tbl" style="margin-top:8px; border:1px solid var(--line)">
+        <tbody>
+          <tr><td>历史画像重跑样本</td><td class="r num">1,000</td><td><span class="tag tag--ok">已完成</span></td></tr>
+          <tr><td>Top3 结果完全一致</td><td class="r num">812</td><td><span class="tag tag--ok">81.2%</span></td></tr>
+          <tr><td>结果偏移（至少 1 岗变化）</td><td class="r num">188</td><td><span class="tag tag--warn">18.8%</span></td></tr>
+          <tr><td>≥80% 出岗率变化</td><td class="r num">73.8% → 79.1%</td><td><span class="tag tag--ok">+5.3pt</span></td></tr>
+        </tbody>
+      </table>
+      <div class="note note--danger" style="margin-top:14px">偏移率 18.8% <b>超过 15% 阈值</b>，需二次确认。建议先以 20% 灰度观察 3 天再全量。</div>
+      <div class="field" style="margin-top:14px; margin-bottom:0"><label>发布方式</label>
+        <select class="sel"><option>20% 灰度发布（推荐）</option><option>全量发布</option><option>定时发布</option></select>
+      </div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--primary" data-close data-demo="v1.3 已以 20% 灰度发布，3 天后自动出具对比报告">确认发布</button></div>
+  </div>
+
+  <!-- ===== Drawers & Modals ===== -->
+  <div class="drawer" id="dw-approve">
+    <div class="drawer-hd"><h3>企业入驻审核</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="row" style="gap:12px; margin-bottom:16px">
+        <div class="avatar avatar--lg">安</div>
+        <div class="flex1"><div style="font-size:17px; font-weight:700">安捷人力资源有限公司</div><div class="t-sm">江苏昆山 · 电子制造 · 申请于 2026-07-22</div></div>
+      </div>
+      <div class="eyebrow">资质材料</div>
+      <table class="tbl" style="margin:8px 0 16px; border:1px solid var(--line)">
+        <tbody>
+          <tr><td>营业执照</td><td class="r"><span class="tag tag--ok">已上传 · 有效</span></td></tr>
+          <tr><td>劳务派遣经营许可证</td><td class="r"><span class="tag tag--ok">已上传 · 2028-05 到期</span></td></tr>
+          <tr><td>统一社会信用代码</td><td class="r mono t-sm">91320583MA2XXXXX7T</td></tr>
+          <tr><td>法定代表人</td><td class="r">李**</td></tr>
+          <tr><td>甲方合作合同</td><td class="r"><span class="tag tag--ok">2 份（立讯 / 纬创）</span></td></tr>
+          <tr><td>银行对公账户</td><td class="r"><span class="tag tag--ok">已验证</span></td></tr>
+        </tbody>
+      </table>
+      <div class="eyebrow">审核项</div>
+      <div class="stack-sm" style="margin:10px 0 16px">
+        <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm">营业执照真实有效且在经营期内</span></label>
+        <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm">持有劳务派遣经营许可证</span></label>
+        <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm">已上传至少 1 份甲方合作合同</span></label>
+        <label class="row" style="gap:9px"><span class="switch on"></span><span class="t-sm">无严重失信记录</span></label>
+      </div>
+      <div class="card" style="background:var(--surface-2)"><div class="card__bd">
+        <div class="eyebrow">通过后自动执行</div>
+        <ul class="t-sm" style="margin-top:8px; line-height:1.95">
+          <li>· 生成企业 ID 与专属渠道二维码</li>
+          <li>· 启动 <b class="strong">3 个月免费期</b>（至 2026-10-24）</li>
+          <li>· 免费期内导入员工全部计入存量基数</li>
+          <li>· 期满自动锁定存量基数，增量开始计费</li>
+          <li>· 初始诚信分 100</li>
+        </ul>
+      </div></div>
+    </div>
+    <div class="drawer-ft"><button class="btn btn--danger" data-close data-demo="已驳回入驻申请">驳回</button><div class="spacer" style="flex:1"></div><button class="btn" data-close>稍后</button><button class="btn btn--primary" data-close data-demo="入驻审核通过，免费期已启动">审核通过</button></div>
+  </div>
+
+  <div class="drawer" id="dw-company">
+    <div class="drawer-hd"><h3>企业详情</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="row" style="gap:12px; margin-bottom:16px">
+        <div class="avatar avatar--o avatar--lg">鑫</div>
+        <div class="flex1"><div style="font-size:17px; font-weight:700">鑫诚劳务派遣有限公司</div><div class="row" style="gap:6px; margin-top:5px"><span class="tag tag--ok">正常</span><span class="tag mono">C10023</span><span class="tag">诚信分 92</span></div></div>
+      </div>
+      <div class="grid g-3" style="gap:10px; margin-bottom:16px">
+        <div class="stat"><div class="stat-l">在岗人数</div><div class="stat-v" style="font-size:22px">838</div></div>
+        <div class="stat"><div class="stat-l">存量基数</div><div class="stat-v" style="font-size:22px">180</div></div>
+        <div class="stat"><div class="stat-l">增量（计费）</div><div class="stat-v" style="font-size:22px; color:var(--signal)">658</div></div>
+      </div>
+      <dl class="kv"><dt>入驻时间</dt><dd>2025-04-01</dd></dl>
+      <dl class="kv"><dt>免费期</dt><dd>2025-04-01 → 2025-06-30（已结束）</dd></dl>
+      <dl class="kv"><dt>存量基数锁定</dt><dd>2025-07-01 · 180 人</dd></dl>
+      <dl class="kv"><dt>年增长率</dt><dd>365.6%（V1.5 阶梯用）· V1.0 单价 0.10 元/人/天</dd></dl>
+      <dl class="kv"><dt>在招岗位</dt><dd>23 个（4 个暂停）</dd></dl>
+      <dl class="kv"><dt>备案甲方</dt><dd>立讯精密 / 纬创资通 / 京东物流</dd></dl>
+      <dl class="kv"><dt>本月投诉</dt><dd>1 条（未核实）</dd></dl>
+      <div class="divider"></div>
+      <div class="eyebrow">流转关系</div>
+      <table class="tbl" style="margin-top:8px; border:1px solid var(--line)">
+        <thead><tr><th>方向</th><th>对方</th><th class="r">人数</th><th class="r">日费用</th></tr></thead>
+        <tbody>
+          <tr><td>流入（应付）</td><td>宏泰人力</td><td class="r num">14</td><td class="r num">140</td></tr>
+          <tr><td>流入（应付）</td><td>汇智劳务</td><td class="r num">11</td><td class="r num">110</td></tr>
+          <tr><td>流出（应收）</td><td>宏泰人力</td><td class="r num">18</td><td class="r num" style="color:var(--ok)">144</td></tr>
+          <tr><td>流出（应收）</td><td>汇智劳务</td><td class="r num">13</td><td class="r num" style="color:var(--ok)">104</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="drawer-ft"><button class="btn btn--danger" data-open="md-suspend">变更状态</button><div class="spacer" style="flex:1"></div><button class="btn" data-close>关闭</button></div>
+  </div>
+
+  <div class="drawer" id="dw-dereg">
+    <div class="drawer-hd"><h3>公司注销解绑详情</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="note note--danger" style="margin-bottom:16px">恒发劳务派遣有限公司（C10017）已于 2026-07-24 16:11 变更为「已注销」，系统已自动触发批量解绑任务。</div>
+      <div class="eyebrow">执行结果</div>
+      <table class="tbl" style="margin:8px 0 16px; border:1px solid var(--line)">
+        <thead><tr><th>变更项</th><th>处理方式</th><th class="r">影响</th></tr></thead>
+        <tbody>
+          <tr><td class="mono t-xs">bound_company_id</td><td class="t-sm">批量清空</td><td class="r num">260</td></tr>
+          <tr><td>公域 / 私域</td><td class="t-sm">批量变更为公域</td><td class="r num">260</td></tr>
+          <tr><td class="mono t-xs">source_company_id</td><td class="t-sm">保留，仅存证</td><td class="r num">412</td></tr>
+          <tr><td>用户状态</td><td class="t-sm">批量变更为「公域求职」</td><td class="r num">260</td></tr>
+          <tr><td>用户历史数据</td><td class="t-sm">全部保留，只变状态不删数据</td><td class="r">—</td></tr>
+          <tr><td>后续流转费归属</td><td class="t-sm"><b class="strong">平台继承供给方权益</b></td><td class="r">10 元/人/天全归平台</td></tr>
+        </tbody>
+      </table>
+      <div class="eyebrow">薪资结清督办</div>
+      <div class="card" style="margin-top:8px; border-color:var(--warn-line)"><div class="card__bd">
+        <dl class="kv"><dt>待结清员工</dt><dd class="num" style="color:var(--danger)">260 人</dd></dl>
+        <dl class="kv"><dt>待结清金额（申报）</dt><dd class="num">¥1,624,800</dd></dl>
+        <dl class="kv"><dt>已结清</dt><dd class="num" style="color:var(--ok)">218 人 / ¥1,362,400</dd></dl>
+        <dl class="kv"><dt>状态</dt><dd><span class="tag tag--warn">督办中</span></dd></dl>
+      </div></div>
+      <div class="note note--warn" style="margin-top:14px">劳务公司状态变更为「已注销 / 已倒闭」时，<b>需同时结清所有员工薪资</b>。平台持续督办并记录，未结清将影响法人在平台的后续入驻资格。</div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>关闭</button><button class="btn btn--primary" data-close data-demo="已发送结清督办通知">发送督办通知</button></div>
+  </div>
+
+  <div class="drawer" id="dw-score">
+    <div class="drawer-hd"><h3>诚信分变更记录</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="row" style="gap:12px; margin-bottom:16px">
+        <div class="avatar avatar--lg">汇</div>
+        <div class="flex1"><div style="font-size:17px; font-weight:700">汇智劳务服务有限公司</div><div class="row" style="gap:6px; margin-top:5px"><span class="tag tag--warn">1 级 · 警告</span><span class="tag mono">C10041</span></div></div>
+        <div style="text-align:right"><div class="num" style="font-size:32px; color:var(--warn)">74</div><div class="t-xs">诚信分</div></div>
+      </div>
+      <ul class="tl">
+        <li class="fail"><div class="tl-t">投诉核实属实 · −10</div><div class="t-sm">「叉车工」岗位已满仍在招，累计 3 次投诉</div><div class="tl-m">2026-07-24 15:42 · 运营管理员 · 84 → 74</div></li>
+        <li class="fail"><div class="tl-t">虚报员工状态 · −10</div><div class="t-sm">3 名员工已离职但状态未变更，仍计入在岗</div><div class="tl-m">2026-07-11 10:20 · 系统自动 · 94 → 84</div></li>
+        <li class="fail"><div class="tl-t">单岗长期挂岗无转化 · −5</div><div class="t-sm">「叉车工」挂岗 71 天零入职</div><div class="tl-m">2026-06-28 08:00 · 系统自动 · 99 → 94</div></li>
+        <li class="fail"><div class="tl-t">单岗长期挂岗无转化 · −5</div><div class="t-sm">「普工」挂岗 63 天零入职</div><div class="tl-m">2026-05-30 08:00 · 系统自动 · 104 → 99</div></li>
+        <li class="done"><div class="tl-t">入驻初始分 100</div><div class="tl-m">2025-08-19</div></li>
+      </ul>
+      <div class="divider"></div>
+      <div class="eyebrow">当前影响</div>
+      <div class="note note--warn" style="margin-top:8px">诚信分 74（≥60）→ 匹配权重正常。若降至 60 以下，权重将降至 20% 并持续 30 天；降至 30 以下将永久取消所有收费服务权限。</div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>关闭</button><button class="btn btn--primary" data-open="md-score">人工调整</button></div>
+  </div>
+
+  <div class="drawer" id="dw-bill">
+    <div class="drawer-hd"><h3>账单明细 · 2026 年 6 月</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="row" style="gap:12px; margin-bottom:16px">
+        <div class="avatar avatar--o avatar--lg">鑫</div>
+        <div class="flex1"><div style="font-size:17px; font-weight:700">鑫诚劳务派遣有限公司</div><div class="t-sm mono">账单号 BILL-C10023-202606</div></div>
+      </div>
+      <div class="eyebrow">增长技术服务费</div>
+      <table class="tbl" style="margin:8px 0 16px; border:1px solid var(--line)">
+        <tbody>
+          <tr><td>存量基数（永久免费）</td><td class="r num">180</td></tr>
+          <tr><td>月均在岗人数</td><td class="r num">812</td></tr>
+          <tr><td>月均增量人数</td><td class="r num">632</td></tr>
+          <tr><td>年增长率</td><td class="r num">351.1%</td></tr>
+          <tr><td>适用单价</td><td class="r mono">0.10 元/人/天（V1.0 统一价）</td></tr>
+          <tr><td>计费天数</td><td class="r num">30</td></tr>
+          <tr><td><b>小计</b></td><td class="r num" style="color:var(--signal)">1,896.00</td></tr>
+        </tbody>
+      </table>
+      <div class="eyebrow">人才流转费</div>
+      <table class="tbl" style="margin:8px 0 16px; border:1px solid var(--line)">
+        <thead><tr><th>方向</th><th>对方</th><th class="r">人天</th><th class="r">金额</th></tr></thead>
+        <tbody>
+          <tr><td>应付</td><td>宏泰人力</td><td class="r num">398</td><td class="r num">3,980</td></tr>
+          <tr><td>应付</td><td>汇智劳务</td><td class="r num">312</td><td class="r num">3,120</td></tr>
+          <tr><td>应付</td><td>平台（公域）</td><td class="r num">176</td><td class="r num">1,760</td></tr>
+          <tr><td>应收 80%</td><td>宏泰人力</td><td class="r num">642</td><td class="r num" style="color:var(--ok)">5,136</td></tr>
+          <tr><td>应收 80%</td><td>汇智劳务</td><td class="r num">438</td><td class="r num" style="color:var(--ok)">3,504</td></tr>
+          <tr><td>应收 80%</td><td>诚信人力</td><td class="r num">150</td><td class="r num" style="color:var(--ok)">1,200</td></tr>
+        </tbody>
+      </table>
+      <div class="card" style="background:var(--ink-900); color:#fff"><div class="card__bd">
+        <div class="row-b"><span style="color:rgba(255,255,255,.6)">技术服务费</span><span class="num">1,896.00</span></div>
+        <div class="row-b" style="margin-top:6px"><span style="color:rgba(255,255,255,.6)">流转费应付</span><span class="num">8,860.00</span></div>
+        <div class="row-b" style="margin-top:6px"><span style="color:rgba(255,255,255,.6)">流转费应收</span><span class="num" style="color:#7FD1A8">−9,840.00</span></div>
+        <div class="divider" style="background:rgba(255,255,255,.15)"></div>
+        <div class="row-b"><span style="font-weight:700">本期应结算</span><span class="num" style="font-size:24px; color:var(--signal-300)">¥916.00</span></div>
+      </div></div>
+      <div class="note note--info" style="margin-top:14px">结算截止 2026-07-15。如对账单有异议，可在 5 个工作日内提出，平台复核。</div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>关闭</button><button class="btn" data-close data-demo="账单 PDF 已生成">导出 PDF</button><button class="btn btn--primary" data-close data-demo="已标记为已结算">标记已结算</button></div>
+  </div>
+
+  <div class="modal" id="md-lock">
+    <div class="drawer-hd"><h3>锁定存量基数</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="note note--warn" style="margin-bottom:16px">锁定后该企业存量基数不可更改，超出部分的增量人员将开始按阶梯单价计费。</div>
+      <dl class="kv"><dt>企业</dt><dd>安泰人力（C10061）</dd></dl>
+      <dl class="kv"><dt>免费期</dt><dd>2026-04-28 → 2026-07-27</dd></dl>
+      <dl class="kv"><dt>免费期内已导入</dt><dd class="num">412 人</dd></dl>
+      <dl class="kv"><dt>当前在岗</dt><dd class="num">398 人</dd></dl>
+      <div class="field" style="margin-top:16px"><label>存量基数（按免费期内导入总数）</label><input class="inp mono" value="412"></div>
+      <div class="codeblk"><span class="c"># 锁定后计费逻辑</span><br><span class="k">增量</span> = <span class="n">当前总人数</span> − <span class="s">412</span><br><span class="c"># 当前 398 人 &lt; 412，增量为 0，暂不计费</span><br><span class="c"># 存量人员永久免费，不受离职影响</span></div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--primary" data-close data-demo="存量基数已锁定为 412 人">确认锁定</button></div>
+  </div>
+
+  <div class="modal" id="md-verify">
+    <div class="drawer-hd"><h3>投诉核实处理</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <dl class="kv"><dt>投诉类型</dt><dd><span class="tag tag--danger">岗位已满仍在招</span></dd></dl>
+      <dl class="kv"><dt>投诉岗位</dt><dd>叉车工 · 汇智劳务</dd></dl>
+      <dl class="kv"><dt>投诉人</dt><dd class="mono">U2026****1204</dd></dl>
+      <dl class="kv"><dt>该岗累计投诉</dt><dd><span class="tag tag--danger">3 次（已达阈值）</span></dd></dl>
+      <div class="field" style="margin-top:16px"><label>投诉详情</label>
+        <div class="card" style="background:var(--surface-2)"><div class="card__bd t-sm" style="line-height:1.8">「我报名了叉车工，昨天到厂后驻场说这个岗位早就满了，让我去做仓储分拣，工资比招聘上写的低 800。」</div></div>
+      </div>
+      <div class="field"><label>核实结论</label>
+        <div class="stack-sm">
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;background:var(--danger);display:grid;place-items:center;flex:none"><i style="width:6px;height:6px;border-radius:50%;background:#fff;display:block"></i></span><span class="t-sm">核实属实</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm">部分属实</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm">不属实</span></label>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>核实说明</label><textarea class="ta">已与汇智劳务驻场核实：该岗位甲方于 07-18 通知满员，企业未在 24 小时内暂停招聘，导致用户报名后无法面试。</textarea></div>
+      <div class="note note--danger" style="margin-top:14px">
+        <b>确认属实后系统自动执行：</b><br>· 该岗位累计投诉达 3 次 → <b>自动下架</b>，匹配权重归零<br>· 企业诚信分 −10（84 → 74）<br>· 计入企业异常次数，用于三级处罚判定
+      </div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--danger" data-close data-demo="投诉已核实属实，岗位已自动下架，诚信分 −10">确认属实并处理</button></div>
+  </div>
+
+  <div class="modal" id="md-score">
+    <div class="drawer-hd"><h3>人工调整诚信分</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="note note--warn" style="margin-bottom:16px">人工调整属于特殊情况处理，<b>全程操作留痕</b>：操作人、时间、原因、IP 将写入审计日志且不可删除。</div>
+      <div class="field"><label>企业</label><select class="sel"><option>汇智劳务服务有限公司（当前 74 分）</option><option>诚信人力（当前 58 分）</option></select></div>
+      <div class="grid-2">
+        <div class="field"><label>调整方式</label><select class="sel"><option>加分</option><option>扣分</option><option>直接设定</option></select></div>
+        <div class="field"><label>分值</label><input class="inp mono" value="5"></div>
+      </div>
+      <div class="field"><label>调整原因（必填）</label><textarea class="ta" placeholder="请详细说明调整依据…">企业已完成整改：满员岗位已全部暂停招聘，并对受影响的 3 名求职者完成补偿安置，酌情恢复 5 分。</textarea></div>
+      <dl class="kv"><dt>调整后诚信分</dt><dd class="num" style="font-size:20px">79</dd></dl>
+      <dl class="kv"><dt>处罚等级变化</dt><dd>1 级警告 → <span class="tag tag--ok">无</span></dd></dl>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--primary" data-close data-demo="诚信分已调整为 79，操作已留痕">确认调整</button></div>
+  </div>
+
+  <div class="modal" id="md-reject">
+    <div class="drawer-hd"><h3>驳回岗位</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <dl class="kv"><dt>岗位</dt><dd>普工（高薪急招）· 安泰人力</dd></dl>
+      <dl class="kv"><dt>薪资</dt><dd class="mono">9,000 – 12,000 元/月</dd></dl>
+      <dl class="kv"><dt>名额</dt><dd class="num">200</dd></dl>
+      <div class="field" style="margin-top:16px"><label>驳回原因</label>
+        <div class="stack-sm">
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;background:var(--danger);display:grid;place-items:center;flex:none"><i style="width:6px;height:6px;border-radius:50%;background:#fff;display:block"></i></span><span class="t-sm">合同甲方与岗位所属厂区不一致</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm">未上传甲方合作合同</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm">薪资显著高于同区域同工种，涉嫌虚假宣传</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm">岗位信息不完整（项目 / 地点 / 职责缺失）</span></label>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>驳回说明（将同步至企业端）</label><textarea class="ta">上传合同甲方为「XX 贸易公司」，与岗位描述的电子厂不符；且薪资区间高于昆山同工种均值 62%，请补充真实甲方合作合同并修正薪资信息后重新提交。</textarea></div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--danger" data-close data-demo="岗位已驳回，说明已同步至企业端">确认驳回</button></div>
+  </div>
+
+  <div class="modal" id="md-force">
+    <div class="drawer-hd"><h3>强制下架岗位</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="note note--danger" style="margin-bottom:16px">强制下架为平台运营侧刚性操作，将同步通知企业。</div>
+      <dl class="kv"><dt>岗位</dt><dd>普工（高薪急招）· 安泰人力</dd></dl>
+      <dl class="kv"><dt>挂岗天数</dt><dd class="num">92 天</dd></dl>
+      <dl class="kv"><dt>当前权重</dt><dd><span class="tag tag--danger">0%（僵尸岗位）</span></dd></dl>
+      <dl class="kv"><dt>累计投诉</dt><dd><span class="tag tag--danger">5 次（核实属实 4 次）</span></dd></dl>
+      <div class="field" style="margin-top:16px"><label>下架依据</label><select class="sel"><option>被投诉且核实属实（≥3 次）</option><option>连续低转化超过 90 天</option><option>虚假岗位信息</option></select></div>
+      <div class="field" style="margin-bottom:0"><label>处理说明</label><textarea class="ta">该岗位挂岗 92 天零入职转化，累计 5 次投诉其中 4 次核实属实（薪资虚高、岗位与描述不符），依据文档 12.2 强制下架并扣减企业诚信分。</textarea></div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--danger" data-close data-demo="岗位已强制下架，企业诚信分 −10">确认下架</button></div>
+  </div>
+
+  <div class="modal" id="md-suspend">
+    <div class="drawer-hd"><h3>变更企业状态</h3><button class="icobtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div class="drawer-bd">
+      <div class="field"><label>目标状态</label>
+        <div class="stack-sm">
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm flex1">正常</span><span class="tag tag--ok">可发布岗位、正常计费</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm flex1">限流（2 级处罚）</span><span class="tag tag--warn">权重 −50%，30 天</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm flex1">封禁（3 级处罚）</span><span class="tag tag--danger">永久取消收费服务权限</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;background:var(--ink-900);display:grid;place-items:center;flex:none"><i style="width:6px;height:6px;border-radius:50%;background:#fff;display:block"></i></span><span class="t-sm flex1">已注销</span><span class="tag tag--ink">触发批量解绑</span></label>
+          <label class="row" style="gap:9px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex:none"></span><span class="t-sm flex1">已倒闭</span><span class="tag">同注销 + 薪资督办</span></label>
+        </div>
+      </div>
+      <div class="field"><label>变更原因</label><textarea class="ta" placeholder="请说明变更依据…"></textarea></div>
+      <div class="note note--danger">变更为「已注销 / 已倒闭」将立即触发批量解绑任务：所有在岗用户归属清空、转为公域，历史数据全部保留；后续流转费由平台继承供给方权益。</div>
+    </div>
+    <div class="drawer-ft"><button class="btn" data-close>取消</button><button class="btn btn--danger" data-close data-demo="企业状态已变更，批量解绑任务已触发">确认变更</button></div>
+  </div>
+
+<!--APPEND-->
+
+  </div>
+</div>
+</div>
+
+<div class="mask" data-close></div>
+
+<script src="assets/js/proto.js"></script>
+</body>
+</html>

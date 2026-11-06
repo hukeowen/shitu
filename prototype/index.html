@@ -1,0 +1,869 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>仕兔平台 V1.0 MVP · 产品原型总览</title>
+<link rel="stylesheet" href="assets/css/core.css">
+<style>
+  body{ background:var(--paper); }
+  .wrap{ max-width:1280px; margin:0 auto; padding:0 28px; }
+
+  /* ---- Top nav ---- */
+  .nav{ position:sticky; top:0; z-index:80; background:rgba(241,239,233,.9); backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav .wrap{ height:56px; display:flex; align-items:center; gap:22px; }
+  .nav .brand{ display:flex; align-items:center; gap:9px; font-family:var(--f-dis); font-size:17px; font-weight:700; letter-spacing:.02em; }
+  .nav .links{ display:flex; gap:18px; margin-left:auto; font-size:12.5px; color:var(--ink-500); }
+  .nav .links a:hover{ color:var(--signal); }
+
+  /* ---- Hero ---- */
+  .hero-x{ position:relative; overflow:hidden; border-bottom:1px solid var(--line); }
+  .hero-x::before{
+    content:""; position:absolute; inset:0;
+    background-image:linear-gradient(rgba(13,17,23,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(13,17,23,.05) 1px,transparent 1px);
+    background-size:32px 32px;
+    mask-image:radial-gradient(110% 80% at 12% 0%,#000 20%,transparent 78%);
+    -webkit-mask-image:radial-gradient(110% 80% at 12% 0%,#000 20%,transparent 78%);
+  }
+  .hero-x .wrap{ position:relative; padding-top:64px; padding-bottom:52px; }
+  .hero-x h1{ font-family:var(--f-dis); font-size:clamp(42px,6vw,76px); font-weight:700; line-height:.98; letter-spacing:-.025em; color:var(--ink-900); }
+  .hero-x h1 em{ font-style:normal; color:var(--signal); }
+  .hero-x .lead{ font-size:16px; color:var(--ink-600); max-width:60ch; margin-top:18px; line-height:1.75; }
+  .creed{ margin-top:26px; display:inline-flex; align-items:center; gap:0; border:1.5px solid var(--ink-900); border-radius:var(--r-sm); overflow:hidden; }
+  .creed span{ padding:8px 16px; font-family:var(--f-dis); font-size:15px; font-weight:700; letter-spacing:.06em; }
+  .creed span + span{ border-left:1.5px solid var(--ink-900); }
+  .creed span:last-child{ background:var(--ink-900); color:#fff; }
+  .facts{ display:flex; flex-wrap:wrap; gap:0; margin-top:40px; border-top:1px solid var(--line-2); }
+  .facts div{ padding:16px 26px 4px 0; margin-right:26px; border-right:1px solid var(--line-2); }
+  .facts div:last-child{ border-right:0; }
+  .facts b{ display:block; font-family:var(--f-dis); font-size:32px; font-weight:700; color:var(--ink-900); line-height:1; }
+  .facts span{ font-family:var(--f-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-400); }
+
+  /* ---- Section ---- */
+  section{ padding:56px 0; border-bottom:1px solid var(--line); }
+  .sec-hd{ display:flex; align-items:flex-end; gap:18px; margin-bottom:26px; }
+  .sec-hd .n{ font-family:var(--f-dis); font-size:15px; font-weight:700; color:var(--signal); letter-spacing:.06em; }
+  .sec-hd h2{ font-family:var(--f-dis); font-size:30px; font-weight:700; letter-spacing:-.01em; color:var(--ink-900); }
+  .sec-hd p{ font-size:13px; color:var(--ink-500); margin-left:auto; max-width:46ch; text-align:right; }
+
+  /* ---- Entry cards ---- */
+  .entries{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:1000px){ .entries{ grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:660px){ .entries{ grid-template-columns:1fr;} }
+  .entry{
+    position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md);
+    padding:20px 20px 18px; transition:.2s cubic-bezier(.2,.7,.3,1); display:block; overflow:hidden;
+  }
+  .entry::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--signal); transform:scaleX(0); transform-origin:left; transition:.28s cubic-bezier(.2,.7,.3,1); }
+  .entry:hover{ transform:translateY(-3px); box-shadow:var(--sh-2); border-color:var(--line-2); }
+  .entry:hover::after{ transform:scaleX(1); }
+  .entry .ec{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .entry .ec .box{ width:36px; height:36px; border-radius:9px; display:grid; place-items:center; background:var(--ink-900); color:#fff; flex:none; }
+  .entry .ec .kd{ font-family:var(--f-mono); font-size:10px; letter-spacing:.12em; color:var(--ink-400); text-transform:uppercase; }
+  .entry h3{ font-size:17px; font-weight:700; color:var(--ink-900); }
+  .entry p{ font-size:12.5px; color:var(--ink-500); line-height:1.7; margin-top:2px; min-height:44px; }
+  .entry .mods{ display:flex; flex-wrap:wrap; gap:4px; margin-top:12px; }
+  .entry .mods i{ font-style:normal; font-size:10.5px; color:var(--ink-600); background:var(--surface-3); border:1px solid var(--line); border-radius:3px; padding:1px 6px; }
+  .entry .go{ margin-top:14px; display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--signal); }
+  .entry .cnt{ position:absolute; right:16px; top:16px; font-family:var(--f-dis); font-size:12px; color:var(--ink-300); font-weight:700; }
+
+  /* ---- Diagram frame ---- */
+  .diagram{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); padding:22px; overflow-x:auto; }
+  .diagram svg{ min-width:1120px; }
+  .dg-legend{ display:flex; flex-wrap:wrap; gap:8px 22px; margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); font-size:12px; color:var(--ink-500); }
+  .dg-legend span{ display:flex; align-items:center; gap:7px; }
+
+  .cols{ display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+  .cols-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:900px){ .cols,.cols-3{ grid-template-columns:1fr; } }
+
+  .matrix th, .matrix td{ font-size:12.5px; }
+  .matrix td:first-child{ font-weight:600; color:var(--ink-900); }
+
+  footer{ padding:36px 0 60px; }
+  .fin{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--ink-400); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0D1117"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#E8590C" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      仕兔平台
+    </a>
+    <span class="tag tag--ink mono">V1.0 MVP</span>
+    <div class="links">
+      <a href="#ends">六端架构</a>
+      <a href="#flow">主线流程</a>
+      <a href="#domain">公私域状态机</a>
+      <a href="#billing">计费模型</a>
+      <a href="#risk">风控治理</a>
+      <a href="#coverage">覆盖度</a>
+      <a href="#scope" style="color:var(--signal); font-weight:600">V1.0 边界</a>
+      <a href="spec.html" style="color:var(--signal); font-weight:600">技术规格</a>
+      <a href="#open-issues" style="color:var(--signal); font-weight:600">待确认 9</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero-x" id="top">
+  <div class="wrap">
+    <div class="eyebrow" style="margin-bottom:16px">产品原型设计稿 · Prototype Specification · 2026.07</div>
+    <h1>蓝领招聘<br>AI 匹配与<em>人才流转</em>平台</h1>
+    <p class="lead">
+      仕兔不是"发岗位、等人来"的招聘板，而是"<b class="strong">先了解人、再匹配岗位</b>"的匹配引擎。
+      本原型完整覆盖 V1.0 MVP 全部功能范围：C 端求职者 App、驻场 / 人才经纪人 / 项目经理 / 老板 四类租户角色后台，
+      以及平台方 SaaS 运营中台，含双计费体系、公私域归属状态机、24 小时响应机制与风控治理模型。
+    </p>
+    <div class="creed"><span>不匹配</span><span>无岗位</span><span>无报名</span></div>
+
+    <div class="facts">
+      <div><b>6</b><span>End Roles / 端</span></div>
+      <div><b>95</b><span>Screens / 原型页面</span></div>
+      <div><b>2</b><span>Billing Streams / 计费流</span></div>
+      <div><b>24h</b><span>Response Window</span></div>
+      <div><b>10.00</b><span>元 / 人 / 天 流转费</span></div>
+      <div><b>0.10</b><span>元 / 人 / 天 服务费</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ================= 六端 ================= -->
+<section id="ends">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">01</span>
+      <h2>六端产品架构</h2>
+      <p>一套多租户 SaaS：平台方运营中台 + 劳务公司租户内四类角色 + C 端求职者 App。角色间以「状态机 + 消息推送」串联。</p>
+    </div>
+
+    <div class="entries">
+      <a class="entry" href="app.html">
+        <span class="cnt">48 屏</span>
+        <div class="ec"><div class="box"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="6" y="2" width="12" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M10.5 18.5h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <div><div class="kd">C-SIDE · APP</div><h3>求职者端</h3></div></div>
+        <p>游客引导 → 注册渠道绑定 → AI 问薪匹配 → 身份验证报名 → 面试到厂 → 在岗 → 离职流转的完整生命周期。</p>
+        <div class="mods"><i>AI 问薪</i><i>匹配结果</i><i>两次身份证验证</i><i>我的报备</i><i>我的合同</i><i>我的简历</i><i>我的工作</i><i>我的台账</i><i>薪酬预支</i><i>实名认证 OCR</i><i>合规拦截</i><i>我的工资</i><i>工资条</i><i>工资申诉</i><i>岗位 AI 问答</i><i>告知书</i><i>投诉</i></div>
+        <div class="go">进入 App 原型 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+
+      <a class="entry" href="staff.html">
+        <span class="cnt">14 屏</span>
+        <div class="ec"><div class="box" style="background:var(--signal)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20v-1.5C4 15.5 6.7 14 10 14s6 1.5 6 4.5V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="8" r="3.4" stroke="currentColor" stroke-width="2"/><path d="M17 11.5 19 13.5 22.5 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="kd">B-SIDE · MOBILE</div><h3>驻场端（手机）</h3></div></div>
+        <p>厂区现场作业端。待办清单、到厂确认、入职确权与线上电子签约、标记爽约、流转经纪人、预支初审。</p>
+        <div class="mods"><i>待面试/待确权/待入职</i><i>到厂确认</i><i>入职确权</i><i>电子签约</i><i>标记爽约</i><i>流转经纪人</i><i>24h 跟进</i><i>预支初审</i></div>
+        <div class="go">进入驻场端原型 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+
+      <a class="entry" href="admin.html">
+        <span class="cnt">23 屏</span>
+        <div class="ec"><div class="box" style="background:var(--public)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4" width="19" height="16" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M2.5 9h19M8 9v11" stroke="currentColor" stroke-width="2"/></svg></div>
+          <div><div class="kd">TENANT · CONSOLE</div><h3>劳务公司后台</h3></div></div>
+        <p>租户工作台，一套系统四种角色视图：驻场 PC 版、人才经纪人、项目经理、劳务公司老板，权限逐级收敛。</p>
+        <div class="mods"><i>驻场待办</i><i>流转池</i><i>AI 分析报告</i><i>释放操作</i><i>岗位管理</i><i>知识库</i><i>数据看板</i><i>人员管理</i><i>离职审核</i><i>渠道二维码</i><i>老板总览</i><i>预支审批</i><i>流转账本</i><i>薪资核算发放</i><i>预支抵扣对账</i></div>
+        <div class="go">进入公司后台原型 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+
+      <a class="entry" href="platform.html">
+        <span class="cnt">14 屏</span>
+        <div class="ec"><div class="box" style="background:var(--temp)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2.5 21 7v6.5c0 4.6-3.7 7.6-9 8.9-5.3-1.3-9-4.3-9-8.9V7l9-4.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="kd">PLATFORM · OPS</div><h3>平台运营中台</h3></div></div>
+        <p>SaaS 超管。企业入驻审核、花名册与存量基数锁定、岗位真实性审核、诚信分与三级处罚、对账结算、归属治理。</p>
+        <div class="mods"><i>运营总览</i><i>公司管理</i><i>存量基数锁定</i><i>岗位审核</i><i>降权限流</i><i>投诉处理</i><i>诚信分</i><i>三级处罚</i><i>对账结算</i><i>归属治理</i><i>计费规则</i></div>
+        <div class="go">进入平台中台原型 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+
+      <a class="entry" href="admin.html#agent">
+        <span class="cnt">含于后台</span>
+        <div class="ec"><div class="box" style="background:var(--ink-700)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="kd">TENANT · BROKER</div><h3>人才经纪人端</h3></div></div>
+        <p>流转闭环的关键角色：接收驻场流转的完整画像、查看 AI 岗位匹配分析报告、二次人工匹配、执行「释放」。</p>
+        <div class="mods"><i>接收流转</i><i>AI 分析报告</i><i>二次匹配</i><i>释放操作</i></div>
+        <div class="go">查看经纪人视图 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+
+      <a class="entry" href="spec.html" style="border-color:var(--ink-900); background:linear-gradient(160deg,#1D2733,#0D1117); color:#fff">
+        <span class="cnt" style="color:rgba(255,255,255,.4)">8 章</span>
+        <div class="ec"><div class="box" style="background:var(--signal)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 6h9M8 12h9M8 18h5M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <div><div class="kd" style="color:rgba(255,255,255,.45)">SPEC · 开发交付物</div><h3 style="color:#fff">技术规格附录</h3></div></div>
+        <p style="color:rgba(255,255,255,.6)">原型解决「长什么样」，本附录解决「字段叫什么、状态怎么迁、什么时候跑、边界怎么算」—— 两份产品文档均未覆盖，但它们决定后端实现。</p>
+        <div class="mods">
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">数据字典</i>
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">枚举字典</i>
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">用户状态机迁移表</i>
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">13 项定时任务</i>
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">11 类事件</i>
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">关键公式</i>
+          <i style="background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.8)">12 项边界约定</i>
+        </div>
+        <div class="go" style="color:var(--signal-300)">查看技术规格 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+
+      <a class="entry" href="admin.html#boss">
+        <span class="cnt">含于后台</span>
+        <div class="ec"><div class="box" style="background:var(--ok)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20h16M6 20V10m6 10V5m6 15v-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+          <div><div class="kd">TENANT · OWNER</div><h3>劳务公司老板端</h3></div></div>
+        <p>只读聚合视图：公司整体汇总、项目在岗分布、渠道转化报表、月度费用账单；不可见单个求职者隐私信息。</p>
+        <div class="mods"><i>数据总览</i><i>项目分布</i><i>渠道转化</i><i>费用账单</i><i>签约/工伤推送</i><i>预支终审</i></div>
+        <div class="go">查看老板视图 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h13m-5-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 主线流程 ================= -->
+<section id="flow">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">02</span>
+      <h2>主线流程：求职者全生命周期</h2>
+      <p>入口 → 游客 → 注册 → AI 问薪匹配 → 身份验证 → 报名 → 面试 → 到厂 → 入职 → 在岗 → 离职 → 流转</p>
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1160 250" width="100%" height="250" role="img" aria-label="主线流程图">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0 0 L9 4.5 L0 9 z" fill="#34404F"/></marker>
+          <marker id="aro" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0 0 L9 4.5 L0 9 z" fill="#E8590C"/></marker>
+        </defs>
+        <!-- lane label -->
+        <text x="0" y="16" font-family="Consolas,monospace" font-size="10" fill="#8B96A3" letter-spacing="1.6">USER JOURNEY / 节点一 → 节点八</text>
+
+        <g font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+        <!-- nodes -->
+        <g id="n1"><rect x="0" y="44" width="112" height="54" rx="6" fill="#fff" stroke="#CFCBC1"/><text x="56" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">游客浏览</text><text x="56" y="85" text-anchor="middle" font-size="10.5" fill="#8B96A3">扫码/链接/搜索</text></g>
+        <g><rect x="146" y="44" width="112" height="54" rx="6" fill="#fff" stroke="#CFCBC1"/><text x="202" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">注册绑定</text><text x="202" y="85" text-anchor="middle" font-size="10.5" fill="#8B96A3">手机号+验证码</text></g>
+        <g><rect x="292" y="44" width="124" height="54" rx="6" fill="#0D1117" stroke="#0D1117"/><text x="354" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">AI 问薪匹配</text><text x="354" y="85" text-anchor="middle" font-size="10.5" fill="#AEB7C1">≤7 题 · 出 3 岗</text></g>
+        <g><rect x="450" y="44" width="112" height="54" rx="6" fill="#fff" stroke="#E8590C" stroke-width="1.6"/><text x="506" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#B8460A">身份验证</text><text x="506" y="85" text-anchor="middle" font-size="10.5" fill="#B8460A">身份证×2 校验</text></g>
+        <g><rect x="596" y="44" width="104" height="54" rx="6" fill="#fff" stroke="#CFCBC1"/><text x="648" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">报名面试</text><text x="648" y="85" text-anchor="middle" font-size="10.5" fill="#8B96A3">双重校验</text></g>
+        <g><rect x="734" y="44" width="104" height="54" rx="6" fill="#fff" stroke="#CFCBC1"/><text x="786" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">到厂确认</text><text x="786" y="85" text-anchor="middle" font-size="10.5" fill="#8B96A3">驻场操作</text></g>
+        <g><rect x="872" y="44" width="112" height="54" rx="6" fill="#fff" stroke="#CFCBC1"/><text x="928" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">入职确权</text><text x="928" y="85" text-anchor="middle" font-size="10.5" fill="#8B96A3">+ 电子签约</text></g>
+        <g><rect x="1018" y="44" width="112" height="54" rx="6" fill="#12734A" stroke="#12734A"/><text x="1074" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">已入职在岗</text><text x="1074" y="85" text-anchor="middle" font-size="10.5" fill="#A9D9C0">计费触发</text></g>
+
+        <!-- connectors -->
+        <g stroke="#34404F" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+          <path d="M112 71 H140"/><path d="M258 71 H286"/><path d="M416 71 H444"/>
+          <path d="M562 71 H590"/><path d="M700 71 H728"/><path d="M838 71 H866"/><path d="M984 71 H1012"/>
+        </g>
+
+        <!-- bottom lane: 计费 / 离职 -->
+        <rect x="1018" y="152" width="112" height="46" rx="6" fill="#fff" stroke="#CFCBC1"/>
+        <text x="1074" y="172" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">离职</text>
+        <text x="1074" y="188" text-anchor="middle" font-size="10.5" fill="#8B96A3">停止计费</text>
+        <path d="M1074 98 V146" stroke="#34404F" stroke-width="1.6" fill="none" marker-end="url(#ar)"/>
+
+        <path d="M1018 175 H360 V104" stroke="#E8590C" stroke-width="1.6" stroke-dasharray="5 4" fill="none" marker-end="url(#aro)"/>
+        <text x="640" y="168" font-size="11" fill="#B8460A" font-weight="600">归属清空 → 变为公域 → 匹配范围恢复全平台 → 重新匹配（人才流转）</text>
+
+        <!-- 24h annotation -->
+        <path d="M648 104 V128 H506 V104" stroke="#A85B00" stroke-width="1.4" stroke-dasharray="4 4" fill="none" marker-end="url(#ar)" opacity=".7"/>
+        <text x="470" y="142" font-size="10.5" fill="#A85B00">面试不通过 / 取消报名 / 24h 无跟进 → 系统被动释放</text>
+
+        <text x="0" y="228" font-family="Consolas,monospace" font-size="10" fill="#8B96A3">※ 平台无「浏览岗位列表」入口，岗位仅在 AI 问薪匹配完成后以结果形式出现，且仅匹配结果内的岗位附带「报名面试」按钮。</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="cols-3" style="margin-top:18px">
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">RULE 01</div>
+        <h3 class="t-h3" style="margin:6px 0 6px">匹配是唯一入口</h3>
+        <p class="t-sm">无任何报名通道。用户报名前可无限次重新匹配；<b class="strong">报名后不可再匹配、不可再报名</b>，直到面试结果产生或被释放。</p>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">RULE 02</div>
+        <h3 class="t-h3" style="margin:6px 0 6px">用户不可自行取消</h3>
+        <p class="t-sm">报名后用户<b class="strong">无法自行取消</b>，需联系驻场 / 项目经理在后台操作取消。取消后可重新进入 AI 问薪匹配流程。</p>
+      </div></div>
+      <div class="card"><div class="card__bd">
+        <div class="eyebrow">RULE 03</div>
+        <h3 class="t-h3" style="margin:6px 0 6px">在职即计费</h3>
+        <p class="t-sm">增长技术服务费与人才流转费均以「已入职在岗」为触发点，<b class="strong">在职即计费、离职即停止、无上限</b>。</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 公私域状态机 ================= -->
+<section id="domain">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">03</span>
+      <h2>公域 / 私域归属状态机</h2>
+      <p>公私域不由「是否入职」决定，而由「<b class="strong">是否仍有归属公司</b>」决定 — bound_company_id 是否为空。</p>
+    </div>
+
+    <div class="cols-3" style="margin-bottom:18px">
+      <div class="card ticked"><div class="card__bd">
+        <div class="row" style="margin-bottom:8px"><span class="tag tag--private tag--lg">私域</span><span class="mono t-xs">bound_company_id ≠ NULL</span></div>
+        <p class="t-sm">用户当前有归属公司。匹配范围<b class="strong">仅限该劳务公司旗下岗位</b>。来源：二维码/分享链接注册、花名册导入、已入职员工。</p>
+      </div></div>
+      <div class="card ticked"><div class="card__bd">
+        <div class="row" style="margin-bottom:8px"><span class="tag tag--public tag--lg">公域</span><span class="mono t-xs">bound_company_id = NULL</span></div>
+        <p class="t-sm">用户当前无归属公司。匹配范围为<b class="strong">全平台所有劳务公司岗位</b>。来源：自主注册、被释放、已离职、公司注销解绑。</p>
+      </div></div>
+      <div class="card ticked"><div class="card__bd">
+        <div class="row" style="margin-bottom:8px"><span class="tag tag--signal tag--lg">来源归属</span><span class="mono t-xs">source_company_id</span></div>
+        <p class="t-sm">该用户最初由哪家劳务公司引入平台。<b class="strong">注册时永久锁定、永不更改</b>，唯一决定人才流转费 80% 的归属方。</p>
+      </div></div>
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1160 430" width="100%" height="430" role="img" aria-label="公私域状态机">
+        <defs>
+          <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#34404F"/></marker>
+          <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#E8590C"/></marker>
+          <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#0B7285"/></marker>
+        </defs>
+        <g font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+
+        <!-- 游客 / 注册 -->
+        <rect x="6" y="176" width="100" height="50" rx="6" fill="#F3F1EB" stroke="#CFCBC1"/>
+        <text x="56" y="199" text-anchor="middle" font-size="13" font-weight="700" fill="#4A5867">游客</text>
+        <text x="56" y="215" text-anchor="middle" font-size="10" fill="#8B96A3">不展示岗位</text>
+
+        <rect x="140" y="176" width="108" height="50" rx="6" fill="#fff" stroke="#CFCBC1"/>
+        <text x="194" y="199" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">注册</text>
+        <text x="194" y="215" text-anchor="middle" font-size="10" fill="#8B96A3">渠道来源识别</text>
+        <path d="M106 201 H134" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+
+        <!-- 私域待匹配 -->
+        <rect x="300" y="60" width="150" height="58" rx="6" fill="#FDEDE2" stroke="#C2410C" stroke-width="1.5"/>
+        <text x="375" y="83" text-anchor="middle" font-size="13.5" font-weight="700" fill="#C2410C">私域待匹配</text>
+        <text x="375" y="101" text-anchor="middle" font-size="10" fill="#C2410C">二维码注册 / 花名册导入</text>
+
+        <!-- 公域求职 -->
+        <rect x="300" y="286" width="150" height="58" rx="6" fill="#E1F2F4" stroke="#0B7285" stroke-width="1.5"/>
+        <text x="375" y="309" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0B7285">公域求职</text>
+        <text x="375" y="327" text-anchor="middle" font-size="10" fill="#0B7285">自主注册 / 被释放 / 已离职</text>
+
+        <path d="M248 190 L294 118" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        <path d="M248 212 L294 286" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        <text x="256" y="150" font-size="10.5" fill="#C2410C" font-weight="600">B端渠道</text>
+        <text x="252" y="270" font-size="10.5" fill="#0B7285" font-weight="600">自主/品牌</text>
+
+        <!-- AI 匹配 -->
+        <rect x="500" y="176" width="120" height="52" rx="6" fill="#0D1117"/>
+        <text x="560" y="199" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">AI 问薪匹配</text>
+        <text x="560" y="215" text-anchor="middle" font-size="10" fill="#AEB7C1">按当前归属定范围</text>
+        <path d="M450 96 L494 180" stroke="#C2410C" stroke-width="1.5" marker-end="url(#a3)" fill="none"/>
+        <path d="M450 308 L494 226" stroke="#0B7285" stroke-width="1.5" marker-end="url(#a4)" fill="none"/>
+
+        <!-- 待面试 -->
+        <rect x="668" y="176" width="110" height="52" rx="6" fill="#F0EAF9" stroke="#7048A8" stroke-width="1.5"/>
+        <text x="723" y="197" text-anchor="middle" font-size="13" font-weight="700" fill="#7048A8">待面试</text>
+        <text x="723" y="213" text-anchor="middle" font-size="10" fill="#7048A8">临时私域·锁定</text>
+        <path d="M620 202 H662" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+        <text x="600" y="166" font-size="10.5" fill="#4A5867" font-weight="600">报名 = 转变点</text>
+
+        <!-- 待确权 -->
+        <rect x="826" y="176" width="110" height="52" rx="6" fill="#F0EAF9" stroke="#7048A8" stroke-width="1.5"/>
+        <text x="881" y="197" text-anchor="middle" font-size="13" font-weight="700" fill="#7048A8">待确权</text>
+        <text x="881" y="213" text-anchor="middle" font-size="10" fill="#7048A8">已到厂·面试通过</text>
+        <path d="M778 202 H820" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+
+        <!-- 已入职在岗 -->
+        <rect x="984" y="176" width="130" height="52" rx="6" fill="#FDEDE2" stroke="#C2410C" stroke-width="1.5"/>
+        <text x="1049" y="197" text-anchor="middle" font-size="13" font-weight="700" fill="#C2410C">已入职在岗</text>
+        <text x="1049" y="213" text-anchor="middle" font-size="10" fill="#C2410C">私域·仅内部调岗</text>
+        <path d="M936 202 H978" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+
+        <!-- 已离职 -->
+        <rect x="984" y="286" width="130" height="46" rx="6" fill="#fff" stroke="#CFCBC1"/>
+        <text x="1049" y="308" text-anchor="middle" font-size="13" font-weight="700" fill="#0D1117">已离职</text>
+        <text x="1049" y="323" text-anchor="middle" font-size="10" fill="#8B96A3">计费全部停止</text>
+        <path d="M1049 228 V280" stroke="#34404F" stroke-width="1.6" marker-end="url(#a2)" fill="none"/>
+
+        <!-- 离职回流 公域 -->
+        <path d="M984 309 H520 V315 H456" stroke="#0B7285" stroke-width="1.6" marker-end="url(#a4)" fill="none"/>
+        <text x="600" y="303" font-size="10.5" fill="#0B7285" font-weight="600">bound_company_id 清空 → 公域 → 全平台重新匹配</text>
+
+        <!-- 私域待匹配 → 公域 (释放) -->
+        <path d="M330 118 V280" stroke="#E8590C" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a3)" fill="none"/>
+        <text x="150" y="196" font-size="0" fill="none"></text>
+        <text x="182" y="240" font-size="10.5" fill="#B8460A" font-weight="600" transform="rotate(-90 182 240)">主动释放 / 24h 超时</text>
+
+        <!-- 释放 lane -->
+        <path d="M723 228 V392" stroke="#E8590C" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+        <path d="M881 228 V392" stroke="#E8590C" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+        <path d="M881 392 H408 V350" stroke="#E8590C" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a3)" fill="none"/>
+        <text x="430" y="386" font-size="10.5" fill="#B8460A" font-weight="600">释放回公域：① 面试不通过　② 入职确权超时　③ 联系驻场取消报名　④ 24h 无跟进被动释放</text>
+
+        <!-- source lock note -->
+        <rect x="6" y="60" width="240" height="58" rx="6" fill="#fff" stroke="#E0DDD5" stroke-dasharray="4 3"/>
+        <text x="18" y="80" font-size="11" font-weight="700" fill="#0D1117">source_company_id 永久锁定</text>
+        <text x="18" y="98" font-size="10" fill="#6B7887">无论后续如何流转，始终决定</text>
+        <text x="18" y="112" font-size="10" fill="#6B7887">流转费 8 元/天 归属该公司</text>
+        </g>
+      </svg>
+      <div class="dg-legend">
+        <span><i class="dot" style="background:#34404F"></i>主流程状态迁移</span>
+        <span><i class="dot" style="background:#E8590C"></i>释放路径（私域 → 公域）</span>
+        <span><i class="dot" style="background:#0B7285"></i>回流公域（离职）</span>
+        <span><i class="dot" style="background:#7048A8"></i>临时私域（报名锁定期）</span>
+      </div>
+    </div>
+
+    <div class="cols" style="margin-top:18px">
+      <div class="card">
+        <div class="card__hd"><h3>完整状态与匹配范围对应关系</h3><span class="ref">文档 <b>3.4</b></span></div>
+        <div class="tbl-wrap" style="max-height:360px">
+          <table class="tbl matrix">
+            <thead><tr><th>进入方式</th><th>当前归属</th><th>状态</th><th>公/私域</th><th>匹配范围</th><th>来源归属</th></tr></thead>
+            <tbody>
+              <tr><td>未注册</td><td class="mono">—</td><td>游客</td><td><span class="tag tag--public">公域</span></td><td>不展示岗位</td><td class="mono">—</td></tr>
+              <tr><td>自主注册</td><td class="mono">—</td><td>公域求职</td><td><span class="tag tag--public">公域</span></td><td>全平台</td><td>平台</td></tr>
+              <tr><td>A 公司二维码</td><td>A 公司</td><td>私域待匹配</td><td><span class="tag tag--private">私域</span></td><td>仅 A 公司</td><td>A 公司</td></tr>
+              <tr><td>A 公司二维码</td><td>A 公司</td><td>待面试</td><td><span class="tag tag--private">私域</span></td><td>不可再匹配</td><td>A 公司</td></tr>
+              <tr><td>A 公司二维码</td><td>A 公司</td><td>待确权</td><td><span class="tag tag--private">私域</span></td><td>不可再匹配</td><td>A 公司</td></tr>
+              <tr><td>A 公司二维码</td><td>A 公司</td><td>已入职在岗</td><td><span class="tag tag--private">私域</span></td><td>仅 A 公司内部调岗</td><td>A 公司</td></tr>
+              <tr><td>花名册导入</td><td>A 公司</td><td>已入职在岗</td><td><span class="tag tag--private">私域</span></td><td>仅 A 公司内部调岗</td><td>A 公司</td></tr>
+              <tr><td>A 二维码 → 被释放</td><td class="mono">—</td><td>公域求职</td><td><span class="tag tag--public">公域</span></td><td>全平台</td><td>A 公司</td></tr>
+              <tr><td>A 二维码 → 离职</td><td class="mono">—</td><td>公域求职</td><td><span class="tag tag--public">公域</span></td><td>全平台</td><td>A 公司</td></tr>
+              <tr><td>自主注册 → 入职 B</td><td>B 公司</td><td>已入职在岗</td><td><span class="tag tag--private">私域</span></td><td>仅 B 公司内部调岗</td><td>平台</td></tr>
+              <tr><td>自主注册 → 报名 B</td><td>B 公司</td><td>已报名待面试</td><td><span class="tag tag--temp">临时私域</span></td><td>不可再匹配</td><td>平台</td></tr>
+              <tr><td>报名 B / 面试未过 / 确权超时</td><td class="mono">—</td><td>未被跟进</td><td><span class="tag tag--public">公域</span></td><td>全平台</td><td>平台</td></tr>
+              <tr><td>自主注册 → 离职</td><td class="mono">—</td><td>公域求职</td><td><span class="tag tag--public">公域</span></td><td>全平台</td><td>平台</td></tr>
+              <tr><td>A 公司注销 → 自动解绑</td><td class="mono">—</td><td>公域求职</td><td><span class="tag tag--public">公域</span></td><td>全平台</td><td>A 公司（仅存证）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card__hd"><h3>24 小时响应机制</h3><span class="ref">文档 <b>第四节</b></span></div>
+          <div class="card__bd">
+            <p class="t-sm" style="margin-bottom:12px">劳务公司获客成本 300–800 元/人，蓝领求职者 1–2 天必须定去向。24 小时窗口的本质是：<b class="strong">给劳务公司一个专属转化窗口，保护买人投入</b>。</p>
+            <dl class="kv"><dt>适用范围</dt><dd>仅私域用户（含报名后的临时私域）</dd></dl>
+            <dl class="kv"><dt>时间窗口</dt><dd>每个阶段完成后的 24 小时内</dd></dl>
+            <dl class="kv"><dt>匹配范围锁定</dt><dd>仅见该公司岗位</dd></dl>
+            <dl class="kv"><dt>提醒机制</dt><dd>驻场 / 项目经理 / 老板 三方推送<br><span class="t-xs">白天每 6 小时 1 次 · 夜间每 12 小时 1 次</span></dd></dl>
+            <dl class="kv"><dt>超时后果</dt><dd>系统被动释放 → 变为公域</dd></dl>
+            <div class="note note--info" style="margin-top:12px">公域用户不触发 24 小时响应 —— 不属于任何公司，无需保护特定公司权益。</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>私域 → 公域：仅两条路径</h3></div>
+          <div class="card__bd">
+            <ul class="tl">
+              <li class="now"><div class="tl-t">路径一 · 释放</div><div class="t-sm">劳务公司后台主动「释放」，或未在关键节点跟进由系统被动释放</div></li>
+              <li class="now"><div class="tl-t">路径二 · 离职</div><div class="t-sm">驻场 / 项目经理后台确认离职流程完成</div></li>
+            </ul>
+            <div class="note note--danger" style="margin-top:12px">
+              不存在第三种方式：用户不能自己点「变成公域」；劳务公司不能在用户在职期间单方面将其变为公域（必须走离职流程）。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 计费模型 ================= -->
+<section id="billing">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">04</span>
+      <h2>双计费体系与资金流向</h2>
+      <p>两项计费共同原则：与「已入职在岗」状态绑定 —— 在职即计费，离职即停止，无上限。</p>
+    </div>
+
+    <div class="cols">
+      <div class="card ticked">
+        <div class="card__hd"><h3>增长技术服务费</h3><span class="tag tag--ink">平台 100%</span></div>
+        <div class="card__bd">
+          <div class="codeblk" style="margin-bottom:14px"><span class="c"># 当日费用</span><br><span class="k">当日费用</span> = <span class="n">当日增量人员中「已入职在岗」人数</span> × <span class="k">对应单价</span><br><span class="c"># 增量定义</span><br><span class="k">增量</span> = <span class="n">企业当前总人数</span> − <span class="s">存量基数</span></div>
+          <div class="rule-label"><span class="eyebrow">阶梯定价 · 年增长率</span></div>
+          <table class="tbl" style="border:1px solid var(--line); border-radius:var(--r-sm)">
+            <thead><tr><th>年增长率</th><th class="r">单价（元/人/天）</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">&lt; 30%</td><td class="r num" style="font-size:16px">0.10</td><td class="t-sm">基础费率</td></tr>
+              <tr><td class="mono">≥ 30% 且 &lt; 50%</td><td class="r num" style="font-size:16px;color:var(--signal)">0.09</td><td class="t-sm">增长快，降 10%</td></tr>
+              <tr><td class="mono">≥ 50%</td><td class="r num" style="font-size:16px;color:var(--signal)">0.08</td><td class="t-sm">增长极快，降 20%</td></tr>
+            </tbody>
+          </table>
+          <div class="note" style="margin-top:14px"><b>为什么越快越便宜？</b> 企业增量并非全部来自平台。降价是激励手段 —— 引导企业把 BOSS、抖音、内推等全渠道人员一并导入，最终让平台成为企业人员管理的唯一中枢。</div>
+          <div class="rule-label"><span class="eyebrow">三个月免费期</span></div>
+          <p class="t-sm">新入驻公司前三个月导入的所有员工均不计费，全部计入<b class="strong">存量基数</b>；期满系统自动锁定基数，存量人员<b class="strong">永久免费</b>，不受离职影响。</p>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card ticked">
+          <div class="card__hd"><h3>人才流转费</h3><span class="tag tag--signal">供给方 80% / 平台 20%</span></div>
+          <div class="card__bd">
+            <div class="row" style="gap:14px; align-items:stretch; margin-bottom:14px">
+              <div class="stat" style="flex:1"><div class="stat-l">接收方支付</div><div class="stat-v">10.00<small>元/人/天</small></div></div>
+              <div class="stat" style="flex:1"><div class="stat-l">供给方（来源归属）</div><div class="stat-v" style="color:var(--signal)">8.00<small>元/人/天</small></div></div>
+              <div class="stat" style="flex:1"><div class="stat-l">平台抽佣</div><div class="stat-v">2.00<small>元/人/天</small></div></div>
+            </div>
+            <dl class="kv"><dt>计费起止</dt><dd>入职接收方当天 → 离职为止</dd></dl>
+            <dl class="kv"><dt>归属依据</dt><dd class="mono">source_company_id</dd></dl>
+            <dl class="kv"><dt>收费上限</dt><dd>无上限，按实际在职天数</dd></dl>
+            <div class="note note--info" style="margin-top:12px"><b>定价逻辑：</b>行业招一人综合成本 300–800 元。10 元/天 × 平均在职 90 天 = 900 元/人，接收方买到「已验证员工」比自招划算；供给方得 720 元/人，有动力持续输入人才。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__hd"><h3>资金流向总览（单日）</h3><span class="ref">文档 <b>2.4</b></span></div>
+          <table class="tbl">
+            <thead><tr><th>场景</th><th class="r">技术服务费</th><th class="r">流转费</th><th class="r">平台单日总收入</th></tr></thead>
+            <tbody>
+              <tr><td>私域用户首次入职 A 公司</td><td class="r mono">0.10</td><td class="r mono dim">—</td><td class="r num">0.10</td></tr>
+              <tr><td>私域用户从 A 流转到 B 公司</td><td class="r mono">0.10</td><td class="r mono">2.00</td><td class="r num">2.10</td></tr>
+              <tr><td>公域用户入职 B 公司</td><td class="r mono">0.10</td><td class="r mono">10.00</td><td class="r num" style="color:var(--signal)">10.10</td></tr>
+            </tbody>
+          </table>
+          <div class="card__ft t-xs">对账周期：按月对账，每月最后一天自动生成企业账单，次月 15 日前完成结算；企业异议可在 5 个工作日内提出复核。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 风控 ================= -->
+<section id="risk">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">05</span>
+      <h2>风控与治理：隐形限流，柔性处理</h2>
+      <p>平台起步期不具备对 B 端刚性处罚能力。采用隐形限流软处理 —— 降权不向企业做任何提示，企业仅能感知到「岗位推荐量变少了」。</p>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="card__hd"><h3>岗位权重自然衰减曲线</h3><span class="ref">文档 <b>12.3.2</b></span></div>
+        <div class="card__bd">
+          <svg viewBox="0 0 520 200" width="100%" height="200" role="img" aria-label="岗位权重衰减">
+            <g font-family="Consolas,monospace" font-size="10" fill="#AEB7C1">
+              <line x1="46" y1="16" x2="510" y2="16" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="10" y="20">100%</text>
+              <line x1="46" y1="52" x2="510" y2="52" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="16" y="56">80%</text>
+              <line x1="46" y1="106" x2="510" y2="106" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="16" y="110">50%</text>
+              <line x1="46" y1="160" x2="510" y2="160" stroke="#E0DDD5" stroke-dasharray="3 3"/><text x="16" y="164">20%</text>
+              <line x1="46" y1="196" x2="510" y2="196" stroke="#CFCBC1"/><text x="22" y="192">0%</text>
+            </g>
+            <path d="M46 16 H140 L140 52 H236 L236 106 H332 L332 160 H428 L428 196 H510"
+                  fill="none" stroke="#E8590C" stroke-width="2.4" stroke-linejoin="round"/>
+            <path d="M46 16 H140 L140 52 H236 L236 106 H332 L332 160 H428 L428 196 H510 V196 H46 Z" fill="url(#gd)" opacity=".14"/>
+            <defs><linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8590C"/><stop offset="1" stop-color="#E8590C" stop-opacity="0"/></linearGradient></defs>
+            <g font-family="'PingFang SC',sans-serif" font-size="10" fill="#6B7887" text-anchor="middle">
+              <text x="93" y="214">1–7 天</text><text x="188" y="214">8–14 天</text><text x="284" y="214">15–30 天</text><text x="380" y="214">31–60 天</text><text x="470" y="214">60 天+</text>
+            </g>
+          </svg>
+          <div style="height:22px"></div>
+          <table class="tbl" style="border:1px solid var(--line); border-radius:var(--r-sm)">
+            <thead><tr><th>阶段</th><th>触发条件</th><th>系统动作</th></tr></thead>
+            <tbody>
+              <tr><td><span class="st-pill" style="color:var(--ok)"><i style="background:currentColor"></i>正常</span></td><td class="t-sm">有报名有入职</td><td class="t-sm">正常匹配权重</td></tr>
+              <tr><td><span class="st-pill" style="color:var(--warn)"><i style="background:currentColor"></i>降权预警</span></td><td class="t-sm">挂岗 &gt;15 天，入职转化率 &lt;10%</td><td class="t-sm">权重降至 50%</td></tr>
+              <tr><td><span class="st-pill" style="color:var(--warn)"><i style="background:currentColor"></i>限流</span></td><td class="t-sm">挂岗 &gt;30 天无任何入职转化</td><td class="t-sm">权重降至 20%</td></tr>
+              <tr><td><span class="st-pill" style="color:var(--danger)"><i style="background:currentColor"></i>僵尸岗位</span></td><td class="t-sm">挂岗 &gt;60 天，零报名零入职</td><td class="t-sm">权重 0%，移出匹配池</td></tr>
+              <tr><td><span class="st-pill" style="color:var(--danger)"><i style="background:currentColor"></i>人工审核</span></td><td class="t-sm">投诉核实属实 / 连续低转化 &gt;90 天</td><td class="t-sm">运营后台强制下架</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card__hd"><h3>三级处罚体系</h3><span class="ref">文档 <b>13.1</b></span></div>
+          <table class="tbl">
+            <thead><tr><th>等级</th><th>触发条件</th><th>处罚措施</th></tr></thead>
+            <tbody>
+              <tr><td><span class="tag tag--warn">1 级 · 警告</span></td><td class="t-sm">单月出现 3 次以上异常</td><td class="t-sm">系统警告 + 人工通知</td></tr>
+              <tr><td><span class="tag tag--danger">2 级 · 限流</span></td><td class="t-sm">连续 2 个月出现 1 级问题</td><td class="t-sm">匹配权重 −50%，持续 30 天</td></tr>
+              <tr><td><span class="tag tag--ink">3 级 · 封禁</span></td><td class="t-sm">连续 3 个月或情节严重</td><td class="t-sm">永久取消所有收费服务权限</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>诚信分体系</h3><span class="ref">文档 <b>13.2</b></span></div>
+          <table class="tbl">
+            <thead><tr><th>行为</th><th class="r">扣分</th></tr></thead>
+            <tbody>
+              <tr><td>初始分</td><td class="r num">100</td></tr>
+              <tr><td>单岗长期挂岗无转化</td><td class="r num" style="color:var(--warn)">−5</td></tr>
+              <tr><td>虚报员工状态</td><td class="r num" style="color:var(--warn)">−10</td></tr>
+              <tr><td>确认导流行为</td><td class="r num" style="color:var(--danger)">−30</td></tr>
+            </tbody>
+          </table>
+          <div class="card__ft">
+            <div class="t-sm"><b class="strong">&lt; 60 分</b> → 匹配权重降至 20%，持续 30 天　·　<b class="strong">&lt; 30 分</b> → 永久取消所有收费服务权限</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__hd"><h3>投诉机制与反向监督</h3><span class="ref">文档 <b>12.5</b></span></div>
+          <div class="card__bd">
+            <div class="chips" style="margin-bottom:10px">
+              <span class="chip">岗位已满仍在招</span><span class="chip">岗位信息不实</span><span class="chip">面试后岗位不符</span>
+            </div>
+            <p class="t-sm">投诉自动记录至该岗位与企业诚信档案。同一岗位累计被投诉 <b class="strong">≥3 次</b> 并核实属实 → 系统自动下架该岗位 + 扣企业诚信分。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 覆盖度 ================= -->
+<section id="coverage">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">06</span>
+      <h2>需求覆盖度对照</h2>
+      <p>文档章节 ↔ 原型页面映射，用于产品方案确认与验收依据。</p>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="tbl matrix">
+          <thead><tr><th style="width:130px">文档章节</th><th>需求要点</th><th style="width:180px">对应原型</th><th style="width:88px">状态</th></tr></thead>
+          <tbody>
+            <tr><td>节点一 · 入口</td><td>游客浏览、引导弹窗（先逛逛 / 立即匹配工作）</td><td><a href="app.html#s01" class="mono" style="color:var(--signal)">APP S-01 / S-02</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点二 · 注册</td><td>手机号+验证码、渠道来源识别、来源归属永久锁定</td><td><a href="app.html#s04" class="mono" style="color:var(--signal)">APP S-04 / S-05</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点三 · AI 问薪</td><td>≤7 题、生成画像、按归属匹配、固定 3 岗、≥80% 展示</td><td><a href="app.html#s11" class="mono" style="color:var(--signal)">APP S-11 → S-17</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点四 · 身份验证</td><td>姓名 + 身份证两次输入一致性校验（含失败态）</td><td><a href="app.html#s21" class="mono" style="color:var(--signal)">APP S-21 / S-22</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点五 · 报名面试</td><td>防重复 + 名额双重校验、驻场知悉、面试确认推送</td><td><a href="app.html#s23" class="mono" style="color:var(--signal)">APP S-23 / S-24 · 驻场 M-02</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点六 · 到厂确权</td><td>到厂确认 → 入职确权 → 线上电子签约 → 消息推送</td><td><a href="staff.html#m05" class="mono" style="color:var(--signal)">驻场 M-05 → M-07</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点七 · 在岗计费</td><td>增长技术服务费 / 人才流转费自动触发</td><td><a href="platform.html#billing" class="mono" style="color:var(--signal)">平台 P-09 · 后台 A-16</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>节点八 · 离职</td><td>归属清空、变公域、计费停止、预支欠款扣除</td><td><a href="admin.html#resign" class="mono" style="color:var(--signal)">后台 A-13</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 6 章</td><td>求职者端全部功能（首页四宫格 / 报备 / 合同 / 简历 / 工作 / 台账 / 预支 / 告知书）</td><td><a href="app.html" class="mono" style="color:var(--signal)">APP 全量 48 屏</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 7 章</td><td>驻场端：待办、到厂确认、确权签约、爽约、流转</td><td><a href="staff.html" class="mono" style="color:var(--signal)">驻场端 14 屏 + 后台 A-01→A-04</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 8 章</td><td>人才经纪人端：接收流转、AI 报告、二次匹配、释放</td><td><a href="admin.html#agent" class="mono" style="color:var(--signal)">后台 A-05 → A-07</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 9 章</td><td>项目经理端：岗位管理、知识库、看板、人员、离职审核</td><td><a href="admin.html#pm-board" class="mono" style="color:var(--signal)">后台 A-08 → A-13</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 10 章</td><td>老板端：数据总览、项目分布、渠道转化、权限管控</td><td><a href="admin.html#boss" class="mono" style="color:var(--signal)">后台 A-14 → A-17</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 11 章</td><td>平台管理端：公司管理、岗位审核、诚信管理、对账</td><td><a href="platform.html" class="mono" style="color:var(--signal)">平台端 14 屏</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 12 章</td><td>岗位真实性管控：降权限流、暂停招聘、僵尸岗位、陈旧提醒、投诉</td><td><a href="platform.html#govern" class="mono" style="color:var(--signal)">平台 P-05 / P-06</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 13 章</td><td>风控体系：三级处罚、诚信分、公司注销解绑</td><td><a href="platform.html#risk" class="mono" style="color:var(--signal)">平台 P-07 / P-02</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>第 14 章</td><td>数据统计与对账：平台维度 / 企业维度 / 结算周期</td><td><a href="platform.html#recon" class="mono" style="color:var(--signal)">平台 P-01 / P-10</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>组织与权限</td><td>驻场 / 经纪人 / 经理 / 老板 数据可见范围与脱敏规则</td><td><a href="admin.html#org" class="mono" style="color:var(--signal)">后台 A-19</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>2.3 / 第 5 章</td><td>人才流转双向结算：我的人流出应收、别人的人流入应付、按公司与按人两级明细</td><td><a href="admin.html#circulation" class="mono" style="color:var(--signal)">后台 A-10 / A-11</a></td><td><span class="tag tag--ok">已覆盖</span></td></tr>
+            <tr><td>9.2 延伸</td><td>知识库的 C 端消费入口：岗位 AI 问答、未命中转人工并回流</td><td><a href="app.html#s44" class="mono" style="color:var(--signal)">APP S-44</a></td><td><span class="tag tag--signal">补充设计</span></td></tr>
+            <tr><td>6.4.4 / 6.5 / 节点八 延伸</td><td>工资发放闭环：工资条、薪资核算与发放批次、预支抵扣对账、工资申诉</td><td><a href="app.html#s41" class="mono" style="color:var(--signal)">APP S-41→43 · 后台 A-08/A-09</a></td><td><span class="tag tag--signal">补充设计</span></td></tr>
+            <tr><td>V1.5 预留</td><td>工分变现、推荐裂变</td><td><a href="app.html#s37" class="mono" style="color:var(--signal)">APP S-37 / S-38</a></td><td><span class="tag tag--info">占位设计</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 版本边界 ================= -->
+<section id="scope">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">07</span>
+      <h2>V1.0 交付边界</h2>
+      <p>依据《版本规划（完整版·最终定稿）2026-07-23》。V1.0 开发资源为<b class="strong">后端 2 + 前端 1 + 测试 1 / 5–6 周</b>，范围必须严格收敛。</p>
+    </div>
+
+    <div class="cols-3" style="margin-bottom:20px">
+      <div class="card ticked" style="border-color:var(--ok-line)"><div class="card__bd">
+        <div class="row" style="margin-bottom:8px"><span class="vtag vtag--v10">V1.0</span><b class="strong">智能化数字化招聘专家</b></div>
+        <p class="t-sm">跑通「AI 匹配 + 入职 + 人才流转」最小商业闭环，验证收费与合规模式。<br><b class="strong">本原型主体即 V1.0 范围。</b></p>
+      </div></div>
+      <div class="card ticked" style="border-color:var(--warn-line)"><div class="card__bd">
+        <div class="row" style="margin-bottom:8px"><span class="vtag vtag--v15">V1.5</span><b class="strong">蓝领就业生态能力扩展</b></div>
+        <p class="t-sm">补齐考勤、工分、消费、学习、广告、甲方企业端、资金端底座。<br>原型中带 <span class="vtag vtag--v15">V1.5</span> 标记的模块<b class="strong">不进入本期开发</b>。</p>
+      </div></div>
+      <div class="card ticked" style="border-color:var(--temp-line)"><div class="card__bd">
+        <div class="row" style="margin-bottom:8px"><span class="vtag vtag--v20">V2.0</span><b class="strong">蓝领超级职业生涯规划师</b></div>
+        <p class="t-sm">AI 智能体、生涯图谱、奋斗者分层、创业孵化、供应链金融落地、工友社交圈。</p>
+      </div></div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="card__hd"><h3>V1.0 明确<span style="color:var(--danger)">不包含</span>（版本规划 2.2）</h3><span class="tag tag--danger">9 项</span></div>
+        <div class="card__bd">
+          <div class="chips" style="gap:6px">
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">打卡考勤体系</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">用户工分成长体系</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">消费商城 / 积分兑换</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">甲方企业入驻与用工撮合</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">银行对接 / 供应链金融</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">职业培训 / 学习视频</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">小游戏 / 广告变现</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">工友社交圈</span>
+            <span class="chip" style="border-color:var(--danger-line); color:var(--danger)">创业孵化 / 生涯规划 AI</span>
+          </div>
+          <div class="divider"></div>
+          <div class="eyebrow">原型中已按此标记的模块</div>
+          <table class="tbl" style="margin-top:8px">
+            <thead><tr><th>模块</th><th>原型位置</th><th>归属</th></tr></thead>
+            <tbody>
+              <tr><td class="t-sm">考勤热力图 / 出勤统计</td><td class="t-sm">APP S-10 / S-30</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+              <tr><td class="t-sm">工分变现</td><td class="t-sm">APP S-38</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+              <tr><td class="t-sm">在岗打卡 / 补卡申诉（D-27）</td><td class="t-sm">APP S-47 / S-48 · 驻场 M-13 / M-14</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+              <tr><td class="t-sm">推荐裂变</td><td class="t-sm">APP S-37</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+              <tr><td class="t-sm">招聘漏斗全链路看板</td><td class="t-sm">后台 A-01</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+              <tr><td class="t-sm">批量入职 / 批量考勤</td><td class="t-sm">后台 A-14</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+              <tr><td class="t-sm">增长技术服务费阶梯定价</td><td class="t-sm">平台 P-09</td><td><span class="vtag vtag--v15">V1.5</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__hd"><h3>新文档带来的<span style="color:var(--signal)">口径修正</span></h3><span class="tag tag--signal">已同步至原型</span></div>
+        <table class="tbl">
+          <thead><tr><th>议题</th><th>此前原型口径</th><th>最终定稿口径</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="t-sm"><b>增长技术服务费</b></td>
+              <td class="t-sm" style="color:var(--danger)">V1.0 即阶梯<br>0.10/0.09/0.08</td>
+              <td class="t-sm" style="color:var(--ok)"><b class="strong">V1.0 统一 0.10 元/人/天</b><br>阶梯定价 V1.5 上线</td>
+            </tr>
+            <tr>
+              <td class="t-sm"><b>预支审批级数</b></td>
+              <td class="t-sm" style="color:var(--danger)">驻场 → 经理 → 老板 → 拨款<br>（四级，依 MVP 文档 6.5）</td>
+              <td class="t-sm" style="color:var(--ok)"><b class="strong">驻场初审 + 项目经理终审</b><br>双级（版本规划 2.1-6）</td>
+            </tr>
+            <tr>
+              <td class="t-sm"><b>预支机会获取</b></td>
+              <td class="t-sm" style="color:var(--danger)">每自然周 1 次</td>
+              <td class="t-sm" style="color:var(--ok)"><b class="strong">每满 7 个在岗日 +1 次</b><br>月上限 4 次不变</td>
+            </tr>
+            <tr>
+              <td class="t-sm"><b>数据看板</b></td>
+              <td class="t-sm">已按 V1.0 实现</td>
+              <td class="t-sm" style="color:var(--ok)">✓ 由 V1.5 <b class="strong">前移至 V1.0</b>（7.1 调整记录）</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="card__ft">
+          <div class="note note--warn">
+            <b>两份文档在预支审批级数上直接冲突</b>：MVP 文档 6.5 写「由项目经理和老板审批」，版本规划 2.1-6 写「驻场初审 + 项目经理终审双级审核」。原型已按<b>最终定稿</b>实现，仍建议书面确认后锁定。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 待确认 ================= -->
+<section id="open-issues">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="n">08</span>
+      <h2>开发前待确认清单</h2>
+      <p>逐条对照文档核查原型时发现的<b class="strong">文档内部矛盾与定义缺口</b>。原型已按右列口径实现，需产品最终裁定。</p>
+    </div>
+
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="tbl matrix">
+          <thead><tr><th style="width:58px">优先级</th><th style="width:170px">议题</th><th>文档中的两种表述</th><th style="width:250px">原型当前口径</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag--danger">阻断</span></td>
+              <td>24 小时超时后<br>用户是否变公域</td>
+              <td class="t-sm">
+                <b>第四节表格：</b>「24 小时后 — 用户<u>仍保持私域</u>，继续只看到该公司岗位，直到被释放或离职」<br>
+                <b>3.3 / 开篇：</b>「24 小时响应超时会<u>自动将用户变为公域</u>」「系统被动释放」
+              </td>
+              <td class="t-sm">按<b class="strong">超时即被动释放为公域</b>实现（否则「24h 响应机制」失去约束力，B 端无跟进动力）。见 <a href="staff.html#m12" class="mono" style="color:var(--signal)">驻场 M-12</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--danger">阻断</span></td>
+              <td>报名后<br>能否再次匹配报名</td>
+              <td class="t-sm">
+                <b>核心原则 / 3.4 状态表：</b>「报名后<u>不可</u>再进行岗位匹配和再次报名」<br>
+                <b>节点五：</b>「可以与驻场联系取消面试<u>或者再次匹配报名其他岗位</u>」
+              </td>
+              <td class="t-sm">按<b class="strong">报名后锁定、不可再匹配</b>实现；换岗须由驻场后台取消报名后重新匹配。见 <a href="app.html#s08" class="mono" style="color:var(--signal)">APP S-08</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--danger">阻断</span></td>
+              <td>平台流转抽佣口径</td>
+              <td class="t-sm">
+                <b>14.1：</b>「当日平台抽佣总额 = 当日流转费总额 × <u>20%</u>」<br>
+                <b>2.4 资金流向：</b>「公域用户入职 B 公司 → 平台单日收入 <u>10.10 元</u>」（即来源归属为平台时 10 元全归平台）
+              </td>
+              <td class="t-sm">主口径按 14.1 展示，并在页面标注按 2.4 口径的差额（当日相差 <b class="strong">2,464 元</b>）。见 <a href="platform.html#domain" class="mono" style="color:var(--signal)">平台 P-08</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--ok">已裁定</span></td>
+              <td>阶梯定价是否属于 V1.0</td>
+              <td class="t-sm">
+                <b>2.2 标题：</b>「增量收费阶梯定价（<u>V1.5</u>）」<br>
+                <b>15.1 V1.0 MVP 收费体系：</b>「增长技术服务费（<u>阶梯定价：0.1/0.09/0.08</u>）」
+              </td>
+              <td class="t-sm"><b class="strong">已按《版本规划》裁定：V1.0 统一 0.10，阶梯属 V1.5。</b>原型已全量修正。见 <a href="platform.html#billing" class="mono" style="color:var(--signal)">平台 P-09</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--warn">高</span></td>
+              <td>「年增长率」计算公式</td>
+              <td class="t-sm">文档给出阶梯档位（&lt;30% / 30–50% / ≥50%）但<u>未定义分母</u>：是「增量 ÷ 存量基数」，还是「本年新增 ÷ 去年同期总数」？两者对新入驻企业结果差异极大。</td>
+              <td class="t-sm">按 <b class="strong">增量 ÷ 存量基数</b>实现（鑫诚 658/180 = 365.6% → 0.08 档）。见 <a href="admin.html#bill" class="mono" style="color:var(--signal)">后台 A-18</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--ok">已裁定</span></td>
+              <td>预支频率判定基准</td>
+              <td class="t-sm">
+                <b>6.5：</b>「每周可申请 1 次（<u>自然周</u>）」<br>
+                同章：「每月<u>每工作七天</u>可以获得一次新的预支机会」
+              </td>
+              <td class="t-sm"><b class="strong">已按《版本规划》裁定：每满 7 个在岗日 +1 次。</b>原型已修正。见 <a href="app.html#s33" class="mono" style="color:var(--signal)">APP S-33</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--danger">阻断</span></td>
+              <td>工资发放模块归属版本</td>
+              <td class="t-sm"><b>6.4.4：</b>薪资记录标注为「<u>预留</u>」；但<b>节点八</b>要求离职时「从工资中扣除」预支欠款、<b>13.3</b> 要求注销时「结清所有员工薪资」—— 无发放数据则两条规则无法落地。</td>
+              <td class="t-sm">《版本规划》<b class="strong">三个版本的对比表中均未出现工资发放/工资条</b>——属规划遗漏。原型已补齐闭环并标记「规划外」，建议随 V1.5 考勤同期落地。见 <a href="app.html#s41" class="mono" style="color:var(--signal)">APP S-41→43</a> · <a href="admin.html#payroll" class="mono" style="color:var(--signal)">后台 A-08/A-09</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--info">中</span></td>
+              <td>岗位名额减扣时点</td>
+              <td class="t-sm">文档定义「岗位剩余名额是否已满」为报名校验项，但<u>未说明名额在报名时锁定还是入职时扣减</u>。爽约 / 取消是否回补亦未定义。</td>
+              <td class="t-sm">按<b class="strong">报名即锁定 −1、取消/爽约回补 +1</b>实现。见 <a href="app.html#s23" class="mono" style="color:var(--signal)">APP S-23</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--info">中</span></td>
+              <td>存量人员离职再入职</td>
+              <td class="t-sm">「存量人员永久免费，<u>不受离职影响</u>」——但离职后再次入职原公司，是恢复存量身份还是计入增量？未定义。</td>
+              <td class="t-sm">按<b class="strong">恢复存量身份</b>实现（基数固定不变）。见 <a href="platform.html#roster" class="mono" style="color:var(--signal)">平台 P-03</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--info">中</span></td>
+              <td>人才经纪人归属</td>
+              <td class="t-sm">第 8 章未说明经纪人是<u>劳务公司角色</u>还是<u>平台角色</u>；但 8.3「从劳务公司全部岗位中推荐」、8.4「释放」权限指向劳务公司侧。</td>
+              <td class="t-sm">按<b class="strong">劳务公司租户内角色</b>实现，跨项目、不跨公司。见 <a href="admin.html#agent" class="mono" style="color:var(--signal)">后台 A-10</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--info">中</span></td>
+              <td>经纪人响应 SLA</td>
+              <td class="t-sm">匹配度 &lt;80% 转人才经纪人后<u>无任何时限约束</u>，而此时用户正处于最焦虑阶段（蓝领 1–2 天必须定去向）。</td>
+              <td class="t-sm">原型按「2 小时内联系」占位，<b class="strong">建议正式定义 SLA 并纳入超时释放</b>。见 <a href="app.html#s17" class="mono" style="color:var(--signal)">APP S-17</a></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--info">中</span></td>
+              <td>知识库的 C 端消费入口</td>
+              <td class="t-sm"><b>9.2：</b>知识库「供 AI <u>自动回复</u>调用」——但第 6 章求职者端功能清单中<u>没有任何问答/咨询入口</u>，知识库无消费端。</td>
+              <td class="t-sm">已在岗位详情页补「岗位 AI 问答」，未命中转人工并回流后台。见 <a href="app.html#s44" class="mono" style="color:var(--signal)">APP S-44</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card__ft">
+        <div class="note note--warn"><b>已裁定（2026-11-04）：</b>本表全部议题及原型核验新发现的问题已在 <code>docs/04-决策记录.md</code> 中逐条裁定（D-01 ~ D-31），开发按决策记录执行；原型已同步修正：预支审批改为双级（A-14 / A-19 / 菜单）、去掉「我的报备 · 待确认」、在岗打卡标记 V1.5。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap fin">
+    <span class="eyebrow">仕兔平台 V1.0 MVP · 原型设计稿</span>
+    <span>·</span><span>基于《仕兔平台 V1.0 MVP 完整产品文档 V2.0》(2026-07-23) 编制</span>
+    <span style="margin-left:auto" class="mono">PROTOTYPE · NOT PRODUCTION</span>
+  </div>
+</footer>
+
+<script src="assets/js/proto.js"></script>
+</body>
+</html>
