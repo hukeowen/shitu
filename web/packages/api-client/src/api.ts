@@ -28,6 +28,21 @@ import type {
   ProjectRequest,
   ProjectStatus,
   ProjectView,
+  QuizAnswer,
+  QuizQuestion,
+  QuizView,
+  MatchOutcome,
+  SeekerJobDetail,
+  Disclaimer,
+  KycView,
+  ApplyResult,
+  MyApplication,
+  ApplicationStatus,
+  InboxItem,
+  SiteApplication,
+  SiteWorkbench,
+  AcknowledgeRequest,
+  MatchSnapshot,
   SeekerLoginResponse,
   SeekerProfile,
   SmsSendResult,
@@ -76,6 +91,30 @@ export const seekerApi = {
     post<SeekerLoginResponse>('/seeker/auth/sms-login', { phone, code, channelCode: channelCode ?? undefined }),
   me: () => get<SeekerProfile>('/seeker/me'),
   channelInfo: (code: string) => get<ChannelInfo>(`/seeker/public/channel/${encodeURIComponent(code)}`),
+
+  /** 当前生效题库（C-302） */
+  quiz: () => get<QuizView>('/seeker/quiz'),
+  /** 提交答案匹配；报名锁定期抛 LC_4003（C-301） */
+  match: (answers: QuizAnswer[], location?: { lng: number; lat: number }) =>
+    post<MatchOutcome>('/seeker/match', { answers, lng: location?.lng, lat: location?.lat }),
+  /** 最近一次匹配结果，没有返回 null */
+  latestMatch: () => get<MatchOutcome | null>('/seeker/match/latest'),
+  /** 岗位详情，只能看最近一次匹配结果里的岗位（否则 APP_4004） */
+  job: (jobId: string) => get<SeekerJobDetail>(`/seeker/jobs/${jobId}`),
+  disclaimer: () => get<Disclaimer>('/seeker/disclaimer'),
+  agreeDisclaimer: (version: string) => post<Disclaimer>('/seeker/disclaimer/agree', { version }),
+  kyc: () => get<KycView>('/seeker/kyc'),
+  /** 实名：APP_4003 两次不一致 / 4005 号码错误 / 4006 未满 16 / 4007 已被占用 / 4008 黑名单 / 4009 二要素不符 / 4013 已实名 */
+  submitKyc: (realName: string, idCard: string, idCardConfirm: string) =>
+    post<KycView>('/seeker/kyc', { realName, idCard, idCardConfirm }),
+  /** 报名：APP_4012 未同意告知书 / 4010 未实名 / 4011 未满 18 / 4001 名额已满 / 4002 已有报名 / 4004 不在匹配结果中 */
+  apply: (jobId: string) => post<ApplyResult>('/seeker/applications', { jobId }),
+  myApplications: (status?: ApplicationStatus) => get<MyApplication[]>('/seeker/applications', { status }),
+  messages: (params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) =>
+    get<PageResult<InboxItem>>('/seeker/messages', params),
+  unreadCount: () => get<number>('/seeker/messages/unread-count'),
+  /** ids 不传 = 全部已读 */
+  markRead: (ids?: number[]) => post<number>('/seeker/messages/read', { ids }),
 }
 
 // ------------------------------------------------------------------ 公司后台 / 驻场端
@@ -137,6 +176,20 @@ export const tenantApi = {
   pauseJob: (jobId: string) => post<JobView>(`/tenant/jobs/${jobId}/pause`),
   resumeJob: (jobId: string) => post<JobView>(`/tenant/jobs/${jobId}/resume`),
   offlineJob: (jobId: string) => post<JobView>(`/tenant/jobs/${jobId}/offline`),
+
+  /** 驻场工作台数字（M-01） */
+  siteWorkbench: () => get<SiteWorkbench>('/tenant/site/workbench'),
+  /** 报名列表（M-02）：unacknowledged=true 只看待知悉 */
+  applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; projectId?: string; page?: number; pageSize?: number }) =>
+    get<PageResult<SiteApplication>>('/tenant/applications', params),
+  application: (applicationId: string) => get<SiteApplication>(`/tenant/applications/${applicationId}`),
+  /** 知悉并推送面试信息（可重复推送） */
+  acknowledge: (applicationId: string, req: AcknowledgeRequest) =>
+    post<SiteApplication>(`/tenant/applications/${applicationId}/acknowledge`, req),
+  messages: (params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) =>
+    get<PageResult<InboxItem>>('/tenant/messages', params),
+  unreadCount: () => get<number>('/tenant/messages/unread-count'),
+  markRead: (ids?: number[]) => post<number>('/tenant/messages/read', { ids }),
 }
 
 // ------------------------------------------------------------------ 平台中台
@@ -174,6 +227,18 @@ export const opsApi = {
 
   /** 查看文件用 fetchFileUrl(opsApi.filePath, key) */
   filePath: '/ops/files',
+
+  /** 题库 P-12 */
+  quizVersions: () => get<QuizView[]>('/ops/quiz/versions'),
+  quizVersion: (versionId: number) => get<QuizView>(`/ops/quiz/versions/${versionId}`),
+  /** 从生效版本复制草稿（已有草稿时返回该草稿） */
+  createQuizDraft: (name?: string) => post<QuizView>('/ops/quiz/drafts', { name }),
+  /** 整体替换草稿题目（≤7 题、硬过滤题在前、必须含 accept_factory 与 locked_region） */
+  saveQuizDraft: (versionId: number, name: string | undefined, questions: QuizQuestion[]) =>
+    put<QuizView>(`/ops/quiz/versions/${versionId}`, { name, questions }),
+  /** 发布草稿 / 回滚到归档版本（仅超管） */
+  publishQuiz: (versionId: number) => post<QuizView>(`/ops/quiz/versions/${versionId}/publish`),
+  matchSnapshot: (sessionId: string) => get<MatchSnapshot>(`/ops/match-sessions/${sessionId}`),
 
   admins: (params?: { keyword?: string; page?: number; pageSize?: number }) => get<PageResult<AdminView>>('/ops/admins', params),
   createAdmin: (req: { username: string; displayName: string; roles: OpsRole[] }) =>

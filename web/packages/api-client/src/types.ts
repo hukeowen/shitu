@@ -368,3 +368,242 @@ export interface AuditLogEntry {
   traceId?: string
   createdAt: string
 }
+
+// ------------------------------------------------------------------ Sprint 2：问薪、实名、报名、消息
+
+export type ApplicationStatus = 'PENDING_INTERVIEW' | 'PENDING_CONFIRM' | 'EMPLOYED' | 'CANCELLED' | 'TIMEOUT' | 'INTERVIEW_FAILED' | 'NO_SHOW'
+
+export interface QuizOption {
+  code: string
+  label: string
+  /** 选项副标题，如「正常加班」 */
+  sub?: string
+  value?: string
+  min?: number
+  max?: number
+  /** 选中后需要选择城市（地域锁定题） */
+  needRegion?: boolean
+}
+
+export interface QuizQuestion {
+  seq: number
+  /** JUDGE 判断题 / CHOICE 选择题 */
+  questionType: 'JUDGE' | 'CHOICE'
+  stem: string
+  hint?: string
+  profileField: string
+  /** HARD_FILTER 硬过滤 / SOFT_WEIGHT 软打分 */
+  matchRole: 'HARD_FILTER' | 'SOFT_WEIGHT'
+  options: QuizOption[]
+}
+
+export interface QuizView {
+  versionId: number
+  name: string
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+  publishedAt?: string
+  questions: QuizQuestion[]
+}
+
+export interface QuizAnswer {
+  seq: number
+  code: string
+  /** 地域锁定题选「是」时的城市 */
+  region?: string
+}
+
+export interface MatchResultCard {
+  rank: number
+  jobId: string
+  title: string
+  companyName?: string
+  city?: string
+  address?: string
+  /** 匹配度 0–100（只返回 ≥ 80 的） */
+  matchScore: number
+  salaryMin: number
+  salaryMax: number
+  shiftType: ShiftType
+  dormProvided: boolean
+  dormRoomSize?: number
+  dormAircon?: boolean
+  mealProvided: boolean
+  quotaRemaining: number
+  /** 推荐理由，如「工种对口 · 月薪 5500–6800 元 · 包吃住 4 人间有空调」 */
+  reason: string
+}
+
+export interface MatchOutcome {
+  sessionId: string
+  scope: MatchScope
+  /** false = 没有匹配度 ≥ 80% 的岗位：私域已转人才经纪人；公域提示调整条件重新匹配 */
+  matched: boolean
+  results: MatchResultCard[]
+  engineVersion: number
+  quizVersion: number
+}
+
+export interface SeekerJobDetail {
+  jobId: string
+  title: string
+  companyName?: string
+  projectName?: string
+  city?: string
+  address?: string
+  jobType: JobType
+  shiftType: ShiftType
+  salaryMin: number
+  salaryMax: number
+  dormProvided: boolean
+  dormRoomSize?: number
+  dormAircon?: boolean
+  dormPrivateBath?: boolean
+  mealProvided: boolean
+  minWorkYears: number
+  ageMin: number
+  ageMax: number
+  duties: string
+  benefits?: string
+  requiredDocuments?: string[]
+  notes?: string
+  interviewAddress: string
+  interviewTimeDesc?: string
+  quotaRemaining: number
+  lng?: number
+  lat?: number
+  /** 报名按钮是否可用（实名 / 告知书在点报名后按错误码引导） */
+  canApply: boolean
+  cannotApplyReason?: string
+}
+
+export interface Disclaimer {
+  version: string
+  title: string
+  paragraphs: string[]
+  agreed: boolean
+}
+
+export interface KycView {
+  kycStatus: 'NONE' | 'VERIFIED' | 'REVIEWING' | 'REJECTED'
+  realNameMasked?: string
+  idCardMasked?: string
+  age?: number
+  canApply: boolean
+}
+
+export interface ApplyResult {
+  applicationId: string
+  jobTitle: string
+  companyName?: string
+  interviewAddress?: string
+  /** 24h 响应窗口截止（驻场需在此前联系） */
+  responseDeadline?: string
+}
+
+export interface InterviewNoticeView {
+  interviewAt: string
+  address: string
+  routeTips?: string
+  documents?: string[]
+  contactName?: string
+  contactPhone?: string
+  pushedAt: string
+}
+
+export interface MyApplication {
+  applicationId: string
+  jobId: string
+  jobTitle?: string
+  companyName?: string
+  projectName?: string
+  city?: string
+  address?: string
+  status: ApplicationStatus
+  createdAt: string
+  endedAt?: string
+  endReason?: string
+  /** 驻场推送的面试信息（C-408） */
+  notice?: InterviewNoticeView
+}
+
+export interface InboxItem {
+  id: number
+  templateCode: string
+  title: string
+  content: string
+  /** 应用内跳转路径 */
+  link?: string
+  /** 2 = 最高（工伤异常） */
+  priority: number
+  read: boolean
+  createdAt: string
+}
+
+/** 驻场 / 项目经理看到的报名（phone 仅驻场返回） */
+export interface SiteApplication {
+  applicationId: string
+  userId: string
+  /** 脱敏姓名，未实名显示「未实名」 */
+  seekerName: string
+  phone?: string
+  jobId: string
+  jobTitle?: string
+  projectId: string
+  projectName?: string
+  status: ApplicationStatus
+  /** 报名前是公域用户 */
+  fromPublic: boolean
+  createdAt: string
+  acknowledgedAt?: string
+  interviewAt?: string
+  /** 24h 响应截止 */
+  responseDeadline?: string
+  /** ACKNOWLEDGE 首次知悉 / REPUSH 重新推送 */
+  allowedActions: string[]
+}
+
+export interface SiteWorkbench {
+  /** 待知悉（新报名） */
+  pendingAck: number
+  pendingInterview: number
+  pendingConfirm: number
+  /** 4 小时内即将超时的 24h 窗口 */
+  windowsDueIn4h: number
+  /** 私域待匹配人数 */
+  privatePending: number
+}
+
+export interface AcknowledgeRequest {
+  /** ISO 本地时间，如 2026-11-08T09:00:00 */
+  interviewAt: string
+  address: string
+  routeTips?: string
+  documents?: string[]
+  contactName?: string
+  contactPhone?: string
+}
+
+export interface MatchSnapshot {
+  session: {
+    sessionId: string
+    userId: string
+    quizVersionId: number
+    engineVersionId: number
+    scope: string
+    scopeCompanyId?: string
+    answers: string
+    profile: string
+    status: 'MATCHED' | 'NO_MATCH'
+    startedAt: string
+  }
+  results: {
+    rankNo: number
+    jobId: string
+    matchScore: number
+    jobWeight: number
+    sortScore: number
+    factorScores: string
+    reasonText?: string
+    displayed: boolean
+  }[]
+}

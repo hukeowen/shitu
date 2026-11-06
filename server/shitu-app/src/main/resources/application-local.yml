@@ -1,5 +1,7 @@
 # 本地开发（默认 profile）。第三方全部 Mock。
 shitu:
+  dev:
+    seed-demo: true   # 空库首次启动创建演示公司（见 DemoDataSeeder），生产不得开启
   sms:
     expose-code-in-mock: true
   ops:
