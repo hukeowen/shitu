@@ -130,6 +130,7 @@ export interface ApplyCompanyRequest {
 export interface TenantMe {
   memberId: string
   name: string
+  phoneMasked: string
   roles: TenantRole[]
   /** 权限点，控制菜单 / 按钮显示（与后端角色校验一致） */
   permissions: string[]
@@ -220,6 +221,8 @@ export interface ChannelItem {
   code: string
   /** 二维码内容，前端用它生成二维码图片 */
   url: string
+  /** 公司码 / 成员码 / 项目码 */
+  kind: 'COMPANY' | 'MEMBER' | 'PROJECT'
   name: string
   memberId?: string
   memberName?: string

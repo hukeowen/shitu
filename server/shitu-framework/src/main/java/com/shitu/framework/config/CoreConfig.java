@@ -14,7 +14,8 @@ public class CoreConfig {
     /** 业务代码一律注入 Clock 取当前时间，测试可模拟跨日、跨月（02-架构 §13）。 */
     @Bean
     public Clock clock() {
-        return Clock.system(Constants.ZONE);
+        // 截到毫秒：与 DATETIME(3) 精度一致，序列化后的时间也不会出现 iOS Safari 解析不了的 7 位小数
+        return Clock.tick(Clock.system(Constants.ZONE), java.time.Duration.ofMillis(1));
     }
 
     @Bean

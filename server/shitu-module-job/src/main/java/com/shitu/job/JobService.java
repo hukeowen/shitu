@@ -120,6 +120,25 @@ public class JobService {
         return toPage(page, false);
     }
 
+    /** 各状态岗位数（列表页状态页签角标），按数据范围统计。 */
+    public Map<JobStatus, Long> stats(AuthPrincipal p, String projectId) {
+        DataScope.Scope s = scope.of(p);
+        Map<JobStatus, Long> m = new java.util.EnumMap<>(JobStatus.class);
+        for (JobStatus st : JobStatus.values()) {
+            m.put(st, 0L);
+        }
+        if (!s.all() && s.projectIds().isEmpty()) {
+            return m;
+        }
+        jobs.selectMaps(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Job>()
+                        .select("job_status AS st", "COUNT(*) AS cnt")
+                        .in(!s.all(), "project_id", s.projectIds())
+                        .eq(projectId != null && !projectId.isBlank(), "project_id", projectId)
+                        .groupBy("job_status"))
+                .forEach(r -> m.put(JobStatus.valueOf(String.valueOf(r.get("st"))), ((Number) r.get("cnt")).longValue()));
+        return m;
+    }
+
     public JobView get(AuthPrincipal p, String jobId) {
         Job j = mustGet(jobId);
         scope.checkProject(p, j.getProjectId());

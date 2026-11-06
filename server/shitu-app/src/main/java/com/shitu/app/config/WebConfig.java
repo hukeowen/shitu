@@ -8,9 +8,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final TenantStatusInterceptor tenantStatus;
+    private final OpsPasswordInterceptor opsPassword;
 
-    public WebConfig(TenantStatusInterceptor tenantStatus) {
+    public WebConfig(TenantStatusInterceptor tenantStatus, OpsPasswordInterceptor opsPassword) {
         this.tenantStatus = tenantStatus;
+        this.opsPassword = opsPassword;
     }
 
     @Override
@@ -20,5 +22,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns("/api/v1/tenant/auth/**", "/api/v1/tenant/onboarding/**",
                         "/api/v1/tenant/me", "/api/v1/tenant/company", "/api/v1/tenant/company/**",
                         "/api/v1/tenant/files");
+        registry.addInterceptor(opsPassword)
+                .addPathPatterns("/api/v1/ops/**")
+                .excludePathPatterns("/api/v1/ops/auth/**", "/api/v1/ops/me", "/api/v1/ops/me/password");
     }
 }

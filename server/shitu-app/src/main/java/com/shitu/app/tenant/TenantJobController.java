@@ -64,6 +64,12 @@ public class TenantJobController {
         return ApiResponse.ok(jobs.list(CurrentUser.get(), new JobService.JobQuery(status, projectId, keyword, null, page, pageSize)));
     }
 
+    @Operation(summary = "各状态岗位数（状态页签角标）")
+    @GetMapping("/stats")
+    public ApiResponse<java.util.Map<JobStatus, Long>> stats(@RequestParam(required = false) String projectId) {
+        return ApiResponse.ok(jobs.stats(CurrentUser.get(), projectId));
+    }
+
     @Operation(summary = "岗位详情")
     @GetMapping("/{jobId}")
     public ApiResponse<JobService.JobView> get(@PathVariable String jobId) {

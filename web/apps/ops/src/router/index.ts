@@ -1,27 +1,55 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteComponent, type RouteRecordRaw } from 'vue-router'
 import AppLayout from '@/layout/AppLayout.vue'
-import { APP_TITLE, MENU } from './menu'
+import { useAuthStore } from '@/stores/auth'
+import { APP_TITLE, HOME_PATH, MENU } from './menu'
+
+type Lazy = () => Promise<RouteComponent>
+
+/** Sprint 1 已实现页面；其余菜单项使用占位页 */
+const VIEWS: Record<string, Lazy> = {
+  [HOME_PATH]: () => import('@/views/WorkbenchView.vue'),
+  '/companies/list': () => import('@/views/companies/CompanyListView.vue'),
+  '/governance/job-audit': () => import('@/views/jobs/JobAuditView.vue'),
+  '/settlement/audit': () => import('@/views/audit/AuditLogView.vue'),
+  '/system/admins': () => import('@/views/admins/AdminListView.vue'),
+}
 
 const children: RouteRecordRaw[] = MENU.flatMap((g) =>
   g.items.map((it) => ({
     path: it.path,
-    component: () => import('@/views/PlaceholderView.vue'),
-    meta: { title: it.title, proto: it.proto, group: g.title },
+    component: VIEWS[it.path] ?? (() => import('@/views/PlaceholderView.vue')),
+    meta: { title: it.title, proto: it.proto, group: g.title, roles: it.roles },
   })),
 )
+children.push({ path: '/forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } })
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录' } },
+    { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录', public: true } },
     {
       path: '/',
       component: AppLayout,
-      redirect: MENU[0].items[0].path,
+      redirect: HOME_PATH,
       children,
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
+})
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+  if (to.meta.public) return true
+  const ok = await auth.ensureSession()
+  if (!ok || !auth.me) {
+    return { path: '/login', query: to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : {} }
+  }
+  // 首次登录 / 被重置密码：必须先改密，不能进入业务页面
+  if (auth.me.mustChangePassword) return { path: '/login' }
+  if (!auth.hasAnyRole(to.meta.roles)) {
+    return { path: '/forbidden', query: { from: to.fullPath } }
+  }
+  return true
 })
 
 router.afterEach((to) => {

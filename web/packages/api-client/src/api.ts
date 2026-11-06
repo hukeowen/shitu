@@ -126,6 +126,7 @@ export const tenantApi = {
 
   jobs: (params?: { status?: JobStatus; projectId?: string; keyword?: string; page?: number; pageSize?: number }) =>
     get<PageResult<JobView>>('/tenant/jobs', params),
+  jobStats: (projectId?: string) => get<Record<JobStatus, number>>('/tenant/jobs/stats', { projectId }),
   job: (jobId: string) => get<JobView>(`/tenant/jobs/${jobId}`),
   jobAudits: (jobId: string) => get<JobAuditRecord[]>(`/tenant/jobs/${jobId}/audits`),
   createJob: (req: JobRequest) => post<JobView>('/tenant/jobs', req),

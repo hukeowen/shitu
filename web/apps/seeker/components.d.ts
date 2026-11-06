@@ -7,15 +7,24 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BrandMark: typeof import('./src/components/BrandMark.vue')['default']
+    CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
+    GuestHome: typeof import('./src/components/home/GuestHome.vue')['default']
+    GuidePopup: typeof import('./src/components/GuidePopup.vue')['default']
+    MemberHome: typeof import('./src/components/home/MemberHome.vue')['default']
+    QuadGrid: typeof import('./src/components/QuadGrid.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SplashScreen: typeof import('./src/components/SplashScreen.vue')['default']
     VanButton: typeof import('vant/es')['Button']
-    VanCellGroup: typeof import('vant/es')['CellGroup']
     VanCheckbox: typeof import('vant/es')['Checkbox']
+    VanDialog: typeof import('vant/es')['Dialog']
     VanEmpty: typeof import('vant/es')['Empty']
-    VanField: typeof import('vant/es')['Field']
+    VanIcon: typeof import('vant/es')['Icon']
+    VanLoading: typeof import('vant/es')['Loading']
     VanNavBar: typeof import('vant/es')['NavBar']
     VanPopup: typeof import('vant/es')['Popup']
+    VanPullRefresh: typeof import('vant/es')['PullRefresh']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
   }

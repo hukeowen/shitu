@@ -41,7 +41,7 @@ public class TenantAuthFacade {
     public record LoginResult(LoginStatus status, TokenPair tokens, String onboardingTicket, String phoneMasked) {
     }
 
-    public record TenantMe(String memberId, String name, Set<ActorRole> roles, Set<String> permissions,
+    public record TenantMe(String memberId, String name, String phoneMasked, Set<ActorRole> roles, Set<String> permissions,
                            CompanyService.CompanyView company, boolean operational) {
     }
 
@@ -113,8 +113,8 @@ public class TenantAuthFacade {
 
     public TenantMe me(AuthPrincipal p) {
         MemberService.MemberView v = members.get(p.subjectId());
-        CompanyService.CompanyView c = companies.get(p.companyId(), false);
-        return new TenantMe(v.memberId(), v.name(), v.roles(), TenantPermissions.of(v.roles()), c,
+        CompanyService.CompanyView c = companies.get(p.companyId(), p.hasRole("OWNER"));
+        return new TenantMe(v.memberId(), v.name(), v.phoneMasked(), v.roles(), TenantPermissions.of(v.roles()), c,
                 companies.isOperational(p.companyId()));
     }
 }

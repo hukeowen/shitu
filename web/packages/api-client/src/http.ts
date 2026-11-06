@@ -128,7 +128,18 @@ http.interceptors.response.use(
     } else if (status === 401 && !isAuthCall) {
       auth?.onUnauthorized?.()
     }
-    const body = err.response?.data
+    const raw = err.response?.data as Partial<ApiEnvelope<unknown>> | Blob | undefined
+    let body: Partial<ApiEnvelope<unknown>> | undefined
+    // 文件下载失败时错误体是 JSON 的 Blob，解析出真实的 code / message
+    if (raw instanceof Blob) {
+      try {
+        body = JSON.parse(await raw.text()) as Partial<ApiEnvelope<unknown>>
+      } catch {
+        body = undefined
+      }
+    } else {
+      body = raw
+    }
     throw new ApiError(
       String(body?.code ?? status ?? 'NETWORK'),
       body?.message ?? (status ? '请求失败，请稍后重试' : '网络异常，请检查网络后重试'),

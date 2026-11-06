@@ -4,6 +4,7 @@ import 'element-plus/theme-chalk/el-message.css'
 import 'element-plus/theme-chalk/el-message-box.css'
 import '@shitu/ui-tokens/tokens.css'
 import '@shitu/ui-tokens/element-theme.css'
+import './styles/ops.css'
 import { configureAuth } from '@shitu/api-client'
 import App from './App.vue'
 import router from './router'
@@ -20,7 +21,14 @@ configureAuth({
   setToken: (t) => {
     auth.accessToken = t
   },
-  onUnauthorized: () => router.push('/login'),
+  onUnauthorized: () => {
+    // 刷新也失败：会话已失效（被吊销 / 过期 / 角色变更）
+    auth.clear()
+    const cur = router.currentRoute.value
+    if (!cur.meta.public) {
+      router.push({ path: '/login', query: { redirect: cur.fullPath, expired: '1' } })
+    }
+  },
 })
 
 app.mount('#app')

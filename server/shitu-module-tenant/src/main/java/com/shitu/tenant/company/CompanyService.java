@@ -196,7 +196,8 @@ public class CompanyService {
                         .or().like(Company::getShortName, q.keyword())
                         .or().eq(Company::getCompanyId, q.keyword())
                         .or().eq(Company::getUnifiedCreditCode, q.keyword().toUpperCase()))
-                .orderByDesc(Company::getSubmittedAt);
+                .orderByAsc(q.status() == CompanyStatus.PENDING_AUDIT, Company::getSubmittedAt)
+                .orderByDesc(q.status() != CompanyStatus.PENDING_AUDIT, Company::getSubmittedAt);
         return Pages.map(companies.selectPage(Pages.of(q.page(), q.pageSize()), w), c -> view(c, false));
     }
 

@@ -83,6 +83,14 @@ public class SmsCodeService {
         String ipKey = "sms:ip:" + ip;
         String dayKey = "sms:day:" + today + ":" + hash;
 
+        // 先看冷却期：还在 60 秒内直接告诉用户等多久，不必先做图形验证
+        int interval = params.getInt("sms.code_interval_seconds", 60);
+        String ivKey = "sms:iv:" + domain.audience() + ":" + hash;
+        if (kv.get(ivKey).isPresent()) {
+            long left = Math.max(1, kv.ttl(ivKey).toSeconds());
+            throw new BizException(ErrorCode.AUTH_CODE_TOO_FREQUENT, "验证码发送太频繁，请 " + left + " 秒后再试");
+        }
+
         boolean needCaptcha = limiter.count(ipKey) >= captchaAfterPerIp
                 || limiter.count(dayKey) >= CAPTCHA_AFTER_PER_PHONE_DAY;
         if (needCaptcha) {
@@ -90,8 +98,6 @@ public class SmsCodeService {
             BizException.check(captcha.verify(captchaId, captchaCode), ErrorCode.AUTH_CAPTCHA_INVALID);
         }
 
-        int interval = params.getInt("sms.code_interval_seconds", 60);
-        String ivKey = "sms:iv:" + domain.audience() + ":" + hash;
         if (!kv.setIfAbsent(ivKey, "1", Duration.ofSeconds(interval))) {
             long left = Math.max(1, kv.ttl(ivKey).toSeconds());
             throw new BizException(ErrorCode.AUTH_CODE_TOO_FREQUENT, "验证码发送太频繁，请 " + left + " 秒后再试");

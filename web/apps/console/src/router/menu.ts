@@ -1,9 +1,18 @@
 /** 公司后台菜单：沿用原型 admin.html 左侧导航。
+ *  每个菜单项带 access：无权限的菜单项隐藏，组内无可见项则整组隐藏。
  *  决策 D-25：薪酬预支审批（A-17）为「驻场初审 + 项目经理终审」双级，菜单从「劳务公司老板」移至「项目经理」。 */
+import type { TenantRole } from '@shitu/api-client'
+
+/** 访问条件：拥有任一权限点 或 任一角色即可（与后端 TenantPermissions 口径一致） */
+export interface Access {
+  perms?: string[]
+  roles?: TenantRole[]
+}
 export interface MenuItem {
   path: string
   title: string
   proto: string
+  access?: Access
 }
 export interface MenuGroup {
   key: string
@@ -20,10 +29,10 @@ export const MENU: MenuGroup[] = [
     title: '驻场',
     en: 'SITE REP',
     items: [
-      { path: '/site/home', title: '驻场工作台', proto: 'A-01' },
-      { path: '/site/todo', title: '待办清单', proto: 'A-02' },
-      { path: '/site/follow', title: '24h 响应监控', proto: 'A-03' },
-      { path: '/site/onboard', title: '确权与签约', proto: 'A-04' },
+      { path: '/site/home', title: '驻场工作台', proto: 'A-01', access: { perms: ['SITE_WORKBENCH'] } },
+      { path: '/site/todo', title: '待办清单', proto: 'A-02', access: { perms: ['SITE_WORKBENCH'] } },
+      { path: '/site/follow', title: '24h 响应监控', proto: 'A-03', access: { perms: ['SITE_WORKBENCH'] } },
+      { path: '/site/onboard', title: '确权与签约', proto: 'A-04', access: { roles: ['SITE'] } },
     ],
   },
   {
@@ -31,9 +40,9 @@ export const MENU: MenuGroup[] = [
     title: '人才经纪人',
     en: 'BROKER',
     items: [
-      { path: '/broker/pool', title: '流转池', proto: 'A-05' },
-      { path: '/broker/report', title: 'AI 分析报告', proto: 'A-06' },
-      { path: '/broker/rematch', title: '二次匹配 / 释放', proto: 'A-07' },
+      { path: '/broker/pool', title: '流转池', proto: 'A-05', access: { perms: ['BROKER_WORKBENCH'] } },
+      { path: '/broker/report', title: 'AI 分析报告', proto: 'A-06', access: { perms: ['BROKER_WORKBENCH'] } },
+      { path: '/broker/rematch', title: '二次匹配 / 释放', proto: 'A-07', access: { perms: ['BROKER_WORKBENCH'] } },
     ],
   },
   {
@@ -41,8 +50,8 @@ export const MENU: MenuGroup[] = [
     title: '薪资发放',
     en: 'PAYROLL',
     items: [
-      { path: '/payroll/batches', title: '薪资核算与发放', proto: 'A-08' },
-      { path: '/payroll/recon', title: '预支抵扣对账', proto: 'A-09' },
+      { path: '/payroll/batches', title: '薪资核算与发放', proto: 'A-08', access: { roles: ['PM', 'OWNER'] } },
+      { path: '/payroll/recon', title: '预支抵扣对账', proto: 'A-09', access: { roles: ['PM', 'OWNER'] } },
     ],
   },
   {
@@ -50,8 +59,8 @@ export const MENU: MenuGroup[] = [
     title: '人才流转',
     en: 'CIRCULATION',
     items: [
-      { path: '/circulation/ledger', title: '流转账本', proto: 'A-10' },
-      { path: '/circulation/people', title: '流转人员台账', proto: 'v-circulation-list' },
+      { path: '/circulation/ledger', title: '流转账本', proto: 'A-10', access: { roles: ['BROKER', 'PM', 'OWNER'] } },
+      { path: '/circulation/people', title: '流转人员台账', proto: 'v-circulation-list', access: { roles: ['BROKER', 'PM', 'OWNER'] } },
     ],
   },
   {
@@ -59,13 +68,13 @@ export const MENU: MenuGroup[] = [
     title: '项目经理',
     en: 'PROJECT MGR',
     items: [
-      { path: '/pm/board', title: '数据看板', proto: 'v-pm-board' },
-      { path: '/pm/jobs', title: '岗位管理', proto: 'v-jobs' },
-      { path: '/pm/jobs/edit', title: '创建 / 编辑岗位', proto: 'v-job-edit' },
-      { path: '/pm/kb', title: '知识库管理', proto: 'A-11' },
-      { path: '/pm/staff', title: '人员管理', proto: 'A-12' },
-      { path: '/pm/resign', title: '离职审核', proto: 'A-13' },
-      { path: '/pm/advance', title: '薪酬预支审批', proto: 'A-17' },
+      { path: '/pm/board', title: '数据看板', proto: 'v-pm-board', access: { perms: ['PM_WORKBENCH'] } },
+      { path: '/pm/jobs', title: '岗位管理', proto: 'v-jobs', access: { perms: ['JOB_MANAGE', 'JOB_VIEW'] } },
+      { path: '/pm/jobs/edit', title: '创建 / 编辑岗位', proto: 'v-job-edit', access: { perms: ['JOB_MANAGE'] } },
+      { path: '/pm/kb', title: '知识库管理', proto: 'A-11', access: { perms: ['KB_MANAGE'] } },
+      { path: '/pm/staff', title: '人员管理', proto: 'A-12', access: { perms: ['PM_WORKBENCH'] } },
+      { path: '/pm/resign', title: '离职审核', proto: 'A-13', access: { perms: ['RESIGN_AUDIT'] } },
+      { path: '/pm/advance', title: '薪酬预支审批', proto: 'A-17', access: { perms: ['ADVANCE_FINAL_REVIEW', 'ADVANCE_FIRST_REVIEW'] } },
     ],
   },
   {
@@ -73,9 +82,9 @@ export const MENU: MenuGroup[] = [
     title: '劳务公司老板',
     en: 'OWNER',
     items: [
-      { path: '/owner/overview', title: '数据总览', proto: 'A-14' },
-      { path: '/owner/channel-report', title: '渠道转化报表', proto: 'A-15' },
-      { path: '/owner/bills', title: '费用账单', proto: 'A-16' },
+      { path: '/owner/overview', title: '数据总览', proto: 'A-14', access: { perms: ['OWNER_DASHBOARD'] } },
+      { path: '/owner/channel-report', title: '渠道转化报表', proto: 'A-15', access: { perms: ['OWNER_DASHBOARD'] } },
+      { path: '/owner/bills', title: '费用账单', proto: 'A-16', access: { perms: ['BILL_VIEW'] } },
     ],
   },
   {
@@ -83,8 +92,9 @@ export const MENU: MenuGroup[] = [
     title: '公司设置',
     en: 'SETTINGS',
     items: [
-      { path: '/settings/channels', title: '渠道二维码', proto: 'A-18' },
-      { path: '/settings/org', title: '组织与权限', proto: 'A-19' },
+      { path: '/settings/projects', title: '项目与甲方', proto: 'T-301', access: { perms: ['PROJECT_MANAGE', 'PROJECT_VIEW'] } },
+      { path: '/settings/channels', title: '渠道二维码', proto: 'A-18', access: { perms: ['CHANNEL_MANAGE', 'CHANNEL_MINE'] } },
+      { path: '/settings/org', title: '组织与权限', proto: 'A-19', access: { perms: ['ORG_MANAGE'], roles: ['PM'] } },
     ],
   },
 ]

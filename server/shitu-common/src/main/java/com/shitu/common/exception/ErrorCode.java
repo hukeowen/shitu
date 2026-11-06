@@ -27,6 +27,7 @@ public enum ErrorCode {
     AUTH_PASSWORD_WEAK("AUTH_4010", "密码至少 8 位，且同时包含字母和数字"),
     AUTH_REFRESH_INVALID("AUTH_4011", "登录已失效，请重新登录"),
     AUTH_TICKET_INVALID("AUTH_4012", "入驻申请已过期，请重新验证手机号"),
+    AUTH_PASSWORD_CHANGE_REQUIRED("AUTH_4013", "首次登录或密码被重置，请先修改密码"),
 
     TEN_COMPANY_EXISTS("TEN_4001", "该统一社会信用代码已入驻平台"),
     TEN_PHONE_TAKEN("TEN_4002", "该手机号已是平台上某家公司的成员"),

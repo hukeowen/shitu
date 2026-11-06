@@ -31,7 +31,8 @@ public class TenantChannelController {
     }
 
     /** url 即二维码内容，前端直接生成二维码图片。 */
-    public record ChannelItem(String code, String url, String name, String memberId, String memberName,
+    /** kind：COMPANY 公司码 / MEMBER 成员码 / PROJECT 项目码。 */
+    public record ChannelItem(String code, String url, String kind, String name, String memberId, String memberName,
                               String projectId, String projectName, String status, LocalDateTime createdAt,
                               long visits, long registrations) {
     }
@@ -84,7 +85,8 @@ public class TenantChannelController {
 
     private List<ChannelItem> enrich(List<ChannelCodeService.ChannelView> list) {
         Map<String, Long> regs = lifecycle.registrationsByChannel(list.stream().map(ChannelCodeService.ChannelView::code).toList());
-        return list.stream().map(c -> new ChannelItem(c.code(), publicBase + "/r/" + c.code(), c.name(), c.memberId(),
+        return list.stream().map(c -> new ChannelItem(c.code(), publicBase + "/r/" + c.code(),
+                c.projectId() != null ? "PROJECT" : c.memberId() != null ? "MEMBER" : "COMPANY", c.name(), c.memberId(),
                 c.memberName(), c.projectId(), c.projectName(), c.status(), c.createdAt(), c.visits(),
                 regs.getOrDefault(c.code(), 0L))).toList();
     }

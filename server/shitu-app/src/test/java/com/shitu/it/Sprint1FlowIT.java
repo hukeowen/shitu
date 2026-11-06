@@ -77,6 +77,8 @@ class Sprint1FlowIT {
     @BeforeEach
     void captchaAlwaysPasses() {
         doReturn(true).when(captcha).verify(any(), any());
+        // 测试库里的超管跳过首登改密（改密流程本身由 OpsPasswordInterceptor 保证）
+        jdbc.update("UPDATE ops_admin SET must_change_password = 0 WHERE username = 'admin'");
     }
 
     @Test
