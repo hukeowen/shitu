@@ -3,21 +3,25 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { DomainTag } from '@shitu/ui-mobile'
-import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication } from '@shitu/api-client'
+import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type MyApplication, type MyWork } from '@shitu/api-client'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import QuadGrid from '@/components/QuadGrid.vue'
 import type { QuadItem } from '@/components/quad'
 import { useCountdown } from '@/composables/useCountdown'
+import { useJourney } from '@/composables/useJourney'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
-import { formatServerTime, formatShort, parseServerTime } from '@/utils/time'
+import { termText } from '@/utils/contract'
+import { formatRelative, formatServerTime, formatShort, parseServerTime } from '@/utils/time'
 import { STATUS_TAG_CLASS, heroClass } from '@/utils/status'
 
 /**
  * 登录后首页（C-201~C-203）：S-06 公域求职 / S-07 私域待匹配（24h 专属跟进）/ S-08 待面试 / S-09 待确权 / S-10 在岗。
  * 四宫格（C-202）：AI 问薪全状态可点（报名锁定期给出锁定说明，R-03）、推荐裂变预留、薪资预支仅在岗、工分变现 V1.5。
+ * 动态提醒（C-203）：待面试 → 面试信息卡；待确权 → 待签署合同卡；在岗 → 最新通知。专属顾问推荐（T-203）有待确认时展示横幅。
  */
 const auth = useAuthStore()
+const journey = useJourney()
 const inbox = useInboxStore()
 const router = useRouter()
 const { label } = useDict()
@@ -44,7 +48,7 @@ void inbox.refresh()
 
 async function onPullRefresh() {
   await Promise.all([reload(), inbox.refresh()])
-  await loadApplication()
+  await Promise.all([loadApplication(), loadExtras()])
   refreshing.value = false
 }
 
@@ -75,6 +79,47 @@ async function loadApplication() {
   }
 }
 watch(status, () => void loadApplication(), { immediate: true })
+
+/** 按状态加载动态提醒数据：待确权 → 待签合同；在岗 → 任职信息与最新通知；其余 → 顾问推荐 */
+const work = ref<MyWork | null>(null)
+const latest = ref<InboxItem[]>([])
+const latestLoaded = ref(false)
+async function loadExtras() {
+  const s = status.value
+  if (!s) return
+  const jobs: Promise<unknown>[] = []
+  if (s === 'PENDING_CONFIRM') jobs.push(journey.loadPending().catch(() => null))
+  if (s === 'EMPLOYED') {
+    jobs.push(seekerApi.work().then((w) => (work.value = w ?? null)).catch(() => undefined))
+    jobs.push(
+      seekerApi
+        .messages({ page: 1, pageSize: 3 })
+        .then((r) => (latest.value = r.records.slice(0, 3)))
+        .catch(() => undefined)
+        .finally(() => (latestLoaded.value = true)),
+    )
+  }
+  if (s !== 'PENDING_INTERVIEW' && s !== 'PENDING_CONFIRM') jobs.push(journey.loadRecs().catch(() => []))
+  await Promise.all(jobs)
+}
+watch(status, () => void loadExtras(), { immediate: true })
+const pendingSign = computed(() => (status.value === 'PENDING_CONFIRM' ? journey.pending : null))
+const showRecs = computed(() => !appliedLock.value && journey.pendingRecs.length > 0)
+function msgTag(m: InboxItem): { t: string; cls: string } {
+  const c = m.templateCode.toUpperCase()
+  if (c.includes('CONTRACT')) return { t: '合同', cls: 'tag-info' }
+  if (m.priority >= 2) return { t: '重要', cls: 'tag-danger' }
+  return { t: '通知', cls: 'tag-warn' }
+}
+function openMsg(m: InboxItem) {
+  if (!m.read) {
+    m.read = true
+    inbox.decrement()
+    void seekerApi.markRead([m.id]).catch(() => undefined)
+  }
+  const r = m.link && m.link.startsWith('/') && !m.link.startsWith('//') ? router.resolve(m.link) : null
+  void router.push(r && r.matched.length && !r.matched.some((x) => x.path === '/:pathMatch(.*)*') ? r.fullPath : '/messages')
+}
 
 // 24h 响应窗口：私域待匹配 = 专属跟进；待面试 = 驻场联系；待确权 = 确权
 const WINDOW_MS = 24 * 3600 * 1000
@@ -170,10 +215,11 @@ const progress = computed(() => {
           <div>确权剩余<b class="num">{{ cd.active.value ? cd.text.value : '—' }}</b></div>
         </div>
         <div v-else-if="status === 'EMPLOYED'" class="hero-meta">
-          <div>所属公司<b>{{ appCompany }}</b></div>
-          <div>当前项目<b>{{ app?.projectName || '—' }}</b></div>
-          <div>在岗岗位<b>{{ app?.jobTitle || '—' }}</b></div>
-          <div>报名时间<b class="num">{{ app ? formatServerTime(app.createdAt, false) : '—' }}</b></div>
+          <div>所属公司<b>{{ work?.companyName || appCompany }}</b></div>
+          <div>当前项目<b>{{ work?.projectName || app?.projectName || '—' }}</b></div>
+          <div>在岗岗位<b>{{ work?.jobTitle || app?.jobTitle || '—' }}</b></div>
+          <div v-if="work && !work.endDate">入职时间<b class="num">{{ formatServerTime(work.startDate, false) }} · 第 {{ work.dutyDays }} 天</b></div>
+          <div v-else>报名时间<b class="num">{{ app ? formatServerTime(app.createdAt, false) : '—' }}</b></div>
         </div>
         <div v-else-if="isPrivate" class="hero-meta">
           <div>归属公司<b>{{ company || '—' }}</b></div>
@@ -236,12 +282,27 @@ const progress = computed(() => {
 
         <!-- S-09 待确权 -->
         <template v-if="status === 'PENDING_CONFIRM'">
+          <!-- 驻场已完成入职确权、合同待签：最显眼的入口 -->
+          <button v-if="pendingSign" type="button" class="acard signc" @click="router.push('/contracts/sign')">
+            <div class="row" style="gap: 11px; align-items: flex-start">
+              <div class="sign-ic">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" stroke="#fff" stroke-width="1.9" stroke-linejoin="round" /><path d="M14 3v5h5M8.5 15.5l2 2 4.5-4.5" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              </div>
+              <div class="flex1">
+                <div class="sign-t">请签署劳动合同</div>
+                <div class="t-xs sign-d">{{ pendingSign.title }}<template v-if="pendingSign.companyName"> · {{ pendingSign.companyName }}</template></div>
+                <div class="t-xs sign-d">{{ pendingSign.jobTitle || '' }}<template v-if="pendingSign.jobTitle"> · </template>{{ termText(pendingSign) }}</div>
+              </div>
+              <span class="tag tag-warn">待签署</span>
+            </div>
+            <div class="sign-btn">立即签署 ›</div>
+          </button>
           <section class="acard okc">
             <div class="row" style="gap: 11px">
               <div class="ok-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>
               <div class="flex1">
                 <div class="ok-t">面试已通过</div>
-                <div class="t-xs" style="color: var(--ok)">等待驻场完成入职确权与电子签约<template v-if="app?.jobTitle"> · {{ app.jobTitle }}</template></div>
+                <div class="t-xs" style="color: var(--ok)">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场完成入职确权与电子签约' }}<template v-if="app?.jobTitle"> · {{ app.jobTitle }}</template></div>
               </div>
             </div>
           </section>
@@ -250,11 +311,15 @@ const progress = computed(() => {
           </div>
         </template>
 
-        <!-- S-10 在岗（V1.0 Sprint 2 仅展示基础信息） -->
-        <section v-if="status === 'EMPLOYED'" class="acard">
-          <div class="acard-hd"><h4>在岗服务</h4><span class="tag">即将上线</span></div>
-          <p class="t-sm" style="line-height: 1.7">考勤、工资条、电子合同、薪资预支等在岗功能将陆续开放。如有问题请联系驻场老师或通过「问题反馈」告诉我们。</p>
-        </section>
+        <!-- T-203 专属顾问推荐 -->
+        <button v-if="showRecs" type="button" class="acard recb" @click="router.push('/recommendations')">
+          <div class="avatar avatar--o">{{ (company || '顾').slice(0, 1) }}</div>
+          <div class="flex1">
+            <div class="recb-t">专属顾问为你推荐了 {{ journey.pendingRecs.length }} 个岗位</div>
+            <div class="t-xs">{{ journey.pendingRecs[0]?.jobTitle || '人工挑选' }}<template v-if="journey.pendingRecs.length > 1"> 等</template> · 确认后即可报名</div>
+          </div>
+          <van-icon name="arrow" class="chev" />
+        </button>
 
         <!-- 报名后锁定说明 -->
         <div v-if="appliedLock" class="note note--warn">
@@ -271,8 +336,35 @@ const progress = computed(() => {
 
         <QuadGrid :items="quad" @tap="onQuad" />
 
-        <section v-if="appliedLock || status === 'EMPLOYED'" class="acard">
-          <div class="acard-hd"><h4>{{ status === 'EMPLOYED' ? '入职进度' : '报名进度' }}</h4><router-link to="/reports" class="more">我的报备 ›</router-link></div>
+        <!-- S-10 在岗：动态提醒 = 最新通知 -->
+        <section v-if="status === 'EMPLOYED'" class="acard">
+          <div class="acard-hd">
+            <h4>动态提醒</h4>
+            <router-link to="/messages" class="more">消息中心<template v-if="inbox.unread"> · <b class="num unread">{{ inbox.unread }}</b></template> ›</router-link>
+          </div>
+          <template v-if="latest.length">
+            <button v-for="m in latest" :key="m.id" type="button" class="lrow msg" @click="openMsg(m)">
+              <span class="tag" :class="msgTag(m).cls">{{ msgTag(m).t }}</span>
+              <div class="lt"><b :class="{ unreadt: !m.read }">{{ m.title }}</b><span>{{ m.content }}</span></div>
+              <span class="t-xs mtime">{{ formatRelative(m.createdAt) }}</span>
+            </button>
+          </template>
+          <div v-else-if="latestLoaded" class="t-sm" style="padding: 6px 0">暂无新通知，排班、合同、工资等通知会在这里提醒你</div>
+          <van-loading v-else size="20" />
+        </section>
+        <section v-if="status === 'EMPLOYED'" class="acard list">
+          <router-link to="/work" class="lrow">
+            <div class="lt"><b>我的工作</b><span>{{ work && !work.endDate ? `${work.projectName || work.jobTitle || '在岗'} · 工号 ${work.employeeNo || '—'}` : '岗位信息、工作地点' }}</span></div>
+            <van-icon name="arrow" class="chev" />
+          </router-link>
+          <router-link to="/contracts" class="lrow">
+            <div class="lt"><b>我的合同</b><span>劳动合同与签署记录</span></div>
+            <van-icon name="arrow" class="chev" />
+          </router-link>
+        </section>
+
+        <section v-if="appliedLock" class="acard">
+          <div class="acard-hd"><h4>报名进度</h4><router-link to="/reports" class="more">我的报备 ›</router-link></div>
           <div class="steps">
             <template v-for="(s, i) in progress" :key="s.t">
               <div class="st" :class="s.cls"><i>{{ s.cls === 'done' ? '✓' : i + 1 }}</i>{{ s.t }}</div>
@@ -280,7 +372,7 @@ const progress = computed(() => {
             </template>
           </div>
         </section>
-        <section v-else class="acard">
+        <section v-else-if="status !== 'EMPLOYED'" class="acard">
           <div class="acard-hd"><h4>动态提醒</h4><router-link to="/messages" class="more">消息中心 ›</router-link></div>
           <div class="empty-box">
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" /><path d="M3 10h18M8 3v4m8-4v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
@@ -321,4 +413,23 @@ const progress = computed(() => {
 .ok-t { font-size: 14px; font-weight: 700; color: var(--ok); }
 .more { font-size: 11.5px; color: var(--ink-400); text-decoration: none; }
 .state { padding-top: calc(80px + env(safe-area-inset-top)); }
+button.acard { display: block; width: 100%; text-align: left; font: inherit; }
+.msg { min-width: 0; }
+.signc { border: 1.5px solid var(--signal-300); background: linear-gradient(180deg, var(--signal-50), var(--surface)); box-shadow: var(--sh-2); }
+.sign-ic { width: 38px; height: 38px; border-radius: 11px; background: var(--signal); display: grid; place-items: center; flex: none; }
+.sign-t { font-size: 15.5px; font-weight: 700; color: var(--ink-900); }
+.sign-d { margin-top: 2px; color: var(--ink-500); }
+.sign-btn { margin-top: 12px; height: 40px; border-radius: 10px; background: var(--signal); color: #fff; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
+.recb { display: flex !important; align-items: center; gap: 10px; border-color: var(--private-line); background: var(--private-bg); }
+.recb-t { font-size: 13.5px; font-weight: 700; color: var(--private); }
+.recb .t-xs { margin-top: 2px; }
+.recb .chev { color: var(--private); flex: none; }
+.list { padding: 0; overflow: hidden; }
+.list .lrow { text-decoration: none; color: inherit; }
+.msg { padding: 9px 0; border-left: 0; border-right: 0; border-top: 0; background: transparent; }
+.msg .lt span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg .tag { flex: none; }
+.unreadt::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); margin-left: 5px; vertical-align: middle; }
+.mtime { flex: none; align-self: flex-start; margin-top: 2px; }
+.unread { color: var(--danger); }
 </style>

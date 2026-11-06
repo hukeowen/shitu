@@ -29,6 +29,15 @@ const router = createRouter({
     { path: '/kyc', component: () => import('@/views/KycView.vue'), meta: { auth: true, title: '身份验证', proto: 'S-21' } },
     { path: '/apply/success', component: () => import('@/views/ApplySuccessView.vue'), meta: { auth: true, title: '报名成功', proto: 'S-23' } },
     { path: '/messages', component: () => import('@/views/MessagesView.vue'), meta: { auth: true, title: '消息中心', proto: 'S-40' } },
+    // 入职闭环（Sprint 3）：电子签约 → 在岗；我的合同 / 我的工作
+    { path: '/contracts/sign', component: () => import('@/views/contract/ContractSignView.vue'), meta: { auth: true, title: '签署劳动合同', proto: 'S-09' } },
+    // 【仅开发环境】Mock 电子签的签署页（生产环境签署页在 e签宝）
+    { path: '/esign/mock/:flowId', component: () => import('@/views/contract/MockESignView.vue'), meta: { auth: true, title: '电子签署' } },
+    { path: '/contracts', component: () => import('@/views/contract/ContractsView.vue'), meta: { auth: true, title: '我的合同', proto: 'S-27' } },
+    { path: '/contracts/:id', component: () => import('@/views/contract/ContractDetailView.vue'), meta: { auth: true, title: '合同详情', proto: 'S-28' } },
+    { path: '/work', component: () => import('@/views/WorkView.vue'), meta: { auth: true, title: '我的工作', proto: 'S-30' } },
+    // 专属顾问（人才经纪人）推荐（T-203）
+    { path: '/recommendations', component: () => import('@/views/RecommendationsView.vue'), meta: { auth: true, title: '专属顾问推荐' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, auth: true, title: '我的', proto: 'S-26' } },
     { path: '/feedback', component: () => import('@/views/PlaceholderView.vue'), meta: { tabbar: true, auth: true, title: '问题反馈', proto: 'S-39' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },

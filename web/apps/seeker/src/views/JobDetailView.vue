@@ -6,6 +6,7 @@ import { errorMessage, isApiError, seekerApi, useDict, type SeekerJobDetail } fr
 import AppBar from '@/components/AppBar.vue'
 import DisclaimerPopup from '@/components/DisclaimerPopup.vue'
 import { useApplyFlow } from '@/composables/useApplyFlow'
+import { useJourney } from '@/composables/useJourney'
 import { useMatchSession } from '@/composables/useMatchSession'
 import { dormChips, fmtSalary, fmtScore, scoreClass, splitLines } from '@/utils/format'
 import { amapLink } from '@/utils/map'
@@ -18,6 +19,11 @@ const { match } = useMatchSession()
 const flow = useApplyFlow()
 
 const jobId = computed(() => String(route.params.jobId))
+/** 从「专属顾问推荐」进入（T-203：报名的第二个合法入口） */
+const fromRec = computed(() => route.query.from === 'rec')
+const journey = useJourney()
+if (fromRec.value && !journey.recsLoaded) void journey.loadRecs().catch(() => undefined)
+const rec = computed(() => journey.recs.find((r) => r.jobId === jobId.value && r.decision !== 'DECLINED'))
 const job = ref<SeekerJobDetail | null>(null)
 const loading = ref(true)
 const loadError = ref('')
@@ -29,8 +35,13 @@ async function load() {
     job.value = await seekerApi.job(jobId.value)
   } catch (e) {
     if (isApiError(e, 'APP_4004')) {
-      showToast('该岗位不在你的匹配结果中')
-      void router.replace('/match/result')
+      if (fromRec.value) {
+        showToast('该推荐已失效')
+        void router.replace('/recommendations')
+      } else {
+        showToast('该岗位不在你的匹配结果中')
+        void router.replace('/match/result')
+      }
       return
     }
     loadError.value = errorMessage(e, '岗位加载失败，请稍后重试')
@@ -68,7 +79,7 @@ function onApply() {
 
 <template>
   <div class="detail">
-    <AppBar title="岗位详情" fallback="/match/result" />
+    <AppBar title="岗位详情" :fallback="fromRec ? '/recommendations' : '/match/result'" />
 
     <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
     <div v-else-if="loadError || !job" class="page-state">
@@ -84,6 +95,7 @@ function onApply() {
             <h1 class="title">{{ job.title }}</h1>
             <div class="t-sm" style="margin-top: 4px">{{ subTitle }}</div>
           </div>
+          <span v-if="!card && (fromRec || rec)" class="tag tag-private" style="flex: none">顾问推荐</span>
           <div v-if="card" class="match" :class="scoreClass(card.matchScore)">
             <div class="mv">{{ fmtScore(card.matchScore) }}%</div>
             <div class="ml">MATCH</div>
@@ -98,6 +110,7 @@ function onApply() {
       </header>
 
       <div class="pad stack">
+        <section v-if="rec?.note" class="note"><b>专属顾问推荐：</b>{{ rec.note }}</section>
         <section class="acard">
           <div class="acard-hd"><h4>薪资与班次</h4></div>
           <dl>

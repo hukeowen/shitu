@@ -11,6 +11,8 @@ ul, ol { list-style: none; }
 .flex1 { flex: 1; min-width: 0; }
 .row { display: flex; align-items: center; gap: 8px; }
 .stack { display: grid; gap: 12px; }
+/* grid 子项默认 min-width:auto，单行省略的长文本会把整列撑宽、溢出屏幕 */
+.stack > * { min-width: 0; }
 .pad { padding: 14px; }
 
 /* tag（原型 .tag） */

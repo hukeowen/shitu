@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, useDict, type MatchOutcome } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
 import JobCard from '@/components/JobCard.vue'
+import { useJourney } from '@/composables/useJourney'
 import { useMatchSession } from '@/composables/useMatchSession'
 
 /**
@@ -42,6 +43,16 @@ const scopeText = computed(() => {
   return label('MatchScope', o.scope)
 })
 const results = computed(() => outcome.value?.results ?? [])
+
+// S-17 私域匹配度不足：已转专属顾问（人才经纪人），推荐结果在「专属顾问推荐」查看（T-203）
+const journey = useJourney()
+watch(
+  () => (outcome.value && !outcome.value.matched && isPrivateScope.value ? outcome.value : null),
+  (o) => {
+    if (o) void journey.loadRecs().catch(() => undefined)
+  },
+  { immediate: true },
+)
 
 /** S-15 画像摘要：来自本次作答（刷新后从 sessionStorage 恢复；仅后端快照时不展示） */
 const portrait = computed(() => {
@@ -151,6 +162,13 @@ function rematch() {
             <li><div class="tl-t">仍不满意 → 释放至公域，可匹配全平台</div><div class="tl-m">兜底路径</div></li>
           </ul>
         </section>
+        <router-link to="/recommendations" class="acard recl">
+          <div class="flex1">
+            <b class="recl-t">{{ journey.pendingRecs.length ? `顾问已为你推荐 ${journey.pendingRecs.length} 个岗位` : '专属顾问正在为你挑选岗位' }}</b>
+            <div class="t-xs">{{ journey.pendingRecs.length ? '确认后即可按正常流程报名' : '有推荐时会通过站内消息通知你' }}</div>
+          </div>
+          <span class="recl-a">{{ journey.pendingRecs.length ? '去看看' : '查看' }} ›</span>
+        </router-link>
         <div class="note">
           <b>请保持手机畅通。</b>如经纪人推荐的岗位你仍不满意，经纪人将执行「释放」，你将转为<span class="tag tag-public" style="height: 17px; margin: 0 3px">{{ label('DomainTag', 'PUBLIC') }}</span>，即可匹配全平台所有劳务公司岗位。
         </div>
@@ -177,4 +195,8 @@ function rematch() {
 .none-t { font-size: 17px; font-weight: 700; color: var(--warn); }
 .none-d { color: var(--warn); margin-top: 7px; line-height: 1.7; }
 .b-t { font-size: 13.5px; color: var(--ink-900); display: block; }
+.recl { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; border-color: var(--private-line); background: var(--private-bg); }
+.recl-t { font-size: 13.5px; color: var(--private); display: block; }
+.recl .t-xs { margin-top: 2px; }
+.recl-a { flex: none; font-size: 12.5px; font-weight: 700; color: var(--private); }
 </style>
