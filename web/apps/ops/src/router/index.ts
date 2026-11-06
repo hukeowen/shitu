@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory, type RouteComponent, type RouteRecordRaw } from 'vue-router'
 import AppLayout from '@/layout/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
-import { APP_TITLE, HOME_PATH, MENU } from './menu'
+import { APP_TITLE, HOME_PATH, MENU, QUIZ_ROLES } from './menu'
 
 type Lazy = () => Promise<RouteComponent>
 
@@ -12,6 +12,8 @@ const VIEWS: Record<string, Lazy> = {
   '/governance/job-audit': () => import('@/views/jobs/JobAuditView.vue'),
   '/settlement/audit': () => import('@/views/audit/AuditLogView.vue'),
   '/system/admins': () => import('@/views/admins/AdminListView.vue'),
+  '/engine/quiz': () => import('@/views/quiz/QuizVersionsView.vue'),
+  '/engine/match-snapshot': () => import('@/views/quiz/MatchSnapshotView.vue'),
 }
 
 const children: RouteRecordRaw[] = MENU.flatMap((g) =>
@@ -21,6 +23,11 @@ const children: RouteRecordRaw[] = MENU.flatMap((g) =>
     meta: { title: it.title, proto: it.proto, group: g.title, roles: it.roles },
   })),
 )
+children.push({
+  path: '/engine/quiz/:versionId(\\d+)',
+  component: () => import('@/views/quiz/QuizEditorView.vue'),
+  meta: { title: '题库版本', proto: 'P-12', group: '匹配引擎', roles: QUIZ_ROLES, activeMenu: '/engine/quiz' },
+})
 children.push({ path: '/forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } })
 
 const router = createRouter({

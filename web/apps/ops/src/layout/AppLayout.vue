@@ -62,7 +62,7 @@ onMounted(() => pending.refresh())
       <nav class="nav">
         <template v-for="g in menu" :key="g.key">
           <div class="grp">{{ g.title }} {{ g.en }}</div>
-          <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="item" active-class="is-active">
+          <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="item" active-class="is-active" :class="{ 'is-active': route.meta.activeMenu === it.path }">
             <span class="it-t">{{ it.title }}</span>
             <span v-if="badgeOf(it) > 0" class="bdg">{{ badgeOf(it) > 99 ? '99+' : badgeOf(it) }}</span>
             <span v-else-if="!it.ready" class="soon">待建</span>

@@ -25,6 +25,11 @@ export const APP_TITLE = '仕兔运营中台'
 export const PENDING_ROLES: OpsRole[] = ['SUPER', 'OPERATOR']
 export const AUDIT_LOG_ROLES: OpsRole[] = ['SUPER', 'RISK']
 export const ADMIN_ROLES: OpsRole[] = ['SUPER']
+/** 题库 P-12（后端 OpsMatchingController）：查看 / 编辑草稿 SUPER、OPERATOR；发布 / 回滚仅 SUPER */
+export const QUIZ_ROLES: OpsRole[] = ['SUPER', 'OPERATOR']
+export const QUIZ_PUBLISH_ROLES: OpsRole[] = ['SUPER']
+/** 匹配快照（解释 / 回放） */
+export const SNAPSHOT_ROLES: OpsRole[] = ['SUPER', 'RISK', 'OPERATOR']
 
 export const HOME_PATH = '/workbench'
 
@@ -49,7 +54,8 @@ export const MENU: MenuGroup[] = [
     title: '匹配引擎',
     en: 'ENGINE',
     items: [
-      { path: '/engine/quiz', title: 'AI 问薪题库', proto: 'P-12' },
+      { path: '/engine/quiz', title: 'AI 问薪题库', proto: 'P-12', roles: QUIZ_ROLES, ready: true },
+      { path: '/engine/match-snapshot', title: '匹配快照查询', proto: 'P-12', roles: SNAPSHOT_ROLES, ready: true },
       { path: '/engine/params', title: '匹配引擎参数', proto: 'P-13' },
     ],
   },

@@ -9,6 +9,8 @@ declare module 'vue-router' {
     public?: boolean
     /** 可访问角色；不填 = 登录即可 */
     roles?: OpsRole[]
+    /** 非菜单页（详情 / 编辑）高亮的菜单路径 */
+    activeMenu?: string
   }
 }
 export {}

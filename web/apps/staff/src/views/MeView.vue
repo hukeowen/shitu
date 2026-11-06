@@ -4,12 +4,15 @@ import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { useDict } from '@shitu/api-client'
 import { useAuthStore } from '@/stores/auth'
+import { useInboxStore } from '@/stores/inbox'
 
 /** 驻场「我的」：成员身份、所属公司、退出登录（成员接口不返回手机号，故不展示） */
 const auth = useAuthStore()
 const router = useRouter()
 const { label } = useDict()
 const me = computed(() => auth.me)
+const inbox = useInboxStore()
+if (auth.operational) void inbox.refresh()
 
 async function onLogout() {
   try {
@@ -58,10 +61,11 @@ async function onLogout() {
           <div class="lt"><b>我的专属码</b><span>求职者扫码注册成为本公司私域用户</span></div>
           <van-icon name="arrow" class="chev" />
         </router-link>
-        <button type="button" class="lrow" @click="showToast('即将上线')">
-          <div class="lt"><b>消息通知</b><span>24h 跟进提醒、待办通知</span></div>
-          <span class="tag">即将上线</span>
-        </button>
+        <router-link to="/messages" class="lrow">
+          <div class="lt"><b>消息通知</b><span>新报名、释放通知等站内信</span></div>
+          <van-badge v-if="inbox.unread > 0" :content="inbox.unread" :max="99" />
+          <van-icon name="arrow" class="chev" />
+        </router-link>
       </section>
 
       <van-button block class="btn-cta logout" @click="onLogout">退出登录</van-button>
