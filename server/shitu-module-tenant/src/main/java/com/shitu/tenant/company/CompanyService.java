@@ -305,6 +305,11 @@ public class CompanyService {
         return c;
     }
 
+    /** 公司状态被其他模块直接修改（如风控处罚）后调用，立即失效本实例的状态缓存。 */
+    public void evictStatus(String companyId) {
+        evict(companyId);
+    }
+
     private void evict(String companyId) {
         statusCache.remove(companyId);
     }

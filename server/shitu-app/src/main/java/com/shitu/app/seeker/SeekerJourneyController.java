@@ -61,13 +61,15 @@ public class SeekerJourneyController {
     private final com.shitu.circulation.BrokerService brokers;
     private final com.shitu.advance.service.AdvanceService advances;
     private final com.shitu.advance.service.PayrollService payroll;
+    private final com.shitu.risk.ComplaintService complaints;
     private final com.shitu.tenant.company.CompanyService companies;
 
     public SeekerJourneyController(SeekerJourneyFacade journey, QuizService quiz, DisclaimerService disclaimer,
                                    KycService kyc, ApplicationService applications, NotificationService notifications,
                                    com.shitu.lifecycle.employment.EmploymentQueryService employments,
                                    com.shitu.circulation.BrokerService brokers, com.shitu.tenant.company.CompanyService companies,
-                                   com.shitu.advance.service.AdvanceService advances, com.shitu.advance.service.PayrollService payroll) {
+                                   com.shitu.advance.service.AdvanceService advances, com.shitu.advance.service.PayrollService payroll,
+                                   com.shitu.risk.ComplaintService complaints) {
         this.journey = journey;
         this.quiz = quiz;
         this.disclaimer = disclaimer;
@@ -78,6 +80,7 @@ public class SeekerJourneyController {
         this.brokers = brokers;
         this.advances = advances;
         this.payroll = payroll;
+        this.complaints = complaints;
         this.companies = companies;
     }
 
@@ -215,5 +218,15 @@ public class SeekerJourneyController {
     @GetMapping("/payslips")
     public ApiResponse<List<com.shitu.advance.service.PayrollService.Payslip>> payslips() {
         return ApiResponse.ok(payroll.mine(CurrentUser.subjectId()));
+    }
+
+    public record ComplaintRequest(@NotBlank String jobId,
+                                   @NotBlank(message = "请选择投诉类型") String category, String content) {
+    }
+
+    @Operation(summary = "岗位投诉（C-402）：FULL_STILL_HIRING 已满仍在招 / INFO_FALSE 信息不实 / MISMATCH_AFTER_INTERVIEW 面试后不符")
+    @PostMapping("/complaints")
+    public ApiResponse<Long> complain(@Valid @RequestBody ComplaintRequest req) {
+        return ApiResponse.ok(complaints.submit(CurrentUser.subjectId(), req.jobId(), req.category(), req.content()));
     }
 }

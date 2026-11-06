@@ -42,7 +42,8 @@ public class NotificationRoutes implements OutboxHandler {
 
     private static final Set<String> EVENTS = Set.of("APPLICATION_CREATED", "INTERVIEW_INFO_PUSHED", "USER_RELEASED",
             "BROKER_CASE_CREATED", "ARRIVAL_CONFIRMED", "CONTRACT_SIGN_REQUIRED", "CONTRACT_SIGNED", "FOLLOW_UP_DUE",
-            "BROKER_RECOMMENDED", "BROKER_CONTACT_OVERDUE", "ADVANCE_SUBMITTED", "ADVANCE_SITE_APPROVED", "ADVANCE_RESULT");
+            "BROKER_RECOMMENDED", "BROKER_CONTACT_OVERDUE", "ADVANCE_SUBMITTED", "ADVANCE_SITE_APPROVED", "ADVANCE_RESULT",
+            "JOB_STALE", "COMPANY_PENALIZED");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -93,6 +94,12 @@ public class NotificationRoutes implements OutboxHandler {
                 case "BROKER_CASE_CREATED" -> notifications.send(outboxId, "BROKER_CASE_CREATED",
                         companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.BROKER)),
                         Map.of("seekerName", seekerName(text(p, "userId"))), "/broker/pool");
+                case "JOB_STALE" -> notifications.send(outboxId, "JOB_STALE",
+                        projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.PM)),
+                        Map.of("jobTitle", text(p, "jobTitle"), "message", text(p, "message")), "/pm/jobs");
+                case "COMPANY_PENALIZED" -> notifications.send(outboxId, "COMPANY_PENALIZED",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)),
+                        Map.of("level", text(p, "level"), "reason", text(p, "reason")), null);
                 case "ADVANCE_SUBMITTED" -> notifications.send(outboxId, "ADVANCE_PENDING_APPROVAL",
                         projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.SITE)),
                         Map.of("seekerName", seekerName(text(p, "userId")), "amount", text(p, "amount")), "/advances");
