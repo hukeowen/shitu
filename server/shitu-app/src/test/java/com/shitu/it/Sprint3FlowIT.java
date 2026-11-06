@@ -91,7 +91,7 @@ class Sprint3FlowIT extends FlowItSupport {
         assertThat(pending.get("contractId").asText()).isEqualTo(resent.get("contractId").asText());
         assertThat(pending.get("signUrl").asText()).contains("/esign/mock/");
         String flowId = pending.get("signUrl").asText().replaceAll(".*/esign/mock/", "");
-        dispatcher.dispatch();
+        while (dispatcher.dispatch() > 0) { }
         assertThat(data(call(get("/api/v1/seeker/messages"), sA, null)).toString()).contains("请签署劳动合同");
 
         // 伪造签名的回调被拒绝
@@ -134,7 +134,7 @@ class Sprint3FlowIT extends FlowItSupport {
         assertThat(quota(jobA)).as("入职不回补名额").isEqualTo(quotaAfterApply);
 
         // ---------------------------------------------------------------- 2. 签约完成推送项目经理 + 老板
-        dispatcher.dispatch();
+        while (dispatcher.dispatch() > 0) { }
         assertThat(data(call(get("/api/v1/tenant/messages"), c.pm(), null)).toString()).contains("签约完成");
         assertThat(data(call(get("/api/v1/tenant/messages"), c.owner(), null)).toString()).contains("签约完成");
         assertThat(data(call(get("/api/v1/seeker/work"), sA, null)).get("employeeNo").asText()).isEqualTo("KS-0001");
@@ -208,7 +208,7 @@ class Sprint3FlowIT extends FlowItSupport {
                 + "(SELECT id FROM response_window WHERE user_id = ? AND status = 'OPEN') ORDER BY round_no LIMIT 1",
                 LocalDateTime.now().minusMinutes(1), uD);
         assertThat(followUps.sendDue()).isGreaterThanOrEqualTo(1);
-        dispatcher.dispatch();
+        while (dispatcher.dispatch() > 0) { }
         assertThat(data(call(get("/api/v1/tenant/messages"), c.site(), null)).toString()).contains("24h 跟进提醒");
     }
 }

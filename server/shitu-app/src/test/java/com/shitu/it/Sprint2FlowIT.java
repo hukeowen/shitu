@@ -179,7 +179,7 @@ class Sprint2FlowIT {
         assertThat(code(call(post("/api/v1/seeker/applications"), s1, Map.of("jobId", lastSeat)))).isEqualTo("APP_4002");
 
         // ---------------------------------------------------------------- 3. 驻场知悉 → 推送面试信息 → 求职者收到通知
-        dispatcher.dispatch();
+        while (dispatcher.dispatch() > 0) { }
         assertThat(unread(site, "/api/v1/tenant/messages/unread-count")).isGreaterThanOrEqualTo(1);
         JsonNode list = data(call(get("/api/v1/tenant/applications?status=PENDING_INTERVIEW&unacknowledged=true"), site, null));
         JsonNode mine = find(list.get("records"), "applicationId", app1);
@@ -191,7 +191,7 @@ class Sprint2FlowIT {
         data(call(post("/api/v1/tenant/applications/" + app1 + "/acknowledge"), site, Map.of(
                 "interviewAt", LocalDateTime.now().plusDays(1).withNano(0).toString(), "address", city + "工业园东门",
                 "documents", new String[]{"身份证", "一寸照片"})));
-        dispatcher.dispatch();
+        while (dispatcher.dispatch() > 0) { }
         JsonNode inbox = data(call(get("/api/v1/seeker/messages"), s1, null));
         assertThat(inbox.toString()).contains("面试信息").contains("一寸照片");
         JsonNode reports = data(call(get("/api/v1/seeker/applications"), s1, null));
@@ -212,7 +212,7 @@ class Sprint2FlowIT {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_status_log WHERE user_id = ? AND event = 'TIMEOUT_24H' AND actor_role = 'SYSTEM'",
                 Long.class, u1)).isEqualTo(1);
         assertThat(scanner.scan()).as("重复扫描幂等").isZero();
-        dispatcher.dispatch();
+        while (dispatcher.dispatch() > 0) { }
         assertThat(data(call(get("/api/v1/seeker/messages"), s1, null)).toString()).contains("求职状态变更");
         assertThat(data(call(get("/api/v1/tenant/messages"), owner, null)).toString()).contains("已被释放至公域").contains("24h 超时");
         // 释放后可以重新匹配
