@@ -59,12 +59,15 @@ public class SeekerJourneyController {
     private final NotificationService notifications;
     private final com.shitu.lifecycle.employment.EmploymentQueryService employments;
     private final com.shitu.circulation.BrokerService brokers;
+    private final com.shitu.advance.service.AdvanceService advances;
+    private final com.shitu.advance.service.PayrollService payroll;
     private final com.shitu.tenant.company.CompanyService companies;
 
     public SeekerJourneyController(SeekerJourneyFacade journey, QuizService quiz, DisclaimerService disclaimer,
                                    KycService kyc, ApplicationService applications, NotificationService notifications,
                                    com.shitu.lifecycle.employment.EmploymentQueryService employments,
-                                   com.shitu.circulation.BrokerService brokers, com.shitu.tenant.company.CompanyService companies) {
+                                   com.shitu.circulation.BrokerService brokers, com.shitu.tenant.company.CompanyService companies,
+                                   com.shitu.advance.service.AdvanceService advances, com.shitu.advance.service.PayrollService payroll) {
         this.journey = journey;
         this.quiz = quiz;
         this.disclaimer = disclaimer;
@@ -73,6 +76,8 @@ public class SeekerJourneyController {
         this.notifications = notifications;
         this.employments = employments;
         this.brokers = brokers;
+        this.advances = advances;
+        this.payroll = payroll;
         this.companies = companies;
     }
 
@@ -180,5 +185,35 @@ public class SeekerJourneyController {
     public ApiResponse<Void> decide(@PathVariable long id, @Valid @RequestBody DecisionRequest req) {
         brokers.decide(CurrentUser.subjectId(), id, req.accept());
         return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "预支额度（C-601）：准入结果与原因、在岗日进度、本月机会、欠款")
+    @GetMapping("/advance/quota")
+    public ApiResponse<com.shitu.advance.service.AdvanceService.Quota> advanceQuota() {
+        return ApiResponse.ok(advances.quota(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "发起预支（C-602，固定金额；不满足条件返回 ADV_4001 及原因）")
+    @PostMapping("/advance")
+    public ApiResponse<String> applyAdvance() {
+        return ApiResponse.ok(advances.apply(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "我的预支记录与审批进度（C-603 / C-604）")
+    @GetMapping("/advance")
+    public ApiResponse<List<com.shitu.advance.service.AdvanceService.AdvanceRow>> myAdvances() {
+        return ApiResponse.ok(advances.mine(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "欠款流水（拨款 / 工资抵扣）")
+    @GetMapping("/advance/debt-log")
+    public ApiResponse<List<java.util.Map<String, Object>>> debtLog() {
+        return ApiResponse.ok(advances.debtLog(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "我的工资条（C-701）")
+    @GetMapping("/payslips")
+    public ApiResponse<List<com.shitu.advance.service.PayrollService.Payslip>> payslips() {
+        return ApiResponse.ok(payroll.mine(CurrentUser.subjectId()));
     }
 }
