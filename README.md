@@ -30,7 +30,8 @@ prototype/   产品原型（HTML）
 cd server
 # Git Bash
 export JAVA_HOME="/d/tools/jdk17/jdk-17.0.19+10"; export PATH="$JAVA_HOME/bin:$PATH"
-mvn -Paliyun test                      # 单元测试（状态机、计费黄金用例、多租户隔离、架构规则）
+mvn -Paliyun test                                   # 单元测试（状态机、计费黄金用例、多租户隔离、架构规则）
+SHITU_IT=true DB_PASSWORD=你的密码 mvn -Paliyun test  # 另跑端到端验收（独立库 shitu_it，首次自动建库迁移）
 DB_PASSWORD=你的密码 mvn -Paliyun -pl shitu-app -am spring-boot:run
 ```
 
@@ -38,7 +39,22 @@ DB_PASSWORD=你的密码 mvn -Paliyun -pl shitu-app -am spring-boot:run
 - 接口文档：http://localhost:8080/swagger-ui.html
 - 枚举字典：http://localhost:8080/api/v1/dict
 
-数据库连接用环境变量 `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` 覆盖。`application.yml` 里的加密密钥只用于本地开发，**生产必须通过 `SHITU_ENC_KEY` / `SHITU_MAC_KEY` 注入**。
+本地开发（默认 `local` profile）的约定：
+
+| 项 | 说明 |
+|---|---|
+| 短信 | Mock 通道，不真发；发送接口返回 `devCode`，前端会提示验证码 |
+| 平台中台账号 | 空库首次启动自动创建 `admin`，本地初始密码 `Shitu@2026`，首次登录须修改 |
+| 验证码 / 限流存储 | 进程内存（`shitu.kv.type=memory`）；多实例部署必须设 `SHITU_KV_TYPE=redis` |
+| 上传文件 | `server/shitu-app/data/uploads`（已在 .gitignore） |
+
+数据库连接用环境变量 `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` 覆盖。
+
+**生产必须注入的密钥**（`application.yml` 里的默认值只用于本地开发）：`SHITU_ENC_KEY` / `SHITU_MAC_KEY`（字段加密与盲索引）、`SHITU_JWT_SECRET`（登录令牌），并设置 `SHITU_COOKIE_SECURE=true`、`SHITU_OPS_INIT_PASSWORD`、`SHITU_H5_PUBLIC_BASE=https://m.shitu.com`。
+
+### CI
+
+`.github/workflows/ci.yml`：每次推送到 `main` 和每个 PR 都会跑后端全部测试（含连 MySQL 8 的端到端验收）和前端 4 个应用的类型检查与构建。
 
 ### 前端
 

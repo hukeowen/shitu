@@ -182,6 +182,22 @@
                         </annotationProcessorPaths>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <!-- *IT 为连真实 MySQL 的端到端测试，只在设置 SHITU_IT=true 时执行（@EnabledIfEnvironmentVariable） -->
+                        <includes>
+                            <include>**/*Test.java</include>
+                            <include>**/*Tests.java</include>
+                            <include>**/*IT.java</include>
+                        </includes>
+                        <argLine>-Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8</argLine>
+                        <environmentVariables>
+                            <TZ>Asia/Shanghai</TZ>
+                        </environmentVariables>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>

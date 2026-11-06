@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: 后端 · 单元测试 + 架构规则 + 端到端验收（MySQL 8）
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # GitHub Ubuntu runner 自带 MySQL 8（root / root），启动即可；时区与生产一致
+      - name: Start MySQL
+        run: |
+          sudo systemctl start mysql
+          mysql -uroot -proot -e "SET GLOBAL time_zone = '+08:00'; SELECT VERSION();"
+
+      - name: Test
+        working-directory: server
+        env:
+          SHITU_IT: 'true'
+          DB_PASSWORD: root
+          TZ: Asia/Shanghai
+        run: mvn -B -ntp verify
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: server/**/target/surefire-reports/
+          retention-days: 7
+
+  web:
+    name: 前端 · 类型检查 + 构建（4 个应用）
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
