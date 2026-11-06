@@ -55,6 +55,16 @@ public enum ErrorCode {
     APP_DUPLICATE("APP_4002", "你已有进行中的报名"),
     APP_ID_MISMATCH("APP_4003", "两次输入的身份证号码不一致，请重新输入"),
     APP_NOT_FROM_MATCH("APP_4004", "只能报名匹配结果中的岗位"),
+    KYC_ID_INVALID("APP_4005", "身份证号码不正确，请核对后重新输入"),
+    KYC_UNDERAGE("APP_4006", "未满 16 周岁，暂时不能使用求职服务"),
+    KYC_ID_OCCUPIED("APP_4007", "该身份证已绑定其他账号，可以找回原账号或申诉换绑"),
+    KYC_BLACKLISTED("APP_4008", "账号存在平台级失信记录，暂不能报名，可提交申诉"),
+    KYC_VERIFY_FAILED("APP_4009", "姓名与身份证号码不一致，请核对后重试"),
+    KYC_REQUIRED("APP_4010", "报名前请先完成实名认证"),
+    APP_UNDERAGE("APP_4011", "未满 18 周岁，暂不能报名岗位"),
+    APP_DISCLAIMER_REQUIRED("APP_4012", "报名前请先阅读并同意《求职告知书》"),
+    KYC_ALREADY("APP_4013", "已完成实名认证，实名信息不可修改"),
+    KYC_TOO_MANY("APP_4014", "今日实名认证次数已用完，请明天再试"),
 
     ADV_NOT_ELIGIBLE("ADV_4001", "暂不满足预支条件"),
 

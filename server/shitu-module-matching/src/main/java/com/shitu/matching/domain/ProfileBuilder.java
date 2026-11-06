@@ -17,7 +17,9 @@ import java.util.Optional;
 public final class ProfileBuilder {
 
     /** 选项定义（与 quiz_question.options JSON 一致）。value 可为字符串或数字；薪资题用 min / max。 */
-    public record OptionDef(String code, String label, String value, BigDecimal min, BigDecimal max, Boolean needRegion) {
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    public record OptionDef(String code, String label, String sub, String value, BigDecimal min, BigDecimal max,
+                            Boolean needRegion) {
     }
 
     public record QuestionDef(int seq, String profileField, String matchRole, List<OptionDef> options) {

@@ -1,11 +1,11 @@
 package com.shitu.framework.id;
 
 import com.shitu.common.Constants;
+import com.zaxxer.hikari.HikariDataSource;
+import jakarta.annotation.PreDestroy;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.security.SecureRandom;
 import java.sql.ResultSet;
@@ -16,7 +16,11 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * 业务编号：可读、按日递增，例如 {@code U2026110600001}（用户）、{@code C10023}（公司）、{@code J20261106008}（岗位）。
- * <p>序列存在 {@code biz_sequence}，在<b>独立事务</b>里递增，不会因为外层业务事务未提交而长时间锁住序列行。
+ * <p>序列存在 {@code biz_sequence}，用<b>独立的小连接池</b>（自动提交）递增：
+ * <ul>
+ *   <li>不加入外层业务事务 —— 序列行不会被长事务锁住，并发报名不会在序列上排队；</li>
+ *   <li>不占用主连接池 —— 若在主池里开 REQUIRES_NEW，高并发下每个请求要同时占两个连接，池会被耗尽（Sprint 2 并发验收发现）。</li>
+ * </ul>
  * 外层事务回滚时编号会跳号，业务上可以接受。
  */
 @Component
@@ -25,21 +29,30 @@ public class BizIdGenerator {
     private static final DateTimeFormatter DAY = DateTimeFormatter.BASIC_ISO_DATE;
     private static final char[] SHORT_CODE_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ".toCharArray();
 
+    private final HikariDataSource pool;
     private final JdbcTemplate jdbc;
-    private final TransactionTemplate requiresNew;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
-    public BizIdGenerator(JdbcTemplate jdbc, PlatformTransactionManager tm, Clock clock) {
-        this.jdbc = jdbc;
-        this.requiresNew = new TransactionTemplate(tm);
-        this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    public BizIdGenerator(DataSourceProperties props, Clock clock) {
+        HikariDataSource ds = props.initializeDataSourceBuilder().type(HikariDataSource.class).build();
+        ds.setPoolName("shitu-sequence");
+        ds.setMaximumPoolSize(4);
+        ds.setMinimumIdle(1);
+        ds.setAutoCommit(true);
+        this.pool = ds;
+        this.jdbc = new JdbcTemplate(ds);
         this.clock = clock;
     }
 
-    /** 原子递增并返回新值（首次为 start）。 */
+    @PreDestroy
+    void close() {
+        pool.close();
+    }
+
+    /** 原子递增并返回新值（首次为 start）。INSERT 与 LAST_INSERT_ID 在同一连接上执行。 */
     public long next(String seqKey, long start) {
-        Long v = requiresNew.execute(status -> jdbc.execute((java.sql.Connection con) -> {
+        Long v = jdbc.execute((java.sql.Connection con) -> {
             try (var ps = con.prepareStatement(
                     "INSERT INTO biz_sequence (seq_key, value) VALUES (?, LAST_INSERT_ID(?)) "
                             + "ON DUPLICATE KEY UPDATE value = LAST_INSERT_ID(value + 1)")) {
@@ -51,7 +64,7 @@ public class BizIdGenerator {
                 rs.next();
                 return rs.getLong(1);
             }
-        }));
+        });
         if (v == null) {
             throw new IllegalStateException("sequence " + seqKey + " failed");
         }

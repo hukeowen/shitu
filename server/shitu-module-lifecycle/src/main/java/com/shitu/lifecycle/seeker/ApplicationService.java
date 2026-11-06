@@ -1,0 +1,295 @@
+package com.shitu.lifecycle.seeker;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.shitu.common.api.PageResult;
+import com.shitu.common.enums.ActorRole;
+import com.shitu.common.enums.ApplicationStatus;
+import com.shitu.common.exception.BizException;
+import com.shitu.common.exception.ErrorCode;
+import com.shitu.common.util.Masks;
+import com.shitu.framework.audit.AuditLogger;
+import com.shitu.framework.crypto.FieldCipher;
+import com.shitu.framework.outbox.OutboxWriter;
+import com.shitu.framework.security.AuthPrincipal;
+import com.shitu.framework.tenant.TenantContext;
+import com.shitu.framework.web.Pages;
+import com.shitu.job.Job;
+import com.shitu.job.mapper.JobMapper;
+import com.shitu.lifecycle.mapper.ApplicationMapper;
+import com.shitu.lifecycle.mapper.InterviewNoticeMapper;
+import com.shitu.lifecycle.mapper.ResponseWindowMapper;
+import com.shitu.lifecycle.mapper.SeekerUserMapper;
+import com.shitu.tenant.company.CompanyService;
+import com.shitu.tenant.mapper.ProjectMapper;
+import com.shitu.tenant.project.Project;
+import com.shitu.tenant.scope.DataScope;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/**
+ * 报名单查询与驻场「知悉」（C-501 我的报备、M-01 工作台、M-02 待面试）。
+ * 状态变化（面试结果、取消、爽约）统一走 {@link LifecycleService#transition}。
+ */
+@Service
+public class ApplicationService {
+
+    public record NoticeView(LocalDateTime interviewAt, String address, String routeTips, List<String> documents,
+                             String contactName, String contactPhone, LocalDateTime pushedAt) {
+    }
+
+    /** C 端：我的报备。 */
+    public record MyApplication(String applicationId, String jobId, String jobTitle, String companyName,
+                                String projectName, String city, String address, ApplicationStatus status,
+                                LocalDateTime createdAt, LocalDateTime endedAt, String endReason, NoticeView notice) {
+    }
+
+    /** 驻场 / 项目经理：待办报名。手机号按角色：驻场完整、其他角色隐藏（R-13）。 */
+    public record SiteApplication(String applicationId, String userId, String seekerName, String phone, String jobId,
+                                  String jobTitle, String projectId, String projectName, ApplicationStatus status,
+                                  boolean fromPublic, LocalDateTime createdAt, LocalDateTime acknowledgedAt,
+                                  LocalDateTime interviewAt, LocalDateTime responseDeadline, List<String> allowedActions) {
+    }
+
+    public record Workbench(long pendingAck, long pendingInterview, long pendingConfirm, long windowsDueIn4h,
+                            long privatePending) {
+    }
+
+    public record AcknowledgeCommand(LocalDateTime interviewAt, String address, String routeTips, List<String> documents,
+                                     String contactName, String contactPhone) {
+    }
+
+    private final ApplicationMapper applications;
+    private final InterviewNoticeMapper notices;
+    private final ResponseWindowMapper windows;
+    private final SeekerUserMapper users;
+    private final JobMapper jobs;
+    private final ProjectMapper projects;
+    private final CompanyService companies;
+    private final DataScope scope;
+    private final FieldCipher cipher;
+    private final OutboxWriter outbox;
+    private final AuditLogger audit;
+    private final Clock clock;
+
+    public ApplicationService(ApplicationMapper applications, InterviewNoticeMapper notices, ResponseWindowMapper windows,
+                              SeekerUserMapper users, JobMapper jobs, ProjectMapper projects, CompanyService companies,
+                              DataScope scope, FieldCipher cipher, OutboxWriter outbox, AuditLogger audit, Clock clock) {
+        this.applications = applications;
+        this.notices = notices;
+        this.windows = windows;
+        this.users = users;
+        this.jobs = jobs;
+        this.projects = projects;
+        this.companies = companies;
+        this.scope = scope;
+        this.cipher = cipher;
+        this.outbox = outbox;
+        this.audit = audit;
+        this.clock = clock;
+    }
+
+    // ------------------------------------------------------------------ C 端
+
+    public List<MyApplication> mine(String userId, ApplicationStatus status) {
+        return TenantContext.runAsSystem(() -> {
+            List<Application> list = applications.selectList(new LambdaQueryWrapper<Application>()
+                    .eq(Application::getUserId, userId)
+                    .eq(status != null, Application::getStatus, status)
+                    .orderByDesc(Application::getCreatedAt));
+            Map<String, Job> js = jobsOf(list);
+            Map<String, Project> ps = projectsOf(list);
+            Map<String, String> cn = companies.namesOf(list.stream().map(Application::getCompanyId).collect(Collectors.toSet()));
+            Map<String, InterviewNotice> ns = latestNotices(list.stream().map(Application::getApplicationId).toList());
+            return list.stream().map(a -> {
+                Job j = js.get(a.getJobId());
+                Project p = ps.get(a.getProjectId());
+                return new MyApplication(a.getApplicationId(), a.getJobId(), j == null ? null : j.getTitle(),
+                        cn.get(a.getCompanyId()), p == null ? null : p.getName(), p == null ? null : p.getCity(),
+                        a.getInterviewAddress(), a.getStatus(), a.getCreatedAt(), a.getEndedAt(), a.getEndReason(),
+                        noticeView(ns.get(a.getApplicationId())));
+            }).toList();
+        });
+    }
+
+    // ------------------------------------------------------------------ 驻场 / 项目经理（TENANT 模式）
+
+    public PageResult<SiteApplication> forTenant(AuthPrincipal p, ApplicationStatus status, Boolean unacknowledged,
+                                                 String projectId, Integer page, Integer pageSize) {
+        DataScope.Scope s = scope.of(p);
+        if (!s.all() && s.projectIds().isEmpty()) {
+            return new PageResult<>(List.of(), 0, 1, 20);
+        }
+        Page<Application> pg = applications.selectPage(Pages.of(page, pageSize), new LambdaQueryWrapper<Application>()
+                .in(!s.all(), Application::getProjectId, s.projectIds())
+                .eq(status != null, Application::getStatus, status)
+                .isNull(Boolean.TRUE.equals(unacknowledged), Application::getAcknowledgedAt)
+                .eq(projectId != null && !projectId.isBlank(), Application::getProjectId, projectId)
+                .orderByAsc(Application::getCreatedAt));
+        List<Application> list = pg.getRecords();
+        Map<String, Job> js = jobsOf(list);
+        Map<String, Project> ps = projectsOf(list);
+        Set<String> userIds = list.stream().map(Application::getUserId).collect(Collectors.toSet());
+        Map<String, SeekerUser> us = userIds.isEmpty() ? Map.of() : TenantContext.runAsSystem(() -> users.selectBatchIds(userIds))
+                .stream().collect(Collectors.toMap(SeekerUser::getUserId, Function.identity()));
+        Map<String, LocalDateTime> deadlines = deadlines(userIds);
+        boolean site = p.hasRole(ActorRole.SITE.name());
+        List<SiteApplication> rows = list.stream().map(a -> {
+            SeekerUser u = us.get(a.getUserId());
+            String name = u == null || u.getRealNameEnc() == null ? "未实名" : Masks.name(cipher.decrypt(u.getRealNameEnc()));
+            String phone = u == null ? null : site ? cipher.decrypt(u.getPhoneEnc()) : null;
+            Job j = js.get(a.getJobId());
+            Project pr = ps.get(a.getProjectId());
+            return new SiteApplication(a.getApplicationId(), a.getUserId(), name, phone, a.getJobId(),
+                    j == null ? null : j.getTitle(), a.getProjectId(), pr == null ? null : pr.getName(), a.getStatus(),
+                    a.getPreApplyBound() == null, a.getCreatedAt(), a.getAcknowledgedAt(), a.getInterviewAt(),
+                    deadlines.get(a.getUserId()), actions(a, p));
+        }).toList();
+        return new PageResult<>(rows, pg.getTotal(), pg.getCurrent(), pg.getSize());
+    }
+
+    public Workbench workbench(AuthPrincipal p) {
+        DataScope.Scope s = scope.of(p);
+        if (!s.all() && s.projectIds().isEmpty()) {
+            return new Workbench(0, 0, 0, 0, 0);
+        }
+        long pendingAck = applications.selectCount(base(s).eq(Application::getStatus, ApplicationStatus.PENDING_INTERVIEW)
+                .isNull(Application::getAcknowledgedAt));
+        long pendingInterview = applications.selectCount(base(s).eq(Application::getStatus, ApplicationStatus.PENDING_INTERVIEW));
+        long pendingConfirm = applications.selectCount(base(s).eq(Application::getStatus, ApplicationStatus.PENDING_CONFIRM));
+        LocalDateTime now = LocalDateTime.now(clock);
+        // 窗口按公司统计（私域待匹配的用户还没有项目）；TENANT 模式自动限定本公司
+        long due = windows.selectCount(new LambdaQueryWrapper<ResponseWindow>()
+                .eq(ResponseWindow::getStatus, ResponseWindow.OPEN)
+                .le(ResponseWindow::getDeadline, now.plusHours(4)));
+        long privatePending = windows.selectCount(new LambdaQueryWrapper<ResponseWindow>()
+                .eq(ResponseWindow::getStatus, ResponseWindow.OPEN)
+                .eq(ResponseWindow::getStage, "PRIVATE_PENDING"));
+        return new Workbench(pendingAck, pendingInterview, pendingConfirm, due, privatePending);
+    }
+
+    /**
+     * 驻场「知悉」→ 推送面试信息（M-02 / C-408）。可以重复推送（改时间 / 地点），以最后一次为准。
+     */
+    @Transactional
+    public SiteApplication acknowledge(AuthPrincipal p, String applicationId, AcknowledgeCommand cmd) {
+        Application a = applications.selectById(applicationId);
+        BizException.check(a != null, ErrorCode.SYS_NOT_FOUND);
+        scope.checkProject(p, a.getProjectId());
+        BizException.check(a.getStatus() == ApplicationStatus.PENDING_INTERVIEW, ErrorCode.LC_ILLEGAL_TRANSITION, "只有待面试的报名可以推送面试信息");
+        BizException.check(cmd.interviewAt() != null && cmd.interviewAt().isAfter(LocalDateTime.now(clock).minusHours(1)),
+                ErrorCode.SYS_BAD_REQUEST, "请选择面试时间");
+        BizException.check(cmd.address() != null && !cmd.address().isBlank(), ErrorCode.SYS_BAD_REQUEST, "请填写面试地点");
+        LocalDateTime now = LocalDateTime.now(clock);
+        InterviewNotice n = new InterviewNotice();
+        n.setCompanyId(a.getCompanyId());
+        n.setApplicationId(applicationId);
+        n.setInterviewAt(cmd.interviewAt());
+        n.setAddress(cmd.address().trim());
+        n.setRouteTips(cmd.routeTips());
+        n.setDocuments(cmd.documents());
+        n.setContactName(cmd.contactName() == null || cmd.contactName().isBlank() ? p.name() : cmd.contactName().trim());
+        n.setContactPhoneEnc(cmd.contactPhone() == null || cmd.contactPhone().isBlank() ? null : cipher.encrypt(cmd.contactPhone().trim()));
+        n.setPushedBy(p.subjectId());
+        n.setPushedAt(now);
+        notices.insert(n);
+        applications.update(null, new LambdaUpdateWrapper<Application>()
+                .eq(Application::getApplicationId, applicationId)
+                .set(a.getAcknowledgedAt() == null, Application::getAcknowledgedAt, now)
+                .set(a.getAcknowledgedAt() == null, Application::getAcknowledgedBy, p.subjectId())
+                .set(Application::getInterviewAt, cmd.interviewAt())
+                .set(Application::getInterviewAddress, cmd.address().trim())
+                .setSql("version = version + 1"));
+        Job j = jobs.selectById(a.getJobId());
+        outbox.publish("INTERVIEW_INFO_PUSHED", "APPLICATION", applicationId, Map.of(
+                "userId", a.getUserId(), "companyId", a.getCompanyId(), "jobTitle", j == null ? "" : j.getTitle(),
+                "interviewAt", cmd.interviewAt().toString(), "address", cmd.address().trim(),
+                "documents", cmd.documents() == null ? "" : String.join("、", cmd.documents())));
+        audit.log("INTERVIEW_INFO_PUSH", "APPLICATION", applicationId, Map.of("interviewAt", cmd.interviewAt().toString()));
+        return one(p, applicationId);
+    }
+
+    public SiteApplication one(AuthPrincipal p, String applicationId) {
+        Application a = applications.selectById(applicationId);
+        BizException.check(a != null, ErrorCode.SYS_NOT_FOUND);
+        scope.checkProject(p, a.getProjectId());
+        PageResult<SiteApplication> pg = forTenant(p, a.getStatus(), null, a.getProjectId(), 1, 100);
+        return pg.records().stream().filter(x -> x.applicationId().equals(applicationId)).findFirst()
+                .orElseThrow(() -> new BizException(ErrorCode.SYS_NOT_FOUND));
+    }
+
+    public Application find(String applicationId) {
+        return applications.selectById(applicationId);
+    }
+
+    /** 后台操作按钮（Sprint 2 只有「知悉 / 推送面试信息」，面试结果、取消、爽约在 Sprint 3 加入）。 */
+    static List<String> actions(Application a, AuthPrincipal p) {
+        boolean site = p.hasRole(ActorRole.SITE.name());
+        boolean pm = p.hasRole(ActorRole.PM.name());
+        if (a.getStatus() == ApplicationStatus.PENDING_INTERVIEW && (site || pm)) {
+            return List.of(a.getAcknowledgedAt() == null ? "ACKNOWLEDGE" : "REPUSH");
+        }
+        return List.of();
+    }
+
+    // ------------------------------------------------------------------
+
+    private LambdaQueryWrapper<Application> base(DataScope.Scope s) {
+        return new LambdaQueryWrapper<Application>().in(!s.all(), Application::getProjectId, s.projectIds());
+    }
+
+    private Map<String, LocalDateTime> deadlines(Collection<String> userIds) {
+        Map<String, LocalDateTime> m = new HashMap<>();
+        if (userIds.isEmpty()) {
+            return m;
+        }
+        TenantContext.runAsSystem(() -> windows.selectList(new LambdaQueryWrapper<ResponseWindow>()
+                        .in(ResponseWindow::getUserId, userIds).eq(ResponseWindow::getStatus, ResponseWindow.OPEN)))
+                .forEach(w -> m.put(w.getUserId(), w.getDeadline()));
+        return m;
+    }
+
+    private Map<String, Job> jobsOf(List<Application> list) {
+        Set<String> ids = list.stream().map(Application::getJobId).collect(Collectors.toSet());
+        return ids.isEmpty() ? Map.of() : TenantContext.runAsSystem(() -> jobs.selectBatchIds(ids)).stream()
+                .collect(Collectors.toMap(Job::getJobId, Function.identity()));
+    }
+
+    private Map<String, Project> projectsOf(List<Application> list) {
+        Set<String> ids = list.stream().map(Application::getProjectId).collect(Collectors.toSet());
+        return ids.isEmpty() ? Map.of() : TenantContext.runAsSystem(() -> projects.selectBatchIds(ids)).stream()
+                .collect(Collectors.toMap(Project::getProjectId, Function.identity()));
+    }
+
+    private Map<String, InterviewNotice> latestNotices(List<String> appIds) {
+        Map<String, InterviewNotice> m = new HashMap<>();
+        if (appIds.isEmpty()) {
+            return m;
+        }
+        notices.selectList(new LambdaQueryWrapper<InterviewNotice>().in(InterviewNotice::getApplicationId, appIds)
+                .orderByAsc(InterviewNotice::getId)).forEach(n -> m.put(n.getApplicationId(), n));
+        return m;
+    }
+
+    private NoticeView noticeView(InterviewNotice n) {
+        if (n == null) {
+            return null;
+        }
+        return new NoticeView(n.getInterviewAt(), n.getAddress(), n.getRouteTips(), n.getDocuments(), n.getContactName(),
+                n.getContactPhoneEnc() == null ? null : cipher.decrypt(n.getContactPhoneEnc()), n.getPushedAt());
+    }
+
+    static final Set<ApplicationStatus> ACTIVE = EnumSet.of(ApplicationStatus.PENDING_INTERVIEW, ApplicationStatus.PENDING_CONFIRM);
+}

@@ -37,6 +37,14 @@
         </dependency>
         <dependency>
             <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-matching</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-notify</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
             <artifactId>shitu-module-billing</artifactId>
         </dependency>
         <dependency>
