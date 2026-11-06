@@ -41,7 +41,8 @@ import java.util.stream.Collectors;
 public class NotificationRoutes implements OutboxHandler {
 
     private static final Set<String> EVENTS = Set.of("APPLICATION_CREATED", "INTERVIEW_INFO_PUSHED", "USER_RELEASED",
-            "BROKER_CASE_CREATED", "ARRIVAL_CONFIRMED", "CONTRACT_SIGN_REQUIRED", "CONTRACT_SIGNED", "FOLLOW_UP_DUE");
+            "BROKER_CASE_CREATED", "ARRIVAL_CONFIRMED", "CONTRACT_SIGN_REQUIRED", "CONTRACT_SIGNED", "FOLLOW_UP_DUE",
+            "BROKER_RECOMMENDED", "BROKER_CONTACT_OVERDUE");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -91,6 +92,11 @@ public class NotificationRoutes implements OutboxHandler {
                 }
                 case "BROKER_CASE_CREATED" -> notifications.send(outboxId, "BROKER_CASE_CREATED",
                         companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.BROKER)),
+                        Map.of("seekerName", seekerName(text(p, "userId"))), "/broker/pool");
+                case "BROKER_RECOMMENDED" -> notifications.send(outboxId, "BROKER_RECOMMENDED",
+                        List.of(Recipient.seeker(text(p, "userId"))), Map.of("jobTitle", text(p, "jobTitle")), "/recommendations");
+                case "BROKER_CONTACT_OVERDUE" -> notifications.send(outboxId, "BROKER_CONTACT_OVERDUE",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.SITE, ActorRole.PM)),
                         Map.of("seekerName", seekerName(text(p, "userId"))), "/broker/pool");
                 case "ARRIVAL_CONFIRMED" -> notifications.send(outboxId, "ARRIVAL_CONFIRMED",
                         List.of(Recipient.seeker(text(p, "userId"))), Map.of(), "/reports");

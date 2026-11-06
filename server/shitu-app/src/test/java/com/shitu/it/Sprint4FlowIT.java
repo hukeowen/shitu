@@ -104,6 +104,76 @@ class Sprint4FlowIT extends FlowItSupport {
         assertThat(code(call(get("/api/v1/tenant/projects"), c.owner(), null))).isEqualTo("TEN_4003");
     }
 
+    @Autowired
+    com.shitu.circulation.BrokerService brokers;
+
+    @Test
+    void brokerCirculation() throws Exception {
+        Company c = company();
+        String job = job(c, c.projectId(), "流转验收岗位", 10);
+        String brokerPhone = phone();
+        data(call(post("/api/v1/tenant/members"), c.owner(), Map.of("name", "李文倩", "phone", brokerPhone, "roles", new String[]{"BROKER"})));
+        String broker = data(tenantLogin(brokerPhone)).get("accessToken").asText();
+        String code = data(call(post("/api/v1/tenant/channel-codes"), c.owner(), Map.of("name", "流转码"))).get("code").asText();
+
+        // 1. 匹配度不足自动入池（LOW_MATCH）→ 联系 → AI 报告 → 二次推荐 → 用户确认后报名
+        String s1 = readySeeker(code);
+        String u1 = userId(s1);
+        JsonNodeHolder noMatch = new JsonNodeHolder(data(call(post("/api/v1/seeker/match"), s1, badAnswers())));
+        assertThat(noMatch.n().get("matched").asBoolean()).isFalse();
+        var pool = data(call(get("/api/v1/tenant/broker/cases"), broker, null));
+        var row = find(pool, "userId", u1);
+        assertThat(row.get("triggerType").asText()).isEqualTo("LOW_MATCH");
+        assertThat(row.get("phoneMasked").asText()).contains("****");
+        long caseId = row.get("id").asLong();
+        assertThat(data(call(post("/api/v1/tenant/broker/cases/" + caseId + "/contact"), broker, null)).get("status").asText()).isEqualTo("CONTACTED");
+        var report = data(call(post("/api/v1/tenant/broker/cases/" + caseId + "/report"), broker, null));
+        assertThat(report.get("summary").asText()).contains("不接受进厂");
+        assertThat(report.get("recommendations").toString()).contains(job);
+        assertThat(code(call(get("/api/v1/seeker/jobs/" + job), s1, null))).as("推荐前不在结果中").isEqualTo("APP_4004");
+        assertThat(status(post("/api/v1/tenant/broker/cases/" + caseId + "/recommend"), c.site(), Map.of("jobId", job))).isEqualTo(403);
+        data(call(post("/api/v1/tenant/broker/cases/" + caseId + "/recommend"), broker, Map.of("jobId", job, "note", "离家近")));
+        var recs = data(call(get("/api/v1/seeker/recommendations"), s1, null));
+        assertThat(recs.get(0).get("jobId").asText()).isEqualTo(job);
+        data(call(post("/api/v1/seeker/recommendations/" + recs.get(0).get("id").asLong() + "/decision"), s1, Map.of("accept", true)));
+        assertThat(data(call(get("/api/v1/seeker/jobs/" + job), s1, null)).get("title").asText()).isNotBlank();
+        String app = apply(s1, job);
+        assertThat(jdbc.queryForObject("SELECT broker_case_id FROM application WHERE application_id = ?", Long.class, app)).isEqualTo(caseId);
+        assertThat(jdbc.queryForObject("SELECT status FROM broker_case WHERE id = ?", String.class, caseId)).isEqualTo("APPLIED");
+
+        // 2. 主动释放（必填原因）
+        String s2 = readySeeker(code);
+        data(call(post("/api/v1/seeker/match"), s2, badAnswers()));
+        long case2 = find(data(call(get("/api/v1/tenant/broker/cases"), broker, null)), "userId", userId(s2)).get("id").asLong();
+        assertThat(code(call(post("/api/v1/tenant/broker/cases/" + case2 + "/release"), broker, Map.of("reason", " ")))).isEqualTo("SYS_4000");
+        data(call(post("/api/v1/tenant/broker/cases/" + case2 + "/release"), broker, Map.of("reason", "公司已有岗位用户均不满意")));
+        assertThat(user(userId(s2)).get("user_status")).isEqualTo("PUBLIC_SEEKING");
+        assertThat(user(userId(s2)).get("last_release_reason")).isEqualTo("MANUAL");
+
+        // 3. 驻场一键流转（SITE_TRANSFER）+ 24h 未出结果自动释放（BROKER_SLA_TIMEOUT）
+        String s3 = readySeeker(code);
+        String u3 = userId(s3);
+        data(call(post("/api/v1/tenant/seekers/" + u3 + "/transfer-to-broker"), c.site(), null));
+        assertThat(find(data(call(get("/api/v1/tenant/broker/cases"), broker, null)), "userId", u3).get("triggerType").asText()).isEqualTo("SITE_TRANSFER");
+        jdbc.update("UPDATE broker_case SET resolve_due_at = ?, contact_due_at = ? WHERE user_id = ? AND status = 'OPEN'",
+                java.time.LocalDateTime.now().minusMinutes(1), java.time.LocalDateTime.now().minusMinutes(1), u3);
+        int[] sla = brokers.enforceSla();
+        assertThat(sla[1]).isGreaterThanOrEqualTo(1);
+        assertThat(user(u3).get("user_status")).isEqualTo("PUBLIC_SEEKING");
+        assertThat(user(u3).get("last_release_reason")).isEqualTo("BROKER_SLA_TIMEOUT");
+    }
+
+    record JsonNodeHolder(com.fasterxml.jackson.databind.JsonNode n) {
+    }
+
+    /** 不接受进厂：演示与测试岗位都是进厂岗位，全部被硬过滤 → 匹配不足。 */
+    private Map<String, Object> badAnswers() {
+        return Map.of("answers", java.util.List.of(
+                Map.of("seq", 1, "code", "C"), Map.of("seq", 2, "code", "A", "region", city), Map.of("seq", 3, "code", "A"),
+                Map.of("seq", 4, "code", "B"), Map.of("seq", 5, "code", "D"), Map.of("seq", 6, "code", "B"),
+                Map.of("seq", 7, "code", "C")));
+    }
+
     record JsonUser(String id) {
     }
 

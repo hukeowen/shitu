@@ -5,6 +5,7 @@ import { showConfirmDialog, showToast } from 'vant'
 import { DomainTag } from '@shitu/ui-mobile'
 import { errorMessage, useDict } from '@shitu/api-client'
 import { useAuthStore } from '@/stores/auth'
+import { useInboxStore } from '@/stores/inbox'
 import { STATUS_TAG_CLASS } from '@/utils/status'
 import { formatServerTime } from '@/utils/time'
 
@@ -12,6 +13,8 @@ import { formatServerTime } from '@/utils/time'
 const auth = useAuthStore()
 const router = useRouter()
 const { label } = useDict()
+const inbox = useInboxStore()
+void inbox.refresh()
 const profile = computed(() => auth.profile)
 const loading = ref(false)
 const loadError = ref('')
@@ -31,6 +34,8 @@ if (!auth.profile) void reload()
 
 const rows = [
   { key: 'reports', title: '我的报备', desc: '报名 / 面试进度', to: '/reports' },
+  { key: 'messages', title: '消息中心', desc: '面试通知、状态变更提醒', to: '/messages' },
+  { key: 'kyc', title: '实名认证', desc: '报名前需完成，提交后不可修改', to: '/kyc' },
   { key: 'feedback', title: '问题反馈', desc: '投诉、建议、维权求助', to: '/feedback' },
 ]
 const soon = [
@@ -93,7 +98,8 @@ async function onLogout() {
 
       <section class="acard list">
         <router-link v-for="r in rows" :key="r.key" :to="r.to" class="lrow">
-          <div class="lt"><b>{{ r.title }}</b><span>{{ r.desc }}</span></div>
+          <div class="lt"><b>{{ r.title }}</b><span>{{ r.key === 'kyc' && profile?.kycStatus === 'VERIFIED' ? '已完成实名认证' : r.desc }}</span></div>
+          <i v-if="r.key === 'messages' && inbox.unread > 0" class="badge num">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</i>
           <van-icon name="arrow" class="chev" />
         </router-link>
         <button v-for="r in soon" :key="r.key" type="button" class="lrow" @click="showToast('即将上线')">
@@ -119,6 +125,7 @@ async function onLogout() {
 .hero-tip { font-size: 11px; color: rgba(255, 255, 255, .42); margin-top: 12px; }
 .list { padding: 0; overflow: hidden; }
 .list .lrow { text-decoration: none; color: inherit; border-left: 0; border-right: 0; border-top: 0; }
+.badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10.5px; font-style: normal; line-height: 18px; text-align: center; box-sizing: border-box; flex: none; }
 .logout { color: var(--danger); border-color: var(--danger-line); }
 .foot { text-align: center; padding: 6px 0 16px; line-height: 1.7; }
 </style>

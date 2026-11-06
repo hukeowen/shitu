@@ -45,6 +45,10 @@
         </dependency>
         <dependency>
             <groupId>com.shitu</groupId>
+            <artifactId>shitu-module-circulation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shitu</groupId>
             <artifactId>shitu-module-billing</artifactId>
         </dependency>
         <dependency>

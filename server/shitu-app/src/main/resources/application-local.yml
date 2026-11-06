@@ -4,6 +4,7 @@ shitu:
     seed-demo: true   # 空库首次启动创建演示公司（见 DemoDataSeeder），生产不得开启
   sms:
     expose-code-in-mock: true
+    captcha-after-per-ip: 50   # 本地多人 / 多个测试共用一个 IP，放宽；生产保持 3
   ops:
     init-password: ${SHITU_OPS_INIT_PASSWORD:Shitu@2026}
 

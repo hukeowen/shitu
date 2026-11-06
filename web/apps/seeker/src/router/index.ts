@@ -18,7 +18,17 @@ const router = createRouter({
       },
     },
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录 / 注册', guestOnly: true } },
-    { path: '/reports', component: () => import('@/views/PlaceholderView.vue'), meta: { tabbar: true, auth: true, title: '我的报备', proto: 'S-25' } },
+    { path: '/reports', component: () => import('@/views/ReportsView.vue'), meta: { tabbar: true, auth: true, title: '我的报备', proto: 'S-25' } },
+    { path: '/reports/:applicationId', component: () => import('@/views/InterviewView.vue'), meta: { auth: true, title: '面试确认信息', proto: 'S-24' } },
+    // AI 问薪（C-301~C-306）：匹配是岗位的唯一入口（R-01）
+    { path: '/match', component: () => import('@/views/match/MatchIntroView.vue'), meta: { auth: true, title: 'AI 问薪', proto: 'S-11' } },
+    { path: '/match/quiz', component: () => import('@/views/match/QuizView.vue'), meta: { auth: true, title: 'AI 问薪', proto: 'S-12' } },
+    { path: '/match/result', component: () => import('@/views/match/MatchResultView.vue'), meta: { auth: true, title: '匹配结果', proto: 'S-16' } },
+    // 岗位与报名（C-401~C-408）
+    { path: '/jobs/:jobId', component: () => import('@/views/JobDetailView.vue'), meta: { auth: true, title: '岗位详情', proto: 'S-18' } },
+    { path: '/kyc', component: () => import('@/views/KycView.vue'), meta: { auth: true, title: '身份验证', proto: 'S-21' } },
+    { path: '/apply/success', component: () => import('@/views/ApplySuccessView.vue'), meta: { auth: true, title: '报名成功', proto: 'S-23' } },
+    { path: '/messages', component: () => import('@/views/MessagesView.vue'), meta: { auth: true, title: '消息中心', proto: 'S-40' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, auth: true, title: '我的', proto: 'S-26' } },
     { path: '/feedback', component: () => import('@/views/PlaceholderView.vue'), meta: { tabbar: true, auth: true, title: '问题反馈', proto: 'S-39' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },

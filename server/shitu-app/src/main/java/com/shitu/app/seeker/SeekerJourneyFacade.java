@@ -20,13 +20,11 @@ import com.shitu.matching.session.MatchService;
 import com.shitu.tenant.company.CompanyService;
 import com.shitu.tenant.mapper.ProjectMapper;
 import com.shitu.tenant.project.Project;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,12 +59,12 @@ public class SeekerJourneyFacade {
     private final CompanyService companies;
     private final OutboxWriter outbox;
     private final SysParams params;
-    private final JdbcTemplate jdbc;
+    private final com.shitu.circulation.BrokerService brokers;
     private final Clock clock;
 
     public SeekerJourneyFacade(LifecycleService lifecycle, MatchService matching, KycService kyc, DisclaimerService disclaimer,
                                JobMapper jobs, ProjectMapper projects, CompanyService companies, OutboxWriter outbox,
-                               SysParams params, JdbcTemplate jdbc, Clock clock) {
+                               SysParams params, com.shitu.circulation.BrokerService brokers, Clock clock) {
         this.lifecycle = lifecycle;
         this.matching = matching;
         this.kyc = kyc;
@@ -76,7 +74,7 @@ public class SeekerJourneyFacade {
         this.companies = companies;
         this.outbox = outbox;
         this.params = params;
-        this.jdbc = jdbc;
+        this.brokers = brokers;
         this.clock = clock;
     }
 
@@ -95,13 +93,13 @@ public class SeekerJourneyFacade {
         MatchService.MatchOutcome out = matching.match(userId, scope, u.getBoundCompanyId(), answers, age, lng, lat);
         int count = lifecycle.recordMatch(userId);
         boolean isPrivate = DomainRules.domainTag(u.snapshot()) != DomainTag.PUBLIC && u.getBoundCompanyId() != null;
-        if (isPrivate && count >= params.getInt("matching.rematch_alert_count", 3)) {
-            // D-11：同一求职周期累计匹配 N 次仍未报名 → 提醒驻场介入
+        if (!out.matched() && isPrivate) {
+            brokers.open(userId, u.getBoundCompanyId(), "LOW_MATCH", out.sessionId(), null);
+        } else if (isPrivate && count >= params.getInt("matching.rematch_alert_count", 3)) {
+            // D-11：同一求职周期累计匹配 N 次仍未报名 → 转人才经纪人流转池并提醒驻场介入（T-201）
+            brokers.open(userId, u.getBoundCompanyId(), "REMATCH_LIMIT", out.sessionId(), null);
             outbox.publish("REMATCH_LIMIT_REACHED", "USER", userId, Map.of("userId", userId,
                     "companyId", u.getBoundCompanyId(), "count", count));
-        }
-        if (!out.matched() && isPrivate) {
-            openBrokerCase(u, out.sessionId(), "LOW_MATCH");
         }
         return out;
     }
@@ -112,7 +110,8 @@ public class SeekerJourneyFacade {
 
     /** 岗位详情：只能从最近一次匹配结果进入（C-401 / R-01）。 */
     public JobDetail job(String userId, String jobId) {
-        BizException.check(matching.latestSessionContaining(userId, jobId).isPresent(), ErrorCode.APP_NOT_FROM_MATCH);
+        BizException.check(matching.latestSessionContaining(userId, jobId).isPresent()
+                || brokers.recommendedCase(userId, jobId).isPresent(), ErrorCode.APP_NOT_FROM_MATCH);
         Job j = TenantContext.runAsSystem(() -> jobs.selectById(jobId));
         BizException.check(j != null, ErrorCode.SYS_NOT_FOUND);
         Project p = TenantContext.runAsSystem(() -> projects.selectById(j.getProjectId()));
@@ -133,8 +132,10 @@ public class SeekerJourneyFacade {
      * 报名（C-407）。前置条件逐项校验，报名本身（锁用户、原子扣名额、建单、改归属、重开 24h）在生命周期服务的一个事务里完成。
      */
     public ApplyResult apply(String userId, String jobId) {
-        String sessionId = matching.latestSessionContaining(userId, jobId)
-                .orElseThrow(() -> new BizException(ErrorCode.APP_NOT_FROM_MATCH));
+        // 合法入口两个：最近一次匹配结果（R-01），或经纪人推荐给本人的岗位（T-203）
+        String sessionId = matching.latestSessionContaining(userId, jobId).orElse(null);
+        Long brokerCaseId = sessionId == null ? brokers.recommendedCase(userId, jobId).orElse(null) : null;
+        BizException.check(sessionId != null || brokerCaseId != null, ErrorCode.APP_NOT_FROM_MATCH);
         SeekerUser u = user(userId);
         BizException.check(disclaimer.hasAgreed(userId), ErrorCode.APP_DISCLAIMER_REQUIRED);
         BizException.check("VERIFIED".equals(u.getKycStatus()), ErrorCode.KYC_REQUIRED);
@@ -147,7 +148,9 @@ public class SeekerJourneyFacade {
         BizException.check(age >= j.getAgeMin() && age <= j.getAgeMax(), ErrorCode.APP_NOT_FROM_MATCH,
                 "该岗位要求年龄 " + j.getAgeMin() + "–" + j.getAgeMax() + " 岁");
         LifecycleService.TransitionResult r = lifecycle.apply(new LifecycleService.ApplyCommand(userId, jobId,
-                j.getCompanyId(), j.getProjectId(), j.getTitle(), j.getInterviewAddress(), sessionId, null));
+                j.getCompanyId(), j.getProjectId(), j.getTitle(), j.getInterviewAddress(), sessionId, brokerCaseId));
+        // 报名成功（无论来自匹配还是经纪人推荐）即结束该用户的流转工单
+        brokers.closeAfterApply(userId);
         String company = companies.namesOf(List.of(j.getCompanyId())).get(j.getCompanyId());
         LocalDateTime deadline = lifecycle.openWindowOf(userId).map(w -> w.getDeadline()).orElse(null);
         return new ApplyResult(r.applicationId(), j.getTitle(), company, j.getInterviewAddress(), deadline);
@@ -177,20 +180,4 @@ public class SeekerJourneyFacade {
         return lifecycle.find(userId).orElseThrow(() -> new BizException(ErrorCode.SYS_UNAUTHORIZED));
     }
 
-    /** 私域匹配不足 → 本公司人才经纪人流转池（同一用户同时只有一张未结工单）。broker_case 为租户表，这里显式带公司。 */
-    private void openBrokerCase(SeekerUser u, String sessionId, String trigger) {
-        Long open = jdbc.queryForObject("SELECT COUNT(*) FROM broker_case WHERE user_id = ? AND company_id = ? "
-                + "AND status IN ('OPEN','CONTACTED','RECOMMENDED')", Long.class, u.getUserId(), u.getBoundCompanyId());
-        if (open != null && open > 0) {
-            return;
-        }
-        LocalDateTime now = LocalDateTime.now(clock);
-        Duration contact = Duration.parse(params.getString("broker.contact_sla", "PT2H"));
-        Duration resolve = Duration.parse(params.getString("broker.resolve_sla", "PT24H"));
-        jdbc.update("INSERT INTO broker_case (user_id, company_id, trigger_type, match_session_id, status, contact_due_at, "
-                        + "resolve_due_at, created_at) VALUES (?, ?, ?, ?, 'OPEN', ?, ?, ?)",
-                u.getUserId(), u.getBoundCompanyId(), trigger, sessionId, now.plus(contact), now.plus(resolve), now);
-        outbox.publish("BROKER_CASE_CREATED", "USER", u.getUserId(), Map.of("userId", u.getUserId(),
-                "companyId", u.getBoundCompanyId(), "trigger", trigger));
-    }
 }

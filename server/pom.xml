@@ -28,6 +28,7 @@
         <module>shitu-module-job</module>
         <module>shitu-module-matching</module>
         <module>shitu-module-notify</module>
+        <module>shitu-module-circulation</module>
         <module>shitu-module-lifecycle</module>
         <module>shitu-module-billing</module>
         <module>shitu-module-advance</module>
@@ -91,6 +92,11 @@
             <dependency>
                 <groupId>com.shitu</groupId>
                 <artifactId>shitu-module-notify</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.shitu</groupId>
+                <artifactId>shitu-module-circulation</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

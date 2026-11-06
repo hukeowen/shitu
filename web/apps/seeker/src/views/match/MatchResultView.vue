@@ -1,0 +1,180 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { errorMessage, useDict, type MatchOutcome } from '@shitu/api-client'
+import AppBar from '@/components/AppBar.vue'
+import JobCard from '@/components/JobCard.vue'
+import { useMatchSession } from '@/composables/useMatchSession'
+
+/**
+ * S-16 匹配结果（C-304 / C-306）：固定 3 岗、只展示 ≥80%（D-39，可能少于 3 个）；报名前可无限次重新匹配。
+ * S-17 匹配度不足（C-305 / D-38）：私域 → 已转本公司人才经纪人；公域 → 提示调整条件重新匹配。
+ */
+const router = useRouter()
+const { label } = useDict()
+const { match, profile, locked, appliedLock, lockText } = useMatchSession()
+
+const loading = ref(!match.outcome)
+const loadError = ref('')
+const outcome = computed<MatchOutcome | null>(() => match.outcome)
+
+async function load(force = false) {
+  loading.value = !match.outcome
+  loadError.value = ''
+  try {
+    await match.loadLatest(force)
+  } catch (e) {
+    loadError.value = errorMessage(e, '加载失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+// 从岗位详情等返回时也能恢复最近一次结果（后端快照）
+void load(!match.outcome)
+
+const isPrivateScope = computed(() => outcome.value?.scope === 'OWN_COMPANY' || outcome.value?.scope === 'INTERNAL_TRANSFER_ONLY')
+const company = computed(() => profile.value?.boundCompanyName ?? '')
+const scopeText = computed(() => {
+  const o = outcome.value
+  if (!o) return ''
+  if (o.scope === 'OWN_COMPANY') return `${company.value || '本公司'}（${label('DomainTag', 'PRIVATE')}）`
+  if (o.scope === 'ALL_PLATFORM') return `${label('MatchScope', 'ALL_PLATFORM')}（${label('DomainTag', 'PUBLIC')}）`
+  return label('MatchScope', o.scope)
+})
+const results = computed(() => outcome.value?.results ?? [])
+
+/** S-15 画像摘要：来自本次作答（刷新后从 sessionStorage 恢复；仅后端快照时不展示） */
+const portrait = computed(() => {
+  const qz = match.quiz
+  if (!qz) return []
+  return qz.questions
+    .map((q) => {
+      const a = match.answers[q.seq]
+      const o = a && q.options.find((x) => x.code === a.code)
+      if (!o) return null
+      return a.region ? `锁定 ${a.region}` : o.label
+    })
+    .filter((x): x is string => !!x)
+})
+if (!match.quiz) void match.loadQuiz().catch(() => undefined)
+
+function openJob(jobId: string) {
+  void router.push(`/jobs/${jobId}`)
+}
+function rematch() {
+  match.setStep(0)
+  void router.push('/match/quiz')
+}
+</script>
+
+<template>
+  <div class="result">
+    <AppBar title="匹配结果" fallback="/" :on-back="() => router.replace('/')">
+      <template #right>
+        <span v-if="!locked && outcome" class="re" @click="rematch">重新匹配</span>
+      </template>
+    </AppBar>
+
+    <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+    <div v-else-if="loadError" class="page-state">
+      <van-empty image="error" :description="loadError">
+        <van-button round type="primary" size="small" @click="load(true)">重新加载</van-button>
+      </van-empty>
+    </div>
+    <div v-else-if="!outcome" class="page-state">
+      <van-empty description="还没有匹配结果，先完成 AI 问薪吧">
+        <van-button v-if="!locked" round type="primary" size="small" @click="router.replace('/match')">开始 AI 问薪</van-button>
+      </van-empty>
+    </div>
+
+    <!-- S-16：有 ≥80% 的岗位 -->
+    <template v-else-if="outcome.matched && results.length">
+      <div class="pad-x hd">
+        <div class="row-b">
+          <div>
+            <div class="h-t">为你锁定 {{ results.length }} 个岗位</div>
+            <div class="t-xs">匹配范围：{{ scopeText }} · 从中选 1 个报名</div>
+          </div>
+          <span class="tag" :class="isPrivateScope ? 'tag-private' : 'tag-public'">{{ label('DomainTag', isPrivateScope ? 'PRIVATE' : 'PUBLIC') }}</span>
+        </div>
+      </div>
+
+      <div class="pad stack">
+        <section v-if="locked" class="note note--warn">
+          <b>{{ lockText }}。</b>你可以查看岗位信息，报名进度请到「我的报备」查看。
+        </section>
+
+        <section v-if="portrait.length" class="acard portrait">
+          <div class="row-b"><b>你的求职画像</b><span class="t-xs pt-tip">仅用于岗位匹配，不对外展示</span></div>
+          <div class="chips">
+            <span v-for="p in portrait" :key="p" class="chip">{{ p }}</span>
+          </div>
+        </section>
+
+        <JobCard v-for="(j, i) in results" :key="j.jobId" :job="j" :top="i === 0" @open="openJob" />
+
+        <div class="note note--info">
+          <b>{{ results.length < 3 ? '只显示匹配度达标的岗位，是刻意的。' : '只显示 3 个，是刻意的。' }}</b>平台不提供岗位列表浏览 —— 岗位只在完成 AI 问薪后以结果形式出现，匹配度 ≥80% 才推荐给你。都不满意可重新匹配，次数不限。
+        </div>
+        <van-button v-if="!locked" block class="btn-cta" @click="rematch">都不满意，重新匹配</van-button>
+        <van-button v-else-if="appliedLock" block class="btn-cta" @click="router.push('/reports')">查看我的报备</van-button>
+        <div class="page-bottom-gap"></div>
+      </div>
+    </template>
+
+    <!-- S-17：没有 ≥80% 的岗位 -->
+    <div v-else class="pad stack">
+      <section class="acard none">
+        <div class="big-ic none-ic">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8.5v5m0 3.2v.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" /></svg>
+        </div>
+        <div class="none-t">{{ isPrivateScope ? '暂无高匹配度岗位' : '暂时没有特别合适的岗位' }}</div>
+        <p v-if="isPrivateScope" class="t-sm none-d">当前范围内没有匹配度 ≥80% 的岗位。<br />为避免推荐「货不对板」的岗位，我们不展示低匹配结果。</p>
+        <p v-else class="t-sm none-d">没有匹配度 ≥80% 的岗位，调整条件再试试。<br />比如放宽地域、工种或班次要求。</p>
+      </section>
+
+      <template v-if="isPrivateScope">
+        <section class="acard">
+          <div class="acard-hd"><h4>已为你安排专属人才经纪人</h4><span class="tag tag-info">处理中</span></div>
+          <div class="row" style="gap: 10px; padding: 2px 0 4px">
+            <div class="avatar avatar--o avatar--sm">{{ (company || '经').slice(0, 1) }}</div>
+            <div class="flex1">
+              <b class="b-t">{{ company || '本公司' }} · 人才经纪人</b>
+              <div class="t-xs">将在 2 小时内与你电话沟通，24 小时内给出推荐结果</div>
+            </div>
+          </div>
+          <div class="divider" style="margin: 10px 0"></div>
+          <ul class="tl">
+            <li class="done"><div class="tl-t">画像与匹配记录已同步至经纪人</div><div class="tl-m">刚刚</div></li>
+            <li class="now"><div class="tl-t">经纪人电话联系你，了解需求</div><div class="tl-m">2 小时内</div></li>
+            <li><div class="tl-t">人工二次匹配推荐</div><div class="tl-m">24 小时内</div></li>
+            <li><div class="tl-t">仍不满意 → 释放至公域，可匹配全平台</div><div class="tl-m">兜底路径</div></li>
+          </ul>
+        </section>
+        <div class="note">
+          <b>请保持手机畅通。</b>如经纪人推荐的岗位你仍不满意，经纪人将执行「释放」，你将转为<span class="tag tag-public" style="height: 17px; margin: 0 3px">{{ label('DomainTag', 'PUBLIC') }}</span>，即可匹配全平台所有劳务公司岗位。
+        </div>
+      </template>
+
+      <van-button v-if="!locked" block class="btn-cta" :type="isPrivateScope ? 'default' : 'primary'" @click="rematch">调整条件重新匹配</van-button>
+      <van-button v-if="isPrivateScope" type="primary" block class="btn-cta" @click="router.replace('/')">返回首页等待联系</van-button>
+      <div class="page-bottom-gap"></div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.result { min-height: 100vh; background: var(--surface-2); }
+.re { font-size: 12.5px; color: var(--signal); font-weight: 600; padding: 4px 0 4px 8px; }
+.hd { padding-top: 14px; }
+.h-t { font-size: 16px; font-weight: 700; color: var(--ink-900); }
+.portrait { background: linear-gradient(160deg, #1d2733, #0d1117); border: 0; color: #fff; }
+.portrait b { font-size: 14px; }
+.portrait .pt-tip { color: rgba(255, 255, 255, .45); }
+.portrait .chip { background: rgba(255, 255, 255, .1); color: #fff; border-color: rgba(255, 255, 255, .16); }
+.none { text-align: center; padding: 22px 16px; border-color: var(--warn-line); background: var(--warn-bg); }
+.none-ic { color: var(--warn); }
+.none-t { font-size: 17px; font-weight: 700; color: var(--warn); }
+.none-d { color: var(--warn); margin-top: 7px; line-height: 1.7; }
+.b-t { font-size: 13.5px; color: var(--ink-900); display: block; }
+</style>

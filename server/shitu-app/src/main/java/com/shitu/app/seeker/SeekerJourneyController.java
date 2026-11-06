@@ -58,10 +58,13 @@ public class SeekerJourneyController {
     private final ApplicationService applications;
     private final NotificationService notifications;
     private final com.shitu.lifecycle.employment.EmploymentQueryService employments;
+    private final com.shitu.circulation.BrokerService brokers;
+    private final com.shitu.tenant.company.CompanyService companies;
 
     public SeekerJourneyController(SeekerJourneyFacade journey, QuizService quiz, DisclaimerService disclaimer,
                                    KycService kyc, ApplicationService applications, NotificationService notifications,
-                                   com.shitu.lifecycle.employment.EmploymentQueryService employments) {
+                                   com.shitu.lifecycle.employment.EmploymentQueryService employments,
+                                   com.shitu.circulation.BrokerService brokers, com.shitu.tenant.company.CompanyService companies) {
         this.journey = journey;
         this.quiz = quiz;
         this.disclaimer = disclaimer;
@@ -69,6 +72,8 @@ public class SeekerJourneyController {
         this.applications = applications;
         this.notifications = notifications;
         this.employments = employments;
+        this.brokers = brokers;
+        this.companies = companies;
     }
 
     @Operation(summary = "当前生效题库（C-302）")
@@ -159,5 +164,21 @@ public class SeekerJourneyController {
     @GetMapping("/work")
     public ApiResponse<com.shitu.lifecycle.employment.EmploymentQueryService.MyWork> work() {
         return ApiResponse.ok(employments.myWork(CurrentUser.subjectId()).orElse(null));
+    }
+
+    public record DecisionRequest(@jakarta.validation.constraints.NotNull Boolean accept) {
+    }
+
+    @Operation(summary = "专属顾问（人才经纪人）推荐给我的岗位（T-203）")
+    @GetMapping("/recommendations")
+    public ApiResponse<List<com.shitu.circulation.BrokerService.MyRecommendation>> recommendations() {
+        return ApiResponse.ok(brokers.myRecommendations(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "接受 / 不考虑推荐（接受后在岗位详情页走正常报名流程）")
+    @PostMapping("/recommendations/{id}/decision")
+    public ApiResponse<Void> decide(@PathVariable long id, @Valid @RequestBody DecisionRequest req) {
+        brokers.decide(CurrentUser.subjectId(), id, req.accept());
+        return ApiResponse.ok(null);
     }
 }
