@@ -268,6 +268,35 @@ public class CompanyService {
         return view(c, true);
     }
 
+    /**
+     * 注销 / 倒闭（P-02 / P-08，不可逆）：公司状态置为已注销或已倒闭，全部成员停用。
+     * 用户批量解绑、岗位下架、会话吊销由调用方在同一事务中完成；作为来源方的流转分成此后全归平台（R-11）。
+     *
+     * @return 被停用的成员 ID
+     */
+    @Transactional
+    public List<String> close(String companyId, CompanyStatus target, String remark, String operatorId) {
+        BizException.check(target.isClosed(), ErrorCode.SYS_BAD_REQUEST);
+        BizException.check(remark != null && !remark.isBlank(), ErrorCode.SYS_BAD_REQUEST, "请填写注销 / 倒闭说明");
+        Company c = mustGet(companyId);
+        BizException.check(!c.getCompanyStatus().isClosed(), ErrorCode.TEN_ILLEGAL_STATUS, "公司已注销");
+        CompanyStatus before = c.getCompanyStatus();
+        c.setCompanyStatus(target);
+        c.setStatusRemark(remark.trim());
+        c.setClosedAt(LocalDateTime.now(clock));
+        companies.updateById(c);
+        evict(companyId);
+        List<String> memberIds = members.selectList(new LambdaQueryWrapper<Member>().eq(Member::getCompanyId, companyId)
+                .eq(Member::getStatus, MemberStatus.NORMAL)).stream().map(Member::getMemberId).toList();
+        if (!memberIds.isEmpty()) {
+            members.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Member>()
+                    .eq(Member::getCompanyId, companyId).set(Member::getStatus, MemberStatus.DISABLED));
+        }
+        audit.logForCompany(companyId, "COMPANY_CLOSE", "COMPANY", companyId,
+                Map.of("before", before.name(), "after", target.name(), "remark", remark.trim()));
+        return memberIds;
+    }
+
     // ------------------------------------------------------------------
 
     private Company mustGet(String companyId) {

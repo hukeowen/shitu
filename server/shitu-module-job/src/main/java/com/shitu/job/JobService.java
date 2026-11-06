@@ -316,6 +316,20 @@ public class JobService {
         return views(List.of(j), true).get(0);
     }
 
+    /** 公司注销：全部未下架岗位强制下架（OPS 模式）。 */
+    @Transactional
+    public int forceOfflineAllOfCompany(String companyId, String remark, String operatorId) {
+        List<Job> live = jobs.selectList(new LambdaQueryWrapper<Job>().eq(Job::getCompanyId, companyId)
+                .in(Job::getJobStatus, JobStatus.PENDING_AUDIT, JobStatus.RECRUITING, JobStatus.PAUSED, JobStatus.REJECTED));
+        for (Job j : live) {
+            j.setJobStatus(JobStatus.FORCE_OFFLINE);
+            j.setAuditRemark(remark);
+            jobs.updateById(j);
+            logAudit(j, "FORCE_OFFLINE", remark, operatorId);
+        }
+        return live.size();
+    }
+
     public long countByStatus(JobStatus status) {
         return jobs.selectCount(new LambdaQueryWrapper<Job>().eq(Job::getJobStatus, status));
     }
