@@ -57,3 +57,26 @@ export function telHref(phone: string | null | undefined): string | null {
   const d = phone.replace(/[^\d+]/g, '')
   return d.length >= 7 ? `tel:${d}` : null
 }
+
+/** 金额两位小数 + 千分位：1234.5 → "1,234.50"（后端 BigDecimal 可能序列化为字符串，统一转数字） */
+export function fmtAmount(n: number | string | null | undefined): string {
+  const v = Number(n)
+  if (n == null || n === '' || Number.isNaN(v)) return '—'
+  const [i, d] = Math.abs(v).toFixed(2).split('.')
+  return `${v < 0 ? '-' : ''}${i.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${d}`
+}
+
+/** ¥ 金额：¥1,234.50；sign=true 时正数带 +、负数用 −（流水展示） */
+export function fmtYuan(n: number | string | null | undefined, sign = false): string {
+  const v = Number(n)
+  if (n == null || n === '' || Number.isNaN(v)) return '—'
+  const s = fmtAmount(Math.abs(v))
+  if (!sign) return `${v < 0 ? '-' : ''}¥${s}`
+  return `${v < 0 ? '−' : v > 0 ? '+' : ''}¥${s}`
+}
+
+/** 2026-07 → 2026 年 7 月 */
+export function fmtMonth(m: string | null | undefined): string {
+  const r = /^(\d{4})-(\d{1,2})/.exec(m ?? '')
+  return r ? `${r[1]} 年 ${Number(r[2])} 月` : m || '—'
+}

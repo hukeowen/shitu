@@ -10,6 +10,7 @@ declare module 'vue' {
     AppBar: typeof import('./src/components/AppBar.vue')['default']
     BrandMark: typeof import('./src/components/BrandMark.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
+    ComplaintPopup: typeof import('./src/components/ComplaintPopup.vue')['default']
     DisclaimerPopup: typeof import('./src/components/DisclaimerPopup.vue')['default']
     GuestHome: typeof import('./src/components/home/GuestHome.vue')['default']
     GuidePopup: typeof import('./src/components/GuidePopup.vue')['default']

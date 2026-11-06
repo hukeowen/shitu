@@ -188,3 +188,15 @@ button.chip { font: inherit; font-size: 11px; }
 /* 整页状态（加载 / 错误 / 空） */
 .page-state { padding: 60px 16px 24px; text-align: center; }
 .big-ic { width: 54px; height: 54px; border-radius: 17px; display: grid; place-items: center; margin: 0 auto 14px; background: #fff; }
+
+/* ---------- Sprint 5：预支 / 工资 / 投诉 ---------- */
+/* 进度条（原型 core.css .bar） */
+.bar { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 3px; background: var(--ink-800); transition: width .3s; }
+.bar > i.sig { background: linear-gradient(90deg, var(--signal-300), var(--signal)); }
+.bar > i.ok { background: var(--ok); }
+.bar > i.warn { background: var(--warn); }
+/* 多行输入（原型 .ta） */
+.ta { width: 100%; min-height: 84px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-sm); font: inherit; font-size: 15px; line-height: 1.55; color: var(--ink-900); box-sizing: border-box; outline: none; resize: none; -webkit-appearance: none; appearance: none; }
+.ta:focus { border-color: var(--ink-700); box-shadow: 0 0 0 3px rgba(13, 17, 23, .07); }
+.ta::placeholder { color: var(--ink-300); }

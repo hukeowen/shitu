@@ -135,6 +135,20 @@ async function onLogout() {
           <div class="lt"><b>我的工作</b><span>{{ workDesc }}</span></div>
           <van-icon name="arrow" class="chev" />
         </router-link>
+        <router-link to="/payslips" class="lrow">
+          <div class="ic ic--warn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.9" /><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" /></svg>
+          </div>
+          <div class="lt"><b>我的工资</b><span>按月工资条 · 应发 / 扣款 / 实发</span></div>
+          <van-icon name="arrow" class="chev" />
+        </router-link>
+        <router-link to="/advance/records" class="lrow">
+          <div class="ic ic--sig">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9" /><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.6 0-2.6.8-2.6 1.9 0 2.6 5.4 1.3 5.4 4 0 1.2-1.1 2.1-2.8 2.1-1.3 0-2.3-.5-2.8-1.4M12 6.2v11.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          </div>
+          <div class="lt"><b>预支记录</b><span>{{ profile?.status === 'EMPLOYED' ? '预支申请、审批进度与还款' : '历史预支与欠款流水' }}</span></div>
+          <van-icon name="arrow" class="chev" />
+        </router-link>
         <router-link to="/recommendations" class="lrow">
           <div class="ic ic--sig">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.9" /><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" /></svg>
@@ -190,6 +204,7 @@ async function onLogout() {
 .ic--info { background: var(--info-bg); color: var(--info); }
 .ic--ok { background: var(--ok-bg); color: var(--ok); }
 .ic--sig { background: var(--signal-50); color: var(--signal); }
+.ic--warn { background: var(--warn-bg); color: var(--warn); }
 .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10.5px; font-style: normal; line-height: 18px; text-align: center; box-sizing: border-box; flex: none; }
 .logout { color: var(--danger); border-color: var(--danger-line); }
 .foot { text-align: center; padding: 6px 0 16px; line-height: 1.7; }

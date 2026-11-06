@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication } from '@shitu/api-client'
+import ComplaintPopup from '@/components/ComplaintPopup.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import { formatServerTime, formatShort } from '@/utils/time'
 
@@ -82,6 +83,14 @@ function stateText(a: MyApplication): string {
 function where(a: MyApplication) {
   return [a.projectName, a.companyName].filter(Boolean).join(' · ')
 }
+
+/** S-19 岗位投诉（C-402）：报名过的岗位都可投诉 */
+const complainFor = ref<MyApplication | null>(null)
+const complainOpen = ref(false)
+function openComplain(a: MyApplication) {
+  complainFor.value = a
+  complainOpen.value = true
+}
 </script>
 
 <template>
@@ -128,6 +137,7 @@ function where(a: MyApplication) {
 
             <div v-if="ACTIVE.includes(a.status)" class="t-xs ro">仅可查看 · 如需更换岗位，请联系驻场</div>
             <div v-else-if="a.status !== 'TIMEOUT'" class="note note--info" style="margin-top: 10px">报名已结束，可重新进入 AI 问薪匹配。</div>
+            <button type="button" class="cmp-link" @click="openComplain(a)">岗位与描述不符？投诉该岗位 ›</button>
           </article>
         </template>
         <div v-else class="page-state">
@@ -137,6 +147,13 @@ function where(a: MyApplication) {
         </div>
       </div>
     </van-pull-refresh>
+    <ComplaintPopup
+      v-if="complainFor"
+      v-model:show="complainOpen"
+      :job-id="complainFor.jobId"
+      :job-title="complainFor.jobTitle"
+      :subtitle="where(complainFor)"
+    />
   </div>
 </template>
 
@@ -152,4 +169,5 @@ function where(a: MyApplication) {
 .ntc-t { font-size: 12.5px; font-weight: 700; color: var(--temp); }
 .more { margin-top: 10px; }
 .ro { margin-top: 8px; text-align: center; }
+.cmp-link { display: block; margin: 8px auto 0; padding: 4px 8px; background: none; border: 0; font-size: 12px; color: var(--ink-400); }
 </style>

@@ -139,6 +139,14 @@ const formBSteps = computed(() => {
               <div class="lt"><b>我的合同</b><span>查看劳动合同与签署记录</span></div>
               <van-icon name="arrow" class="chev" />
             </router-link>
+            <router-link to="/payslips" class="lrow">
+              <div class="lt"><b>我的工资</b><span>按月工资条与预支抵扣明细</span></div>
+              <van-icon name="arrow" class="chev" />
+            </router-link>
+            <router-link to="/advance" class="lrow">
+              <div class="lt"><b>薪资预支</b><span>每满 7 个在岗日获得一次机会</span></div>
+              <van-icon name="arrow" class="chev" />
+            </router-link>
             <router-link to="/reports" class="lrow">
               <div class="lt"><b>我的报备</b><span>报名 / 面试 / 入职记录</span></div>
               <van-icon name="arrow" class="chev" />
@@ -147,7 +155,7 @@ const formBSteps = computed(() => {
 
           <section class="acard">
             <div class="acard-hd"><h4>考勤汇总</h4><span class="tag">V1.5 打卡</span></div>
-            <p class="t-sm" style="line-height: 1.7">考勤打卡、工资条、薪资预支将陆续开放。请假或缺勤由驻场老师登记。</p>
+            <p class="t-sm" style="line-height: 1.7">考勤打卡将在 V1.5 开放。请假或旷工由驻场老师登记，会扣减预支所需的在岗日。</p>
           </section>
 
           <div class="note note--warn">

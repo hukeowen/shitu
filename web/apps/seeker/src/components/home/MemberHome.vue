@@ -174,7 +174,7 @@ async function startMatch() {
 function onQuad(it: QuadItem) {
   if (it.key === 'match') return void startMatch()
   if (it.key === 'refer') return showToast('推荐裂变即将上线')
-  if (it.key === 'advance') return showToast(it.off ? '入职在岗后可申请薪资预支' : '薪资预支即将上线')
+  if (it.key === 'advance') return it.off ? showToast('入职在岗后可申请薪资预支') : void router.push('/advance')
   showToast('工分变现将在 V1.5 上线')
 }
 
@@ -359,6 +359,10 @@ const progress = computed(() => {
           </router-link>
           <router-link to="/contracts" class="lrow">
             <div class="lt"><b>我的合同</b><span>劳动合同与签署记录</span></div>
+            <van-icon name="arrow" class="chev" />
+          </router-link>
+          <router-link to="/payslips" class="lrow">
+            <div class="lt"><b>我的工资</b><span>工资条 · 应发 / 扣款 / 实发</span></div>
             <van-icon name="arrow" class="chev" />
           </router-link>
         </section>

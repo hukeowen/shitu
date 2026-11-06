@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, useDict, type SeekerJobDetail } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
+import ComplaintPopup from '@/components/ComplaintPopup.vue'
 import DisclaimerPopup from '@/components/DisclaimerPopup.vue'
 import { useApplyFlow } from '@/composables/useApplyFlow'
 import { useJourney } from '@/composables/useJourney'
@@ -70,6 +71,9 @@ const ageText = computed(() => {
 })
 const expText = computed(() => (job.value && job.value.minWorkYears > 0 ? `${job.value.minWorkYears} 年以上相关经验` : '不限经验，可接受新手'))
 const subTitle = computed(() => [job.value?.projectName, job.value?.companyName].filter(Boolean).join(' · '))
+
+/** S-19 岗位投诉（C-402）：每个岗位详情页固定入口 */
+const complainOpen = ref(false)
 
 function onApply() {
   if (!job.value?.canApply) return
@@ -180,9 +184,9 @@ function onApply() {
           <p class="t-xs" style="margin-top: 8px">报名后驻场老师会推送具体面试时间与集合地点</p>
         </section>
 
-        <button type="button" class="complain" disabled>
+        <button type="button" class="complain" @click="complainOpen = true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8.5v5m0 3.2v.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9" /></svg>
-          岗位信息有问题？投诉该岗位（即将上线）
+          岗位信息有问题？投诉该岗位
         </button>
         <div class="bottom-bar-gap"></div>
       </div>
@@ -195,6 +199,7 @@ function onApply() {
       </div>
     </template>
 
+    <ComplaintPopup v-if="job" v-model:show="complainOpen" :job-id="jobId" :job-title="job.title" :subtitle="subTitle" />
     <DisclaimerPopup v-model:show="flow.disclaimerOpen.value" :company-name="job?.companyName" @agreed="flow.retry" />
   </div>
 </template>
@@ -212,6 +217,7 @@ function onApply() {
 .warnc { border-color: var(--warn-line); background: var(--warn-bg); }
 .warnc h4, .warnc .lines { color: var(--warn); }
 .map { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; height: 64px; border-radius: var(--r-md); border: 1px solid var(--line); color: var(--signal); font-size: 13px; font-weight: 600; text-decoration: none; background: repeating-linear-gradient(135deg, var(--surface-3) 0 10px, var(--surface-2) 10px 20px); }
-.complain { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: transparent; font-size: 12.5px; color: var(--ink-400); }
+.complain { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: transparent; font-size: 12.5px; color: var(--ink-500); }
+.complain:active { background: var(--surface-3); }
 .why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; }
 </style>

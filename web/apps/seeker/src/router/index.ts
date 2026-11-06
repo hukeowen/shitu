@@ -36,6 +36,12 @@ const router = createRouter({
     { path: '/contracts', component: () => import('@/views/contract/ContractsView.vue'), meta: { auth: true, title: '我的合同', proto: 'S-27' } },
     { path: '/contracts/:id', component: () => import('@/views/contract/ContractDetailView.vue'), meta: { auth: true, title: '合同详情', proto: 'S-28' } },
     { path: '/work', component: () => import('@/views/WorkView.vue'), meta: { auth: true, title: '我的工作', proto: 'S-30' } },
+    // 薪资预支（Sprint 5，C-601~C-604）与工资条（C-701）
+    { path: '/advance', component: () => import('@/views/advance/AdvanceView.vue'), meta: { auth: true, title: '薪资预支', proto: 'S-33' } },
+    { path: '/advance/records', component: () => import('@/views/advance/AdvanceRecordsView.vue'), meta: { auth: true, title: '预支记录', proto: 'S-36' } },
+    { path: '/advance/:id', component: () => import('@/views/advance/AdvanceProgressView.vue'), meta: { auth: true, title: '审批进度', proto: 'S-35' } },
+    { path: '/payslips', component: () => import('@/views/payslip/PayslipsView.vue'), meta: { auth: true, title: '我的工资', proto: 'S-41' } },
+    { path: '/payslips/:id', component: () => import('@/views/payslip/PayslipDetailView.vue'), meta: { auth: true, title: '工资条明细', proto: 'S-42' } },
     // 专属顾问（人才经纪人）推荐（T-203）
     { path: '/recommendations', component: () => import('@/views/RecommendationsView.vue'), meta: { auth: true, title: '专属顾问推荐' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, auth: true, title: '我的', proto: 'S-26' } },
