@@ -43,11 +43,25 @@ import type {
   SiteWorkbench,
   AcknowledgeRequest,
   MatchSnapshot,
+  BillDispute,
   LaborContractView,
   ConfirmOnboardRequest,
   StaffRow,
   DutyAbsenceView,
   MyWork,
+  BrokerCaseRow,
+  BrokerReport,
+  MyRecommendation,
+  ResignRow,
+  RosterBatchResult,
+  RosterBatch,
+  MonthlyBill,
+  BillDetail,
+  LedgerLine,
+  DailyBillingResult,
+  BillingRuleRow,
+  CompanyCloseResult,
+  BillStatus,
   SeekerLoginResponse,
   SeekerProfile,
   SmsSendResult,
@@ -129,6 +143,10 @@ export const seekerApi = {
   pendingContract: () => get<LaborContractView | null>('/seeker/contracts/pending'),
   /** 【仅开发环境】模拟签署（Mock 电子签） */
   mockSign: (flowId: string) => post<void>(`/seeker/esign/mock/${flowId}/sign`),
+
+  /** 专属顾问推荐的岗位（T-203）；推荐的岗位可以打开详情并报名 */
+  recommendations: () => get<MyRecommendation[]>('/seeker/recommendations'),
+  decideRecommendation: (id: number, accept: boolean) => post<void>(`/seeker/recommendations/${id}/decision`, { accept }),
 }
 
 // ------------------------------------------------------------------ 公司后台 / 驻场端
@@ -229,6 +247,38 @@ export const tenantApi = {
     put<void>(`/tenant/employments/${employmentId}/absences`, { date, type, remark }),
   absences: (employmentId: string, from: string, to: string) =>
     get<DutyAbsenceView[]>(`/tenant/employments/${employmentId}/absences`, { from, to }),
+
+  /** 流转池（T-201）：status 不传 = 未结工单 */
+  brokerCases: (status?: string) => get<BrokerCaseRow[]>('/tenant/broker/cases', { status }),
+  brokerContact: (id: number) => post<BrokerCaseRow>(`/tenant/broker/cases/${id}/contact`),
+  brokerReport: (id: number) => post<BrokerReport>(`/tenant/broker/cases/${id}/report`),
+  brokerLatestReport: (id: number) => get<BrokerReport | null>(`/tenant/broker/cases/${id}/report`),
+  brokerRecommend: (id: number, jobId: string, note?: string) =>
+    post<BrokerCaseRow>(`/tenant/broker/cases/${id}/recommend`, { jobId, note }),
+  /** 释放至公域（必填原因，T-204） */
+  brokerRelease: (id: number, reason: string) => post<void>(`/tenant/broker/cases/${id}/release`, { reason }),
+  /** 驻场 / 项目经理一键流转（M-09，私域待匹配用户） */
+  transferToBroker: (userId: string) => post<number>(`/tenant/seekers/${userId}/transfer-to-broker`),
+
+  /** 离职（T-308）：驻场 / 项目经理发起，项目经理审核 */
+  requestResign: (employmentId: string, resignDate: string, reason?: string) =>
+    post<number>(`/tenant/employments/${employmentId}/resign`, { resignDate, reason }),
+  resignRequests: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') => get<ResignRow[]>('/tenant/resign-requests', { status }),
+  decideResign: (id: number, approve: boolean, remark?: string) =>
+    post<void>(`/tenant/resign-requests/${id}/decide`, { approve, remark }),
+
+  /** 花名册（T-503，项目经理）。模板 / 失败行用 fetchFileUrl 风格的 blob 下载：http.get(path, { responseType: 'blob' }) */
+  rosterTemplatePath: '/tenant/roster/template',
+  rosterImport: (file: File) => upload<RosterBatchResult>('/tenant/roster/import', file),
+  rosterBatches: () => get<RosterBatch[]>('/tenant/roster/batches'),
+  rosterFailedPath: (batchId: string) => `/tenant/roster/batches/${batchId}/failed`,
+
+  /** 费用账单 T-403 / 流转账本 T-404（老板） */
+  bills: (page = 1, pageSize = 12) => get<PageResult<MonthlyBill>>('/tenant/bills', { page, pageSize }),
+  bill: (billId: string) => get<BillDetail>(`/tenant/bills/${billId}`),
+  disputeBill: (billId: string, content: string) => post<BillDispute>(`/tenant/bills/${billId}/disputes`, { content }),
+  /** month：YYYY-MM */
+  ledger: (month: string) => get<LedgerLine[]>('/tenant/ledger', { month }),
 }
 
 // ------------------------------------------------------------------ 平台中台
@@ -278,6 +328,29 @@ export const opsApi = {
   /** 发布草稿 / 回滚到归档版本（仅超管） */
   publishQuiz: (versionId: number) => post<QuizView>(`/ops/quiz/versions/${versionId}/publish`),
   matchSnapshot: (sessionId: string) => get<MatchSnapshot>(`/ops/match-sessions/${sessionId}`),
+
+  /** 对账 P-10（超管 / 财务） */
+  bills: (params?: { companyId?: string; status?: BillStatus; month?: string; page?: number; pageSize?: number }) =>
+    get<PageResult<MonthlyBill>>('/ops/bills', params),
+  bill: (billId: string) => get<BillDetail>(`/ops/bills/${billId}`),
+  replyDispute: (disputeId: number, accept: boolean, reply: string) =>
+    post<void>(`/ops/disputes/${disputeId}/reply`, { accept, reply }),
+  settleBill: (billId: string) => post<void>(`/ops/bills/${billId}/settle`),
+  /** 重算某天计费（date：yyyy-MM-dd） */
+  rerunDaily: (date: string) => request<DailyBillingResult>({ method: 'POST', url: '/ops/billing/daily', params: { date } }),
+  /** 生成并下发某月账单（仅超管） */
+  issueMonthly: (month: string) => request<number>({ method: 'POST', url: '/ops/billing/monthly', params: { month } }),
+  /** 计费规则 P-09 */
+  billingRules: () => get<BillingRuleRow[]>('/ops/billing/rules'),
+  addBillingRule: (req: { effectiveFrom: string; serviceUnitPrice: number; transferUnitPrice: number; supplyShare: number; freeMonths: number }) =>
+    post<number>('/ops/billing/rules', req),
+  /** 存量基数与免费期 P-03 */
+  stockBases: (companyId?: string) => get<Record<string, unknown>[]>('/ops/stock-bases', { companyId }),
+  /** 归属治理 P-08 */
+  attribution: (params: { phone?: string; userId?: string }) => get<Record<string, unknown>>('/ops/attribution', params),
+  /** 公司注销 / 倒闭（不可逆，仅超管） */
+  closeCompany: (companyId: string, status: 'DEREGISTERED' | 'BANKRUPT', remark: string) =>
+    post<CompanyCloseResult>(`/ops/companies/${companyId}/close`, { status, remark }),
 
   admins: (params?: { keyword?: string; page?: number; pageSize?: number }) => get<PageResult<AdminView>>('/ops/admins', params),
   createAdmin: (req: { username: string; displayName: string; roles: OpsRole[] }) =>

@@ -686,3 +686,172 @@ export interface MyWork {
   dutyDays: number
   employeeNo?: string
 }
+
+// ------------------------------------------------------------------ Sprint 4：流转、离职、花名册、计费
+
+export interface BrokerCaseRow {
+  id: number
+  userId: string
+  seekerName: string
+  phoneMasked?: string
+  /** LOW_MATCH 匹配度不足 / REMATCH_LIMIT 多次匹配未报名 / SITE_TRANSFER 驻场流转 */
+  triggerType: 'LOW_MATCH' | 'REMATCH_LIMIT' | 'SITE_TRANSFER' | 'JOB_CHANGE'
+  status: 'OPEN' | 'CONTACTED' | 'RECOMMENDED' | 'APPLIED' | 'RELEASED' | 'CLOSED'
+  fromMemberId?: string
+  /** 2 小时联系时限 */
+  contactDueAt: string
+  /** 24 小时出结果时限，超时自动释放 */
+  resolveDueAt: string
+  contactedAt?: string
+  createdAt: string
+  matchCount: number
+  profileSummary: string
+  /** CONTACT / REPORT / RECOMMEND / RELEASE */
+  allowedActions: string[]
+}
+
+export interface BrokerReport {
+  id: number
+  caseId: number
+  summary: string
+  recommendations: { jobId: string; title: string; matchScore: number; reason: string }[]
+  generator: 'TEMPLATE' | 'LLM'
+  createdAt: string
+}
+
+export interface MyRecommendation {
+  id: number
+  jobId: string
+  jobTitle?: string
+  companyName?: string
+  note?: string
+  decision: 'PENDING' | 'ACCEPTED' | 'DECLINED'
+  createdAt: string
+}
+
+export interface ResignRow {
+  id: number
+  employmentId: string
+  userId: string
+  name: string
+  projectId: string
+  resignDate: string
+  reason?: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  requestedBy: string
+  approvedBy?: string
+  createdAt: string
+}
+
+export interface RosterRowResult {
+  rowNo: number
+  success: boolean
+  error?: string
+  userId?: string
+}
+
+export interface RosterBatchResult {
+  batchId: string
+  total: number
+  success: number
+  failed: number
+  /** 导入时在免费期内 → 计入存量 */
+  inFreePeriod: boolean
+  rows: RosterRowResult[]
+}
+
+export interface RosterBatch {
+  batch_id: string
+  total_rows: number
+  success_rows: number
+  failed_rows: number
+  in_free_period: boolean
+  status: string
+  operator_id: string
+  created_at: string
+}
+
+export type BillStatus = 'GENERATED' | 'ISSUED' | 'DISPUTED' | 'CONFIRMED' | 'SETTLED'
+
+export interface MonthlyBill {
+  billId: string
+  companyId: string
+  /** YYYY-MM */
+  billMonth: string
+  /** 增长技术服务费 */
+  serviceFee: number
+  /** 作为接收方应付的流转费 */
+  transferPayable: number
+  /** 作为来源方应收（不与应付轧差） */
+  transferReceivable: number
+  /** 应付合计 = 服务费 + 应付流转费 */
+  payable: number
+  status: BillStatus
+  issuedAt?: string
+  disputeDeadline?: string
+  settleDeadline?: string
+  settledAt?: string
+}
+
+export interface BillDayLine {
+  bizDate: string
+  inFreePeriod: boolean
+  employedCount: number
+  stockBase: number
+  incrementCount: number
+  serviceFee: number
+  transferPayable: number
+  transferReceivable: number
+}
+
+export interface BillDispute {
+  id: number
+  billId: string
+  content: string
+  status: 'OPEN' | 'ACCEPTED' | 'REJECTED'
+  raisedBy: string
+  reply?: string
+  createdAt: string
+  repliedAt?: string
+}
+
+export interface BillDetail {
+  bill: MonthlyBill
+  days: BillDayLine[]
+  disputes: BillDispute[]
+}
+
+export interface LedgerLine {
+  /** PAYABLE 流入（我付）/ RECEIVABLE 流出（我收） */
+  direction: 'PAYABLE' | 'RECEIVABLE'
+  userId: string
+  counterpartCompanyId?: string
+  days: number
+  amount: number
+}
+
+export interface DailyBillingResult {
+  bizDate: string
+  ruleVersion: number
+  companies: number
+  transferLines: number
+  serviceFee: number
+  transferFee: number
+}
+
+export interface BillingRuleRow {
+  version: number
+  effective_from: string
+  service_unit_price: number
+  transfer_unit_price: number
+  supply_share: number
+  free_months: number
+  created_by?: string
+  created_at: string
+}
+
+export interface CompanyCloseResult {
+  unboundUsers: number
+  offlineJobs: number
+  disabledMembers: number
+}
