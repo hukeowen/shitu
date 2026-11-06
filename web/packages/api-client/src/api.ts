@@ -43,6 +43,11 @@ import type {
   SiteWorkbench,
   AcknowledgeRequest,
   MatchSnapshot,
+  LaborContractView,
+  ConfirmOnboardRequest,
+  StaffRow,
+  DutyAbsenceView,
+  MyWork,
   SeekerLoginResponse,
   SeekerProfile,
   SmsSendResult,
@@ -115,6 +120,15 @@ export const seekerApi = {
   unreadCount: () => get<number>('/seeker/messages/unread-count'),
   /** ids 不传 = 全部已读 */
   markRead: (ids?: number[]) => post<number>('/seeker/messages/read', { ids }),
+
+  /** 我的工作（C-505），没有任职返回 null */
+  work: () => get<MyWork | null>('/seeker/work'),
+  /** 我的合同（C-503） */
+  contracts: () => get<LaborContractView[]>('/seeker/contracts'),
+  /** 待签署合同（含 signUrl），没有返回 null */
+  pendingContract: () => get<LaborContractView | null>('/seeker/contracts/pending'),
+  /** 【仅开发环境】模拟签署（Mock 电子签） */
+  mockSign: (flowId: string) => post<void>(`/seeker/esign/mock/${flowId}/sign`),
 }
 
 // ------------------------------------------------------------------ 公司后台 / 驻场端
@@ -190,6 +204,31 @@ export const tenantApi = {
     get<PageResult<InboxItem>>('/tenant/messages', params),
   unreadCount: () => get<number>('/tenant/messages/unread-count'),
   markRead: (ids?: number[]) => post<number>('/tenant/messages/read', { ids }),
+
+  /** 到厂确认 */
+  arrive: (applicationId: string) => post<SiteApplication>(`/tenant/applications/${applicationId}/arrive`),
+  /** 面试结果：未通过必须填 remark（LC_4004） */
+  interviewResult: (applicationId: string, pass: boolean, remark?: string) =>
+    post<void>(`/tenant/applications/${applicationId}/result`, { pass, remark }),
+  /** 爽约（仅驻场） */
+  noShow: (applicationId: string, remark?: string) => post<void>(`/tenant/applications/${applicationId}/no-show`, { remark }),
+  /** 后台取消（必填原因） */
+  cancelApplication: (applicationId: string, reason: string) =>
+    post<void>(`/tenant/applications/${applicationId}/cancel`, { reason }),
+  /** 入职确权并发起电子签（RESEND_CONTRACT 时同样调用：作废旧流程重发） */
+  confirmOnboard: (applicationId: string, req?: ConfirmOnboardRequest) =>
+    post<LaborContractView>(`/tenant/applications/${applicationId}/confirm`, req ?? {}),
+  /** 人员管理（T-307）：keyword 支持工号或完整手机号 */
+  employments: (params?: { active?: boolean; projectId?: string; keyword?: string; page?: number; pageSize?: number }) =>
+    get<PageResult<StaffRow>>('/tenant/employments', params),
+  /** 内部调岗（仅项目经理） */
+  transfer: (employmentId: string, projectId: string, jobId?: string) =>
+    post<void>(`/tenant/employments/${employmentId}/transfer`, { projectId, jobId }),
+  /** 请假 / 旷工标记，type 不传 = 撤销 */
+  markAbsence: (employmentId: string, date: string, type?: 'LEAVE' | 'ABSENT', remark?: string) =>
+    put<void>(`/tenant/employments/${employmentId}/absences`, { date, type, remark }),
+  absences: (employmentId: string, from: string, to: string) =>
+    get<DutyAbsenceView[]>(`/tenant/employments/${employmentId}/absences`, { from, to }),
 }
 
 // ------------------------------------------------------------------ 平台中台

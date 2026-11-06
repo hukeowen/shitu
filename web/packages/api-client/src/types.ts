@@ -607,3 +607,82 @@ export interface MatchSnapshot {
     displayed: boolean
   }[]
 }
+
+// ------------------------------------------------------------------ Sprint 3：入职闭环
+
+export type ContractStatus = 'PENDING_SIGN' | 'EFFECTIVE' | 'EXPIRED' | 'DISSOLVED' | 'TERMINATED' | 'VOIDED'
+
+/** 后台报名操作（allowedActions）：待面试 ACKNOWLEDGE/REPUSH、ARRIVE、PASS、FAIL、NO_SHOW（仅驻场）、CANCEL；待确权 CONFIRM 或 RESEND_CONTRACT、CANCEL */
+export type SiteApplicationAction = 'ACKNOWLEDGE' | 'REPUSH' | 'ARRIVE' | 'PASS' | 'FAIL' | 'NO_SHOW' | 'CANCEL' | 'CONFIRM' | 'RESEND_CONTRACT'
+
+export interface LaborContractView {
+  contractId: string
+  contractNo: string
+  title: string
+  companyName?: string
+  jobTitle?: string
+  projectName?: string
+  termStart: string
+  termEnd?: string
+  status: ContractStatus
+  /** 仅待签署时返回 */
+  signUrl?: string
+  signedAt?: string
+  createdAt: string
+}
+
+export interface ConfirmOnboardRequest {
+  /** 入职日期 yyyy-MM-dd，默认今天（近 3 天到未来 30 天） */
+  startDate?: string
+  employeeNo?: string
+  /** 合同截止日，默认入职起 1 年 */
+  termEnd?: string
+}
+
+export type StaffSource = 'OWN' | 'PLATFORM' | 'TRANSFER'
+
+export interface StaffRow {
+  employmentId: string
+  userId: string
+  /** 驻场看全名，其他角色脱敏 */
+  name: string
+  /** 仅驻场返回 */
+  phone?: string
+  projectId: string
+  projectName?: string
+  jobId?: string
+  jobTitle?: string
+  employeeNo?: string
+  startDate: string
+  endDate?: string
+  /** 在岗天数（含入职当天） */
+  dutyDays: number
+  absenceDaysThisMonth: number
+  /** 来源归属：本公司 / 平台自主 / 流转自其他公司（产生流转费） */
+  source: StaffSource
+  sourceCompanyName?: string
+}
+
+export interface DutyAbsenceView {
+  id: number
+  employmentId: string
+  absenceDate: string
+  absenceType: 'LEAVE' | 'ABSENT'
+  markedBy: string
+  remark?: string
+  createdAt: string
+}
+
+export interface MyWork {
+  employmentId: string
+  companyName?: string
+  projectName?: string
+  city?: string
+  address?: string
+  jobTitle?: string
+  startDate: string
+  /** 有值 = 已离职 */
+  endDate?: string
+  dutyDays: number
+  employeeNo?: string
+}
