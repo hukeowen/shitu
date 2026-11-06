@@ -163,6 +163,71 @@ class Sprint4FlowIT extends FlowItSupport {
         assertThat(user(u3).get("last_release_reason")).isEqualTo("BROKER_SLA_TIMEOUT");
     }
 
+    @Test
+    void rosterImport() throws Exception {
+        Company c = company();
+        Company other = company();
+        String publicSeeker = readySeeker(null);
+        String publicPhone = jdbc.queryForObject("SELECT phone_enc FROM `user` WHERE user_id = ?", String.class, userId(publicSeeker));
+        String publicPhonePlain = cipher.decrypt(publicPhone);
+        String otherCode = data(call(post("/api/v1/tenant/channel-codes"), other.owner(), Map.of("name", "他司码"))).get("code").asText();
+        String otherPhone = phone();
+        seekerLogin(otherPhone, otherCode);
+        String newPhone = phone();
+        String newId = idCard(30);
+        String today = LocalDate.now().toString();
+        byte[] xlsx = xlsx(new String[][]{
+                {"新员工", newPhone, newId, c.projectId(), "", LocalDate.now().minusDays(10).toString(), "R-001"},
+                {"老用户", publicPhonePlain, idCard(28), "验收项目一", "", today, ""},
+                {"别家人", otherPhone, idCard(26), c.projectId(), "", today, ""},
+                {"坏号码", phone(), "123", c.projectId(), "", today, ""},
+                {"重复号", newPhone, idCard(25), c.projectId(), "", today, ""},
+                {"项目错", phone(), idCard(24), "不存在的项目", "", today, ""}});
+        var res = data(body(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/tenant/roster/import")
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "r.xlsx", "application/octet-stream", xlsx))
+                .header("Authorization", "Bearer " + c.pm())).andReturn()));
+        assertThat(res.get("total").asInt()).isEqualTo(6);
+        assertThat(res.get("success").asInt()).as(res.toString()).isEqualTo(1);
+        assertThat(res.get("inFreePeriod").asBoolean()).isTrue();
+        String newUser = jdbc.queryForObject("SELECT user_id FROM `user` WHERE phone_hash = ?", String.class, cipher.blindIndex(newPhone));
+        assertThat(user(newUser).get("user_status")).isEqualTo("EMPLOYED");
+        Map<String, Object> e = jdbc.queryForMap("SELECT source_company_id_snapshot, is_stock, origin, employee_no FROM employment WHERE user_id = ?", newUser);
+        assertThat(e.get("source_company_id_snapshot")).isEqualTo(c.companyId());
+        assertThat(e.get("is_stock")).isEqualTo(true);
+        assertThat(e.get("origin")).isEqualTo("ROSTER_IMPORT");
+        assertThat(jdbc.queryForObject("SELECT kyc_status FROM `user` WHERE user_id = ?", String.class, newUser)).isEqualTo("VERIFIED");
+        var rows = res.get("rows");
+        assertThat(rows.get(1).get("error").asText()).as("已实名用户身份证与表中不一致").contains("不一致");
+        assertThat(rows.get(2).get("error").asText()).contains("私域待匹配");
+        assertThat(rows.get(3).get("error").asText()).contains("身份证");
+        assertThat(rows.get(4).get("error").asText()).contains("重复");
+        assertThat(rows.get(5).get("error").asText()).contains("项目不存在");
+        assertThat(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/tenant/roster/import")
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "r.xlsx", "application/octet-stream", xlsx))
+                .header("Authorization", "Bearer " + c.owner())).andReturn().getResponse().getStatus()).as("老板不能导入").isEqualTo(403);
+        var failed = mvc.perform(get("/api/v1/tenant/roster/batches/" + res.get("batchId").asText() + "/failed")
+                .header("Authorization", "Bearer " + c.pm())).andReturn().getResponse().getContentAsByteArray();
+        try (var wb = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(failed))) {
+            assertThat(wb.getSheetAt(0).getLastRowNum()).isEqualTo(5);
+            assertThat(wb.getSheetAt(0).getRow(1).getCell(7).getStringCellValue()).isNotBlank();
+        }
+    }
+
+    private static byte[] xlsx(String[][] rows) throws Exception {
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(); var out = new java.io.ByteArrayOutputStream()) {
+            var sh = wb.createSheet();
+            sh.createRow(0).createCell(0).setCellValue("姓名");
+            for (int i = 0; i < rows.length; i++) {
+                var r = sh.createRow(i + 1);
+                for (int j = 0; j < rows[i].length; j++) {
+                    r.createCell(j).setCellValue(rows[i][j]);
+                }
+            }
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
     record JsonNodeHolder(com.fasterxml.jackson.databind.JsonNode n) {
     }
 

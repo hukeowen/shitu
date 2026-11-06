@@ -115,6 +115,40 @@ public class KycService {
         return view(userId);
     }
 
+    /**
+     * 花名册导入时绑定实名（公司提供姓名与身份证，同样经过校验码、年龄、一证一号、二要素核验）。
+     * 已实名的用户：号码必须与已绑定的一致。失败抛 {@link BizException}，消息直接写入导入报告。
+     */
+    @Transactional
+    public void bindForRoster(String userId, String realName, String idCard) {
+        String id = IdCards.normalize(idCard);
+        BizException.check(realName != null && realName.trim().matches("^[\\u4e00-\\u9fa5·]{2,20}$"), ErrorCode.SYS_BAD_REQUEST, "姓名格式不正确");
+        BizException.check(IdCards.isValid(id), ErrorCode.KYC_ID_INVALID);
+        String hash = cipher.blindIndex(id);
+        SeekerUser u = TenantContext.runAsSystem(() -> users.selectById(userId));
+        BizException.check(u != null, ErrorCode.SYS_NOT_FOUND);
+        if ("VERIFIED".equals(u.getKycStatus())) {
+            BizException.check(hash.equals(u.getIdCardHash()), ErrorCode.KYC_ID_OCCUPIED, "该手机号已实名，身份证与表中不一致");
+            return;
+        }
+        LocalDate birth = IdCards.birthDate(id).orElseThrow();
+        BizException.check(IdCards.ageVerdict(birth, LocalDate.now(clock.withZone(Constants.ZONE)), minAgeRegister(), minAgeApply())
+                != IdCards.AgeVerdict.UNDERAGE_BLOCKED, ErrorCode.KYC_UNDERAGE);
+        Long occupied = jdbc.queryForObject("SELECT COUNT(*) FROM `user` WHERE id_card_hash = ? AND user_id <> ?", Long.class, hash, userId);
+        BizException.check(occupied == null || occupied == 0, ErrorCode.KYC_ID_OCCUPIED, "该身份证已绑定其他手机号");
+        IdentityVerifier.Verification v = verifier.verify(realName.trim(), id);
+        BizException.check(v.result() == IdentityVerifier.Result.MATCH, ErrorCode.KYC_VERIFY_FAILED);
+        TenantContext.runAsSystem(() -> users.update(null, new LambdaUpdateWrapper<SeekerUser>()
+                .eq(SeekerUser::getUserId, userId)
+                .set(SeekerUser::getRealNameEnc, cipher.encrypt(realName.trim()))
+                .set(SeekerUser::getIdCardEnc, cipher.encrypt(id))
+                .set(SeekerUser::getIdCardHash, hash)
+                .set(SeekerUser::getBirthDate, birth)
+                .set(SeekerUser::getGender, IdCards.gender(id).orElse(null))
+                .set(SeekerUser::getKycStatus, "VERIFIED")));
+        record(userId, hash, birth, "PASS", v.providerTraceId());
+    }
+
     public KycView view(String userId) {
         SeekerUser u = TenantContext.runAsSystem(() -> users.selectById(userId));
         BizException.check(u != null, ErrorCode.SYS_NOT_FOUND);

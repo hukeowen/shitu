@@ -177,6 +177,31 @@ public class LifecycleService {
         return new Registered(u, true);
     }
 
+    /**
+     * 花名册导入新用户（T-503）：ROSTER_IMPORT 直接为私域在岗，来源 = 导入公司（R-05）。已有账号的用户走 {@link #transition}。
+     */
+    @Transactional
+    public SeekerUser rosterCreate(String phone, String companyId, ActorRole actor, String actorId) {
+        TransitionContext ctx = (actor == ActorRole.OPS ? TransitionContext.of(ActorRole.OPS)
+                : TransitionContext.tenant(actor, companyId)).withTarget(companyId);
+        TransitionPlan plan = LifecycleStateMachine.plan(UserSnapshot.guest(), LifecycleEvent.ROSTER_IMPORT, ctx);
+        LocalDateTime now = LocalDateTime.now(clock);
+        SeekerUser u = new SeekerUser();
+        u.setUserId(ids.dated("U", 5));
+        u.setPhoneEnc(cipher.encrypt(phone));
+        u.setPhoneHash(cipher.blindIndex(phone));
+        u.setKycStatus("NONE");
+        u.setSourceCompanyId(plan.after().sourceCompanyId());
+        u.setBoundCompanyId(plan.after().boundCompanyId());
+        u.setUserStatus(plan.to());
+        u.setRegisterChannelType(ChannelType.ROSTER_IMPORT);
+        u.setRegisteredAt(now);
+        u.setCreatedAt(now);
+        TenantContext.runAsSystem(() -> users.insert(u));
+        persist(u.getUserId(), plan, ctx, null, actorId, "花名册导入", now, ResponseWindow.CLOSED);
+        return u;
+    }
+
     // ================================================================== 报名
 
     /**

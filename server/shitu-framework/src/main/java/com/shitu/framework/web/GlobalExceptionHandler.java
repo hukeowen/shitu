@@ -70,7 +70,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class, MissingRequestHeaderException.class,
-            MissingServletRequestPartException.class})
+            MissingServletRequestPartException.class, org.springframework.web.multipart.MultipartException.class})
     public ApiResponse<Void> badRequest(Exception e) {
         return ApiResponse.fail(ErrorCode.SYS_BAD_REQUEST, null, TraceIdFilter.current());
     }
