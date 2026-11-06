@@ -26,6 +26,7 @@
         <module>shitu-module-platform</module>
         <module>shitu-module-tenant</module>
         <module>shitu-module-job</module>
+        <module>shitu-module-matching</module>
         <module>shitu-module-lifecycle</module>
         <module>shitu-module-billing</module>
         <module>shitu-module-advance</module>
@@ -79,6 +80,11 @@
             <dependency>
                 <groupId>com.shitu</groupId>
                 <artifactId>shitu-module-job</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.shitu</groupId>
+                <artifactId>shitu-module-matching</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -12,7 +12,7 @@
     <dependencies>
         <dependency>
             <groupId>com.shitu</groupId>
-            <artifactId>shitu-framework</artifactId>
+            <artifactId>shitu-module-job</artifactId>
         </dependency>
     </dependencies>
 </project>

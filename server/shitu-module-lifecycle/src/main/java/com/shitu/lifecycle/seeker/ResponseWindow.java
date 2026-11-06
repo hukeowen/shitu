@@ -15,6 +15,8 @@ public class ResponseWindow {
 
     public static final String OPEN = "OPEN";
     public static final String CLOSED = "CLOSED";
+    /** 已超时释放（区别于正常推进关闭，便于统计 24h 超时率）。 */
+    public static final String FIRED = "FIRED";
 
     @TableId(type = IdType.AUTO)
     private Long id;
