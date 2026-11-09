@@ -45,7 +45,8 @@ import java.util.Map;
 public class ResignService {
 
     public record ResignRow(long id, String employmentId, String userId, String name, String projectId, LocalDate resignDate,
-                            String reason, String status, String requestedBy, String approvedBy, LocalDateTime createdAt) {
+                            String reason, String status, String requestedBy, String approvedBy, LocalDateTime createdAt,
+                            String projectName, String jobTitle, String employeeNo, String requestedByName, String approvedByName) {
     }
 
     private final LifecycleService lifecycle;
@@ -123,17 +124,22 @@ public class ResignService {
     public List<ResignRow> list(AuthPrincipal p, String status) {
         DataScope.Scope s = scope.of(p);
         List<ResignRow> rows = jdbc.query("SELECT r.id, r.employment_id, r.user_id, e.project_id, r.resign_date, r.reason, r.status, "
-                        + "r.requested_by, r.approved_by, r.created_at FROM resign_request r JOIN employment e ON e.employment_id = r.employment_id "
+                        + "r.requested_by, r.approved_by, r.created_at, p.name, j.title, e.employee_no, mr.name, ma.name "
+                        + "FROM resign_request r JOIN employment e ON e.employment_id = r.employment_id "
+                        + "LEFT JOIN project p ON p.project_id = e.project_id LEFT JOIN job j ON j.job_id = e.job_id "
+                        + "LEFT JOIN member mr ON mr.member_id = r.requested_by LEFT JOIN member ma ON ma.member_id = r.approved_by "
                         + "WHERE r.company_id = ?" + (status == null ? "" : " AND r.status = ?") + " ORDER BY r.id DESC LIMIT 200",
                 (rs, i) -> new ResignRow(rs.getLong(1), rs.getString(2), rs.getString(3), null, rs.getString(4),
                         rs.getDate(5).toLocalDate(), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9),
-                        rs.getTimestamp(10).toLocalDateTime()),
+                        rs.getTimestamp(10).toLocalDateTime(), rs.getString(11), rs.getString(12), rs.getString(13), rs.getString(14),
+                        rs.getString(15)),
                 status == null ? new Object[]{p.companyId()} : new Object[]{p.companyId(), status});
         return rows.stream().filter(r -> s.covers(r.projectId())).map(r -> {
             SeekerUser u = TenantContext.runAsSystem(() -> users.selectById(r.userId()));
             String name = u == null || u.getRealNameEnc() == null ? "未实名" : Masks.name(cipher.decrypt(u.getRealNameEnc()));
             return new ResignRow(r.id(), r.employmentId(), r.userId(), name, r.projectId(), r.resignDate(), r.reason(), r.status(),
-                    r.requestedBy(), r.approvedBy(), r.createdAt());
+                    r.requestedBy(), r.approvedBy(), r.createdAt(), r.projectName(), r.jobTitle(), r.employeeNo(), r.requestedByName(),
+                    r.approvedByName());
         }).toList();
     }
 

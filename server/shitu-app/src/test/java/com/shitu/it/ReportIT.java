@@ -48,6 +48,16 @@ class ReportIT extends FlowItSupport {
         assertThat(byDeadline.get("total").asLong()).isEqualTo(1);
         assertThat(status(get("/api/v1/tenant/applications?sort=CREATED_DESC"), c.owner(), null)).isEqualTo(200);
 
+        String s3 = seekerLogin(phone(), code); // 扫码注册未报名 → 私域待匹配
+        JsonNode pp = data(call(get("/api/v1/tenant/site/private-pending"), c.site(), null));
+        JsonNode row = find(pp, "userId", userId(s3));
+        assertThat(row.get("phone").asText()).as("驻场看完整手机号").doesNotContain("*");
+        assertThat(row.get("channelCode").asText()).isEqualTo(code);
+        assertThat(find(data(call(get("/api/v1/tenant/site/private-pending"), c.pm(), null)), "userId", userId(s3))
+                .get("phone").asText()).contains("*");
+        assertThat(data(call(get("/api/v1/tenant/site/private-pending"), other.site(), null)).toString()).doesNotContain(userId(s3));
+        assertThat(status(get("/api/v1/tenant/broker/cases/counts"), c.pm(), null)).isEqualTo(200);
+
         // ---------------------------------------------------------------- 项目经理看板
         JsonNode board = data(call(get("/api/v1/tenant/reports/board"), c.pm(), null));
         assertThat(board.get("employed").asLong()).isEqualTo(1);
@@ -68,7 +78,7 @@ class ReportIT extends FlowItSupport {
 
         // ---------------------------------------------------------------- 渠道转化漏斗
         JsonNode ch = find(data(call(get("/api/v1/tenant/reports/channels"), c.owner(), null)), "code", code);
-        assertThat(ch.get("registrations").asLong()).isEqualTo(2);
+        assertThat(ch.get("registrations").asLong()).isEqualTo(3);
         assertThat(ch.get("applied").asLong()).isEqualTo(2);
         assertThat(ch.get("hired").asLong()).isEqualTo(1);
         assertThat(status(get("/api/v1/tenant/reports/channels"), c.site(), null)).isEqualTo(403);

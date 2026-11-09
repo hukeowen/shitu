@@ -225,6 +225,27 @@ public class ApplicationService {
         return new Workbench(pendingAck, pendingInterview, pendingConfirm, due, privatePending);
     }
 
+    /** 私域待匹配用户（A-03）：扫本公司码注册、还没报名，24h 窗口内需要跟进（可一键转经纪人）。 */
+    public record PrivatePendingRow(String userId, String seekerName, String phone, LocalDateTime registeredAt,
+                                    LocalDateTime deadline, String channelCode, String channelMemberName, boolean inBrokerPool) {
+    }
+
+    public List<PrivatePendingRow> privatePending(AuthPrincipal p) {
+        boolean site = p.hasRole(ActorRole.SITE.name());
+        return jdbc.query("SELECT w.user_id, u.real_name_enc, u.phone_enc, u.registered_at, w.deadline, u.register_channel_code, m.name, "
+                        + "(SELECT COUNT(*) FROM broker_case b WHERE b.user_id = w.user_id AND b.company_id = w.company_id "
+                        + "  AND b.status IN ('OPEN','CONTACTED','RECOMMENDED')) "
+                        + "FROM response_window w JOIN `user` u ON u.user_id = w.user_id "
+                        + "LEFT JOIN channel_code c ON c.code = u.register_channel_code LEFT JOIN member m ON m.member_id = c.member_id "
+                        + "WHERE w.company_id = ? AND w.status = 'OPEN' AND w.stage = 'PRIVATE_PENDING' ORDER BY w.deadline LIMIT 500",
+                (rs, i) -> new PrivatePendingRow(rs.getString(1),
+                        rs.getString(2) == null ? "未实名" : Masks.name(cipher.decrypt(rs.getString(2))),
+                        site ? cipher.decrypt(rs.getString(3)) : Masks.phone(cipher.decrypt(rs.getString(3))),
+                        rs.getTimestamp(4).toLocalDateTime(), rs.getTimestamp(5).toLocalDateTime(), rs.getString(6), rs.getString(7),
+                        rs.getLong(8) > 0),
+                p.companyId());
+    }
+
     /**
      * 驻场「知悉」→ 推送面试信息（M-02 / C-408）。可以重复推送（改时间 / 地点），以最后一次为准。
      */

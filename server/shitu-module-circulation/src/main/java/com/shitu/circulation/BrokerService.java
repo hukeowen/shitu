@@ -55,7 +55,7 @@ public class BrokerService {
     public record CaseRow(long id, String userId, String seekerName, String phoneMasked, String triggerType, String status,
                           String fromMemberId, LocalDateTime contactDueAt, LocalDateTime resolveDueAt,
                           LocalDateTime contactedAt, LocalDateTime createdAt, int matchCount, String profileSummary,
-                          List<String> allowedActions) {
+                          List<String> allowedActions, String fromMemberName, String brokerName) {
     }
 
     public record Recommendation(String jobId, String title, BigDecimal matchScore, String reason) {
@@ -85,13 +85,16 @@ public class BrokerService {
     private final ObjectMapper json;
     private final org.springframework.transaction.support.TransactionTemplate tx;
     private final Clock clock;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public BrokerService(BrokerCaseMapper cases, BrokerRecommendationMapper recommendations, AiReportMapper reports,
                          LifecycleService lifecycle, MatchService matching, QuizService quiz, JobMapper jobs,
                          com.shitu.tenant.company.CompanyService companies,
                          FieldCipher cipher, SysParams params, OutboxWriter outbox, AuditLogger audit, ObjectMapper json,
                          org.springframework.transaction.support.TransactionTemplate tx,
+                         org.springframework.jdbc.core.JdbcTemplate jdbc,
                          Clock clock) {
+        this.jdbc = jdbc;
         this.cases = cases;
         this.recommendations = recommendations;
         this.reports = reports;
@@ -390,7 +393,24 @@ public class BrokerService {
                 : site ? List.of("RELEASE") : List.of();
         return new CaseRow(c.getId(), c.getUserId(), name, phone, c.getTriggerType(), c.getStatus(), c.getFromMemberId(),
                 c.getContactDueAt(), c.getResolveDueAt(), c.getContactedAt(), c.getCreatedAt(), matchCount(c.getUserId()),
-                ProfileSummary.of(latestProfile(c.getUserId()), matchCount(c.getUserId()), c.getTriggerType()), actions);
+                ProfileSummary.of(latestProfile(c.getUserId()), matchCount(c.getUserId()), c.getTriggerType()), actions,
+                memberName(c.getFromMemberId()), memberName(c.getBrokerId()));
+    }
+
+    private String memberName(String memberId) {
+        if (memberId == null) {
+            return null;
+        }
+        List<String> n = jdbc.queryForList("SELECT name FROM member WHERE member_id = ?", String.class, memberId);
+        return n.isEmpty() ? null : n.get(0);
+    }
+
+    /** 流转池各状态数量（本公司）。 */
+    public java.util.Map<String, Long> counts(AuthPrincipal p) {
+        java.util.Map<String, Long> m = new java.util.LinkedHashMap<>();
+        jdbc.query("SELECT status, COUNT(*) FROM broker_case WHERE company_id = ? GROUP BY status",
+                rs -> { m.put(rs.getString(1), rs.getLong(2)); }, p.companyId());
+        return m;
     }
 
     private Report report(AiReport r) {

@@ -81,6 +81,7 @@ import type {
   OwnerOverview,
   ChannelFunnelRow,
   OpsOverview,
+  PrivatePendingRow,
   EngineVersion,
   KycReviewRow,
   BlacklistRow,
@@ -266,6 +267,7 @@ export const tenantApi = {
 
   /** 驻场工作台数字（M-01） */
   siteWorkbench: () => get<SiteWorkbench>('/tenant/site/workbench'),
+  privatePending: () => get<PrivatePendingRow[]>('/tenant/site/private-pending'),
   /** 报名列表（M-02）：unacknowledged=true 只看待知悉 */
   applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; projectId?: string; page?: number; pageSize?: number; sort?: SiteApplicationSort }) =>
     get<PageResult<SiteApplication>>('/tenant/applications', params),
@@ -305,6 +307,7 @@ export const tenantApi = {
 
   /** 流转池（T-201）：status 不传 = 未结工单 */
   brokerCases: (status?: string) => get<BrokerCaseRow[]>('/tenant/broker/cases', { status }),
+  brokerCaseCounts: () => get<Record<string, number>>('/tenant/broker/cases/counts'),
   brokerContact: (id: number) => post<BrokerCaseRow>(`/tenant/broker/cases/${id}/contact`),
   brokerReport: (id: number) => post<BrokerReport>(`/tenant/broker/cases/${id}/report`),
   brokerLatestReport: (id: number) => get<BrokerReport | null>(`/tenant/broker/cases/${id}/report`),

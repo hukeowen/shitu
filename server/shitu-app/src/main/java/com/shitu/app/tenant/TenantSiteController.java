@@ -52,6 +52,13 @@ public class TenantSiteController {
         return ApiResponse.ok(applications.workbench(CurrentUser.get()));
     }
 
+    @Operation(summary = "私域待匹配用户（A-03：24h 窗口内需跟进；驻场看完整手机号）")
+    @PreAuthorize("hasAnyRole('SITE','PM','OWNER')")
+    @GetMapping("/site/private-pending")
+    public ApiResponse<List<ApplicationService.PrivatePendingRow>> privatePending() {
+        return ApiResponse.ok(applications.privatePending(CurrentUser.get()));
+    }
+
     @Operation(summary = "报名列表（M-02；驻场 / 项目经理按负责项目过滤；手机号仅驻场可见）")
     @PreAuthorize("hasAnyRole('SITE','PM','OWNER')")
     @GetMapping("/applications")

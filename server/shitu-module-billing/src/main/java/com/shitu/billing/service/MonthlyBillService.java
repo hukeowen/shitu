@@ -44,7 +44,8 @@ public class MonthlyBillService {
     }
 
     /** 流转账本（T-404）：作为接收方付出 / 作为来源方收入，按人汇总。 */
-    public record LedgerLine(String direction, String userId, String counterpartCompanyId, int days, BigDecimal amount) {
+    public record LedgerLine(String direction, String userId, String counterpartCompanyId, int days, BigDecimal amount,
+                             String counterpartCompanyName) {
     }
 
     public record Dispute(long id, String billId, String content, String status, String raisedBy, String reply,
@@ -193,13 +194,15 @@ public class MonthlyBillService {
     public List<LedgerLine> ledger(String companyId, YearMonth month) {
         Date from = Date.valueOf(month.atDay(1));
         Date to = Date.valueOf(month.atEndOfMonth());
-        List<LedgerLine> in = jdbc.query("SELECT user_id, supply_company_id, COUNT(*), SUM(payer_amount) FROM billing_daily "
-                        + "WHERE company_id = ? AND fee_type = 'TRANSFER' AND biz_date BETWEEN ? AND ? GROUP BY user_id, supply_company_id",
-                (rs, i) -> new LedgerLine("PAYABLE", rs.getString(1), rs.getString(2), rs.getInt(3), rs.getBigDecimal(4)),
+        List<LedgerLine> in = jdbc.query("SELECT b.user_id, b.supply_company_id, COUNT(*), SUM(b.payer_amount), MAX(COALESCE(c.short_name, c.name)) FROM billing_daily b "
+                        + "LEFT JOIN company c ON c.company_id = b.supply_company_id "
+                        + "WHERE b.company_id = ? AND b.fee_type = 'TRANSFER' AND b.biz_date BETWEEN ? AND ? GROUP BY b.user_id, b.supply_company_id",
+                (rs, i) -> new LedgerLine("PAYABLE", rs.getString(1), rs.getString(2), rs.getInt(3), rs.getBigDecimal(4),
+                        rs.getString(5) != null ? rs.getString(5) : com.shitu.common.Constants.PLATFORM.equals(rs.getString(2)) ? "平台" : null),
                 companyId, from, to);
         List<LedgerLine> out = jdbc.query("SELECT user_id, COUNT(*), SUM(supply_amount) FROM billing_daily "
                         + "WHERE supply_company_id = ? AND fee_type = 'TRANSFER' AND biz_date BETWEEN ? AND ? GROUP BY user_id",
-                (rs, i) -> new LedgerLine("RECEIVABLE", rs.getString(1), null, rs.getInt(2), rs.getBigDecimal(3)),
+                (rs, i) -> new LedgerLine("RECEIVABLE", rs.getString(1), null, rs.getInt(2), rs.getBigDecimal(3), null),
                 companyId, from, to);
         List<LedgerLine> all = new java.util.ArrayList<>(in);
         all.addAll(out);

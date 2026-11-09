@@ -43,6 +43,13 @@ public class TenantBrokerController {
         return ApiResponse.ok(brokers.pool(CurrentUser.get(), status));
     }
 
+    @Operation(summary = "流转池各状态数量")
+    @PreAuthorize("hasAnyRole('BROKER','SITE','PM')")
+    @GetMapping("/broker/cases/counts")
+    public ApiResponse<java.util.Map<String, Long>> counts() {
+        return ApiResponse.ok(brokers.counts(CurrentUser.get()));
+    }
+
     @Operation(summary = "标记已联系（满足 2 小时联系时限）")
     @PreAuthorize("hasRole('BROKER')")
     @PostMapping("/broker/cases/{id}/contact")

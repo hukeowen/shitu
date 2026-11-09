@@ -723,6 +723,8 @@ export interface BrokerCaseRow {
   profileSummary: string
   /** CONTACT / REPORT / RECOMMEND / RELEASE */
   allowedActions: string[]
+  fromMemberName?: string
+  brokerName?: string
 }
 
 export interface BrokerReport {
@@ -756,6 +758,11 @@ export interface ResignRow {
   requestedBy: string
   approvedBy?: string
   createdAt: string
+  projectName?: string
+  jobTitle?: string
+  employeeNo?: string
+  requestedByName?: string
+  approvedByName?: string
 }
 
 export interface RosterRowResult {
@@ -843,6 +850,8 @@ export interface LedgerLine {
   counterpartCompanyId?: string
   days: number
   amount: number
+  /** 流入应付：来源公司简称（来源为平台时为「平台」）；流出应收不暴露去向公司 */
+  counterpartCompanyName?: string
 }
 
 export interface DailyBillingResult {
@@ -1135,4 +1144,17 @@ export interface NotifyTemplateView {
   enabled: boolean
   updatedBy?: string
   updatedAt: string
+}
+
+/** A-03 私域待匹配：phone 驻场为完整号码，其他角色脱敏 */
+export interface PrivatePendingRow {
+  userId: string
+  seekerName: string
+  phone: string
+  registeredAt: string
+  deadline: string
+  channelCode?: string
+  channelMemberName?: string
+  /** 已在流转池（不可重复转交） */
+  inBrokerPool: boolean
 }
