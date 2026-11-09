@@ -1,4 +1,4 @@
-import type { AdvanceQuota, AdvanceRow, AdvanceStatus } from '@shitu/api-client'
+import type { AdvanceApprovalStep, AdvanceDetail, AdvanceQuota, AdvanceRow, AdvanceStatus, DebtLogEntry } from '@shitu/api-client'
 
 /** 预支状态徽标配色（中文名从字典 AdvanceStatus 取） */
 export const ADVANCE_TAG_CLASS: Record<AdvanceStatus, string> = {
@@ -49,6 +49,8 @@ export function stageText(s: AdvanceStatus): string {
 export interface FlowStep {
   t: string
   m: string
+  /** 审批意见 */
+  o?: string
   cls: '' | 'done' | 'now' | 'fail'
 }
 
@@ -102,4 +104,71 @@ export function admissionRules(q: AdvanceQuota, companyName?: string): { rules: 
   const known = ['已入职在岗', '绑定劳务公司', '入职满', '已达上限', '暂无可用机会']
   const extra = q.reasons.filter((r) => !known.some((k) => r.includes(k)))
   return { rules, extra }
+}
+
+/** 审批节点名称（后端字典暂无，前端兜底） */
+export const STEP_NAME: Record<AdvanceApprovalStep['step'], string> = { SITE: '驻场初审', PM: '项目经理终审', PAYOUT: '拨款' }
+
+/** 本笔流水类型 */
+export const LEDGER_NAME: Record<DebtLogEntry['changeType'], { t: string; sign: 1 | -1 }> = {
+  PAYOUT: { t: '预支拨款到账', sign: 1 },
+  DEDUCT: { t: '发薪日工资抵扣', sign: -1 },
+  WRITE_OFF: { t: '离职结清 / 核销', sign: -1 },
+}
+
+/** 被驳回的节点（没有驳回返回 null） */
+export function rejectedStep(d: AdvanceDetail): AdvanceApprovalStep | null {
+  return d.approvals.find((s) => s.decision === 'REJECT') ?? null
+}
+
+/**
+ * 审批流转（C-603）：按后端逐级审批记录（节点 / 结论 / 意见 / 时间）生成时间线；
+ * 已提交 → 驻场初审 → 项目经理终审 → 拨款 → 发薪日抵扣 / 已还清，被驳回时停在驳回节点。
+ */
+export function detailSteps(d: AdvanceDetail, fmt: (s?: string) => string): FlowStep[] {
+  const a = d.advance
+  const out: FlowStep[] = [{ t: '本人发起申请', m: fmt(a.createdAt), cls: 'done' }]
+  const order: AdvanceApprovalStep['step'][] = ['SITE', 'PM', 'PAYOUT']
+  const doneTitle: Record<AdvanceApprovalStep['step'], string> = { SITE: '驻场初审通过', PM: '项目经理终审通过', PAYOUT: '已拨款到账' }
+  const waitTitle: Record<AdvanceApprovalStep['step'], string> = { SITE: '驻场初审中', PM: '项目经理终审', PAYOUT: '拨款到账' }
+  const waitMsg: Record<AdvanceApprovalStep['step'], string> = { SITE: '已推送驻场老师审核', PM: '已推送项目经理审核', PAYOUT: '等待财务拨款' }
+  let waiting = false
+  for (const step of order) {
+    const rec = [...d.approvals].reverse().find((s) => s.step === step)
+    if (rec) {
+      const rejected = rec.decision === 'REJECT'
+      out.push({
+        t: rejected ? `${STEP_NAME[step]}驳回` : doneTitle[step],
+        m: step === 'PAYOUT' && !rec.at && a.paidAt ? fmt(a.paidAt) : fmt(rec.at),
+        o: rec.opinion,
+        cls: rejected ? 'fail' : 'done',
+      })
+      if (rejected) {
+        out.push({ t: '本次机会已退回', m: '本月满足准入条件时可再次申请', cls: '' })
+        return out
+      }
+    } else if (step === 'PAYOUT' && a.paidAt) {
+      out.push({ t: doneTitle.PAYOUT, m: fmt(a.paidAt), cls: 'done' })
+    } else if (a.status === 'REJECTED') {
+      // 驳回但没有审批记录（历史数据）
+      out.push({ t: '审批未通过', m: '本次机会已退回', cls: 'fail' })
+      return out
+    } else {
+      out.push({ t: waitTitle[step], m: waiting ? '待流转' : waitMsg[step], cls: waiting ? '' : 'now' })
+      waiting = true
+    }
+  }
+  const repaying = a.status === 'PARTIALLY_REPAID'
+  const settled = a.status === 'REPAID'
+  const paid = OUTSTANDING.includes(a.status) || settled
+  out.push(
+    settled
+      ? { t: '已还清', m: '发薪日工资自动抵扣完成', cls: 'done' }
+      : {
+          t: repaying ? '抵扣中' : '发薪日自动抵扣',
+          m: repaying ? '本月工资不足抵扣，剩余欠款结转下月' : paid ? '下一个发薪日从工资中自动扣除' : '到账后于发薪日自动抵扣',
+          cls: paid ? 'now' : '',
+        },
+  )
+  return out
 }

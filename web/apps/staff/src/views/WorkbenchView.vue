@@ -54,8 +54,15 @@ const todayList = shallowRef<SiteApplication[]>([])
 const todayLoaded = ref(false)
 const refreshing = ref(false)
 
+/** 待我初审的预支（按 allowedActions） */
+const advTodo = ref<number | null>(null)
+
 async function loadData() {
   void inbox.refresh()
+  void tenantApi
+    .advances('SUBMITTED')
+    .then((r) => (advTodo.value = r.filter((a) => a.allowedActions.includes('SITE_APPROVE')).length))
+    .catch(() => (advTodo.value = null))
   const tasks: Promise<unknown>[] = [
     tenantApi
       .siteWorkbench()
@@ -70,7 +77,7 @@ async function loadData() {
   if (canApps.value) {
     tasks.push(
       tenantApi
-        .applications({ status: 'PENDING_INTERVIEW', unacknowledged: true, page: 1, pageSize: 3 })
+        .applications({ status: 'PENDING_INTERVIEW', unacknowledged: true, page: 1, pageSize: 3, sort: 'DEADLINE' })
         .then((r) => (todayList.value = r.records))
         .catch(() => (todayList.value = []))
         .finally(() => (todayLoaded.value = true)),
@@ -99,12 +106,14 @@ interface Kpi {
   value: string
   to?: string
   hint?: string
+  /** 不限驻场 / 项目经理（私域待匹配接口对其他角色返回脱敏数据） */
+  open?: boolean
 }
 const kpis = computed<Kpi[]>(() => [
   { key: 'ack', title: '待知悉', value: n(wb.value?.pendingAck), to: '/todo?tab=ack' },
   { key: 'interview', title: '待面试', value: n(wb.value?.pendingInterview), to: '/todo?tab=interview' },
   { key: 'confirm', title: '待确权', value: n(wb.value?.pendingConfirm), to: '/todo?tab=confirm' },
-  { key: 'private', title: '私域待匹配', value: n(wb.value?.privatePending), hint: '私域待匹配名单即将上线' },
+  { key: 'private', title: '私域待匹配', value: n(wb.value?.privatePending), to: '/reminders?f=private', open: true },
 ])
 
 function goKpi(k: Kpi) {
@@ -112,7 +121,7 @@ function goKpi(k: Kpi) {
     showToast(k.hint ?? '即将上线')
     return
   }
-  if (!canApps.value) {
+  if (!canApps.value && !k.open) {
     showToast('报名待办仅对驻场 / 项目经理开放')
     return
   }
@@ -128,12 +137,15 @@ interface Entry {
   icon: string
   to?: string
   count?: number
+  open?: boolean
 }
 const entries = computed<Entry[]>(() => [
   { key: 'interview', title: '待面试', desc: '已报名待面试', icon: 'calendar-o', to: '/todo?tab=interview', count: wb.value?.pendingInterview },
   { key: 'confirm', title: '待确权', desc: '已到厂待确权', icon: 'passed', to: '/todo?tab=confirm', count: wb.value?.pendingConfirm },
-  { key: 'arrive', title: '今日到厂', desc: '到厂确认', icon: 'location-o' },
-  { key: 'advance', title: '预支初审', desc: '待你初审', icon: 'balance-o' },
+  { key: 'arrive', title: '今日到厂', desc: '已到厂待面试结果', icon: 'location-o', to: '/todo?tab=arrived' },
+  { key: 'advance', title: '预支初审', desc: '待你初审', icon: 'balance-o', to: '/advance', count: advTodo.value ?? undefined, open: true },
+  { key: 'private', title: '私域待匹配', desc: '24h 跟进 / 流转经纪人', icon: 'friends-o', to: '/reminders?f=private', count: wb.value?.privatePending, open: true },
+  { key: 'absence', title: '请假 / 旷工', desc: '按人按日标记', icon: 'notes-o', to: '/employees', open: true },
 ])
 
 function goEntry(e: Entry) {
@@ -141,7 +153,7 @@ function goEntry(e: Entry) {
     showToast('即将上线')
     return
   }
-  if (!canApps.value) {
+  if (!canApps.value && !e.open) {
     showToast('报名待办仅对驻场 / 项目经理开放')
     return
   }
@@ -191,7 +203,7 @@ const nowDate = computed(() => new Date(now.value))
               <p class="t-xs alarm-d">24 小时响应窗口剩余不足 4 小时。超时后系统将被动释放至公域，该用户可被全平台其他公司匹配。</p>
             </div>
           </div>
-          <van-button block size="small" type="danger" class="alarm-btn" @click="goKpi(kpis[0])">立即跟进</van-button>
+          <van-button block size="small" type="danger" class="alarm-btn" to="/reminders">立即跟进</van-button>
         </section>
         <section v-else class="acard info">
           <b>24 小时响应窗口</b>

@@ -7,12 +7,18 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AbsencePopup: typeof import('./src/components/AbsencePopup.vue')['default']
     AcknowledgePopup: typeof import('./src/components/AcknowledgePopup.vue')['default']
+    AppActions: typeof import('./src/components/AppActions.vue')['default']
     ApplicationCard: typeof import('./src/components/ApplicationCard.vue')['default']
     BrandMark: typeof import('./src/components/BrandMark.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
+    ConfirmOnboardPopup: typeof import('./src/components/ConfirmOnboardPopup.vue')['default']
+    QrImage: typeof import('./src/components/QrImage.vue')['default']
+    ReasonDialog: typeof import('./src/components/ReasonDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    VanActionSheet: typeof import('vant/es')['ActionSheet']
     VanBadge: typeof import('vant/es')['Badge']
     VanButton: typeof import('vant/es')['Button']
     VanCellGroup: typeof import('vant/es')['CellGroup']
@@ -29,6 +35,9 @@ declare module 'vue' {
     VanPickerGroup: typeof import('vant/es')['PickerGroup']
     VanPopup: typeof import('vant/es')['Popup']
     VanPullRefresh: typeof import('vant/es')['PullRefresh']
+    VanRadio: typeof import('vant/es')['Radio']
+    VanRadioGroup: typeof import('vant/es')['RadioGroup']
+    VanSearch: typeof import('vant/es')['Search']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
     VanTimePicker: typeof import('vant/es')['TimePicker']

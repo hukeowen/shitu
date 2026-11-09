@@ -71,6 +71,7 @@ const rows = [
   { key: 'reports', title: '我的报备', desc: '报名 / 面试进度', to: '/reports' },
   { key: 'messages', title: '消息中心', desc: '面试 / 合同 / 状态变更通知', to: '/messages' },
   { key: 'kyc', title: '实名认证', desc: '报名前需完成，提交后不可修改', to: '/kyc' },
+  { key: 'appeals', title: '我的申诉', desc: '身份证被占用 / 账号受限的申诉进度', to: '/kyc/appeals' },
   { key: 'feedback', title: '问题反馈', desc: '投诉、建议、维权求助', to: '/feedback' },
 ]
 const soon = [

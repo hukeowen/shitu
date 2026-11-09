@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, type KycView } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
+import AppealPopup from '@/components/AppealPopup.vue'
 import DisclaimerPopup from '@/components/DisclaimerPopup.vue'
 import { useApplyFlow } from '@/composables/useApplyFlow'
 import { useAuthStore } from '@/stores/auth'
@@ -145,6 +146,16 @@ function onError(e: unknown) {
   }
 }
 
+// ---------- 实名申诉（APP_4007 / APP_4008） ----------
+const appealOpen = ref(false)
+const appealType = ref<'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL'>('ID_OCCUPIED_APPEAL')
+/** 本次已提交 / 已有处理中的申诉 */
+const appealDone = ref(false)
+function openAppeal(t: 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL') {
+  appealType.value = t
+  appealOpen.value = true
+}
+
 function soon(what: string) {
   showToast(`${what}功能即将上线，请先通过「问题反馈」联系平台客服`)
 }
@@ -193,9 +204,11 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
         </div>
         <div class="row" style="gap: 8px; margin-top: 12px">
           <van-button size="small" class="flex1" @click="soon('找回旧号')">找回旧号</van-button>
-          <van-button size="small" class="flex1" @click="soon('申诉换绑')">申诉换绑</van-button>
-          <van-button size="small" class="flex1" type="danger" plain @click="soon('举报冒用')">举报冒用</van-button>
+          <van-button size="small" class="flex1" type="primary" @click="openAppeal('ID_OCCUPIED_APPEAL')">提交申诉</van-button>
+          <van-button size="small" class="flex1" type="danger" plain @click="openAppeal('ID_OCCUPIED_APPEAL')">举报冒用</van-button>
         </div>
+        <div v-if="appealDone" class="note note--ok" style="margin-top: 10px">申诉已在处理中，平台将在 5 个工作日内复核。<router-link to="/kyc/appeals" class="lnk">查看我的申诉 ›</router-link></div>
+        <router-link v-else to="/kyc/appeals" class="t-xs lnk-row">查看我的申诉 ›</router-link>
         <van-button block style="margin-top: 10px" @click="block = null">返回修改</van-button>
       </section>
     </div>
@@ -210,9 +223,11 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
           <div class="kv"><dt>申诉通道</dt><dd>如有异议可提交申诉，5 个工作日内复核</dd></div>
         </dl>
         <div class="row" style="gap: 8px; margin-top: 12px">
-          <van-button class="flex1" type="primary" @click="soon('申诉')">我有异议，提交申诉</van-button>
+          <van-button class="flex1" type="primary" @click="openAppeal('BLACKLIST_APPEAL')">我有异议，提交申诉</van-button>
           <van-button class="flex1" @click="router.replace('/')">回首页</van-button>
         </div>
+        <div v-if="appealDone" class="note note--ok" style="margin-top: 10px">申诉已在处理中，平台将在 5 个工作日内复核。<router-link to="/kyc/appeals" class="lnk">查看我的申诉 ›</router-link></div>
+        <router-link v-else to="/kyc/appeals" class="t-xs lnk-row">查看我的申诉 ›</router-link>
       </section>
     </div>
 
@@ -294,13 +309,15 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
         </div>
       </div>
 
-      <van-button type="primary" block class="btn-cta" style="margin-top: 18px" :disabled="!canSubmit" :loading="submitting || flow.submitting.value" loading-text="核验中…" @click="submit">
+      <router-link to="/kyc/appeals" class="t-xs lnk-row">身份证被占用或账号受限？查看我的申诉 ›</router-link>
+      <van-button type="primary" block class="btn-cta" style="margin-top: 12px" :disabled="!canSubmit" :loading="submitting || flow.submitting.value" loading-text="核验中…" @click="submit">
         {{ jobId ? '确认并提交报名' : '提交实名认证' }}
       </van-button>
       <div class="page-bottom-gap"></div>
     </div>
 
     <DisclaimerPopup v-model:show="flow.disclaimerOpen.value" @agreed="flow.retry" />
+    <AppealPopup v-model:show="appealOpen" :type="appealType" @submitted="appealDone = true" @pending="appealDone = true" />
   </div>
 </template>
 
@@ -324,4 +341,6 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
 .done-card { text-align: center; padding: 26px 16px; margin: 0 14px; }
 .done-ic { font-size: 46px; color: var(--ok); margin-bottom: 10px; }
 .kyc :deep(.flex1.van-button) { flex: 1; }
+.lnk { color: var(--ok); font-weight: 600; text-decoration: none; margin-left: 4px; }
+.lnk-row { display: block; text-align: center; margin-top: 12px; color: var(--ink-500); text-decoration: none; }
 </style>

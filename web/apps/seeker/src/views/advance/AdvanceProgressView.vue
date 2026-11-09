@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage, seekerApi, useDict, type AdvanceRow } from '@shitu/api-client'
+import { errorMessage, isApiError, seekerApi, useDict, type AdvanceDetail } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
-import { ADVANCE_TAG_CLASS, OUTSTANDING, flowSteps, inReview, repaidRatio, stageText, unpaid } from '@/utils/advance'
+import { ADVANCE_TAG_CLASS, LEDGER_NAME, OUTSTANDING, STEP_NAME, detailSteps, inReview, rejectedStep, repaidRatio, stageText, unpaid } from '@/utils/advance'
 import { fmtMonth, fmtYuan } from '@/utils/format'
 import { formatServerTime } from '@/utils/time'
 
-/** S-35 审批进度（C-603）：已提交 → 驻场初审 → 项目经理终审 → 已拨款 → 抵扣中 / 已还清（双级审批，D-25） */
+/**
+ * S-35 审批进度（C-603）：已提交 → 驻场初审 → 项目经理终审 → 已拨款 → 抵扣中 / 已还清（双级审批，D-25）。
+ * 时间线用后端逐级审批记录（节点 / 结论 / 意见 / 时间），驳回时显示驳回节点与意见；还款明细取本笔流水。
+ */
 const route = useRoute()
 const router = useRouter()
 const { label } = useDict()
 
 const id = computed(() => String(route.params.id))
 const justSubmitted = computed(() => route.query.new === '1')
-const row = ref<AdvanceRow | null>(null)
+const detail = ref<AdvanceDetail | null>(null)
+const row = computed(() => detail.value?.advance ?? null)
 const loading = ref(true)
 const loadError = ref('')
 const refreshing = ref(false)
@@ -22,11 +26,10 @@ const refreshing = ref(false)
 async function load() {
   loadError.value = ''
   try {
-    const list = await seekerApi.myAdvances()
-    row.value = list.find((a) => a.advanceId === id.value) ?? null
-    if (!row.value) loadError.value = '未找到该预支申请'
+    detail.value = await seekerApi.advanceDetail(id.value)
   } catch (e) {
-    loadError.value = errorMessage(e, '加载失败，请稍后重试')
+    detail.value = null
+    loadError.value = isApiError(e, 'SYS_4040') ? '未找到该预支申请' : errorMessage(e, '加载失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -37,7 +40,9 @@ async function onRefresh() {
   refreshing.value = false
 }
 
-const steps = computed(() => (row.value ? flowSteps(row.value, (s) => formatServerTime(s)) : []))
+const steps = computed(() => (detail.value ? detailSteps(detail.value, (s) => formatServerTime(s)) : []))
+const rejected = computed(() => (detail.value ? rejectedStep(detail.value) : null))
+const ledger = computed(() => detail.value?.ledger ?? [])
 const tone = computed(() => {
   const s = row.value?.status
   if (!s) return ''
@@ -78,12 +83,16 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
             <li v-for="s in steps" :key="s.t" :class="s.cls">
               <div class="tl-t">{{ s.t }}</div>
               <div class="tl-m">{{ s.m }}</div>
+              <div v-if="s.o" class="tl-o">{{ s.cls === 'fail' ? '驳回意见' : '审批意见' }}：{{ s.o }}</div>
             </li>
           </ul>
         </section>
 
         <template v-if="row.status === 'REJECTED'">
-          <div class="note note--danger"><b>本次申请未通过，已退回本次机会。</b>本月满足准入条件时可再次申请；如有疑问请联系驻场老师。</div>
+          <div class="note note--danger">
+            <b>{{ rejected ? `${STEP_NAME[rejected.step]}未通过` : '本次申请未通过' }}，已退回本次机会。</b>
+            <template v-if="rejected?.opinion">驳回意见：{{ rejected.opinion }}。</template>本月满足准入条件时可再次申请；如有疑问请联系驻场老师。
+          </div>
           <van-button type="primary" block class="btn-cta" @click="router.replace('/advance')">返回预支首页</van-button>
         </template>
 
@@ -99,6 +108,21 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
           <template v-if="!inReview(row)">
             <div class="bar" style="margin-top: 10px"><i :class="row.status === 'REPAID' ? 'ok' : 'sig'" :style="{ width: `${pct}%` }"></i></div>
             <div class="t-xs" style="margin-top: 5px">已还 {{ pct }}%</div>
+          </template>
+          <template v-if="ledger.length">
+            <div class="divider" style="margin: 12px 0 4px"></div>
+            <div class="t-xs" style="margin-bottom: 2px">本笔到账与抵扣明细</div>
+            <div v-for="(l, i) in ledger" :key="i" class="led">
+              <div class="flex1">
+                <b>{{ LEDGER_NAME[l.changeType]?.t ?? l.changeType }}</b>
+                <span class="num">{{ formatServerTime(l.createdAt) }}</span>
+              </div>
+              <div class="r">
+                <b class="num" :class="LEDGER_NAME[l.changeType]?.sign === 1 ? 'in' : 'out'">{{ LEDGER_NAME[l.changeType]?.sign === 1 ? '+' : '−' }}{{ fmtYuan(l.amount) }}</b>
+                <span class="num">本笔剩余 {{ fmtYuan(l.balanceAfter) }}</span>
+              </div>
+              <router-link v-if="l.payslipId" :to="`/payslips/${l.payslipId}`" class="slip" aria-label="查看工资条"><van-icon name="arrow" /></router-link>
+            </div>
           </template>
           <p v-if="row.status === 'PARTIALLY_REPAID'" class="t-xs" style="margin-top: 8px; line-height: 1.6">当月实发工资不足抵扣，剩余欠款已自动结转至下一个发薪日，不产生利息或手续费。</p>
         </section>
@@ -128,4 +152,14 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
 .tl li.fail::before { background: var(--danger); border-color: var(--danger); }
 .tl li.fail .tl-t { color: var(--danger); }
 .owe { color: var(--signal) !important; }
+.tl-o { font-size: 12px; color: var(--ink-600); margin-top: 4px; padding: 6px 8px; background: var(--surface-2); border-radius: var(--r-sm); line-height: 1.6; }
+.tl li.fail .tl-o { background: var(--danger-bg); color: var(--danger); }
+.led { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.led:last-child { border-bottom: 0; }
+.led b { display: block; font-size: 13px; color: var(--ink-900); }
+.led span { display: block; font-size: 11px; color: var(--ink-400); margin-top: 2px; }
+.led .r { text-align: right; }
+.led b.in { color: var(--ok); }
+.led b.out { color: var(--ink-900); }
+.led .slip { color: var(--ink-300); display: grid; place-items: center; width: 20px; }
 </style>

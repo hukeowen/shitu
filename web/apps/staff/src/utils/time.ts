@@ -55,3 +55,37 @@ export function fmtPhone(v?: string | null): string {
   const s = v.replace(/\s/g, '')
   return /^\d{11}$/.test(s) ? `${s.slice(0, 3)} ${s.slice(3, 7)} ${s.slice(7)}` : s
 }
+
+/** yyyy-MM-dd（本地日期） */
+export function ymd(d: Date): string {
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`
+}
+
+/** 本地日期 0 点 + n 天 */
+export function addDays(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
+}
+
+/** 当天 0 点 */
+export function startOfDay(d = new Date()): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
+/** yyyy-MM-dd（周一） */
+export function fmtDay(v?: string | Date | null): string {
+  const d = v instanceof Date ? v : parseLocal(v)
+  if (!d) return '—'
+  return `${ymd(d)}（周${'日一二三四五六'[d.getDay()]}）`
+}
+
+/** 某个时间是否在今天 */
+export function isToday(v?: string | null, now = new Date()): boolean {
+  const d = parseLocal(v)
+  return !!d && d.toDateString() === now.toDateString()
+}
+
+/** 金额：1234.5 → ¥1,234.50 */
+export function fmtYuan(v?: number | string | null): string {
+  const n = Number(v ?? 0)
+  return `¥${(Number.isFinite(n) ? n : 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}

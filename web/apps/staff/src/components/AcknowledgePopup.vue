@@ -52,6 +52,19 @@ async function prefill(app: SiteApplication) {
   customInput.value = ''
   addressHint.value = ''
   timeHint.value = ''
+  // 重新推送：带出上次推送的面试信息，只需改动变化的部分
+  const n = app.notice
+  if (n) {
+    form.address = n.address ?? ''
+    form.routeTips = n.routeTips ?? ''
+    form.documents = n.documents?.length ? [...n.documents] : []
+    customDocs.value = form.documents.filter((d) => !PRESET_DOCS.includes(d))
+    form.contactName = n.contactName ?? form.contactName
+    form.contactPhone = n.contactPhone ?? ''
+    const pushed = parseLocal(n.pushedAt)
+    if (pushed) addressHint.value = `已带出 ${fmtFull(pushed)} 推送的面试信息`
+    return
+  }
   prefilling.value = true
   try {
     // 面试地点 / 所需材料默认取岗位信息，岗位取不到时退回项目地址

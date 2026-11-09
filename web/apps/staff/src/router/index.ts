@@ -2,8 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { bootstrap } from '@/boot'
 import { useAuthStore } from '@/stores/auth'
 
-const placeholder = () => import('@/views/PlaceholderView.vue')
-
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -13,12 +11,16 @@ const router = createRouter({
     { path: '/my-code', component: () => import('@/views/MyCodeView.vue'), meta: { title: '我的专属码', proto: 'T-501' } },
     { path: '/todo/interview', redirect: { path: '/todo', query: { tab: 'interview' } } },
     { path: '/todo/confirm', redirect: { path: '/todo', query: { tab: 'confirm' } } },
-    { path: '/todo/onboard', component: placeholder, meta: { title: '待入职', proto: 'M-03' } },
+    { path: '/todo/onboard', redirect: { path: '/todo', query: { tab: 'confirm' } } },
+    { path: '/todo/arrived', redirect: { path: '/todo', query: { tab: 'arrived' } } },
     { path: '/todo', component: () => import('@/views/TodoView.vue'), meta: { tabbar: true, title: '待办清单', proto: 'M-02' } },
     { path: '/applications/:id', component: () => import('@/views/ApplicationDetailView.vue'), meta: { title: '报名详情', proto: 'M-04' } },
     { path: '/messages', component: () => import('@/views/MessagesView.vue'), meta: { title: '消息通知' } },
-    { path: '/reminders', component: placeholder, meta: { tabbar: true, title: '24h 提醒', proto: 'M-12' } },
-    { path: '/advance', component: placeholder, meta: { title: '预支初审', proto: 'M-11' } },
+    { path: '/reminders', component: () => import('@/views/RemindersView.vue'), meta: { tabbar: true, title: '24h 提醒', proto: 'M-12' } },
+    { path: '/private-pending', redirect: { path: '/reminders', query: { f: 'private' } } },
+    { path: '/advance', component: () => import('@/views/AdvanceReviewView.vue'), meta: { title: '预支初审', proto: 'M-11' } },
+    { path: '/advance/:id', component: () => import('@/views/AdvanceDetailView.vue'), meta: { title: '预支详情', proto: 'M-11' } },
+    { path: '/employees', component: () => import('@/views/EmployeesView.vue'), meta: { title: '在岗人员', proto: 'M-15' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, title: '我的', allowInactive: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

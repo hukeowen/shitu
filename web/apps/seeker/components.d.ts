@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppBar: typeof import('./src/components/AppBar.vue')['default']
+    AppealPopup: typeof import('./src/components/AppealPopup.vue')['default']
     BrandMark: typeof import('./src/components/BrandMark.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
     ComplaintPopup: typeof import('./src/components/ComplaintPopup.vue')['default']
@@ -15,6 +16,7 @@ declare module 'vue' {
     GuestHome: typeof import('./src/components/home/GuestHome.vue')['default']
     GuidePopup: typeof import('./src/components/GuidePopup.vue')['default']
     InterviewNoticeCard: typeof import('./src/components/InterviewNoticeCard.vue')['default']
+    JobAskPopup: typeof import('./src/components/JobAskPopup.vue')['default']
     JobCard: typeof import('./src/components/JobCard.vue')['default']
     MemberHome: typeof import('./src/components/home/MemberHome.vue')['default']
     QuadGrid: typeof import('./src/components/QuadGrid.vue')['default']

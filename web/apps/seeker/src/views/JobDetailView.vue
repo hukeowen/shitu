@@ -6,6 +6,7 @@ import { errorMessage, isApiError, seekerApi, useDict, type SeekerJobDetail } fr
 import AppBar from '@/components/AppBar.vue'
 import ComplaintPopup from '@/components/ComplaintPopup.vue'
 import DisclaimerPopup from '@/components/DisclaimerPopup.vue'
+import JobAskPopup from '@/components/JobAskPopup.vue'
 import { useApplyFlow } from '@/composables/useApplyFlow'
 import { useJourney } from '@/composables/useJourney'
 import { useMatchSession } from '@/composables/useMatchSession'
@@ -74,6 +75,8 @@ const subTitle = computed(() => [job.value?.projectName, job.value?.companyName]
 
 /** S-19 岗位投诉（C-402）：每个岗位详情页固定入口 */
 const complainOpen = ref(false)
+/** S-44 岗位问答（C-409） */
+const askOpen = ref(false)
 
 function onApply() {
   if (!job.value?.canApply) return
@@ -184,6 +187,13 @@ function onApply() {
           <p class="t-xs" style="margin-top: 8px">报名后驻场老师会推送具体面试时间与集合地点</p>
         </section>
 
+        <button type="button" class="acard ask-entry" @click="askOpen = true">
+          <span class="ask-ic" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" /><path d="M9.6 8.4a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.7-.9 1.3M12 13.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          </span>
+          <span class="flex1"><b>问问这个岗位</b><span class="t-xs">吃住、发薪、班次、体检… 有问必答</span></span>
+          <van-icon name="arrow" class="chev" />
+        </button>
         <button type="button" class="complain" @click="complainOpen = true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8.5v5m0 3.2v.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9" /></svg>
           岗位信息有问题？投诉该岗位
@@ -199,6 +209,7 @@ function onApply() {
       </div>
     </template>
 
+    <JobAskPopup v-if="job" v-model:show="askOpen" :job-id="jobId" :job-title="job.title" />
     <ComplaintPopup v-if="job" v-model:show="complainOpen" :job-id="jobId" :job-title="job.title" :subtitle="subTitle" />
     <DisclaimerPopup v-model:show="flow.disclaimerOpen.value" :company-name="job?.companyName" @agreed="flow.retry" />
   </div>
@@ -217,6 +228,11 @@ function onApply() {
 .warnc { border-color: var(--warn-line); background: var(--warn-bg); }
 .warnc h4, .warnc .lines { color: var(--warn); }
 .map { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; height: 64px; border-radius: var(--r-md); border: 1px solid var(--line); color: var(--signal); font-size: 13px; font-weight: 600; text-decoration: none; background: repeating-linear-gradient(135deg, var(--surface-3) 0 10px, var(--surface-2) 10px 20px); }
+.ask-entry { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border-color: var(--signal-300); background: linear-gradient(180deg, var(--signal-50), var(--surface)); }
+.ask-entry b { display: block; font-size: 14px; font-weight: 700; color: var(--ink-900); }
+.ask-entry .t-xs { display: block; margin-top: 2px; }
+.ask-ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; background: var(--signal); color: #fff; }
+.ask-entry .chev { color: var(--ink-300); }
 .complain { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: transparent; font-size: 12.5px; color: var(--ink-500); }
 .complain:active { background: var(--surface-3); }
 .why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; }

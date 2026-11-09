@@ -61,6 +61,14 @@ async function onLogout() {
           <div class="lt"><b>我的专属码</b><span>求职者扫码注册成为本公司私域用户</span></div>
           <van-icon name="arrow" class="chev" />
         </router-link>
+        <router-link to="/employees" class="lrow">
+          <div class="lt"><b>在岗人员</b><span>请假 / 旷工标记</span></div>
+          <van-icon name="arrow" class="chev" />
+        </router-link>
+        <router-link to="/advance" class="lrow">
+          <div class="lt"><b>预支初审</b><span>求职者薪资预支的驻场初审</span></div>
+          <van-icon name="arrow" class="chev" />
+        </router-link>
         <router-link to="/messages" class="lrow">
           <div class="lt"><b>消息通知</b><span>新报名、释放通知等站内信</span></div>
           <van-badge v-if="inbox.unread > 0" :content="inbox.unread" :max="99" />

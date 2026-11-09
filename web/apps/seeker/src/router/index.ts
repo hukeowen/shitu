@@ -26,6 +26,7 @@ const router = createRouter({
     { path: '/match/result', component: () => import('@/views/match/MatchResultView.vue'), meta: { auth: true, title: '匹配结果', proto: 'S-16' } },
     // 岗位与报名（C-401~C-408）
     { path: '/jobs/:jobId', component: () => import('@/views/JobDetailView.vue'), meta: { auth: true, title: '岗位详情', proto: 'S-18' } },
+    { path: '/kyc/appeals', component: () => import('@/views/AppealsView.vue'), meta: { auth: true, title: '我的申诉', proto: 'S-46' } },
     { path: '/kyc', component: () => import('@/views/KycView.vue'), meta: { auth: true, title: '身份验证', proto: 'S-21' } },
     { path: '/apply/success', component: () => import('@/views/ApplySuccessView.vue'), meta: { auth: true, title: '报名成功', proto: 'S-23' } },
     { path: '/messages', component: () => import('@/views/MessagesView.vue'), meta: { auth: true, title: '消息中心', proto: 'S-40' } },

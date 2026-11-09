@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage, seekerApi, type Payslip } from '@shitu/api-client'
+import { errorMessage, isApiError, seekerApi, type Payslip } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
 import { fmtAmount, fmtMonth, fmtYuan } from '@/utils/format'
 import { totalDeduct } from '@/utils/payslip'
@@ -19,10 +19,10 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    slip.value = (await seekerApi.payslips()).find((p) => p.payslipId === id.value) ?? null
-    if (!slip.value) loadError.value = '未找到该工资条'
+    slip.value = await seekerApi.payslip(id.value)
   } catch (e) {
-    loadError.value = errorMessage(e, '加载失败，请稍后重试')
+    slip.value = null
+    loadError.value = isApiError(e, 'SYS_4040') ? '未找到该工资条' : errorMessage(e, '加载失败，请稍后重试')
   } finally {
     loading.value = false
   }
