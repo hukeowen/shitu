@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, type SiteApplication } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
+import DictTag from '@/components/DictTag.vue'
+import QrImage from '@/components/QrImage.vue'
 import PersonCell from '@/components/PersonCell.vue'
 import { useNow } from '@/composables/useNow'
 import { useProjects } from '@/composables/useProjects'
-import { fmtDateTime, fmtPhone } from '@/utils/format'
+import { copyText, fmtDateTime, fmtPhone } from '@/utils/format'
 
 /**
  * A-04 入职确权与线上电子签约（T-103）：待确权列表 → 确权签约（入职日期 / 工号 / 合同截止）→ 返回签署链接；
- * 已发起未签署的显示「重发签约」（作废旧流程重发）。
+ * 已发起未签署的显示「重发签约」（作废旧流程重发）；报名自带最近一份合同（contract），签署链接 / 二维码可直接查看，无需重发。
  */
 const now = useNow()
 const { projects } = useProjects()
@@ -23,7 +26,13 @@ const loadError = ref('')
 const recent = ref<SiteApplication[]>([])
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
 
-const waitingSign = computed(() => list.value.filter((a) => a.allowedActions.includes('RESEND_CONTRACT')).length)
+const signing = (a: SiteApplication) => a.contract?.status === 'PENDING_SIGN' || a.allowedActions.includes('RESEND_CONTRACT')
+const waitingSign = computed(() => list.value.filter(signing).length)
+
+async function copySign(url: string) {
+  if (await copyText(url)) ElMessage.success('签署链接已复制')
+  else ElMessage.error('复制失败，请手动复制')
+}
 
 async function load() {
   loading.value = true
@@ -39,8 +48,8 @@ async function load() {
     loading.value = false
   }
   try {
-    const e = await tenantApi.applications({ status: 'EMPLOYED', projectId: projectId.value || undefined, page: 1, pageSize: 100 })
-    recent.value = [...e.records].reverse().slice(0, 8)
+    const e = await tenantApi.applications({ status: 'EMPLOYED', projectId: projectId.value || undefined, page: 1, pageSize: 8, sort: 'CREATED_DESC' })
+    recent.value = e.records
   } catch {
     recent.value = []
   }
@@ -89,9 +98,24 @@ onMounted(load)
           <el-table-column label="来源" width="74">
             <template #default="{ row }"><span class="tag" :class="row.fromPublic ? 'tag--public' : 'tag--private'">{{ row.fromPublic ? '公域' : '私域' }}</span></template>
           </el-table-column>
-          <el-table-column label="签约进度" width="130">
+          <el-table-column label="签约进度" width="150">
             <template #default="{ row }">
-              <span v-if="row.allowedActions.includes('RESEND_CONTRACT')" class="tag tag--warn">待乙方签名</span>
+              <template v-if="row.contract">
+                <DictTag type="ContractStatus" :value="row.contract.status" />
+                <el-popover v-if="row.contract.signUrl" placement="left" :width="300" trigger="click">
+                  <template #reference>
+                    <el-button size="small" link type="primary" style="margin-left: 4px">签署码</el-button>
+                  </template>
+                  <div class="sign-pop">
+                    <QrImage :url="row.contract.signUrl" :size="120" />
+                    <div class="mono t-xs link">{{ row.contract.signUrl }}</div>
+                    <el-button size="small" type="primary" @click="copySign(row.contract.signUrl)">复制链接</el-button>
+                    <div class="t-xs">发起于 {{ fmtDateTime(row.contract.createdAt) }} · 现场扫码或发给求职者签署</div>
+                  </div>
+                </el-popover>
+                <div class="mono t-xs">{{ fmtDateTime(row.contract.createdAt).slice(5) }} 发起</div>
+              </template>
+              <span v-else-if="signing(row)" class="tag tag--warn">待乙方签名</span>
               <span v-else class="tag tag--muted">未发起</span>
             </template>
           </el-table-column>
@@ -133,3 +157,8 @@ onMounted(load)
     <AppActionDialogs ref="dialogs" @done="load" />
   </div>
 </template>
+
+<style scoped>
+.sign-pop { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.link { word-break: break-all; color: var(--ink-700); }
+</style>

@@ -47,6 +47,19 @@ async function openAck(app: SiteApplication, repush: boolean) {
   ack.form.contactName = meStore.me?.name ?? ''
   ack.form.contactPhone = ''
   ack.visible = true
+  // 重新推送：预填上次推送的面试信息（地址 / 路线 / 材料 / 联系人），只需改动变化的部分
+  const n = app.notice
+  if (n) {
+    const at = parseLocal(n.interviewAt)
+    if (at && at.getTime() > Date.now()) ack.form.interviewAt = toLocalIso(at)
+    ack.form.address = n.address ?? ''
+    ack.form.routeTips = n.routeTips ?? ''
+    ack.form.documents = n.documents?.length ? [...n.documents] : []
+    ack.form.contactName = n.contactName ?? ack.form.contactName
+    ack.form.contactPhone = n.contactPhone ?? ''
+    ack.hint = `已带出 ${fmtDateTime(n.pushedAt)} 推送的面试信息`
+    return
+  }
   ack.prefilling = true
   try {
     // 面试地点 / 所需材料默认取岗位信息
@@ -162,8 +175,8 @@ async function submitConfirm() {
   }
 }
 
-async function copySign() {
-  const url = cf.result?.signUrl
+async function copySign(link?: string) {
+  const url = link ?? cf.result?.signUrl
   if (!url) return
   if (await copyText(url)) ElMessage.success('签署链接已复制')
   else ElMessage.error('复制失败，请手动复制')
@@ -304,7 +317,20 @@ defineExpose({ run })
         <span class="t-sm">{{ cf.app.jobTitle }} · {{ cf.app.projectName }}</span>
       </div>
       <template v-if="!cf.result">
-        <div v-if="cf.resend" class="note note--warn" style="margin-bottom: 14px">该报名已有待签署的电子合同。重发将作废旧流程并生成新的签署链接。</div>
+        <template v-if="cf.resend">
+          <div v-if="cf.app.contract?.signUrl" class="sign" style="margin: 0 0 14px">
+            <QrImage :url="cf.app.contract.signUrl" :size="104" />
+            <div class="sign-r">
+              <div class="eyebrow">当前签署链接 · <DictTag type="ContractStatus" :value="cf.app.contract.status" /></div>
+              <div class="mono t-sm link">{{ cf.app.contract.signUrl }}</div>
+              <div class="row" style="margin-top: 8px">
+                <el-button size="small" type="primary" @click="copySign(cf.app.contract.signUrl)">复制链接</el-button>
+                <span class="t-xs">发起于 {{ fmtDateTime(cf.app.contract.createdAt) }} · 链接仍有效时无需重发</span>
+              </div>
+            </div>
+          </div>
+          <div class="note note--warn" style="margin-bottom: 14px">该报名已有待签署的电子合同。重发将作废旧流程并生成新的签署链接（旧链接失效）。</div>
+        </template>
         <div v-else class="note" style="margin-bottom: 14px">
           确权是<b>唯一数据统计节点</b>：完成后写入归属、锁定匹配范围（仅本公司内部调岗），并开始计费；随后生成电子劳动合同推送求职者签署，签署完成即「已入职在岗」。
           <template v-if="cf.app.fromPublic"><br />该用户报名前为<b>公域</b>，确权后归属写入本公司、标签变为私域。</template>
@@ -335,7 +361,7 @@ defineExpose({ run })
             <div class="eyebrow">签署链接</div>
             <div class="mono t-sm link">{{ cf.result.signUrl }}</div>
             <div class="row" style="margin-top: 8px">
-              <el-button size="small" type="primary" @click="copySign">复制链接</el-button>
+              <el-button size="small" type="primary" @click="copySign()">复制链接</el-button>
               <span class="t-xs">可发给求职者或现场扫码签署</span>
             </div>
           </div>

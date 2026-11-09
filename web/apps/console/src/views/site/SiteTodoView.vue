@@ -49,6 +49,8 @@ async function load() {
       projectId: projectId.value || undefined,
       page: page.page,
       pageSize: page.pageSize,
+      // 响应窗口最紧的在前（公域用户无窗口，按报名时间排在后面）
+      sort: 'DEADLINE',
     })
     list.value = r.records
     page.total = r.total
@@ -146,7 +148,8 @@ function rowClass({ row }: { row: SiteApplication }) {
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
             <DictTag type="ApplicationStatus" :value="row.status" pill />
-            <div class="t-xs">{{ row.status === 'PENDING_INTERVIEW' ? (row.acknowledgedAt ? '已推送面试信息' : '未知悉') : row.allowedActions.includes('RESEND_CONTRACT') ? '待求职者签署' : row.status === 'PENDING_CONFIRM' ? '待发起签约' : '' }}</div>
+            <div v-if="row.arrivedAt" class="t-xs" style="color: var(--ok)">已到厂 {{ fmtDateTime(row.arrivedAt).slice(5) }}</div>
+            <div v-else class="t-xs">{{ row.status === 'PENDING_INTERVIEW' ? (row.acknowledgedAt ? '已推送面试信息' : '未知悉') : row.contract?.status === 'PENDING_SIGN' || row.allowedActions.includes('RESEND_CONTRACT') ? '待求职者签署' : row.status === 'PENDING_CONFIRM' ? '待发起签约' : '' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="响应剩余" width="110">

@@ -8,7 +8,7 @@ import { APP_TITLE, MENU } from './menu'
 
 type Lazy = () => Promise<RouteComponent>
 
-/** 已实现的页面（Sprint 1 / 3 / 4）；其余菜单项仍为占位页 */
+/** 已实现的页面（Sprint 1 / 3 / 4 / 5）；其余菜单项仍为占位页 */
 const VIEWS: Record<string, Lazy> = {
   '/pm/jobs': () => import('@/views/jobs/JobListView.vue'),
   '/pm/jobs/edit': () => import('@/views/jobs/JobEditView.vue'),
@@ -28,6 +28,13 @@ const VIEWS: Record<string, Lazy> = {
   '/pm/roster': () => import('@/views/pm/RosterView.vue'),
   '/owner/bills': () => import('@/views/owner/BillsView.vue'),
   '/circulation/ledger': () => import('@/views/owner/LedgerView.vue'),
+  // Sprint 5
+  '/pm/board': () => import('@/views/pm/BoardView.vue'),
+  '/pm/kb': () => import('@/views/pm/KbView.vue'),
+  '/pm/advance': () => import('@/views/pm/AdvanceView.vue'),
+  '/payroll/batches': () => import('@/views/payroll/PayrollImportView.vue'),
+  '/owner/overview': () => import('@/views/owner/OverviewView.vue'),
+  '/owner/channel-report': () => import('@/views/owner/ChannelReportView.vue'),
 }
 
 const children: RouteRecordRaw[] = MENU.flatMap((g) =>

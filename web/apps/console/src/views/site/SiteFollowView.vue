@@ -130,7 +130,7 @@ function barClass(a: SiteApplication) {
         <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false">
           <el-button size="small" @click="load">重试</el-button>
         </el-alert>
-        <el-alert v-if="truncated" type="warning" title="报名较多，仅显示每个状态最早的 100 条" show-icon :closable="false" />
+        <el-alert v-if="truncated" type="warning" title="报名较多，每个状态仅显示响应窗口最紧的 100 条" show-icon :closable="false" />
         <el-table v-loading="loading" :data="rows" row-key="applicationId">
           <el-table-column label="求职者" min-width="120">
             <template #default="{ row }"><PersonCell :name="row.seekerName" accent :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>

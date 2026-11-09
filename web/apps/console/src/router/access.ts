@@ -19,8 +19,8 @@ export function homePath(me: TenantMe | null | undefined): string {
   const byRole: string[] = []
   if (me.roles.includes('SITE')) byRole.push('/site/home')
   if (me.roles.includes('BROKER')) byRole.push('/broker/pool')
-  if (me.roles.includes('PM')) byRole.push('/pm/jobs')
-  if (me.roles.includes('OWNER')) byRole.push('/owner/bills')
+  if (me.roles.includes('PM')) byRole.push('/pm/board')
+  if (me.roles.includes('OWNER')) byRole.push('/owner/overview')
   const preferred = [...byRole, '/settings/org', '/settings/projects', '/settings/channels']
   const items = visibleMenu(me).flatMap((g) => g.items)
   const hit = preferred.find((p) => items.some((it) => it.path === p))

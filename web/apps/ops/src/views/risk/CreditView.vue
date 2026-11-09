@@ -86,7 +86,11 @@ watch(
 )
 
 /** 公司名称联想（仅 SUPER / OPERATOR 有公司列表接口权限；风控角色直接输入公司 ID） */
-async function suggest(q: string, cb: (items: { value: string; name: string }[]) => void) {
+function suggest(q: string, cb: (items: { value: string; name: string }[]) => void) {
+  void suggestAsync(q, cb)
+}
+
+async function suggestAsync(q: string, cb: (items: { value: string; name: string }[]) => void) {
   if (!canSearchCompanies.value || !q.trim()) return cb([])
   try {
     const r = await opsApi.companies({ keyword: q.trim(), pageSize: 10 })

@@ -41,6 +41,15 @@ const TONES: Record<string, Record<string, Tone>> = {
   AbsenceType: { LEAVE: 'info', ABSENT: 'danger' },
   DisputeStatus: { OPEN: 'warn', ACCEPTED: 'ok', REJECTED: 'danger' },
   LedgerDirection: { PAYABLE: 'danger', RECEIVABLE: 'ok' },
+  AdvanceStatus: {
+    SUBMITTED: 'warn',
+    SITE_APPROVED: 'info',
+    PM_APPROVED: 'signal',
+    PAID: 'temp',
+    PARTIALLY_REPAID: 'temp',
+    REPAID: 'ok',
+    REJECTED: 'danger',
+  },
 }
 
 export function toneOf(type: string, value: string | null | undefined): Tone {
