@@ -1,0 +1,5 @@
+# 登录会话与结果（含 refresh token），不入库
+*.cookies
+*.rt
+*.result.json
+cap.*
