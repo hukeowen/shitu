@@ -64,11 +64,22 @@ public class OpsRiskController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "公司快速查找（所有平台角色可用：ID 或名称模糊，返回 ID、名称、状态）")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
+    @GetMapping("/companies/lookup")
+    public ApiResponse<List<Map<String, Object>>> lookup(@RequestParam(required = false) String keyword) {
+        String k = keyword == null ? "" : keyword.trim();
+        return ApiResponse.ok(com.shitu.common.util.Rows.camel(jdbc.queryForList("SELECT company_id, name, short_name, company_status, credit_score "
+                + "FROM company WHERE company_id = ? OR name LIKE ? OR short_name LIKE ? ORDER BY company_id LIMIT 20", k, "%" + k + "%", "%" + k + "%")));
+    }
+
     @Operation(summary = "公司诚信分记录与处罚记录")
     @GetMapping("/companies/{companyId}/credit")
     public ApiResponse<Map<String, Object>> creditOf(@PathVariable String companyId) {
-        Map<String, Object> c = jdbc.queryForMap("SELECT company_id, name, credit_score, penalty_level, penalty_until, fee_rights_revoked, "
+        List<Map<String, Object>> found = jdbc.queryForList("SELECT company_id, name, credit_score, penalty_level, penalty_until, fee_rights_revoked, "
                 + "company_status FROM company WHERE company_id = ?", companyId);
+        com.shitu.common.exception.BizException.check(!found.isEmpty(), com.shitu.common.exception.ErrorCode.SYS_NOT_FOUND, "公司不存在");
+        Map<String, Object> c = found.get(0);
         return ApiResponse.ok(Map.of("company", Rows.camel(c), "logs", credit.logs(companyId), "penalties", credit.penalties(companyId)));
     }
 

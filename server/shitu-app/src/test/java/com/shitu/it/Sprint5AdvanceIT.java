@@ -147,6 +147,11 @@ class Sprint5AdvanceIT extends FlowItSupport {
         assertThat(slips.size()).isEqualTo(2);
         assertThat(data(call(get("/api/v1/seeker/advance/debt-log"), s, null)).size()).isEqualTo(3);
         JsonNode detail = data(call(get("/api/v1/seeker/advance/" + a2), s, null));
+        JsonNode td = data(call(get("/api/v1/tenant/advances/" + a2), c.pm(), null));
+        assertThat(td.get("approvals").size()).isEqualTo(3);
+        assertThat(td.get("advance").get("projectName").isNull()).isFalse();
+        assertThat(status(get("/api/v1/tenant/payroll/template"), c.pm(), null)).isEqualTo(200);
+        assertThat(dup.get("batchId")).as("全部失败不留空批次").isNull();
         assertThat(detail.get("approvals").size()).as("驻场初审 + 项目经理终审 + 拨款").isEqualTo(3);
         assertThat(detail.get("ledger").size()).isEqualTo(3);
         assertThat(detail.get("ledger").get(0).has("balanceAfter")).isTrue();

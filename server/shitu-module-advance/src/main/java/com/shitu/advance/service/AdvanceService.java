@@ -51,7 +51,7 @@ public class AdvanceService {
 
     public record AdvanceRow(String advanceId, String userId, String seekerName, String projectId, BigDecimal amount,
                              String bizMonth, String status, BigDecimal repaidAmount, LocalDateTime paidAt,
-                             LocalDateTime createdAt, List<String> allowedActions) {
+                             LocalDateTime createdAt, List<String> allowedActions, String projectName) {
     }
 
     public record DebtLogEntry(String changeType, BigDecimal amount, BigDecimal balanceAfter, String advanceId, String payslipId,
@@ -336,8 +336,23 @@ public class AdvanceService {
             return new AdvanceRow(rs.getString("advance_id"), uid, name, rs.getString("project_id"), rs.getBigDecimal("amount"),
                     rs.getString("biz_month"), status, rs.getBigDecimal("repaid_amount"),
                     rs.getTimestamp("paid_at") == null ? null : rs.getTimestamp("paid_at").toLocalDateTime(),
-                    rs.getTimestamp("created_at").toLocalDateTime(), actions);
+                    rs.getTimestamp("created_at").toLocalDateTime(), actions, projectName(rs.getString("project_id")));
         }, args);
+    }
+
+    private String projectName(String projectId) {
+        List<String> n = jdbc.queryForList("SELECT name FROM project WHERE project_id = ?", String.class, projectId);
+        return n.isEmpty() ? null : n.get(0);
+    }
+
+    /** 公司后台单笔详情：记录 + 审批节点（含审批人姓名）。 */
+    public AdvanceDetail detailForTenant(AuthPrincipal p, String advanceId) {
+        List<AdvanceRow> r = rows("SELECT * FROM advance_request WHERE advance_id = ? AND company_id = ?", p, advanceId, p.companyId());
+        BizException.check(!r.isEmpty(), ErrorCode.SYS_NOT_FOUND);
+        List<ApprovalStep> steps = jdbc.query("SELECT a.step, a.decision, CONCAT(COALESCE(m.name, ''), IF(a.opinion IS NULL, '', CONCAT('：', a.opinion))), "
+                        + "a.created_at FROM advance_approval a LEFT JOIN member m ON m.member_id = a.operator_id WHERE a.advance_id = ? ORDER BY a.id",
+                (rs, i) -> new ApprovalStep(rs.getString(1), rs.getString(2), rs.getString(3), rs.getTimestamp(4).toLocalDateTime()), advanceId);
+        return new AdvanceDetail(r.get(0), steps, debtLog("advance_id = ? AND user_id = ?", advanceId, r.get(0).userId()));
     }
 
     private String seekerName(String userId) {

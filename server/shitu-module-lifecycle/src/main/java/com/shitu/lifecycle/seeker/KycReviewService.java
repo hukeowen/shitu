@@ -34,6 +34,8 @@ import java.util.Set;
 public class KycReviewService {
 
     public static final Set<String> TYPES = Set.of("ID_OCCUPIED_APPEAL", "BLACKLIST_APPEAL");
+    /** 与字典 BlacklistReason 一致。 */
+    public static final Set<String> REASONS = Set.of("UNPAID_ADVANCE", "FRAUD", "MALICIOUS");
     /** 解除实名时原账号不能处于这些状态。 */
     private static final Set<String> BUSY = Set.of("PENDING_INTERVIEW", "PENDING_CONFIRM", "EMPLOYED");
 
@@ -189,7 +191,7 @@ public class KycReviewService {
 
     @Transactional
     public long addBlacklist(String userId, String reasonCode, String detail, String operatorId) {
-        BizException.check(reasonCode != null && !reasonCode.isBlank(), ErrorCode.SYS_BAD_REQUEST, "请选择拉黑原因");
+        BizException.check(REASONS.contains(reasonCode), ErrorCode.SYS_BAD_REQUEST, "请选择拉黑原因");
         BizException.check(detail != null && !detail.isBlank(), ErrorCode.SYS_BAD_REQUEST, "请填写事实说明");
         List<String> hash = jdbc.queryForList("SELECT id_card_hash FROM `user` WHERE user_id = ?", String.class, userId);
         BizException.check(!hash.isEmpty(), ErrorCode.SYS_NOT_FOUND, "用户不存在");

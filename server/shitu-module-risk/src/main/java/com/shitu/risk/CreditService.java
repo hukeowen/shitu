@@ -128,8 +128,9 @@ public class CreditService {
     }
 
     public List<Map<String, Object>> penalties(String companyId) {
-        return Rows.camel(jdbc.queryForList("SELECT level, reason, start_date, end_date, created_by, created_at FROM penalty "
-                + (companyId == null ? "" : "WHERE company_id = ? ") + "ORDER BY id DESC LIMIT 200",
+        return Rows.camel(jdbc.queryForList("SELECT p.company_id, COALESCE(c.short_name, c.name) AS company_name, p.level, p.reason, p.start_date, p.end_date, p.created_by, p.created_at "
+                + "FROM penalty p LEFT JOIN company c ON c.company_id = p.company_id "
+                + (companyId == null ? "" : "WHERE p.company_id = ? ") + "ORDER BY p.id DESC LIMIT 200",
                 companyId == null ? new Object[0] : new Object[]{companyId}));
     }
 }

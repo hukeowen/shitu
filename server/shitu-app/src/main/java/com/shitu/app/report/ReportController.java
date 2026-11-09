@@ -33,7 +33,13 @@ public class ReportController {
         AuthPrincipal p = CurrentUser.get();
         DataScope.Scope s = scope.of(p);
         if (!s.all() && s.projectIds().isEmpty()) {
-            return ApiResponse.ok(Map.of());
+            // 没有负责项目：返回全 0（不能把空项目列表当成「全公司」）
+            Map<String, Object> zero = new java.util.LinkedHashMap<>();
+            for (String k : List.of("pendingInterview", "pendingConfirm", "employed", "resignedThisMonth", "arrivedToday", "hiredThisMonth",
+                    "recruitingJobs")) {
+                zero.put(k, 0L);
+            }
+            return ApiResponse.ok(zero);
         }
         return ApiResponse.ok(reports.pmBoard(p.companyId(), s.all() ? List.of() : s.projectIds()));
     }

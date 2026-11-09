@@ -58,6 +58,15 @@ public class DictController {
         s.put("FactoryWillingness", ordered("YES", "接受", "MAYBE", "可以试试", "NO", "不接受"));
         s.put("LockedRegion", ordered("LOCKED", "锁定城市", "ANY", "不限"));
         s.put("DormRequirement", ordered("REQUIRED", "必须包住", "SMALL_ROOM", "4 人间以内", "AIRCON", "要有空调", "NONE", "不需要住宿"));
+        s.put("CreditRule", ordered("MANUAL", "人工调整", "COMPLAINT_3X", "投诉属实累计 3 次", "STALE_JOB", "岗位长期未更新"));
+        s.put("PenaltyLevel", ordered("1", "一级 · 警告", "2", "二级 · 限流 30 天", "3", "三级 · 封禁"));
+        s.put("KycStatus", ordered("NONE", "未实名", "VERIFIED", "已实名", "REVIEWING", "人工复核中", "REJECTED", "未通过"));
+        s.put("LifecycleEvent", ordered("REGISTER_VIA_COMPANY", "扫码注册", "REGISTER_PUBLIC", "自主注册", "ROSTER_IMPORT", "花名册导入",
+                "APPLY", "报名", "INTERVIEW_PASS", "面试通过", "CONTRACT_SIGNED", "签约入职", "INTERVIEW_FAIL", "面试未通过",
+                "CANCEL_APPLICATION", "取消报名", "MARK_NO_SHOW", "爽约", "TIMEOUT_24H", "24 小时未跟进", "CONFIRM_TIMEOUT", "确权超时",
+                "RELEASE_MANUAL", "人工释放", "BROKER_SLA_TIMEOUT", "经纪人超时释放", "RESIGN", "离职", "INTERNAL_TRANSFER", "内部调岗",
+                "COMPANY_CLOSED", "公司注销"));
+        s.put("EmploymentEndReason", ordered("RESIGNED", "离职", "COMPANY_CLOSED", "公司注销"));
         return s;
     }
 

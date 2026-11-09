@@ -74,7 +74,7 @@ async function loadBatches() {
   batchesLoading.value = true
   batchesError.value = ''
   try {
-    batches.value = (await tenantApi.payrollBatches()).map(toBatch)
+    batches.value = (await tenantApi.payrollBatches()).map((r) => toBatch(r as unknown as Record<string, unknown>))
   } catch (e) {
     batchesError.value = errorMessage(e, '导入记录加载失败')
   } finally {
@@ -197,7 +197,7 @@ async function doImport() {
           <div class="card__bd">
             <div class="row" style="margin-bottom: 12px">
               <span class="form-sec" style="margin: 0; flex: 1">本次导入结果 · {{ result.payMonth }}</span>
-              <span class="mono t-xs">批次 {{ result.batchId }}</span>
+              <span class="mono t-xs">{{ result.batchId ? `批次 ${result.batchId}` : "全部失败，未生成批次" }}</span>
             </div>
             <div class="grid g-4" style="gap: 10px">
               <div class="stat">

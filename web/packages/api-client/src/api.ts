@@ -81,6 +81,9 @@ import type {
   OwnerOverview,
   ChannelFunnelRow,
   OpsOverview,
+  PayrollBatch,
+  PenaltyRow,
+  CompanyLookup,
   PrivatePendingRow,
   EngineVersion,
   KycReviewRow,
@@ -347,7 +350,10 @@ export const tenantApi = {
   payoutAdvance: (id: string) => post<void>(`/tenant/advances/${id}/payout`),
   /** 工资表导入（.xlsx：手机号、工号、应发、社保、个税、其他扣款），month：YYYY-MM */
   importPayroll: (file: File, month: string) => upload<PayrollBatchResult>('/tenant/payroll/import', file, { month }),
-  payrollBatches: () => get<Record<string, unknown>[]>('/tenant/payroll/batches'),
+  payrollBatches: () => get<PayrollBatch[]>('/tenant/payroll/batches'),
+  /** 工资表模板下载路径（配合 fetchFileUrl / 下载工具使用） */
+  payrollTemplatePath: '/tenant/payroll/template',
+  advanceDetail: (id: string) => get<AdvanceDetail>(`/tenant/advances/${id}`),
 }
 
 // ------------------------------------------------------------------ 平台中台
@@ -426,7 +432,8 @@ export const opsApi = {
     post<number>(`/ops/companies/${companyId}/credit`, { delta, remark }),
   penalize: (companyId: string, level: 1 | 2 | 3, reason: string) =>
     post<void>(`/ops/companies/${companyId}/penalty`, { level, reason }),
-  penalties: () => get<Record<string, unknown>[]>('/ops/penalties'),
+  penalties: () => get<PenaltyRow[]>('/ops/penalties'),
+  companyLookup: (keyword: string) => get<CompanyLookup[]>('/ops/companies/lookup', { keyword }),
   /** 岗位真实权重（P-05，仅平台可见） */
   jobWeights: (companyId?: string) => get<Record<string, unknown>[]>('/ops/job-weights', { companyId }),
   /** 公司注销 / 倒闭（不可逆，仅超管） */

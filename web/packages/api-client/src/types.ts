@@ -917,6 +917,7 @@ export interface AdvanceRow {
   createdAt: string
   /** SITE_APPROVE / SITE_REJECT / PM_APPROVE / PM_REJECT / PAYOUT */
   allowedActions: string[]
+  projectName?: string
 }
 
 export interface DebtLogEntry {
@@ -948,10 +949,14 @@ export interface PayrollRowResult {
   payslipId?: string
   advanceDeduct?: number
   netPay?: number
+  /** 回显表格里的手机号（脱敏）与工号，便于定位失败行 */
+  phoneMasked?: string
+  employeeNo?: string
 }
 
 export interface PayrollBatchResult {
-  batchId: string
+  /** 全部失败时不建批次，为 null */
+  batchId: string | null
   payMonth: string
   headcount: number
   grossTotal: number
@@ -1157,4 +1162,35 @@ export interface PrivatePendingRow {
   channelMemberName?: string
   /** 已在流转池（不可重复转交） */
   inBrokerPool: boolean
+}
+
+export interface PayrollBatch {
+  batchId: string
+  payMonth: string
+  headcount: number
+  grossTotal: number
+  advanceDeductTotal: number
+  netTotal: number
+  status: string
+  operatorId: string
+  createdAt: string
+}
+
+export interface PenaltyRow {
+  companyId: string
+  companyName?: string
+  level: number
+  reason: string
+  startDate: string
+  endDate?: string
+  createdBy?: string
+  createdAt: string
+}
+
+export interface CompanyLookup {
+  companyId: string
+  name: string
+  shortName?: string
+  companyStatus: string
+  creditScore: number
 }

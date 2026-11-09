@@ -34,7 +34,7 @@ public class PayrollService {
     }
 
     public record PayRowResult(int rowNo, boolean success, String error, String payslipId, BigDecimal advanceDeduct,
-                               BigDecimal netPay) {
+                               BigDecimal netPay, String phoneMasked, String employeeNo) {
     }
 
     public record BatchResult(String batchId, String payMonth, int headcount, BigDecimal grossTotal, BigDecimal advanceDeductTotal,
@@ -77,9 +77,9 @@ public class PayrollService {
             try {
                 res = tx.execute(s -> one(p.companyId(), batchId, month, r));
             } catch (BizException e) {
-                res = new PayRowResult(r.rowNo(), false, e.getMessage(), null, null, null);
+                res = new PayRowResult(r.rowNo(), false, e.getMessage(), null, null, null, mask(r.phone()), r.employeeNo());
             } catch (DuplicateKeyException e) {
-                res = new PayRowResult(r.rowNo(), false, "该员工本月工资已导入过", null, null, null);
+                res = new PayRowResult(r.rowNo(), false, "该员工本月工资已导入过", null, null, null, mask(r.phone()), r.employeeNo());
             }
             results.add(res);
             if (res.success()) {
@@ -89,6 +89,11 @@ public class PayrollService {
             }
         }
         int ok = (int) results.stream().filter(PayRowResult::success).count();
+        if (ok == 0) {
+            // 全部失败不留空批次：修正表格后重新导入即可
+            jdbc.update("DELETE FROM payroll_batch WHERE batch_id = ?", batchId);
+            return new BatchResult(null, month.toString(), 0, gross, deduct, net, results);
+        }
         jdbc.update("UPDATE payroll_batch SET headcount = ?, gross_total = ?, advance_deduct_total = ?, net_total = ? WHERE batch_id = ?",
                 ok, gross, deduct, net, batchId);
         audit.log("PAYROLL_IMPORT", "PAYROLL_BATCH", batchId, Map.of("month", month.toString(), "headcount", ok,
@@ -124,7 +129,11 @@ public class PayrollService {
                 payslipId, companyId, batchId, userId, employmentId, month.toString(), r.grossPay(), social, tax, other, before);
         DebtDeduction.Result d = advances.deductFromPay(companyId, userId, payslipId, before);
         jdbc.update("UPDATE payslip SET advance_deduct = ?, net_pay = ? WHERE payslip_id = ?", d.deducted(), d.netPayAfter(), payslipId);
-        return new PayRowResult(r.rowNo(), true, null, payslipId, d.deducted(), d.netPayAfter());
+        return new PayRowResult(r.rowNo(), true, null, payslipId, d.deducted(), d.netPayAfter(), mask(r.phone()), r.employeeNo());
+    }
+
+    private static String mask(String phone) {
+        return phone != null && Masks.isMobile(phone.trim()) ? Masks.phone(phone.trim()) : phone;
     }
 
     /** C-701：我的工资条（按月倒序）。 */

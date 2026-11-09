@@ -84,9 +84,14 @@ class Sprint5RiskIT extends FlowItSupport {
         JsonNode m2 = data(call(post("/api/v1/seeker/match"), s, matchReq()));
         assertThat(jobIds(m2)).doesNotContain(job2);
 
+        assertThat(find(data(call(get("/api/v1/ops/companies/lookup?keyword=" + c.companyId()), ops, null)), "companyId", c.companyId())
+                .has("name")).isTrue();
+        assertThat(code(call(get("/api/v1/ops/companies/C99999999/credit"), ops, null))).isEqualTo("SYS_4040");
+
         // ---------------------------------------------------------------- 三级处罚 → 封禁
         data(call(post("/api/v1/ops/companies/" + c.companyId() + "/penalty"), ops, Map.of("level", 3, "reason", "多次虚假岗位")));
         assertThat(jdbc.queryForObject("SELECT company_status FROM company WHERE company_id = ?", String.class, c.companyId())).isEqualTo("BANNED");
+        assertThat(find(data(call(get("/api/v1/ops/penalties"), ops, null)), "companyId", c.companyId()).has("companyName")).isTrue();
         assertThat(code(call(get("/api/v1/tenant/projects"), c.pm(), null))).isEqualTo("TEN_4003");
 
         // ---------------------------------------------------------------- 45 天未更新 → 自动暂停 + 扣 5 分

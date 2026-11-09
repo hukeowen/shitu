@@ -64,6 +64,16 @@ public class TenantAdvanceController {
         return ApiResponse.ok(advances.forTenant(p, s.projectIds(), s.all(), status));
     }
 
+    @Operation(summary = "单笔预支详情：审批节点（审批人与意见）、拨款与抵扣流水")
+    @PreAuthorize("hasAnyRole('SITE','PM','OWNER')")
+    @GetMapping("/advances/{id}")
+    public ApiResponse<AdvanceService.AdvanceDetail> detail(@PathVariable String id) {
+        AuthPrincipal p = CurrentUser.get();
+        AdvanceService.AdvanceDetail d = advances.detailForTenant(p, id);
+        scope.checkProject(p, d.advance().projectId());
+        return ApiResponse.ok(d);
+    }
+
     @Operation(summary = "驻场初审（驳回须填原因，退回机会）")
     @PreAuthorize("hasRole('SITE')")
     @PostMapping("/advances/{id}/site-review")
@@ -86,6 +96,32 @@ public class TenantAdvanceController {
     public ApiResponse<Void> payout(@PathVariable String id) {
         advances.payout(CurrentUser.get(), id);
         return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "下载工资表模板")
+    @PreAuthorize("hasAnyRole('PM','OWNER')")
+    @GetMapping("/payroll/template")
+    public org.springframework.http.ResponseEntity<byte[]> payrollTemplate() throws IOException {
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(); var out = new java.io.ByteArrayOutputStream()) {
+            Sheet sh = wb.createSheet("工资表");
+            String[] head = {"手机号", "工号（与手机号二选一）", "应发工资", "社保个人部分", "个税", "其他扣款"};
+            Row h = sh.createRow(0);
+            for (int i = 0; i < head.length; i++) {
+                h.createCell(i).setCellValue(head[i]);
+                sh.setColumnWidth(i, 18 * 256);
+            }
+            Row ex = sh.createRow(1);
+            String[] sample = {"13800000000", "", "5200", "420", "0", "0"};
+            for (int i = 0; i < sample.length; i++) {
+                ex.createCell(i).setCellValue(sample[i]);
+            }
+            wb.write(out);
+            return org.springframework.http.ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, org.springframework.http.ContentDisposition.attachment()
+                            .filename("工资表模板.xlsx", java.nio.charset.StandardCharsets.UTF_8).build().toString())
+                    .body(out.toByteArray());
+        }
     }
 
     @Operation(summary = "导入工资表（.xlsx：手机号、工号、应发、社保、个税、其他扣款；自动抵扣预支欠款）")
