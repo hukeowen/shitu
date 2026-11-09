@@ -75,12 +75,23 @@ async function submit() {
 <template>
   <div class="login">
     <header class="brand">
-      <BrandMark :size="44" />
+      <div class="glow" />
+      <div class="top">
+        <BrandMark :size="40" />
+        <span class="tag">驻场端</span>
+      </div>
       <h2>仕兔驻场</h2>
-      <p>劳务公司成员账号 · 手机号验证码登录</p>
+      <p>报名跟进、到厂确认、确权签约，一部手机搞定</p>
+      <div class="chips" aria-hidden="true">
+        <span><b>24h</b>响应提醒</span>
+        <span><b>扫码</b>电子签约</span>
+        <span><b>一键</b>流转经纪人</span>
+      </div>
     </header>
 
-    <div class="body">
+    <div class="body sheet">
+      <h3>成员登录</h3>
+      <p class="hint">使用公司为你开通的手机号登录</p>
       <div class="field">
         <div class="lbl">手机号码</div>
         <div class="line">
@@ -138,21 +149,40 @@ async function submit() {
 </template>
 
 <style scoped>
-.login { min-height: 100vh; background: var(--surface); }
-.brand { padding: calc(40px + env(safe-area-inset-top)) 22px 28px; color: #fff; background: linear-gradient(165deg, #1D2733 0%, #0D1117 60%); }
-.brand h2 { margin-top: 16px; font-family: var(--f-dis); font-size: 28px; font-weight: 700; }
-.brand p { margin-top: 6px; font-size: 13px; color: rgba(255, 255, 255, .6); }
-.body { padding: 4px 20px calc(24px + env(safe-area-inset-bottom)); }
-.field { margin-top: 24px; }
-.lbl { font-size: 12px; color: var(--ink-500); margin-bottom: 6px; }
-.line { display: flex; align-items: center; gap: 8px; border-bottom: 1.5px solid var(--ink-900); padding-bottom: 6px; }
-.cc { font-size: 15px; color: var(--ink-600); }
-.inp { flex: 1; min-width: 0; height: 34px; border: 0; outline: none; background: transparent; padding: 0 4px; font-size: 19px; font-family: var(--f-dis); letter-spacing: .06em; color: var(--ink-900); }
+.login { min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(170deg, #1E2834 0%, #0F141B 55%, #1C130E 100%); }
+
+/* ------------------------------------------------------------ 顶部品牌区 */
+.brand { position: relative; overflow: hidden; padding: calc(28px + env(safe-area-inset-top)) 24px 34px; color: #fff; }
+.glow { position: absolute; width: 300px; height: 300px; right: -110px; top: -90px; border-radius: 50%; background: rgba(232, 89, 12, .45); filter: blur(60px); pointer-events: none; }
+.top { position: relative; display: flex; align-items: center; justify-content: space-between; }
+.tag { font-size: 12px; color: rgba(255,255,255,.7); padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); }
+.brand h2 { position: relative; margin: 26px 0 0; font-family: var(--f-dis); font-size: 32px; font-weight: 700; letter-spacing: .02em; }
+.brand p { position: relative; margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: rgba(255,255,255,.66); }
+.chips { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.chips span { font-size: 12px; color: rgba(255,255,255,.75); padding: 6px 11px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); }
+.chips b { color: #FF9A5C; margin-right: 4px; font-weight: 700; }
+
+/* ------------------------------------------------------------ 表单底板 */
+.sheet { flex: 1; background: var(--surface); border-radius: 28px 28px 0 0; padding: 28px 22px calc(28px + env(safe-area-inset-bottom));
+  box-shadow: 0 -18px 40px -24px rgba(0,0,0,.5); animation: rise .35s ease-out; }
+@keyframes rise { from { transform: translateY(24px); opacity: .4 } to { transform: none; opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+.sheet h3 { margin: 0; font-size: 20px; font-weight: 700; color: var(--ink-900); }
+.hint { margin: 4px 0 6px; font-size: 13px; color: var(--ink-500); }
+.field { margin-top: 18px; }
+.lbl { font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
+.line { display: flex; align-items: center; gap: 8px; height: 54px; padding: 0 8px 0 16px; border-radius: 16px; background: var(--surface-2);
+  border: 1.5px solid transparent; transition: border-color .15s, background .15s, box-shadow .15s; }
+.line:focus-within { background: var(--surface); border-color: var(--signal); box-shadow: 0 0 0 4px rgba(232,89,12,.12); }
+.cc { font-size: 15px; color: var(--ink-600); padding-right: 10px; border-right: 1px solid var(--line-2); }
+.inp { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; padding: 0 4px; font-size: 19px; font-family: var(--f-dis); letter-spacing: .06em; color: var(--ink-900); }
 .inp::placeholder { font-family: var(--f-cn); font-size: 15px; letter-spacing: 0; color: var(--ink-300); }
 .inp.code { letter-spacing: .3em; }
-.send { flex: none; height: 30px; padding: 0 10px; border: 1px solid var(--signal-300); border-radius: var(--r-sm); background: var(--signal-50); color: var(--signal-700); font-size: 13px; font-weight: 600; }
-.send:disabled { border-color: var(--line); background: var(--surface-3); color: var(--ink-400); }
-.sent { margin-top: 8px; }
-.submit { margin-top: 28px; }
-.tip { margin-top: 16px; text-align: center; line-height: 1.7; }
+.send { flex: none; height: 40px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--signal-50); color: var(--signal-700); font-size: 14px; font-weight: 600; }
+.send:active:not(:disabled) { background: var(--signal-300); }
+.send:disabled { background: var(--surface-3); color: var(--ink-400); }
+.sent { margin: 8px 0 0 4px; }
+.submit { margin-top: 30px; height: 52px; border: 0; border-radius: 16px; font-size: 17px; font-weight: 700; letter-spacing: .2em;
+  background: linear-gradient(135deg, #F07A3A 0%, #E8590C 55%, #C9490A 100%); box-shadow: 0 14px 26px -14px rgba(232,89,12,.9); }
+.tip { margin-top: 20px; text-align: center; line-height: 1.8; color: var(--ink-400); }
 </style>

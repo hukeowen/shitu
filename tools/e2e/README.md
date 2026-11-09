@@ -28,3 +28,16 @@ node sweep.mjs
 ```
 
 同一手机号 60 秒内只能发一次短信验证码；脚本优先复用缓存的会话，避免触发冷却。
+
+## 浏览器冒烟与截图
+
+需要 Chrome 以 `--remote-debugging-port=9888` 启动，四个前端的 dev server 绑定 IPv4（`npx vite --host 127.0.0.1 --port <端口>`）：
+console 5175、ops 5176、seeker 5183、staff 5184。
+
+```bash
+node ui-smoke.mjs                     # 逐个打开四个应用的菜单路由（老板 / 项目经理 / 驻场 / 平台 / 新求职者），收集异常、报错、接口 ≥ 400
+TZ_OVERRIDE=Pacific/Honolulu node ui-smoke.mjs   # 在非东八区时区下再跑一遍
+node shot.mjs login-ops http://127.0.0.1:5176/login        # 单页截图（加第三个参数 1 = 手机尺寸）
+```
+
+截图输出到 `shots/`（不入库）。

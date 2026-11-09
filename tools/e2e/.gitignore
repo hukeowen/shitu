@@ -3,3 +3,4 @@
 *.rt
 *.result.json
 cap.*
+shots/

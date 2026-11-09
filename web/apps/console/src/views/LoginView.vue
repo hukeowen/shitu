@@ -113,9 +113,9 @@ async function submit() {
 <template>
   <AuthShell>
     <div class="box">
-      <div class="eyebrow">SIGN IN</div>
+      <div class="hi">欢迎回来</div>
       <h2>登录劳务工作台</h2>
-      <p class="t-sm sub">使用成员手机号登录；新公司登录后可直接提交入驻申请</p>
+      <p class="sub">使用成员手机号 + 短信验证码登录。新公司登录后可直接提交入驻申请。</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="submit">
         <el-form-item label="手机号" prop="phone">
@@ -141,21 +141,35 @@ async function submit() {
         <el-button type="primary" native-type="submit" class="btn" :loading="submitting">登录</el-button>
       </el-form>
 
-      <div class="note note--info tip">
-        登录即表示同意《仕兔平台企业服务协议》。成员账号由公司老板在「组织与权限」中添加；停用或角色变更后需重新登录。
+      <div class="tip">
+        <span>登录即表示同意《仕兔平台企业服务协议》</span>
+        <span>成员账号由老板在「组织与权限」中添加</span>
       </div>
     </div>
   </AuthShell>
 </template>
 
 <style scoped>
-.box { width: 380px; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-2); padding: 32px 30px 26px; }
-h2 { margin: 8px 0 6px; font-family: var(--f-dis); font-size: 24px; color: var(--ink-900); }
-.sub { margin-bottom: 22px; }
+.box { width: 420px; max-width: 100%; background: var(--surface); border-radius: 20px; padding: 40px 40px 30px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 30px 70px -30px rgba(13,17,23,.35), 0 0 0 1px rgba(13,17,23,.06); }
+.hi { font-size: 13px; color: var(--signal-700); font-weight: 600; }
+h2 { margin: 6px 0 8px; font-family: var(--f-dis); font-size: 28px; letter-spacing: .01em; color: var(--ink-900); }
+.sub { margin: 0 0 26px; font-size: 13px; line-height: 1.7; color: var(--ink-500); }
+.box :deep(.el-form-item__label) { font-weight: 600; color: var(--ink-700); padding-bottom: 6px; }
+.box :deep(.el-input__wrapper) { height: 46px; border-radius: 12px; background: var(--surface-2); box-shadow: 0 0 0 1px transparent inset; transition: box-shadow .15s, background .15s; }
+.box :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px var(--line-2) inset; }
+.box :deep(.el-input__wrapper.is-focus) { background: var(--surface); box-shadow: 0 0 0 1.5px var(--signal) inset, 0 0 0 4px rgba(232,89,12,.12); }
+.box :deep(.el-form-item.is-error .el-input__wrapper) { box-shadow: 0 0 0 1.5px var(--el-color-danger) inset; }
 .cap { display: flex; gap: 10px; width: 100%; }
 .cap .el-input { flex: 1; }
-.cap img { width: 120px; height: 40px; border: 1px solid var(--line-2); border-radius: var(--r-sm); cursor: pointer; object-fit: cover; flex: none; }
-.send { width: 120px; flex: none; }
-.btn { width: 100%; margin-top: 6px; }
-.tip { margin-top: 18px; font-size: 11.5px; }
+.cap img { width: 124px; height: 46px; border-radius: 12px; cursor: pointer; object-fit: cover; flex: none; background: var(--surface-2); }
+.send { width: 124px; height: 46px; flex: none; border-radius: 12px; font-weight: 600; color: var(--signal-700); border-color: rgba(232,89,12,.35); background: var(--signal-50); }
+.send:hover:not(.is-disabled) { color: #fff; background: var(--signal); border-color: var(--signal); }
+.btn { width: 100%; height: 48px; margin-top: 10px; border: 0; border-radius: 12px; font-size: 16px; font-weight: 700; letter-spacing: .2em;
+  background: linear-gradient(135deg, #F07A3A 0%, #E8590C 55%, #C9490A 100%); box-shadow: 0 12px 24px -12px rgba(232,89,12,.8); }
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.tip { margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--line-2); display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--ink-400); text-align: center; }
+@media (max-width: 480px) { .box { padding: 30px 22px 24px; border-radius: 16px; } }
 </style>

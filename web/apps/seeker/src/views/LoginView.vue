@@ -92,15 +92,39 @@ function openDoc(kind: 'user' | 'privacy') {
 
 <template>
   <div class="login">
-    <div class="appbar">
-      <button type="button" class="ico" aria-label="返回" @click="back">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-      </button>
-    </div>
+    <header class="lhero">
+      <div class="appbar">
+        <button type="button" class="ico" aria-label="返回" @click="back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+      </div>
+      <div class="hero-in">
+        <div class="copy">
+          <h1>找工作<br /><em>先问问薪资</em></h1>
+          <p>回答几个问题，马上看到适合你的岗位</p>
+        </div>
+        <svg class="art" viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="56" fill="#fff" opacity=".55" />
+          <rect x="30" y="34" width="60" height="58" rx="12" fill="#fff" />
+          <rect x="40" y="46" width="28" height="6" rx="3" fill="#E8590C" />
+          <rect x="40" y="58" width="40" height="5" rx="2.5" fill="#F3D4C0" />
+          <rect x="40" y="68" width="34" height="5" rx="2.5" fill="#F3D4C0" />
+          <circle cx="84" cy="34" r="14" fill="#E8590C" />
+          <text x="84" y="39" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">¥</text>
+          <circle cx="32" cy="88" r="9" fill="#3DB57D" />
+          <path d="M28 88l3 3 5-6" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <div class="points">
+        <span><i>1</i>手机号直接注册</span>
+        <span><i>2</i>实名后才能报名</span>
+        <span><i>3</i>顾问一对一跟进</span>
+      </div>
+    </header>
 
-    <div class="body">
+    <div class="body sheet">
       <h2>手机号登录 / 注册</h2>
-      <p class="t-sm sub">未注册的手机号验证后自动注册，生成唯一用户 ID，无需设置密码</p>
+      <p class="sub">没注册过的手机号，验证后自动注册，不用设密码</p>
 
       <div class="field">
         <div class="lbl">手机号码</div>
@@ -179,28 +203,50 @@ function openDoc(kind: 'user' | 'privacy') {
 </template>
 
 <style scoped>
-.login { min-height: 100vh; background: var(--surface); padding-top: env(safe-area-inset-top); }
-.appbar { height: 46px; display: flex; align-items: center; padding: 0 10px; }
-.ico { width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink-700); }
-.body { padding: 6px 20px calc(24px + env(safe-area-inset-bottom)); }
-h2 { font-family: var(--f-dis); font-size: 26px; font-weight: 700; color: var(--ink-900); line-height: 1.2; }
-.sub { margin-top: 8px; line-height: 1.6; }
-.field { margin-top: 24px; }
-.lbl { font-size: 12px; color: var(--ink-500); margin-bottom: 6px; }
-.line { display: flex; align-items: center; gap: 8px; border-bottom: 1.5px solid var(--ink-900); padding-bottom: 6px; }
-.cc { font-size: 15px; color: var(--ink-600); }
-.inp { flex: 1; min-width: 0; height: 34px; border: 0; outline: none; background: transparent; padding: 0 4px; font-size: 19px; font-family: var(--f-dis); letter-spacing: .06em; color: var(--ink-900); }
-.inp::placeholder { font-family: var(--f-cn); font-size: 15px; letter-spacing: 0; color: var(--ink-300); }
+.login { min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(170deg, #FFE7D6 0%, #FFD2B3 45%, #FBB78E 100%); }
+
+/* ------------------------------------------------------------ 顶部 */
+.lhero { position: relative; padding: env(safe-area-inset-top) 0 26px; color: var(--ink-900); overflow: hidden; }
+.lhero::after { content: ""; position: absolute; width: 260px; height: 260px; right: -90px; top: -80px; border-radius: 50%; background: rgba(255,255,255,.35); pointer-events: none; }
+.appbar { position: relative; z-index: 1; height: 46px; display: flex; align-items: center; padding: 0 10px; }
+.ico { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.55); color: var(--ink-800); }
+.hero-in { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 6px 22px 0; }
+.copy { flex: 1; min-width: 0; }
+.lhero h1 { margin: 0; font-family: var(--f-dis); font-size: 30px; line-height: 1.25; font-weight: 800; letter-spacing: .02em; }
+.lhero h1 em { font-style: normal; color: #C9490A; }
+.lhero p { margin: 8px 0 0; font-size: 14px; color: rgba(31, 22, 15, .7); line-height: 1.6; }
+.art { flex: none; width: 112px; height: 112px; }
+.points { position: relative; z-index: 1; display: flex; gap: 8px; padding: 18px 22px 0; flex-wrap: wrap; }
+.points span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-800); padding: 6px 10px 6px 6px; border-radius: 999px; background: rgba(255,255,255,.62); }
+.points i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; color: #fff; background: var(--signal); }
+
+/* ------------------------------------------------------------ 表单底板 */
+.sheet { flex: 1; background: var(--surface); border-radius: 28px 28px 0 0; padding: 26px 22px calc(28px + env(safe-area-inset-bottom));
+  box-shadow: 0 -16px 36px -24px rgba(120, 50, 10, .45); animation: rise .35s ease-out; }
+@keyframes rise { from { transform: translateY(24px); opacity: .4 } to { transform: none; opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+h2 { margin: 0; font-family: var(--f-dis); font-size: 21px; font-weight: 700; color: var(--ink-900); line-height: 1.3; }
+.sub { margin: 6px 0 4px; font-size: 13px; line-height: 1.6; color: var(--ink-500); }
+.field { margin-top: 18px; }
+.lbl { font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
+.line { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 8px 0 16px; border-radius: 16px; background: var(--surface-2);
+  border: 1.5px solid transparent; transition: border-color .15s, background .15s, box-shadow .15s; }
+.line:focus-within { background: var(--surface); border-color: var(--signal); box-shadow: 0 0 0 4px rgba(232,89,12,.12); }
+.cc { font-size: 16px; color: var(--ink-600); padding-right: 10px; border-right: 1px solid var(--line-2); }
+.inp { flex: 1; min-width: 0; height: 42px; border: 0; outline: none; background: transparent; padding: 0 4px; font-size: 20px; font-family: var(--f-dis); letter-spacing: .06em; color: var(--ink-900); }
+.inp::placeholder { font-family: var(--f-cn); font-size: 16px; letter-spacing: 0; color: var(--ink-300); }
 .inp.code { letter-spacing: .3em; }
-.send { flex: none; height: 30px; padding: 0 10px; border: 1px solid var(--signal-300); border-radius: var(--r-sm); background: var(--signal-50); color: var(--signal-700); font-size: 13px; font-weight: 600; }
-.send:disabled { border-color: var(--line); background: var(--surface-3); color: var(--ink-400); }
-.sent { margin-top: 8px; }
-.via { display: flex; gap: 10px; align-items: flex-start; margin-top: 24px; background: var(--surface-2); }
+.send { flex: none; height: 42px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--signal-50); color: var(--signal-700); font-size: 14px; font-weight: 600; }
+.send:active:not(:disabled) { background: var(--signal-300); }
+.send:disabled { background: var(--surface-3); color: var(--ink-400); }
+.sent { margin: 8px 0 0 4px; }
+.via { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; background: var(--signal-50); border: 1px solid rgba(232,89,12,.18); }
 .via b { display: block; font-size: 13px; font-weight: 700; color: var(--ink-900); }
 .via p { margin-top: 4px; line-height: 1.6; }
 .agree { display: flex; align-items: flex-start; gap: 8px; margin-top: 20px; }
 .agree :deep(.van-checkbox) { flex: none; margin-top: 1px; }
 .agree .t-xs { line-height: 1.6; color: var(--ink-500); }
 .agree a { color: var(--signal-700); }
-.submit { margin-top: 20px; }
+.submit { margin-top: 20px; height: 54px; border: 0; border-radius: 16px; font-size: 17px; font-weight: 700; letter-spacing: .06em;
+  background: linear-gradient(135deg, #F07A3A 0%, #E8590C 55%, #C9490A 100%); box-shadow: 0 14px 26px -14px rgba(232,89,12,.9); }
 </style>

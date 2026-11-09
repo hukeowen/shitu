@@ -1,5 +1,7 @@
-/* Element Plus 主题映射：在 tokens.css 之后引入。主色 = 仕兔橙 #E8590C */
-:root {
+/* Element Plus 主题映射：主色 = 仕兔橙 #E8590C。
+ * 选择器用 html:root 提高优先级：按需引入的组件样式（unplugin 自动注入）在本文件之后加载，
+ * 其中也在 :root 上定义了 --el-color-*，同优先级时后加载的会把主色覆盖回 Element 默认蓝。 */
+html:root {
   --el-color-primary: #E8590C;
   --el-color-primary-light-3: #EF8B55;
   --el-color-primary-light-5: #F4AC86;
