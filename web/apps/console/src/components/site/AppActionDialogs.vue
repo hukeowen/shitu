@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNowMs, shNow } from '@/utils/time'
 import { computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -40,7 +41,7 @@ async function openAck(app: SiteApplication, repush: boolean) {
   ack.repush = repush
   ack.hint = ''
   const existing = parseLocal(app.interviewAt)
-  ack.form.interviewAt = toLocalIso(existing && existing.getTime() > Date.now() ? existing : nextWorkday9())
+  ack.form.interviewAt = toLocalIso(existing && existing.getTime() > shNowMs() ? existing : nextWorkday9())
   ack.form.address = ''
   ack.form.routeTips = ''
   ack.form.documents = ['身份证']
@@ -51,7 +52,7 @@ async function openAck(app: SiteApplication, repush: boolean) {
   const n = app.notice
   if (n) {
     const at = parseLocal(n.interviewAt)
-    if (at && at.getTime() > Date.now()) ack.form.interviewAt = toLocalIso(at)
+    if (at && at.getTime() > shNowMs()) ack.form.interviewAt = toLocalIso(at)
     ack.form.address = n.address ?? ''
     ack.form.routeTips = n.routeTips ?? ''
     ack.form.documents = n.documents?.length ? [...n.documents] : []
@@ -78,7 +79,7 @@ async function openAck(app: SiteApplication, repush: boolean) {
 }
 
 function disablePast(d: Date) {
-  const today = new Date()
+  const today = shNow()
   today.setHours(0, 0, 0, 0)
   return d.getTime() < today.getTime()
 }
@@ -121,7 +122,7 @@ const cf = reactive({
 })
 
 function openConfirm(app: SiteApplication, resend: boolean) {
-  const today = new Date()
+  const today = shNow()
   cf.app = app
   cf.resend = resend
   cf.result = null
@@ -133,7 +134,7 @@ function openConfirm(app: SiteApplication, resend: boolean) {
 
 /** 入职日期：近 3 天到未来 30 天（后端同口径） */
 function disableStart(d: Date) {
-  const today = new Date()
+  const today = shNow()
   today.setHours(0, 0, 0, 0)
   return d.getTime() < addDays(today, -3).getTime() || d.getTime() > addDays(today, 30).getTime()
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNow } from '@/utils/time'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, tenantApi, type DutyAbsenceView, type StaffRow } from '@shitu/api-client'
@@ -12,8 +13,8 @@ const props = defineProps<{ row: StaffRow | null }>()
 const visible = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ done: [] }>()
 
-const form = reactive({ date: ymd(new Date()), type: 'LEAVE' as 'LEAVE' | 'ABSENT', remark: '' })
-const month = ref(ym(new Date()))
+const form = reactive({ date: ymd(shNow()), type: 'LEAVE' as 'LEAVE' | 'ABSENT', remark: '' })
+const month = ref(ym(shNow()))
 const records = ref<DutyAbsenceView[]>([])
 const loading = ref(false)
 const loadError = ref('')
@@ -44,10 +45,10 @@ async function load() {
 
 watch(visible, (v) => {
   if (v && props.row) {
-    form.date = ymd(new Date())
+    form.date = ymd(shNow())
     form.type = 'LEAVE'
     form.remark = ''
-    month.value = ym(new Date())
+    month.value = ym(shNow())
     changed.value = false
     load()
   } else if (!v && changed.value) {
@@ -61,7 +62,7 @@ watch(month, () => {
 /** 只能标记入职日之后、今天（或离职日）之前的日期 */
 function disableDate(d: Date) {
   const start = parseLocal(props.row?.startDate)
-  const end = parseLocal(props.row?.endDate) ?? new Date()
+  const end = parseLocal(props.row?.endDate) ?? shNow()
   return (start != null && d.getTime() < start.getTime()) || d.getTime() > end.getTime()
 }
 

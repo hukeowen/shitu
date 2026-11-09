@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNowMs, shNow } from '@/utils/time'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type LedgerLine } from '@shitu/api-client'
@@ -11,7 +12,7 @@ import { ym } from '@/utils/time'
  */
 const route = useRoute()
 const router = useRouter()
-const month = ref<string>(typeof route.query.month === 'string' && /^\d{4}-\d{2}$/.test(route.query.month) ? route.query.month : ym(new Date()))
+const month = ref<string>(typeof route.query.month === 'string' && /^\d{4}-\d{2}$/.test(route.query.month) ? route.query.month : ym(shNow()))
 const lines = ref<LedgerLine[]>([])
 const loading = ref(false)
 const loadError = ref('')
@@ -62,7 +63,7 @@ function side(dir: LedgerLine['direction']): Side {
 }
 const payable = computed(() => side('PAYABLE'))
 const receivable = computed(() => side('RECEIVABLE'))
-const disabledMonth = (d: Date) => d.getTime() > Date.now()
+const disabledMonth = (d: Date) => d.getTime() > shNowMs()
 </script>
 
 <template>

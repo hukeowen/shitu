@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNow } from '@/utils/time'
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, type StaffRow } from '@shitu/api-client'
@@ -10,13 +11,13 @@ const visible = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ done: [] }>()
 
 const REASONS = ['个人 / 家庭原因', '岗位不适应', '薪资不满意', '吃住条件', '违纪辞退', '合同到期不续签']
-const form = reactive({ resignDate: ymd(new Date()), reason: '', remark: '' })
+const form = reactive({ resignDate: ymd(shNow()), reason: '', remark: '' })
 const saving = ref(false)
 
 /** 默认今天；入职当天或之后入职的，默认入职次日 */
 function defaultDate(): string {
   const start = parseLocal(props.row?.startDate)
-  const today = new Date()
+  const today = shNow()
   today.setHours(0, 0, 0, 0)
   return ymd(start && start.getTime() >= today.getTime() ? addDays(start, 1) : today)
 }
@@ -32,9 +33,9 @@ watch(visible, (v) => {
 /** 离职日：晚于入职日，且在近 31 天到未来 30 天之间（后端同口径） */
 function disableDate(d: Date) {
   const start = parseLocal(props.row?.startDate)
-  const min = addDays(new Date(), -31)
+  const min = addDays(shNow(), -31)
   min.setHours(0, 0, 0, 0)
-  const max = addDays(new Date(), 30)
+  const max = addDays(shNow(), 30)
   return (start != null && d.getTime() <= start.getTime()) || d.getTime() < min.getTime() || d.getTime() > max.getTime()
 }
 

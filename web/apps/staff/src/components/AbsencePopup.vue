@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNow } from '@/utils/time'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { errorMessage, tenantApi, useDict, type DutyAbsenceView, type StaffRow } from '@shitu/api-client'
@@ -134,7 +135,7 @@ async function revoke(rec: DutyAbsenceView) {
   changed = true
   void load()
 }
-const nowDate = new Date()
+const nowDate = shNow()
 </script>
 
 <template>

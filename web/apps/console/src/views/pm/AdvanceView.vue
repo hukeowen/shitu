@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNow, ym } from '@/utils/time'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -47,7 +48,7 @@ function sum(list: AdvanceRow[]) {
 function byStatus(...st: AdvanceStatus[]) {
   return scoped.value.filter((a) => st.includes(a.status))
 }
-const thisMonth = new Date().toISOString().slice(0, 7)
+const thisMonth = ym(shNow())
 const stats = computed(() => {
   const s1 = byStatus('SUBMITTED')
   const s2 = byStatus('SITE_APPROVED')

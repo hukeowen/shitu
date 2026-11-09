@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNowMs, shNow } from '@/utils/time'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox, genFileId, type UploadFile, type UploadInstance, type UploadRawFile } from 'element-plus'
 import { errorMessage, tenantApi, type MemberView, type PayrollBatchResult } from '@shitu/api-client'
@@ -34,7 +35,7 @@ const batchesError = ref('')
 const members = ref<MemberView[]>([])
 
 function prevMonth() {
-  const d = new Date()
+  const d = shNow()
   d.setDate(1)
   d.setMonth(d.getMonth() - 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -43,7 +44,7 @@ function rowClass({ row }: { row: { success: boolean } }) {
   return row.success ? '' : 'row-danger'
 }
 function disabledMonth(d: Date) {
-  return d.getTime() > Date.now()
+  return d.getTime() > shNowMs()
 }
 
 const failed = computed(() => result.value?.rows.filter((r) => !r.success) ?? [])

@@ -70,9 +70,22 @@ export function countdownTone(ms: number | null): 'danger' | 'warn' | 'muted' {
 }
 
 /** 下一个工作日 9:00（面试时间默认值） */
-export function nextWorkday9(from = new Date()): Date {
+export function nextWorkday9(from = shNow()): Date {
   const d = addDays(from, 1)
   while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1)
   d.setHours(9, 0, 0, 0)
   return d
+}
+
+/**
+ * 「北京墙上时间」的当前时刻。parseLocal 把后端的北京时间按本机日期字段解析，
+ * 与之比较 / 计算倒计时 / 生成默认值时必须用这里的 now，不能用 Date.now()——
+ * 否则设备不在东八区（出差、海外测试机）时倒计时和「必须晚于现在」的校验会错开时差。
+ */
+export function shNowMs(): number {
+  return Date.now() + (480 + new Date().getTimezoneOffset()) * 60_000
+}
+
+export function shNow(): Date {
+  return new Date(shNowMs())
 }

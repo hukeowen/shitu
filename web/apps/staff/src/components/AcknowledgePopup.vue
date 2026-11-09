@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNowMs, shNow } from '@/utils/time'
 import { computed, reactive, ref, watch } from 'vue'
 import { showSuccessToast, showToast, type PickerOption } from 'vant'
 import { errorMessage, tenantApi, type SiteApplication } from '@shitu/api-client'
@@ -42,7 +43,7 @@ watch(show, (v) => {
 
 async function prefill(app: SiteApplication) {
   const existing = parseLocal(app.interviewAt)
-  form.interviewAt = existing && existing.getTime() > Date.now() ? existing : nextWorkday9()
+  form.interviewAt = existing && existing.getTime() > shNowMs() ? existing : nextWorkday9()
   form.address = ''
   form.routeTips = ''
   form.documents = ['身份证']
@@ -96,11 +97,11 @@ const pickerShow = ref(false)
 const dateVals = ref<string[]>([])
 const timeVals = ref<string[]>([])
 const minDate = computed(() => {
-  const d = new Date()
+  const d = shNow()
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 })
 const maxDate = computed(() => {
-  const d = new Date()
+  const d = shNow()
   return new Date(d.getFullYear(), d.getMonth() + 2, d.getDate())
 })
 const p2 = (n: number) => String(n).padStart(2, '0')
@@ -122,7 +123,7 @@ function onPickerConfirm() {
   const [y, mo, d] = dateVals.value.map(Number)
   const [h, mi] = timeVals.value.map(Number)
   const picked = new Date(y, mo - 1, d, h, mi, 0)
-  if (picked.getTime() <= Date.now()) {
+  if (picked.getTime() <= shNowMs()) {
     showToast('面试时间需晚于当前时间')
     return
   }
@@ -154,7 +155,7 @@ const PHONE_RE = /^(1\d{10}|0\d{2,3}-?\d{7,8}(-\d{1,6})?|400-?\d{3}-?\d{4})$/
 async function submit() {
   const app = props.application
   if (!app || submitting.value) return
-  if (form.interviewAt.getTime() <= Date.now()) {
+  if (form.interviewAt.getTime() <= shNowMs()) {
     showToast('面试时间需晚于当前时间')
     return
   }

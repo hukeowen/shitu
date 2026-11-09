@@ -1,3 +1,4 @@
+import { shNowMs } from '@/utils/time'
 import { tenantApi, type SiteApplication } from '@shitu/api-client'
 import { remainMs } from '@/utils/time'
 
@@ -12,7 +13,7 @@ export async function loadOpenApplications(projectId?: string): Promise<{ list: 
     tenantApi.applications({ ...q, status: 'PENDING_INTERVIEW' }),
     tenantApi.applications({ ...q, status: 'PENDING_CONFIRM' }),
   ])
-  const now = Date.now()
+  const now = shNowMs()
   const key = (x: SiteApplication) => remainMs(x.responseDeadline, now) ?? Number.MAX_SAFE_INTEGER
   const list = [...a.records, ...b.records].sort((x, y) => key(x) - key(y))
   return { list, truncated: a.total > a.records.length || b.total > b.records.length }

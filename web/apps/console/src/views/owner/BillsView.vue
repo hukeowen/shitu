@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNowMs } from '@/utils/time'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -44,7 +45,7 @@ function canDispute(b: MonthlyBill | null): boolean {
   const end = parseLocal(b.disputeDeadline.slice(0, 10))
   if (!end) return false
   end.setHours(23, 59, 59, 999)
-  return Date.now() <= end.getTime()
+  return shNowMs() <= end.getTime()
 }
 
 async function dispute(b: MonthlyBill) {

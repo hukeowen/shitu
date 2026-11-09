@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNow } from '@/utils/time'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceRow } from '@shitu/api-client'
@@ -42,7 +43,7 @@ async function onRefresh() {
 
 const todo = computed(() => rows.value.filter(canSiteReview))
 const shown = computed(() => (tab.value === 'todo' ? todo.value : rows.value))
-const nowDate = new Date()
+const nowDate = shNow()
 
 const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(a: AdvanceRow, approve: boolean) {

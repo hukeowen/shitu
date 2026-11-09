@@ -17,7 +17,7 @@ export function toLocalIso(d: Date): string {
 }
 
 /** 列表展示：今天 → 「今天 09:30」，今年 → 「11-06 09:30」，否则 yyyy-MM-dd HH:mm */
-export function fmtTime(v?: string | null, now = new Date()): string {
+export function fmtTime(v?: string | null, now = shNow()): string {
   const d = parseLocal(v)
   if (!d) return '—'
   const hm = `${p2(d.getHours())}:${p2(d.getMinutes())}`
@@ -43,7 +43,7 @@ export function fmtRemain(ms: number): string | null {
 }
 
 /** 下一个工作日（周一至周五）09:00 */
-export function nextWorkday9(now = new Date()): Date {
+export function nextWorkday9(now = shNow()): Date {
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0, 0)
   while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1)
   return d
@@ -67,7 +67,7 @@ export function addDays(d: Date, n: number): Date {
 }
 
 /** 当天 0 点 */
-export function startOfDay(d = new Date()): Date {
+export function startOfDay(d = shNow()): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
@@ -79,7 +79,7 @@ export function fmtDay(v?: string | Date | null): string {
 }
 
 /** 某个时间是否在今天 */
-export function isToday(v?: string | null, now = new Date()): boolean {
+export function isToday(v?: string | null, now = shNow()): boolean {
   const d = parseLocal(v)
   return !!d && d.toDateString() === now.toDateString()
 }
@@ -88,4 +88,17 @@ export function isToday(v?: string | null, now = new Date()): boolean {
 export function fmtYuan(v?: number | string | null): string {
   const n = Number(v ?? 0)
   return `¥${(Number.isFinite(n) ? n : 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/**
+ * 「北京墙上时间」的当前时刻。parseLocal 把后端的北京时间按本机日期字段解析，
+ * 与之比较 / 计算倒计时 / 生成默认值时必须用这里的 now，不能用 Date.now()——
+ * 否则设备不在东八区（出差、海外测试机）时倒计时和「必须晚于现在」的校验会错开时差。
+ */
+export function shNowMs(): number {
+  return Date.now() + (480 + new Date().getTimezoneOffset()) * 60_000
+}
+
+export function shNow(): Date {
+  return new Date(shNowMs())
 }

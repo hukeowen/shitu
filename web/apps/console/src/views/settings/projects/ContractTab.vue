@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shNow } from '@/utils/time'
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { errorMessage, tenantApi, type ContractView, type UploadedFile } from '@shitu/api-client'
@@ -48,7 +49,7 @@ function upload(file: File): Promise<UploadedFile> {
   return tenantApi.upload(file, 'contract')
 }
 
-const today = new Date()
+const today = shNow()
 today.setHours(0, 0, 0, 0)
 
 async function save() {
