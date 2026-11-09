@@ -17,7 +17,7 @@ public final class TenantTables {
             "roster_batch", "roster_row",
             "broker_case", "ai_report", "broker_recommendation", "kb_entry", "kb_query_log",
             "stock_base", "billing_daily", "company_fee_daily", "monthly_bill", "bill_dispute",
-            "advance_request", "advance_approval", "advance_debt_log", "payroll_batch", "payslip", "payslip_appeal");
+            "advance_request", "advance_approval", "advance_debt_log", "advance_repayment", "payroll_batch", "payslip", "payslip_appeal");
 
     /**
      * 共享表：跨租户数据（求职者是平台用户，不属于某一家公司），不自动过滤。

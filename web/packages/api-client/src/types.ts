@@ -560,7 +560,22 @@ export interface SiteApplication {
   responseDeadline?: string
   /** ACKNOWLEDGE 首次知悉 / REPUSH 重新推送 */
   allowedActions: string[]
+  arrivedAt?: string
+  /** 最近一次推送的面试信息（重新推送时预填） */
+  notice?: InterviewNoticeView
+  /** 待确权 / 已入职时的最近一份劳动合同；signUrl 仅待签署且驻场 / 项目经理可见 */
+  contract?: ContractBrief
 }
+
+export interface ContractBrief {
+  contractId: string
+  status: string
+  signUrl?: string
+  createdAt: string
+  signedAt?: string
+}
+
+export type SiteApplicationSort = 'CREATED_ASC' | 'CREATED_DESC' | 'DEADLINE'
 
 export interface SiteWorkbench {
   /** 待知悉（新报名） */
@@ -761,14 +776,14 @@ export interface RosterBatchResult {
 }
 
 export interface RosterBatch {
-  batch_id: string
-  total_rows: number
-  success_rows: number
-  failed_rows: number
-  in_free_period: boolean
+  batchId: string
+  totalRows: number
+  successRows: number
+  failedRows: number
+  inFreePeriod: boolean
   status: string
-  operator_id: string
-  created_at: string
+  operatorId: string
+  createdAt: string
 }
 
 export type BillStatus = 'GENERATED' | 'ISSUED' | 'DISPUTED' | 'CONFIRMED' | 'SETTLED'
@@ -841,13 +856,13 @@ export interface DailyBillingResult {
 
 export interface BillingRuleRow {
   version: number
-  effective_from: string
-  service_unit_price: number
-  transfer_unit_price: number
-  supply_share: number
-  free_months: number
-  created_by?: string
-  created_at: string
+  effectiveFrom: string
+  serviceUnitPrice: number
+  transferUnitPrice: number
+  supplyShare: number
+  freeMonths: number
+  createdBy?: string
+  createdAt: string
 }
 
 export interface CompanyCloseResult {
@@ -896,12 +911,12 @@ export interface AdvanceRow {
 }
 
 export interface DebtLogEntry {
-  change_type: 'PAYOUT' | 'DEDUCT' | 'WRITE_OFF'
+  changeType: 'PAYOUT' | 'DEDUCT' | 'WRITE_OFF'
   amount: number
-  balance_after: number
-  advance_id?: string
-  payslip_id?: string
-  created_at: string
+  balanceAfter: number
+  advanceId?: string
+  payslipId?: string
+  createdAt: string
 }
 
 export interface Payslip {
@@ -950,13 +965,13 @@ export interface PmBoard {
 }
 
 export interface OwnerProjectRow {
-  project_id: string
+  projectId: string
   name: string
   city: string | null
   managers: string | null
   employed: number
-  hired_this_month: number
-  resigned_this_month: number
+  hiredThisMonth: number
+  resignedThisMonth: number
 }
 
 export interface OwnerOverview {
@@ -973,8 +988,8 @@ export interface OwnerOverview {
 export interface ChannelFunnelRow {
   code: string
   name: string
-  member_id: string | null
-  project_id: string | null
+  memberId: string | null
+  projectId: string | null
   visits: number
   registrations: number
   applied: number
@@ -998,24 +1013,24 @@ export interface OpsOverview {
 // ---------------------------------------------------------------- 岗位知识库（T-305 / C-409）
 export interface KbEntry {
   id: number
-  project_id: string | null
-  project_name: string | null
-  job_id: string | null
-  job_title: string | null
+  projectId: string | null
+  projectName: string | null
+  jobId: string | null
+  jobTitle: string | null
   question: string
   answer: string
-  updated_by: string
-  updated_at: string
+  updatedBy: string
+  updatedAt: string
 }
 
 export interface KbPending {
   id: number
-  job_id: string
-  job_title: string
-  project_id: string
+  jobId: string
+  jobTitle: string
+  projectId: string
   question: string
-  asked_times: number
-  last_asked_at: string
+  askedTimes: number
+  lastAskedAt: string
 }
 
 export interface KbAskResult {
@@ -1023,4 +1038,18 @@ export interface KbAskResult {
   question: string
   answer: string
   matchedQuestion: string | null
+}
+
+export interface AdvanceApprovalStep {
+  step: 'SITE' | 'PM' | 'PAYOUT'
+  decision: 'APPROVE' | 'REJECT'
+  opinion?: string
+  at: string
+}
+
+/** 单笔预支：ledger 为本笔的拨款与分摊抵扣，balanceAfter = 本笔剩余未还 */
+export interface AdvanceDetail {
+  advance: AdvanceRow
+  approvals: AdvanceApprovalStep[]
+  ledger: DebtLogEntry[]
 }

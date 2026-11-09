@@ -54,14 +54,14 @@ const summary = computed(() => {
   return { total, repaid, owed: debt.value ?? owed }
 })
 
-const LOG_TEXT: Record<DebtLogEntry['change_type'], { t: string; sign: 1 | -1 }> = {
+const LOG_TEXT: Record<DebtLogEntry['changeType'], { t: string; sign: 1 | -1 }> = {
   PAYOUT: { t: '预支拨款到账', sign: 1 },
   DEDUCT: { t: '发薪日工资抵扣', sign: -1 },
   WRITE_OFF: { t: '离职结清 / 核销', sign: -1 },
 }
 function logRef(e: DebtLogEntry): string {
-  if (e.advance_id) return `预支单 ${e.advance_id}`
-  if (e.payslip_id) return `工资条 ${e.payslip_id}`
+  if (e.advanceId) return `预支单 ${e.advanceId}`
+  if (e.payslipId) return `工资条 ${e.payslipId}`
   return ''
 }
 </script>
@@ -124,12 +124,12 @@ function logRef(e: DebtLogEntry): string {
           <section v-if="log.length" class="acard list">
             <div v-for="(e, i) in log" :key="i" class="lrow lg">
               <div class="lt">
-                <b>{{ LOG_TEXT[e.change_type]?.t ?? e.change_type }}</b>
-                <span>{{ formatServerTime(e.created_at) }}<template v-if="logRef(e)"> · {{ logRef(e) }}</template></span>
+                <b>{{ LOG_TEXT[e.changeType]?.t ?? e.changeType }}</b>
+                <span>{{ formatServerTime(e.createdAt) }}<template v-if="logRef(e)"> · {{ logRef(e) }}</template></span>
               </div>
               <div class="lv">
-                <b class="num" :class="(LOG_TEXT[e.change_type]?.sign ?? -1) > 0 ? 'plus' : 'minus'">{{ fmtYuan(Math.abs(Number(e.amount)) * (LOG_TEXT[e.change_type]?.sign ?? -1), true) }}</b>
-                <span class="t-xs num">结余 {{ fmtYuan(e.balance_after) }}</span>
+                <b class="num" :class="(LOG_TEXT[e.changeType]?.sign ?? -1) > 0 ? 'plus' : 'minus'">{{ fmtYuan(Math.abs(Number(e.amount)) * (LOG_TEXT[e.changeType]?.sign ?? -1), true) }}</b>
+                <span class="t-xs num">结余 {{ fmtYuan(e.balanceAfter) }}</span>
               </div>
             </div>
           </section>

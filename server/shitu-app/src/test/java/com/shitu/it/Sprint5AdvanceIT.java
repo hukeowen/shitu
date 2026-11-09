@@ -115,6 +115,9 @@ class Sprint5AdvanceIT extends FlowItSupport {
         }
         assertThat(reasons(s)).anyMatch(r -> r.contains("本月已预支 4 次"));
 
+        // 额度规则已验证完；把入职日提前到上上月，保证"上月工资"在任何日期都有在职记录
+        jdbc.update("UPDATE employment SET start_date = ? WHERE employment_id = ?", Date.valueOf(today.minusMonths(2)), empId);
+
         // 8. 工资抵扣：应发 600 − 社保 200 = 400 → 抵扣 400，欠款结转 100，预支状态部分抵扣
         String phone = cipher.decrypt(jdbc.queryForObject("SELECT phone_enc FROM `user` WHERE user_id = ?", String.class, uid));
         JsonNode b1 = importPayroll(c.pm(), YearMonth.now().minusMonths(1), phone, "600", "200");
@@ -143,6 +146,13 @@ class Sprint5AdvanceIT extends FlowItSupport {
         JsonNode slips = data(call(get("/api/v1/seeker/payslips"), s, null));
         assertThat(slips.size()).isEqualTo(2);
         assertThat(data(call(get("/api/v1/seeker/advance/debt-log"), s, null)).size()).isEqualTo(3);
+        JsonNode detail = data(call(get("/api/v1/seeker/advance/" + a2), s, null));
+        assertThat(detail.get("approvals").size()).as("驻场初审 + 项目经理终审 + 拨款").isEqualTo(3);
+        assertThat(detail.get("ledger").size()).isEqualTo(3);
+        assertThat(detail.get("ledger").get(0).has("balanceAfter")).isTrue();
+        assertThat(code(call(get("/api/v1/seeker/advance/" + a2), readySeeker(null), null))).isEqualTo("SYS_4040");
+        String slipId = slips.get(0).get("payslipId").asText();
+        assertThat(data(call(get("/api/v1/seeker/payslips/" + slipId), s, null)).get("payslipId").asText()).isEqualTo(slipId);
     }
 
     private java.util.List<String> reasons(String token) throws Exception {

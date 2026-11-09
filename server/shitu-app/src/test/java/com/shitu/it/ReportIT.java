@@ -44,6 +44,9 @@ class ReportIT extends FlowItSupport {
         employ(c, s1, job);
         String s2 = readySeeker(code);
         apply(s2, job); // 待面试
+        JsonNode byDeadline = data(call(get("/api/v1/tenant/applications?status=PENDING_INTERVIEW&sort=DEADLINE"), c.site(), null));
+        assertThat(byDeadline.get("total").asLong()).isEqualTo(1);
+        assertThat(status(get("/api/v1/tenant/applications?sort=CREATED_DESC"), c.owner(), null)).isEqualTo(200);
 
         // ---------------------------------------------------------------- 项目经理看板
         JsonNode board = data(call(get("/api/v1/tenant/reports/board"), c.pm(), null));
@@ -59,7 +62,7 @@ class ReportIT extends FlowItSupport {
         JsonNode ov = data(call(get("/api/v1/tenant/reports/overview"), c.owner(), null));
         assertThat(ov.get("totalHired").asLong()).isEqualTo(1);
         assertThat(ov.get("employed").asLong()).isEqualTo(1);
-        assertThat(find(ov.get("projects"), "project_id", c.projectId()).get("employed").asLong()).isEqualTo(1);
+        assertThat(find(ov.get("projects"), "projectId", c.projectId()).get("employed").asLong()).isEqualTo(1);
         String userId = userId(s1);
         assertThat(ov.toString()).doesNotContain(userId).doesNotContain("phone").doesNotContain("id_card");
 
@@ -84,6 +87,10 @@ class ReportIT extends FlowItSupport {
         data(call(post("/api/v1/tenant/applications/" + app + "/arrive"), c.site(), Map.of()));
         data(call(post("/api/v1/tenant/applications/" + app + "/result"), c.site(), Map.of("pass", true)));
         String url = data(call(post("/api/v1/tenant/applications/" + app + "/confirm"), c.site(), Map.of())).get("signUrl").asText();
+        JsonNode one = data(call(get("/api/v1/tenant/applications/" + app), c.site(), null));
+        assertThat(one.get("arrivedAt").isNull()).isFalse();
+        assertThat(one.get("contract").get("status").asText()).isEqualTo("PENDING_SIGN");
+        assertThat(one.get("contract").get("signUrl").asText()).isEqualTo(url);
         String flow = url.replaceAll(".*/esign/mock/", "");
         String body = json.writeValueAsString(Map.of("flowId", flow, "action", "SIGN_FLOW_COMPLETE"));
         mvc.perform(post("/api/v1/callback/esign").contentType(MediaType.APPLICATION_JSON).content(body)

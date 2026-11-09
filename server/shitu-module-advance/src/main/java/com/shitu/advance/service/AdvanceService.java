@@ -54,6 +54,17 @@ public class AdvanceService {
                              LocalDateTime createdAt, List<String> allowedActions) {
     }
 
+    public record DebtLogEntry(String changeType, BigDecimal amount, BigDecimal balanceAfter, String advanceId, String payslipId,
+                               LocalDateTime createdAt) {
+    }
+
+    /** step：SITE / PM / PAYOUT；decision：APPROVE / REJECT。 */
+    public record ApprovalStep(String step, String decision, String opinion, LocalDateTime at) {
+    }
+
+    public record AdvanceDetail(AdvanceRow advance, List<ApprovalStep> approvals, List<DebtLogEntry> ledger) {
+    }
+
     private record Emp(String employmentId, String companyId, String projectId, LocalDate startDate) {
     }
 
@@ -125,9 +136,35 @@ public class AdvanceService {
         return rows("SELECT * FROM advance_request WHERE user_id = ? ORDER BY created_at DESC", null, userId);
     }
 
-    public List<Map<String, Object>> debtLog(String userId) {
-        return jdbc.queryForList("SELECT change_type, amount, balance_after, advance_id, payslip_id, created_at FROM advance_debt_log "
-                + "WHERE user_id = ? ORDER BY id DESC LIMIT 100", userId);
+    public List<DebtLogEntry> debtLog(String userId) {
+        return debtLog("user_id = ?", userId);
+    }
+
+    /** C-603：单笔预支详情 = 记录 + 审批节点（不含审批人身份）+ 该笔的拨款 / 抵扣流水。 */
+    public AdvanceDetail detail(String userId, String advanceId) {
+        List<AdvanceRow> r = rows("SELECT * FROM advance_request WHERE advance_id = ? AND user_id = ?", null, advanceId, userId);
+        BizException.check(!r.isEmpty(), ErrorCode.SYS_NOT_FOUND);
+        List<ApprovalStep> steps = jdbc.query("SELECT step, decision, opinion, created_at FROM advance_approval WHERE advance_id = ? ORDER BY id",
+                (rs, i) -> new ApprovalStep(rs.getString(1), rs.getString(2), rs.getString(3), rs.getTimestamp(4).toLocalDateTime()),
+                advanceId);
+        // 该笔的流水：拨款（+）与按先到先还分摊到本笔的工资抵扣（−），balanceAfter 为本笔剩余未还
+        List<DebtLogEntry> ledger = new java.util.ArrayList<>(jdbc.query(
+                "SELECT 'DEDUCT', amount, remaining_after, advance_id, payslip_id, created_at FROM advance_repayment "
+                        + "WHERE advance_id = ? AND user_id = ? ORDER BY id DESC",
+                (rs, i) -> new DebtLogEntry(rs.getString(1), rs.getBigDecimal(2), rs.getBigDecimal(3), rs.getString(4), rs.getString(5),
+                        rs.getTimestamp(6).toLocalDateTime()), advanceId, userId));
+        AdvanceRow a = r.get(0);
+        if (a.paidAt() != null) {
+            ledger.add(new DebtLogEntry("PAYOUT", a.amount(), a.amount(), advanceId, null, a.paidAt()));
+        }
+        return new AdvanceDetail(a, steps, ledger);
+    }
+
+    private List<DebtLogEntry> debtLog(String where, Object... args) {
+        return jdbc.query("SELECT change_type, amount, balance_after, advance_id, payslip_id, created_at FROM advance_debt_log "
+                        + "WHERE " + where + " ORDER BY id DESC LIMIT 100",
+                (rs, i) -> new DebtLogEntry(rs.getString(1), rs.getBigDecimal(2), rs.getBigDecimal(3), rs.getString(4), rs.getString(5),
+                        rs.getTimestamp(6).toLocalDateTime()), args);
     }
 
     // ================================================================== 公司后台审批（D-25）
@@ -214,6 +251,9 @@ public class AdvanceService {
             boolean done = pay.compareTo(owe) == 0;
             jdbc.update("UPDATE advance_request SET repaid_amount = repaid_amount + ?, status = ?, version = version + 1 WHERE advance_id = ?",
                     pay, done ? "REPAID" : "PARTIALLY_REPAID", a.get("advance_id"));
+            BigDecimal remaining = owe.subtract(pay);
+            jdbc.update("INSERT INTO advance_repayment (company_id, user_id, advance_id, payslip_id, amount, remaining_after) VALUES (?, ?, ?, ?, ?, ?)",
+                    companyId, userId, a.get("advance_id"), payslipId, pay, remaining);
         }
         return r;
     }

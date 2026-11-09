@@ -81,6 +81,8 @@ import type {
   OwnerOverview,
   ChannelFunnelRow,
   OpsOverview,
+  AdvanceDetail,
+  SiteApplicationSort,
   KbEntry,
   KbPending,
   KbAskResult,
@@ -169,9 +171,11 @@ export const seekerApi = {
   applyAdvance: () => post<string>('/seeker/advance'),
   /** 预支记录与审批进度（C-603 / C-604） */
   myAdvances: () => get<AdvanceRow[]>('/seeker/advance'),
+  advanceDetail: (advanceId: string) => get<AdvanceDetail>(`/seeker/advance/${advanceId}`),
   debtLog: () => get<DebtLogEntry[]>('/seeker/advance/debt-log'),
   /** 工资条（C-701） */
   payslips: () => get<Payslip[]>('/seeker/payslips'),
+  payslip: (payslipId: string) => get<Payslip>(`/seeker/payslips/${payslipId}`),
   /** 岗位投诉（C-402）：只能投诉匹配到或报名过的岗位 */
   askJob: (jobId: string, question: string) => post<KbAskResult>(`/seeker/jobs/${jobId}/ask`, { question }),
   complain: (jobId: string, category: ComplaintCategory, content?: string) =>
@@ -253,7 +257,7 @@ export const tenantApi = {
   /** 驻场工作台数字（M-01） */
   siteWorkbench: () => get<SiteWorkbench>('/tenant/site/workbench'),
   /** 报名列表（M-02）：unacknowledged=true 只看待知悉 */
-  applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; projectId?: string; page?: number; pageSize?: number }) =>
+  applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; projectId?: string; page?: number; pageSize?: number; sort?: SiteApplicationSort }) =>
     get<PageResult<SiteApplication>>('/tenant/applications', params),
   application: (applicationId: string) => get<SiteApplication>(`/tenant/applications/${applicationId}`),
   /** 知悉并推送面试信息（可重复推送） */

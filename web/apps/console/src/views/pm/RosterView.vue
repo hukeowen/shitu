@@ -27,7 +27,7 @@ async function loadBatches() {
   batchesError.value = ''
   try {
     const r = await tenantApi.rosterBatches()
-    batches.value = [...r].sort((a, b) => b.created_at.localeCompare(a.created_at))
+    batches.value = [...r].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   } catch (e) {
     batchesError.value = errorMessage(e, '导入记录加载失败')
   } finally {
@@ -195,17 +195,17 @@ async function doImport() {
     <div class="card" style="margin-top: 14px">
       <div class="card__hd"><h3>导入记录</h3><el-button size="small" @click="loadBatches">刷新</el-button></div>
       <el-alert v-if="batchesError" type="error" :title="batchesError" show-icon :closable="false" />
-      <el-table v-loading="batchesLoading" :data="batches" row-key="batch_id">
-        <el-table-column label="批次" min-width="160"><template #default="{ row }"><span class="mono t-sm">{{ row.batch_id }}</span></template></el-table-column>
-        <el-table-column label="导入时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.created_at) }}</span></template></el-table-column>
-        <el-table-column label="总行数" width="80" align="center"><template #default="{ row }"><span class="num">{{ row.total_rows }}</span></template></el-table-column>
-        <el-table-column label="成功" width="80" align="center"><template #default="{ row }"><span class="num" style="color: var(--ok)">{{ row.success_rows }}</span></template></el-table-column>
-        <el-table-column label="失败" width="80" align="center"><template #default="{ row }"><span class="num" :style="{ color: row.failed_rows ? 'var(--danger)' : undefined }">{{ row.failed_rows }}</span></template></el-table-column>
-        <el-table-column label="计费口径" width="120"><template #default="{ row }"><span class="tag" :class="row.in_free_period ? 'tag--ok' : 'tag--warn'">{{ row.in_free_period ? '存量' : '增量' }}</span></template></el-table-column>
-        <el-table-column label="操作人" width="110"><template #default="{ row }"><span class="t-sm">{{ memberName(row.operator_id) }}</span></template></el-table-column>
+      <el-table v-loading="batchesLoading" :data="batches" row-key="batchId">
+        <el-table-column label="批次" min-width="160"><template #default="{ row }"><span class="mono t-sm">{{ row.batchId }}</span></template></el-table-column>
+        <el-table-column label="导入时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="总行数" width="80" align="center"><template #default="{ row }"><span class="num">{{ row.totalRows }}</span></template></el-table-column>
+        <el-table-column label="成功" width="80" align="center"><template #default="{ row }"><span class="num" style="color: var(--ok)">{{ row.successRows }}</span></template></el-table-column>
+        <el-table-column label="失败" width="80" align="center"><template #default="{ row }"><span class="num" :style="{ color: row.failedRows ? 'var(--danger)' : undefined }">{{ row.failedRows }}</span></template></el-table-column>
+        <el-table-column label="计费口径" width="120"><template #default="{ row }"><span class="tag" :class="row.inFreePeriod ? 'tag--ok' : 'tag--warn'">{{ row.inFreePeriod ? '存量' : '增量' }}</span></template></el-table-column>
+        <el-table-column label="操作人" width="110"><template #default="{ row }"><span class="t-sm">{{ memberName(row.operatorId) }}</span></template></el-table-column>
         <el-table-column label="" width="120" align="right">
           <template #default="{ row }">
-            <el-button v-if="row.failed_rows > 0" size="small" link type="primary" :loading="downloading === row.batch_id" @click="download(row.batch_id)">下载失败行</el-button>
+            <el-button v-if="row.failedRows > 0" size="small" link type="primary" :loading="downloading === row.batchId" @click="download(row.batchId)">下载失败行</el-button>
           </template>
         </el-table-column>
         <template #empty><el-empty :image-size="70" :description="batchesError ? '加载失败' : '暂无导入记录'" /></template>

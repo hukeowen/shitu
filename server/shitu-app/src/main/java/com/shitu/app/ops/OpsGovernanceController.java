@@ -1,5 +1,6 @@
 package com.shitu.app.ops;
 
+import com.shitu.common.util.Rows;
 import com.shitu.common.Constants;
 import com.shitu.common.api.ApiResponse;
 import com.shitu.common.exception.BizException;
@@ -64,8 +65,8 @@ public class OpsGovernanceController {
     @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
     @GetMapping("/billing/rules")
     public ApiResponse<List<Map<String, Object>>> rules() {
-        return ApiResponse.ok(jdbc.queryForList("SELECT version, effective_from, service_unit_price, transfer_unit_price, supply_share, "
-                + "free_months, created_by, created_at FROM billing_rule ORDER BY effective_from DESC"));
+        return ApiResponse.ok(Rows.camel(jdbc.queryForList("SELECT version, effective_from, service_unit_price, transfer_unit_price, supply_share, "
+                + "free_months, created_by, created_at FROM billing_rule ORDER BY effective_from DESC")));
     }
 
     @Operation(summary = "新增计费规则版本（只能从明天及以后生效，历史计费不受影响）")
@@ -103,7 +104,7 @@ public class OpsGovernanceController {
                 r.put("free_days_left", Math.max(0, left));
             }
         });
-        return ApiResponse.ok(rows);
+        return ApiResponse.ok(Rows.camel(rows));
     }
 
     @Operation(summary = "归属治理（P-08）：按手机号或用户 ID 查当前状态、来源 / 当前归属、状态迁移日志、报名与任职")
@@ -124,14 +125,14 @@ public class OpsGovernanceController {
         out.put("realNameMasked", u.get("real_name_enc") == null ? null : Masks.name(cipher.decrypt((String) u.get("real_name_enc"))));
         for (String k : List.of("user_status", "source_company_id", "bound_company_id", "last_release_reason", "kyc_status",
                 "register_channel_type", "register_channel_code", "registered_at", "match_cycle_count", "blacklist_flag")) {
-            out.put(k, u.get(k));
+            out.put(Rows.camel(k), u.get(k));
         }
-        out.put("statusLog", jdbc.queryForList("SELECT event, from_status, to_status, bound_before, bound_after, release_reason, "
-                + "actor_role, actor_id, actor_company_id, remark, created_at FROM user_status_log WHERE user_id = ? ORDER BY id DESC LIMIT 200", uid));
-        out.put("applications", jdbc.queryForList("SELECT application_id, company_id, job_id, status, created_at, ended_at, end_reason "
-                + "FROM application WHERE user_id = ? ORDER BY created_at DESC", uid));
-        out.put("employments", jdbc.queryForList("SELECT employment_id, company_id, project_id, start_date, end_date, end_reason, "
-                + "source_company_id_snapshot, is_transfer, origin FROM employment WHERE user_id = ? ORDER BY start_date DESC", uid));
+        out.put("statusLog", Rows.camel(jdbc.queryForList("SELECT event, from_status, to_status, bound_before, bound_after, release_reason, "
+                + "actor_role, actor_id, actor_company_id, remark, created_at FROM user_status_log WHERE user_id = ? ORDER BY id DESC LIMIT 200", uid)));
+        out.put("applications", Rows.camel(jdbc.queryForList("SELECT application_id, company_id, job_id, status, created_at, ended_at, end_reason "
+                + "FROM application WHERE user_id = ? ORDER BY created_at DESC", uid)));
+        out.put("employments", Rows.camel(jdbc.queryForList("SELECT employment_id, company_id, project_id, start_date, end_date, end_reason, "
+                + "source_company_id_snapshot, is_transfer, origin FROM employment WHERE user_id = ? ORDER BY start_date DESC", uid)));
         audit.log("ATTRIBUTION_QUERY", "USER", uid, null);
         return ApiResponse.ok(out);
     }

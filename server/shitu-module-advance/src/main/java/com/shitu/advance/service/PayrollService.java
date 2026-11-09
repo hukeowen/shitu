@@ -1,5 +1,6 @@
 package com.shitu.advance.service;
 
+import com.shitu.common.util.Rows;
 import com.shitu.advance.domain.DebtDeduction;
 import com.shitu.common.exception.BizException;
 import com.shitu.common.exception.ErrorCode;
@@ -137,8 +138,8 @@ public class PayrollService {
     }
 
     public List<Map<String, Object>> batches(String companyId) {
-        return jdbc.queryForList("SELECT batch_id, pay_month, headcount, gross_total, advance_deduct_total, net_total, status, operator_id, created_at "
-                + "FROM payroll_batch WHERE company_id = ? ORDER BY created_at DESC LIMIT 50", companyId);
+        return Rows.camel(jdbc.queryForList("SELECT batch_id, pay_month, headcount, gross_total, advance_deduct_total, net_total, status, operator_id, created_at "
+                + "FROM payroll_batch WHERE company_id = ? ORDER BY created_at DESC LIMIT 50", companyId));
     }
 
     private static BigDecimal nz(BigDecimal v) {

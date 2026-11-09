@@ -1,5 +1,6 @@
 package com.shitu.app.ops;
 
+import com.shitu.common.util.Rows;
 import com.shitu.common.api.ApiResponse;
 import com.shitu.framework.security.CurrentUser;
 import com.shitu.risk.ComplaintService;
@@ -68,7 +69,7 @@ public class OpsRiskController {
     public ApiResponse<Map<String, Object>> creditOf(@PathVariable String companyId) {
         Map<String, Object> c = jdbc.queryForMap("SELECT company_id, name, credit_score, penalty_level, penalty_until, fee_rights_revoked, "
                 + "company_status FROM company WHERE company_id = ?", companyId);
-        return ApiResponse.ok(Map.of("company", c, "logs", credit.logs(companyId), "penalties", credit.penalties(companyId)));
+        return ApiResponse.ok(Map.of("company", Rows.camel(c), "logs", credit.logs(companyId), "penalties", credit.penalties(companyId)));
     }
 
     @Operation(summary = "人工调分（留痕）")
@@ -100,6 +101,6 @@ public class OpsRiskController {
                 + (companyId == null ? "" : " AND j.company_id = ?") + " ORDER BY j.match_weight ASC LIMIT 500",
                 companyId == null ? new Object[0] : new Object[]{companyId});
         rows.forEach(r -> r.put("zombie", ((java.math.BigDecimal) r.get("match_weight")).compareTo(new java.math.BigDecimal("0.3")) < 0));
-        return ApiResponse.ok(rows);
+        return ApiResponse.ok(Rows.camel(rows));
     }
 }

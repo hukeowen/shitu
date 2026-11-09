@@ -1,5 +1,6 @@
 package com.shitu.lifecycle.employment;
 
+import com.shitu.common.util.Rows;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shitu.common.Constants;
@@ -262,7 +263,7 @@ public class RosterImportService {
     }
 
     public List<Map<String, Object>> batches(String companyId) {
-        return jdbc.queryForList("SELECT batch_id, total_rows, success_rows, failed_rows, in_free_period, status, operator_id, created_at "
-                + "FROM roster_batch WHERE company_id = ? ORDER BY created_at DESC LIMIT 50", companyId);
+        return Rows.camel(jdbc.queryForList("SELECT batch_id, total_rows, success_rows, failed_rows, in_free_period, status, operator_id, created_at "
+                + "FROM roster_batch WHERE company_id = ? ORDER BY created_at DESC LIMIT 50", companyId));
     }
 }

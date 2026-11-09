@@ -1,5 +1,6 @@
 package com.shitu.app.report;
 
+import com.shitu.common.util.Rows;
 import com.shitu.common.Constants;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -65,27 +66,27 @@ public class ReportService {
         m.put("transferIn", count("SELECT COUNT(*) FROM employment WHERE company_id = ? AND end_date IS NULL AND is_transfer = 1", companyId));
         m.put("transferOut", count("SELECT COUNT(*) FROM employment WHERE source_company_id_snapshot = ? AND company_id <> ? AND end_date IS NULL",
                 companyId, companyId));
-        m.put("projects", jdbc.queryForList("SELECT p.project_id, p.name, p.city, "
+        m.put("projects", Rows.camel(jdbc.queryForList("SELECT p.project_id, p.name, p.city, "
                 + "(SELECT GROUP_CONCAT(m.name) FROM member_project mp JOIN member m ON m.member_id = mp.member_id "
                 + "  WHERE mp.project_id = p.project_id AND m.roles LIKE '%PM%') AS managers, "
                 + "(SELECT COUNT(*) FROM employment e WHERE e.project_id = p.project_id AND e.end_date IS NULL) AS employed, "
                 + "(SELECT COUNT(*) FROM employment e WHERE e.project_id = p.project_id AND e.start_date >= ?) AS hired_this_month, "
                 + "(SELECT COUNT(*) FROM employment e WHERE e.project_id = p.project_id AND e.end_date >= ?) AS resigned_this_month "
                 + "FROM project p WHERE p.company_id = ? AND p.status = 'ACTIVE' ORDER BY employed DESC",
-                Date.valueOf(first), Date.valueOf(first), companyId));
+                Date.valueOf(first), Date.valueOf(first), companyId)));
         return m;
     }
 
     /** T-402 渠道转化：各渠道码 访问 → 注册 → 报名 → 入职（只统计本公司渠道码）。 */
     public List<Map<String, Object>> channelFunnel(String companyId) {
-        return jdbc.queryForList("SELECT c.code, c.name, c.member_id, c.project_id, "
+        return Rows.camel(jdbc.queryForList("SELECT c.code, c.name, c.member_id, c.project_id, "
                 + "(SELECT COUNT(*) FROM channel_visit v WHERE v.code = c.code) AS visits, "
                 + "(SELECT COUNT(*) FROM `user` u WHERE u.register_channel_code = c.code) AS registrations, "
                 + "(SELECT COUNT(DISTINCT a.user_id) FROM application a JOIN `user` u ON u.user_id = a.user_id "
                 + "  WHERE u.register_channel_code = c.code AND a.company_id = ?) AS applied, "
                 + "(SELECT COUNT(DISTINCT e.user_id) FROM employment e JOIN `user` u ON u.user_id = e.user_id "
                 + "  WHERE u.register_channel_code = c.code AND e.company_id = ?) AS hired "
-                + "FROM channel_code c WHERE c.company_id = ? ORDER BY registrations DESC", companyId, companyId, companyId);
+                + "FROM channel_code c WHERE c.company_id = ? ORDER BY registrations DESC", companyId, companyId, companyId));
     }
 
     /** P-01 运营总览（平台）。 */
@@ -112,8 +113,8 @@ public class ReportService {
         BigDecimal monthService = jdbc.queryForObject("SELECT COALESCE(SUM(service_fee), 0) FROM company_fee_daily WHERE biz_date >= ?",
                 BigDecimal.class, Date.valueOf(month.atDay(1)));
         m.put("monthServiceFee", monthService);
-        m.put("trend", jdbc.queryForList("SELECT DATE(registered_at) AS d, COUNT(*) AS registrations FROM `user` "
-                + "WHERE registered_at >= ? GROUP BY DATE(registered_at) ORDER BY d", Date.valueOf(t.minusDays(13))));
+        m.put("trend", Rows.camel(jdbc.queryForList("SELECT DATE(registered_at) AS d, COUNT(*) AS registrations FROM `user` "
+                + "WHERE registered_at >= ? GROUP BY DATE(registered_at) ORDER BY d", Date.valueOf(t.minusDays(13)))));
         return m;
     }
 

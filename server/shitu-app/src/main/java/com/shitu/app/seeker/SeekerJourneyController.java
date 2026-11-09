@@ -210,8 +210,21 @@ public class SeekerJourneyController {
 
     @Operation(summary = "欠款流水（拨款 / 工资抵扣）")
     @GetMapping("/advance/debt-log")
-    public ApiResponse<List<java.util.Map<String, Object>>> debtLog() {
+    public ApiResponse<List<com.shitu.advance.service.AdvanceService.DebtLogEntry>> debtLog() {
         return ApiResponse.ok(advances.debtLog(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "单笔预支详情：审批节点与拨款 / 抵扣流水（C-603）")
+    @GetMapping("/advance/{advanceId}")
+    public ApiResponse<com.shitu.advance.service.AdvanceService.AdvanceDetail> advanceDetail(@PathVariable String advanceId) {
+        return ApiResponse.ok(advances.detail(CurrentUser.subjectId(), advanceId));
+    }
+
+    @Operation(summary = "单张工资条（S-42）")
+    @GetMapping("/payslips/{payslipId}")
+    public ApiResponse<com.shitu.advance.service.PayrollService.Payslip> payslip(@PathVariable String payslipId) {
+        return ApiResponse.ok(payroll.mine(CurrentUser.subjectId()).stream().filter(x -> x.payslipId().equals(payslipId)).findFirst()
+                .orElseThrow(() -> new com.shitu.common.exception.BizException(com.shitu.common.exception.ErrorCode.SYS_NOT_FOUND)));
     }
 
     @Operation(summary = "我的工资条（C-701）")

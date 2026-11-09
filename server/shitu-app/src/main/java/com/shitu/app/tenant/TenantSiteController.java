@@ -53,18 +53,19 @@ public class TenantSiteController {
     }
 
     @Operation(summary = "报名列表（M-02；驻场 / 项目经理按负责项目过滤；手机号仅驻场可见）")
-    @PreAuthorize("hasAnyRole('SITE','PM')")
+    @PreAuthorize("hasAnyRole('SITE','PM','OWNER')")
     @GetMapping("/applications")
     public ApiResponse<PageResult<ApplicationService.SiteApplication>> list(@RequestParam(required = false) ApplicationStatus status,
                                                                           @RequestParam(required = false) Boolean unacknowledged,
                                                                           @RequestParam(required = false) String projectId,
                                                                           @RequestParam(required = false) Integer page,
-                                                                          @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.ok(applications.forTenant(CurrentUser.get(), status, unacknowledged, projectId, page, pageSize));
+                                                                          @RequestParam(required = false) Integer pageSize,
+                                                                          @RequestParam(required = false) ApplicationService.Sort sort) {
+        return ApiResponse.ok(applications.forTenant(CurrentUser.get(), status, unacknowledged, projectId, page, pageSize, sort));
     }
 
     @Operation(summary = "报名详情")
-    @PreAuthorize("hasAnyRole('SITE','PM')")
+    @PreAuthorize("hasAnyRole('SITE','PM','OWNER')")
     @GetMapping("/applications/{applicationId}")
     public ApiResponse<ApplicationService.SiteApplication> one(@PathVariable String applicationId) {
         return ApiResponse.ok(applications.one(CurrentUser.get(), applicationId));

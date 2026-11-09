@@ -69,7 +69,7 @@ class Sprint5RiskIT extends FlowItSupport {
         assertThat(data(call(get("/api/v1/tenant/jobs/" + job2), c.pm(), null)).has("matchWeight")).isFalse();
         assertThat(call(get("/api/v1/tenant/jobs?pageSize=100"), c.pm(), null).toString()).doesNotContain("matchWeight");
         JsonNode weights = data(call(get("/api/v1/ops/job-weights?companyId=" + c.companyId()), ops, null));
-        assertThat(find(weights, "job_id", job2).has("match_weight")).isTrue();
+        assertThat(find(weights, "jobId", job2).has("matchWeight")).isTrue();
         String s = readySeeker(null);
         JsonNode m = data(call(post("/api/v1/seeker/match"), s, matchReq()));
         assertThat(jobIds(m)).contains(job2);

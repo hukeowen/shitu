@@ -52,7 +52,7 @@ class KnowledgeIT extends FlowItSupport {
         assertThat(status(get("/api/v1/tenant/kb"), c.site(), null)).isEqualTo(403);
         JsonNode list = data(call(get("/api/v1/tenant/kb?jobId=" + job), c.pm(), null));
         assertThat(list).hasSize(1);
-        assertThat(list.get(0).get("project_id").asText()).as("岗位条目自动归到岗位所在项目").isEqualTo(c.projectId());
+        assertThat(list.get(0).get("projectId").asText()).as("岗位条目自动归到岗位所在项目").isEqualTo(c.projectId());
 
         // ---------------------------------------------------------------- 问答：命中岗位条目 / 公司通用条目
         String s = readySeeker(null);
@@ -72,7 +72,7 @@ class KnowledgeIT extends FlowItSupport {
         data(call(post("/api/v1/seeker/jobs/" + job + "/ask"), s2, Map.of("question", "夜班补贴多少")));
         JsonNode pending = data(call(get("/api/v1/tenant/kb/pending"), c.pm(), null));
         JsonNode item = find(pending, "question", "夜班补贴多少");
-        assertThat(item.get("asked_times").asLong()).as("同一人重复提问只记一次").isEqualTo(2);
+        assertThat(item.get("askedTimes").asLong()).as("同一人重复提问只记一次").isEqualTo(2);
         assertThat(data(call(get("/api/v1/tenant/kb/pending"), other.pm(), null)).toString()).doesNotContain(job);
         while (dispatcher.dispatch() > 0) { }
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE template_code = 'KB_QUESTION_PENDING' "

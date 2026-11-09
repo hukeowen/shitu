@@ -1,5 +1,6 @@
 package com.shitu.app.kb;
 
+import com.shitu.common.util.Rows;
 import com.shitu.common.exception.BizException;
 import com.shitu.common.exception.ErrorCode;
 import com.shitu.framework.kv.RateLimiter;
@@ -77,7 +78,7 @@ public class KnowledgeService {
             args.add("%" + keyword.trim() + "%");
         }
         sql.append(" ORDER BY k.updated_at DESC LIMIT 500");
-        return jdbc.queryForList(sql.toString(), args.toArray());
+        return Rows.camel(jdbc.queryForList(sql.toString(), args.toArray()));
     }
 
     /** 校验作用域并补全：给了岗位就以岗位的项目为准。返回 [projectId, jobId]。 */
@@ -146,7 +147,7 @@ public class KnowledgeService {
         List<Object> args = new ArrayList<>(List.of(companyId, PENDING));
         scope(sql, args, "j.project_id", projectIds, false);
         sql.append(" GROUP BY q.job_id, j.title, j.project_id, q.question ORDER BY asked_times DESC, last_asked_at DESC LIMIT 200");
-        return jdbc.queryForList(sql.toString(), args.toArray());
+        return Rows.camel(jdbc.queryForList(sql.toString(), args.toArray()));
     }
 
     /** 待补充问题的岗位与问题原文（按日志 id 定位，校验公司与项目范围由调用方处理）。 */

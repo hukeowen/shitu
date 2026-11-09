@@ -1,5 +1,6 @@
 package com.shitu.risk;
 
+import com.shitu.common.util.Rows;
 import com.shitu.common.exception.BizException;
 import com.shitu.common.exception.ErrorCode;
 import com.shitu.framework.audit.AuditLogger;
@@ -64,10 +65,10 @@ public class ComplaintService {
     }
 
     public List<Map<String, Object>> list(String status) {
-        return jdbc.queryForList("SELECT c.id, c.job_id, j.title, c.company_id, c.user_id, c.category, c.content, c.status, c.handle_remark, "
+        return Rows.camel(jdbc.queryForList("SELECT c.id, c.job_id, j.title, c.company_id, c.user_id, c.category, c.content, c.status, c.handle_remark, "
                 + "c.created_at, c.handled_at, j.complaint_verified FROM complaint c JOIN job j ON j.job_id = c.job_id "
                 + (status == null ? "" : "WHERE c.status = ? ") + "ORDER BY c.id DESC LIMIT 200",
-                status == null ? new Object[0] : new Object[]{status});
+                status == null ? new Object[0] : new Object[]{status}));
     }
 
     /** P-06 核实（属实 / 驳回）。属实累计满 3 次：强制下架 + 扣分（每个岗位只触发一次）。 */

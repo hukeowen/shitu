@@ -1,5 +1,6 @@
 package com.shitu.risk;
 
+import com.shitu.common.util.Rows;
 import com.shitu.common.Constants;
 import com.shitu.common.exception.BizException;
 import com.shitu.common.exception.ErrorCode;
@@ -122,13 +123,13 @@ public class CreditService {
     }
 
     public List<Map<String, Object>> logs(String companyId) {
-        return jdbc.queryForList("SELECT delta, score_after, rule_code, ref_type, ref_id, remark, operator_id, created_at FROM credit_score_log "
-                + "WHERE company_id = ? ORDER BY id DESC LIMIT 200", companyId);
+        return Rows.camel(jdbc.queryForList("SELECT delta, score_after, rule_code, ref_type, ref_id, remark, operator_id, created_at FROM credit_score_log "
+                + "WHERE company_id = ? ORDER BY id DESC LIMIT 200", companyId));
     }
 
     public List<Map<String, Object>> penalties(String companyId) {
-        return jdbc.queryForList("SELECT level, reason, start_date, end_date, created_by, created_at FROM penalty "
+        return Rows.camel(jdbc.queryForList("SELECT level, reason, start_date, end_date, created_by, created_at FROM penalty "
                 + (companyId == null ? "" : "WHERE company_id = ? ") + "ORDER BY id DESC LIMIT 200",
-                companyId == null ? new Object[0] : new Object[]{companyId});
+                companyId == null ? new Object[0] : new Object[]{companyId}));
     }
 }

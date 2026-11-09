@@ -60,8 +60,16 @@ public class ApplicationService {
     public record SiteApplication(String applicationId, String userId, String seekerName, String phone, String jobId,
                                   String jobTitle, String projectId, String projectName, ApplicationStatus status,
                                   boolean fromPublic, LocalDateTime createdAt, LocalDateTime acknowledgedAt,
-                                  LocalDateTime interviewAt, LocalDateTime responseDeadline, List<String> allowedActions) {
+                                  LocalDateTime interviewAt, LocalDateTime responseDeadline, List<String> allowedActions,
+                                  LocalDateTime arrivedAt, NoticeView notice, ContractBrief contract) {
     }
+
+    /** 待确权阶段的最近一份劳动合同：status PENDING_SIGN / SIGNED / FAILED…；signUrl 仅待签署时返回。 */
+    public record ContractBrief(String contractId, String status, String signUrl, LocalDateTime createdAt, LocalDateTime signedAt) {
+    }
+
+    /** 列表排序：CREATED_ASC（默认，先来先处理）/ CREATED_DESC / DEADLINE（24h 响应窗口最紧的在前）。 */
+    public enum Sort { CREATED_ASC, CREATED_DESC, DEADLINE }
 
     public record Workbench(long pendingAck, long pendingInterview, long pendingConfirm, long windowsDueIn4h,
                             long privatePending) {
@@ -131,17 +139,33 @@ public class ApplicationService {
 
     public PageResult<SiteApplication> forTenant(AuthPrincipal p, ApplicationStatus status, Boolean unacknowledged,
                                                  String projectId, Integer page, Integer pageSize) {
+        return forTenant(p, status, unacknowledged, projectId, page, pageSize, Sort.CREATED_ASC);
+    }
+
+    public PageResult<SiteApplication> forTenant(AuthPrincipal p, ApplicationStatus status, Boolean unacknowledged,
+                                                 String projectId, Integer page, Integer pageSize, Sort sort) {
         DataScope.Scope s = scope.of(p);
         if (!s.all() && s.projectIds().isEmpty()) {
             return new PageResult<>(List.of(), 0, 1, 20);
         }
-        Page<Application> pg = applications.selectPage(Pages.of(page, pageSize), new LambdaQueryWrapper<Application>()
+        LambdaQueryWrapper<Application> q = new LambdaQueryWrapper<Application>()
                 .in(!s.all(), Application::getProjectId, s.projectIds())
                 .eq(status != null, Application::getStatus, status)
                 .isNull(Boolean.TRUE.equals(unacknowledged), Application::getAcknowledgedAt)
-                .eq(projectId != null && !projectId.isBlank(), Application::getProjectId, projectId)
-                .orderByAsc(Application::getCreatedAt));
-        List<Application> list = pg.getRecords();
+                .eq(projectId != null && !projectId.isBlank(), Application::getProjectId, projectId);
+        switch (sort == null ? Sort.CREATED_ASC : sort) {
+            case CREATED_DESC -> q.orderByDesc(Application::getCreatedAt);
+            // 子查询同样经过租户拦截器，只看本公司的窗口；没有打开窗口的排在最后
+            case DEADLINE -> q.last("ORDER BY (SELECT MIN(w.deadline) FROM response_window w WHERE w.user_id = application.user_id "
+                    + "AND w.status = 'OPEN') IS NULL, (SELECT MIN(w.deadline) FROM response_window w WHERE w.user_id = application.user_id "
+                    + "AND w.status = 'OPEN'), created_at");
+            default -> q.orderByAsc(Application::getCreatedAt);
+        }
+        Page<Application> pg = applications.selectPage(Pages.of(page, pageSize), q);
+        return new PageResult<>(toRows(p, pg.getRecords()), pg.getTotal(), pg.getCurrent(), pg.getSize());
+    }
+
+    private List<SiteApplication> toRows(AuthPrincipal p, List<Application> list) {
         Map<String, Job> js = jobsOf(list);
         Map<String, Project> ps = projectsOf(list);
         Set<String> userIds = list.stream().map(Application::getUserId).collect(Collectors.toSet());
@@ -149,7 +173,11 @@ public class ApplicationService {
                 .stream().collect(Collectors.toMap(SeekerUser::getUserId, Function.identity()));
         Map<String, LocalDateTime> deadlines = deadlines(userIds);
         boolean site = p.hasRole(ActorRole.SITE.name());
-        List<SiteApplication> rows = list.stream().map(a -> {
+        Map<String, InterviewNotice> ns = latestNotices(list.stream().map(Application::getApplicationId).toList());
+        Map<String, ContractBrief> cs = latestContracts(list.stream()
+                .filter(a -> a.getStatus() == ApplicationStatus.PENDING_CONFIRM || a.getStatus() == ApplicationStatus.EMPLOYED)
+                .map(Application::getApplicationId).toList(), site || p.hasRole(ActorRole.PM.name()));
+        return list.stream().map(a -> {
             SeekerUser u = us.get(a.getUserId());
             String name = u == null || u.getRealNameEnc() == null ? "未实名" : Masks.name(cipher.decrypt(u.getRealNameEnc()));
             String phone = u == null ? null : site ? cipher.decrypt(u.getPhoneEnc()) : null;
@@ -158,9 +186,23 @@ public class ApplicationService {
             return new SiteApplication(a.getApplicationId(), a.getUserId(), name, phone, a.getJobId(),
                     j == null ? null : j.getTitle(), a.getProjectId(), pr == null ? null : pr.getName(), a.getStatus(),
                     a.getPreApplyBound() == null, a.getCreatedAt(), a.getAcknowledgedAt(), a.getInterviewAt(),
-                    deadlines.get(a.getUserId()), actions(a, p));
+                    deadlines.get(a.getUserId()), actions(a, p), a.getArrivedAt(), noticeView(ns.get(a.getApplicationId())),
+                    cs.get(a.getApplicationId()));
         }).toList();
-        return new PageResult<>(rows, pg.getTotal(), pg.getCurrent(), pg.getSize());
+    }
+
+    private Map<String, ContractBrief> latestContracts(List<String> appIds, boolean withUrl) {
+        Map<String, ContractBrief> m = new HashMap<>();
+        if (appIds.isEmpty()) {
+            return m;
+        }
+        jdbc.query("SELECT application_id, contract_id, status, sign_url, created_at, signed_at FROM contract WHERE application_id IN ("
+                + String.join(",", appIds.stream().map(x -> "?").toList()) + ") ORDER BY created_at", rs -> {
+            String st = rs.getString(3);
+            m.put(rs.getString(1), new ContractBrief(rs.getString(2), st, withUrl && "PENDING_SIGN".equals(st) ? rs.getString(4) : null,
+                    rs.getTimestamp(5).toLocalDateTime(), rs.getTimestamp(6) == null ? null : rs.getTimestamp(6).toLocalDateTime()));
+        }, appIds.toArray());
+        return m;
     }
 
     public Workbench workbench(AuthPrincipal p) {
@@ -228,9 +270,7 @@ public class ApplicationService {
         Application a = applications.selectById(applicationId);
         BizException.check(a != null, ErrorCode.SYS_NOT_FOUND);
         scope.checkProject(p, a.getProjectId());
-        PageResult<SiteApplication> pg = forTenant(p, a.getStatus(), null, a.getProjectId(), 1, 100);
-        return pg.records().stream().filter(x -> x.applicationId().equals(applicationId)).findFirst()
-                .orElseThrow(() -> new BizException(ErrorCode.SYS_NOT_FOUND));
+        return toRows(p, List.of(a)).get(0);
     }
 
     public Application find(String applicationId) {
