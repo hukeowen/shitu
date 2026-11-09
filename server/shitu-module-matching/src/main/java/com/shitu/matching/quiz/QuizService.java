@@ -188,6 +188,12 @@ public class QuizService {
             Set<String> codes = new HashSet<>();
             q.options().forEach(o -> BizException.check(o.code() != null && codes.add(o.code()) && o.label() != null,
                     ErrorCode.SYS_BAD_REQUEST, "选项编码重复或缺少文字"));
+            Set<String> labels = new HashSet<>();
+            for (ProfileBuilder.OptionDef o : q.options()) {
+                BizException.check(labels.add(o.label().trim()), ErrorCode.SYS_BAD_REQUEST, "选项文字重复：" + o.label());
+                String err = ProfileBuilder.checkOption(q.profileField(), o);
+                BizException.check(err == null, ErrorCode.SYS_BAD_REQUEST, "第 " + q.seq() + " 题：" + err);
+            }
             boolean hard = "HARD_FILTER".equals(q.matchRole());
             BizException.check(hard || "SOFT_WEIGHT".equals(q.matchRole()), ErrorCode.SYS_BAD_REQUEST, "题目作用不正确");
             BizException.check(!(hard && softSeen), ErrorCode.SYS_BAD_REQUEST, "硬过滤题必须排在前面");

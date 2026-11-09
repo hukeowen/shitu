@@ -1053,3 +1053,86 @@ export interface AdvanceDetail {
   approvals: AdvanceApprovalStep[]
   ledger: DebtLogEntry[]
 }
+
+// ---------------------------------------------------------------- 平台中台：引擎参数 / 实名风控 / 通知模板（P-13 / P-14 / P-16）
+export type VersionStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+
+/** config 结构与后端 EngineConfig 一致（factorWeights / distanceScore / decay / credit / penalty / quota / newJobBoost …） */
+export interface EngineVersion {
+  versionId: number
+  status: VersionStatus
+  config: Record<string, unknown>
+  publishedBy?: string
+  publishedAt?: string
+  createdAt: string
+}
+
+export type KycReviewType = 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL' | 'LOW_CONFIDENCE' | 'FRAUD_SUSPECT'
+export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface KycOccupant {
+  userId: string
+  phoneMasked: string
+  userStatus: string
+  registeredAt: string
+  boundCompanyId?: string
+  /** 原账号不在报名 / 待确权 / 在岗中，可以解除实名 */
+  releasable: boolean
+}
+
+export interface KycReviewRow {
+  id: number
+  userId: string
+  reviewType: KycReviewType
+  status: ReviewStatus
+  /** 申诉人填写的理由 */
+  remark: string
+  reviewerId?: string
+  reviewerRemark?: string
+  createdAt: string
+  reviewedAt?: string
+  userStatus: string
+  registeredAt: string
+  kycAt?: string
+  phoneMasked: string
+  occupant?: KycOccupant | null
+  blacklist?: { id: number; reasonCode: string; detail?: string; createdAt: string }[]
+}
+
+export interface BlacklistRow {
+  id: number
+  userId: string
+  reasonCode: string
+  detail?: string
+  status: 'ACTIVE' | 'LIFTED'
+  createdBy?: string
+  createdAt: string
+  liftedAt?: string
+  phoneMasked?: string
+}
+
+export interface MyAppeal {
+  id: number
+  reviewType: KycReviewType
+  status: ReviewStatus
+  remark: string
+  reviewerRemark?: string
+  createdAt: string
+  reviewedAt?: string
+}
+
+export type NotifyChannel = 'INBOX' | 'SMS'
+
+export interface NotifyTemplateView {
+  templateCode: string
+  channels: NotifyChannel[]
+  title: string
+  content: string
+  /** 文案可用变量（${name}） */
+  variables: string[]
+  smsTemplateId?: string
+  respectQuietHours: boolean
+  enabled: boolean
+  updatedBy?: string
+  updatedAt: string
+}

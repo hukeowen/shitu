@@ -82,6 +82,57 @@ public final class ProfileBuilder {
                 salary == null ? null : salary.max(), shift, dorm, years, age, lng, lat);
     }
 
+    /**
+     * 题库保存 / 发布前校验选项取值能被 {@link #build} 正确解析（否则要到 C 端答题时才报错）。
+     * @return 错误描述；合法返回 null
+     */
+    public static String checkOption(String field, OptionDef o) {
+        String v = o.value();
+        try {
+            switch (field) {
+                case "accept_factory" -> MatchProfile.FactoryWillingness.valueOf(require(v));
+                case "locked_region" -> {
+                    if (!"LOCKED".equals(v) && !"ANY".equals(v)) {
+                        return "地域锁定题的取值只能是 LOCKED 或 ANY";
+                    }
+                    if ("LOCKED".equals(v) && !Boolean.TRUE.equals(o.needRegion())) {
+                        return "取值为 LOCKED 的选项必须勾选「需要选城市」";
+                    }
+                }
+                case "expect_job_type" -> {
+                    if (!"ANY".equals(require(v))) {
+                        JobType.valueOf(v);
+                    }
+                }
+                case "shift_pref" -> ShiftType.valueOf(require(v));
+                case "dorm_req" -> MatchProfile.DormRequirement.valueOf(require(v));
+                case "work_years" -> {
+                    if (Integer.parseInt(require(v)) < 0) {
+                        return "工作年限不能为负数";
+                    }
+                }
+                case "expect_salary" -> {
+                    if (o.min() != null && o.max() != null && o.min().compareTo(o.max()) > 0) {
+                        return "薪资下限不能高于上限";
+                    }
+                }
+                default -> {
+                    return null;
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            return "选项「" + o.label() + "」的取值「" + v + "」不合法";
+        }
+        return null;
+    }
+
+    private static String require(String v) {
+        if (v == null || v.isBlank()) {
+            throw new IllegalArgumentException("blank");
+        }
+        return v;
+    }
+
     private static Optional<String> value(Map<String, OptionDef> chosen, String field) {
         OptionDef o = chosen.get(field);
         return o == null || o.value() == null ? Optional.empty() : Optional.of(o.value());

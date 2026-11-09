@@ -16,6 +16,7 @@ public class NotifyTemplate {
     private String channels;
     private String title;
     private String content;
+    private String variables;
     private String smsTemplateId;
     private Boolean respectQuietHours;
     private Boolean enabled;

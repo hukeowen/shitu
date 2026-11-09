@@ -81,6 +81,14 @@ import type {
   OwnerOverview,
   ChannelFunnelRow,
   OpsOverview,
+  EngineVersion,
+  KycReviewRow,
+  BlacklistRow,
+  MyAppeal,
+  KycReviewType,
+  ReviewStatus,
+  NotifyTemplateView,
+  NotifyChannel,
   AdvanceDetail,
   SiteApplicationSort,
   KbEntry,
@@ -171,6 +179,8 @@ export const seekerApi = {
   applyAdvance: () => post<string>('/seeker/advance'),
   /** 预支记录与审批进度（C-603 / C-604） */
   myAdvances: () => get<AdvanceRow[]>('/seeker/advance'),
+  appeal: (type: 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL', remark: string) => post<number>('/seeker/kyc/appeals', { type, remark }),
+  myAppeals: () => get<MyAppeal[]>('/seeker/kyc/appeals'),
   advanceDetail: (advanceId: string) => get<AdvanceDetail>(`/seeker/advance/${advanceId}`),
   debtLog: () => get<DebtLogEntry[]>('/seeker/advance/debt-log'),
   /** 工资条（C-701） */
@@ -441,4 +451,23 @@ export const opsApi = {
   }) => get<PageResult<AuditLogEntry>>('/ops/audit-logs', params),
 
   overview: () => get<OpsOverview>('/ops/reports/overview'),
+
+  engineVersions: () => get<EngineVersion[]>('/ops/engine/versions'),
+  engineVersion: (id: number) => get<EngineVersion>(`/ops/engine/versions/${id}`),
+  engineDraft: (config?: Record<string, unknown>) => post<EngineVersion>('/ops/engine/drafts', config ?? null),
+  engineUpdate: (id: number, config: Record<string, unknown>) => put<EngineVersion>(`/ops/engine/versions/${id}`, config),
+  engineDelete: (id: number) => del<void>(`/ops/engine/versions/${id}`),
+  enginePublish: (id: number) => post<EngineVersion>(`/ops/engine/versions/${id}/publish`),
+
+  kycReviews: (params?: { status?: ReviewStatus; type?: KycReviewType }) => get<KycReviewRow[]>('/ops/kyc-reviews', params),
+  kycDecide: (id: number, approve: boolean, remark: string) => post<void>(`/ops/kyc-reviews/${id}/decide`, { approve, remark }),
+  blacklist: (status?: 'ACTIVE' | 'LIFTED') => get<BlacklistRow[]>('/ops/blacklist', { status }),
+  blacklistAdd: (userId: string, reasonCode: string, detail: string) => post<number>('/ops/blacklist', { userId, reasonCode, detail }),
+  blacklistLift: (id: number, remark: string) => post<void>(`/ops/blacklist/${id}/lift`, { remark }),
+
+  templates: () => get<NotifyTemplateView[]>('/ops/notify-templates'),
+  updateTemplate: (code: string, req: { channels?: NotifyChannel[]; title?: string; content?: string; smsTemplateId?: string; respectQuietHours?: boolean; enabled?: boolean }) =>
+    put<NotifyTemplateView>(`/ops/notify-templates/${code}`, req),
+  previewTemplate: (code: string, title?: string, content?: string) =>
+    post<{ title: string; content: string }>(`/ops/notify-templates/${code}/preview`, { title, content }),
 }
