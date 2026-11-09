@@ -12,6 +12,11 @@ const TONES: Record<string, Record<string, Tone>> = {
   JobStatus: { PENDING_AUDIT: 'warn', REJECTED: 'danger', RECRUITING: 'ok', PAUSED: 'info', OFFLINE: 'muted', FORCE_OFFLINE: 'danger' },
   ClientContractStatus: { PENDING: 'warn', APPROVED: 'ok', REJECTED: 'danger' },
   MemberStatus: { NORMAL: 'ok', DISABLED: 'muted' },
+  BillStatus: { GENERATED: 'muted', ISSUED: 'info', DISPUTED: 'danger', CONFIRMED: 'warn', SETTLED: 'ok' },
+  DisputeStatus: { OPEN: 'warn', ACCEPTED: 'ok', REJECTED: 'muted' },
+  ComplaintStatus: { PENDING: 'warn', VERIFIED: 'danger', REJECTED: 'muted' },
+  ReviewStatus: { PENDING: 'warn', APPROVED: 'ok', REJECTED: 'danger' },
+  VersionStatus: { DRAFT: 'info', ACTIVE: 'ok', ARCHIVED: 'muted' },
 }
 const COLORS: Record<Tone, string> = {
   ok: 'var(--ok)',

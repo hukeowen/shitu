@@ -5,7 +5,7 @@ import { APP_TITLE, HOME_PATH, MENU, QUIZ_ROLES } from './menu'
 
 type Lazy = () => Promise<RouteComponent>
 
-/** Sprint 1 已实现页面；其余菜单项使用占位页 */
+/** 已实现页面；其余菜单项使用占位页 */
 const VIEWS: Record<string, Lazy> = {
   [HOME_PATH]: () => import('@/views/WorkbenchView.vue'),
   '/companies/list': () => import('@/views/companies/CompanyListView.vue'),
@@ -14,6 +14,17 @@ const VIEWS: Record<string, Lazy> = {
   '/system/admins': () => import('@/views/admins/AdminListView.vue'),
   '/engine/quiz': () => import('@/views/quiz/QuizVersionsView.vue'),
   '/engine/match-snapshot': () => import('@/views/quiz/MatchSnapshotView.vue'),
+  '/ops/overview': () => import('@/views/overview/OverviewView.vue'),
+  '/ops/attribution': () => import('@/views/attribution/AttributionView.vue'),
+  '/engine/params': () => import('@/views/engine/EngineParamsView.vue'),
+  '/companies/stock': () => import('@/views/billing/StockBaseView.vue'),
+  '/governance/throttle': () => import('@/views/risk/JobWeightsView.vue'),
+  '/governance/compliance': () => import('@/views/compliance/ComplianceView.vue'),
+  '/governance/complaints': () => import('@/views/risk/ComplaintsView.vue'),
+  '/governance/credit': () => import('@/views/risk/CreditView.vue'),
+  '/settlement/rules': () => import('@/views/billing/BillingRulesView.vue'),
+  '/settlement/bills': () => import('@/views/billing/BillListView.vue'),
+  '/system/templates': () => import('@/views/notify/TemplatesView.vue'),
 }
 
 const children: RouteRecordRaw[] = MENU.flatMap((g) =>

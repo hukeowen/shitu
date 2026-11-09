@@ -56,3 +56,11 @@ export function prettyJson(s?: string | null): string {
     return s
   }
 }
+
+/** 金额（元）：千分位 + 两位小数。后端 BigDecimal 可能序列化为数字或字符串 */
+export function fmtMoney(v?: number | string | null): string {
+  if (v == null || v === '') return '—'
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return String(v)
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
