@@ -1,5 +1,5 @@
 /**
- * 风控页面的少量本地文案：后端 /dict 暂未提供诚信分规则码与处罚等级（见交付说明「建议补充字典」）。
+ * 风控页面的本地文案：处罚等级需要带说明与样式，诚信规则作为字典（CreditRule）缺失时的兜底。
  * 未知取值原样显示。
  */
 export const CREDIT_RULES: Record<string, string> = {
