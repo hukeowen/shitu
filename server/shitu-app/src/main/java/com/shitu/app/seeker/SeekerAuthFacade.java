@@ -22,6 +22,8 @@ import com.shitu.lifecycle.seeker.ResponseWindow;
 import com.shitu.lifecycle.seeker.SeekerUser;
 import com.shitu.tenant.channel.ChannelCodeService;
 import com.shitu.tenant.company.CompanyService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -35,6 +37,8 @@ import java.util.Set;
  */
 @Service
 public class SeekerAuthFacade {
+
+    private static final Logger log = LoggerFactory.getLogger(SeekerAuthFacade.class);
 
     public record SeekerProfile(String userId, String phoneMasked, UserStatus status, DomainTag domainTag,
                                 MatchScope matchScope, boolean canStartMatching, String boundCompanyName,
@@ -74,8 +78,7 @@ public class SeekerAuthFacade {
             user = exist.get();
             created = false;
             // C-106：已注册用户扫其他公司码，不改变任何归属，只记录触达
-            ch.ifPresent(r -> channels.recordVisit(r.code(), visitorKey == null ? "login" : visitorKey,
-                    user.getUserId(), ClientInfo.ip(), ClientInfo.userAgent()));
+            ch.ifPresent(r -> touch(r.code(), visitorKey, user.getUserId()));
         } else {
             LifecycleService.RegisterChannel rc = ch
                     .map(r -> new LifecycleService.RegisterChannel(r.code(), r.channelType(), r.companyId()))
@@ -83,6 +86,10 @@ public class SeekerAuthFacade {
             LifecycleService.Registered reg = lifecycle.register(phone, rc);
             user = reg.user();
             created = reg.created();
+            // 注册也计一次访问：分享链接直接带码进入、没经过 /r/{code} 时，漏斗不会出现「注册 > 访问」
+            if (created) {
+                ch.ifPresent(r -> touch(r.code(), visitorKey, user.getUserId()));
+            }
         }
         // 黑名单（D-16）不禁止登录，只在报名 / 预支时拦截
         TokenPair tokens = sessions.open(principalOf(user));
@@ -90,6 +97,15 @@ public class SeekerAuthFacade {
                 created ? Map.of("channelType", String.valueOf(user.getRegisterChannelType()),
                         "source", user.getSourceCompanyId()) : null);
         return new LoginResult(tokens, created, profile(user));
+    }
+
+    /** 记录渠道触达（访问按访客去重统计；没有访客 cookie 时按用户去重）。统计失败不影响登录。 */
+    private void touch(String code, String visitorKey, String userId) {
+        try {
+            channels.recordVisit(code, visitorKey == null ? "u:" + userId : visitorKey, userId, ClientInfo.ip(), ClientInfo.userAgent());
+        } catch (RuntimeException e) {
+            log.warn("record channel visit failed code={} err={}", code, e.getMessage());
+        }
     }
 
     public TokenPair refresh(String refreshToken) {

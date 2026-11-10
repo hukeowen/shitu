@@ -569,6 +569,7 @@ export interface SiteApplication {
 
 export interface ContractBrief {
   contractId: string
+  contractNo: string
   status: string
   signUrl?: string
   createdAt: string
@@ -586,6 +587,8 @@ export interface SiteWorkbench {
   windowsDueIn4h: number
   /** 私域待匹配人数 */
   privatePending: number
+  /** 今日到厂、仍待录入面试结果 */
+  arrivedToday: number
 }
 
 export interface AcknowledgeRequest {

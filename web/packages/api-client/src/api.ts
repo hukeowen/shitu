@@ -272,7 +272,7 @@ export const tenantApi = {
   siteWorkbench: () => get<SiteWorkbench>('/tenant/site/workbench'),
   privatePending: () => get<PrivatePendingRow[]>('/tenant/site/private-pending'),
   /** 报名列表（M-02）：unacknowledged=true 只看待知悉 */
-  applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; projectId?: string; page?: number; pageSize?: number; sort?: SiteApplicationSort }) =>
+  applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; arrivedToday?: boolean; projectId?: string; page?: number; pageSize?: number; sort?: SiteApplicationSort }) =>
     get<PageResult<SiteApplication>>('/tenant/applications', params),
   application: (applicationId: string) => get<SiteApplication>(`/tenant/applications/${applicationId}`),
   /** 知悉并推送面试信息（可重复推送） */

@@ -93,7 +93,7 @@ function back() {
         <dl>
           <div class="kv"><dt>发起时间</dt><dd class="num">{{ full(contract.createdAt) }}</dd></div>
           <div class="kv"><dt>签署时间</dt><dd class="num">{{ contract.signedAt ? full(contract.signedAt) : '未签署' }}</dd></div>
-          <div class="kv"><dt>合同编号</dt><dd class="num">{{ contract.contractId }}</dd></div>
+          <div class="kv"><dt>合同编号</dt><dd class="num">{{ contract.contractNo || contract.contractId }}</dd></div>
         </dl>
       </section>
       <section class="acard">

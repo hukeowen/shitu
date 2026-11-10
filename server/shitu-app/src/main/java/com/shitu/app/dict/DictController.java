@@ -67,6 +67,9 @@ public class DictController {
                 "RELEASE_MANUAL", "人工释放", "BROKER_SLA_TIMEOUT", "经纪人超时释放", "RESIGN", "离职", "INTERNAL_TRANSFER", "内部调岗",
                 "COMPANY_CLOSED", "公司注销"));
         s.put("EmploymentEndReason", ordered("RESIGNED", "离职", "COMPANY_CLOSED", "公司注销"));
+        s.put("AdvanceStep", ordered("SITE", "驻场初审", "PM", "项目经理终审", "PAYOUT", "拨款"));
+        s.put("AdvanceDecision", ordered("APPROVE", "通过", "REJECT", "驳回"));
+        s.put("AdvanceLedgerType", ordered("PAYOUT", "预支拨款", "DEDUCT", "工资抵扣", "WRITE_OFF", "离职结清 / 核销"));
         return s;
     }
 

@@ -79,6 +79,7 @@ class ReportIT extends FlowItSupport {
         // ---------------------------------------------------------------- 渠道转化漏斗
         JsonNode ch = find(data(call(get("/api/v1/tenant/reports/channels"), c.owner(), null)), "code", code);
         assertThat(ch.get("registrations").asLong()).isEqualTo(3);
+        assertThat(ch.get("visits").asLong()).as("注册也计访问，漏斗不会出现注册 > 访问").isGreaterThanOrEqualTo(3);
         assertThat(ch.get("applied").asLong()).isEqualTo(2);
         assertThat(ch.get("hired").asLong()).isEqualTo(1);
         assertThat(status(get("/api/v1/tenant/reports/channels"), c.site(), null)).isEqualTo(403);

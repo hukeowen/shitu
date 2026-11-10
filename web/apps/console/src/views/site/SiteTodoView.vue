@@ -13,11 +13,12 @@ import { useMeStore } from '@/stores/me'
 import { fmtDateTime, fmtPhone } from '@/utils/format'
 import { remainMs } from '@/utils/time'
 
-/** A-02 待办清单（T-101）：待知悉 / 待面试 / 待确权。行操作严格按 allowedActions */
-type Tab = 'ack' | 'interview' | 'confirm'
-const TABS: { key: Tab; label: string; status: ApplicationStatus; unack?: boolean; count: keyof SiteWorkbench }[] = [
+/** A-02 待办清单（T-101）：待知悉 / 待面试 / 今日到厂 / 待确权。行操作严格按 allowedActions */
+type Tab = 'ack' | 'interview' | 'arrived' | 'confirm'
+const TABS: { key: Tab; label: string; status: ApplicationStatus; unack?: boolean; arrivedToday?: boolean; count: keyof SiteWorkbench }[] = [
   { key: 'ack', label: '待知悉', status: 'PENDING_INTERVIEW', unack: true, count: 'pendingAck' },
   { key: 'interview', label: '待面试', status: 'PENDING_INTERVIEW', count: 'pendingInterview' },
+  { key: 'arrived', label: '今日到厂', status: 'PENDING_INTERVIEW', arrivedToday: true, count: 'arrivedToday' },
   { key: 'confirm', label: '待确权', status: 'PENDING_CONFIRM', count: 'pendingConfirm' },
 ]
 
@@ -46,6 +47,7 @@ async function load() {
     const r = await tenantApi.applications({
       status: current.value.status,
       unacknowledged: current.value.unack || undefined,
+      arrivedToday: current.value.arrivedToday || undefined,
       projectId: projectId.value || undefined,
       page: page.page,
       pageSize: page.pageSize,

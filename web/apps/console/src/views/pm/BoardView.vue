@@ -38,7 +38,7 @@ interface Card {
 const CARDS: Card[] = [
   { key: 'pendingInterview', label: '待面试', desc: '已报名 · 待到厂 / 面试结果', to: { path: '/site/todo', query: { tab: 'interview' } } },
   { key: 'pendingConfirm', label: '待确权', desc: '面试通过 · 待入职确权 / 签约', to: { path: '/site/onboard' }, tone: 'stat--signal' },
-  { key: 'arrivedToday', label: '今日到厂', desc: '今天已确认到厂', to: { path: '/site/todo', query: { tab: 'interview' } } },
+  { key: 'arrivedToday', label: '今日到厂', desc: '今天已确认到厂', to: { path: '/site/todo', query: { tab: 'arrived' } } },
   { key: 'employed', label: '在岗人数', desc: '当前在岗', to: { path: '/pm/staff' } },
   { key: 'hiredThisMonth', label: '本月入职', desc: '本月入职日期计', to: { path: '/pm/staff' } },
   { key: 'resignedThisMonth', label: '本月离职', desc: '本月离职日期计', to: { path: '/pm/resign' } },

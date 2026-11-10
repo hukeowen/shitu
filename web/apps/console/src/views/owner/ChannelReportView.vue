@@ -90,7 +90,7 @@ const STAGES = [
     </el-alert>
 
     <div class="grid g-4">
-      <div class="stat"><div class="stat-l">访问</div><div class="stat-v">{{ total.visits }}</div><div class="stat-d">扫码 / 打开分享链接</div></div>
+      <div class="stat"><div class="stat-l">访问人数</div><div class="stat-v">{{ total.visits }}</div><div class="stat-d">扫码 / 打开分享链接（按人去重）</div></div>
       <div class="stat"><div class="stat-l">注册</div><div class="stat-v">{{ total.registrations }}</div><div class="stat-d">访问 → 注册 {{ pct(total.registrations, total.visits) }}</div></div>
       <div class="stat"><div class="stat-l">报名</div><div class="stat-v">{{ total.applied }}</div><div class="stat-d">注册 → 报名 {{ pct(total.applied, total.registrations) }}</div></div>
       <div class="stat stat--signal"><div class="stat-l">入职</div><div class="stat-v">{{ total.hired }}</div><div class="stat-d">注册 → 入职 {{ pct(total.hired, total.registrations) }}</div></div>

@@ -48,6 +48,22 @@ function disabledMonth(d: Date) {
 }
 
 const failed = computed(() => result.value?.rows.filter((r) => !r.success) ?? [])
+
+/** 失败行导出为 CSV（行号对应原表格，便于逐行修改后只上传失败行） */
+function downloadFailed() {
+  const r = result.value
+  if (!r || !failed.value.length) return
+  const esc = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"'
+  const lines = [['原表行号', '手机号（脱敏）', '工号', '失败原因'].map(esc).join(',')]
+  for (const x of failed.value) lines.push([x.rowNo, x.phoneMasked, x.employeeNo, x.error].map(esc).join(','))
+  // 带 BOM，Excel 打开不乱码
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `工资表失败行-${r.payMonth}.csv`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
 const shownRows = computed(() => {
   const rs = result.value?.rows ?? []
   if (rowFilter.value === 'ok') return rs.filter((r) => r.success)
@@ -216,9 +232,14 @@ async function doImport() {
                 <button :class="{ on: rowFilter === 'ok' }" @click="rowFilter = 'ok'">成功<span class="n">{{ result.rows.length - failed.length }}</span></button>
                 <button :class="{ on: rowFilter === 'fail' }" @click="rowFilter = 'fail'">失败<span class="n">{{ failed.length }}</span></button>
               </div>
+              <span class="spacer" />
+              <el-button v-if="failed.length" size="small" @click="downloadFailed">下载失败行</el-button>
             </div>
             <el-table :data="shownRows" size="small" max-height="360" row-key="rowNo" :row-class-name="rowClass">
               <el-table-column label="行号" width="70"><template #default="{ row }"><span class="mono">{{ row.rowNo }}</span></template></el-table-column>
+              <el-table-column label="员工" width="170">
+                <template #default="{ row }"><span class="mono t-sm">{{ row.phoneMasked || '—' }}</span><span v-if="row.employeeNo" class="t-xs"> · {{ row.employeeNo }}</span></template>
+              </el-table-column>
               <el-table-column label="结果" width="80">
                 <template #default="{ row }"><span class="tag" :class="row.success ? 'tag--ok' : 'tag--danger'">{{ row.success ? '成功' : '失败' }}</span></template>
               </el-table-column>

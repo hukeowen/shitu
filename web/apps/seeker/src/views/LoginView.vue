@@ -25,6 +25,8 @@ const codeInput = ref<HTMLInputElement | null>(null)
 const phoneValid = computed(() => PHONE_RE.test(phone.value))
 const codeValid = computed(() => /^\d{6}$/.test(code.value))
 const sentTo = ref('')
+/** 从实名「找回旧号」进入：提示用旧手机号登录 */
+const fromOld = computed(() => route.query.old === '1')
 
 const sms = useSmsSender(seekerApi, (r) => {
   sentTo.value = phone.value.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
@@ -123,8 +125,8 @@ function openDoc(kind: 'user' | 'privacy') {
     </header>
 
     <div class="body sheet">
-      <h2>手机号登录 / 注册</h2>
-      <p class="sub">没注册过的手机号，验证后自动注册，不用设密码</p>
+      <h2>{{ fromOld ? '用旧手机号登录' : '手机号登录 / 注册' }}</h2>
+      <p class="sub">{{ fromOld ? '请输入当初实名认证时使用的手机号，登录后即可继续' : '没注册过的手机号，验证后自动注册，不用设密码' }}</p>
 
       <div class="field">
         <div class="lbl">手机号码</div>

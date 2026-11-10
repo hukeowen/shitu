@@ -14,7 +14,6 @@ import {
 import AppActions from '@/components/AppActions.vue'
 import ApplicationCard from '@/components/ApplicationCard.vue'
 import { useNow } from '@/composables/useNow'
-import { isToday } from '@/utils/time'
 
 /**
  * M-02 / M-03 待办清单：待知悉 / 待面试 / 今日到厂 / 待确权（含签约状态），按项目筛选，按 24h 截止时间排序；
@@ -27,19 +26,17 @@ interface TabDef {
   status: ApplicationStatus
   unacknowledged?: boolean
   count?: (w: SiteWorkbench) => number
-  /** 前端过滤（今日到厂：后端暂无 arrivedAt 筛选） */
-  filter?: (a: SiteApplication) => boolean
+  /** 今日到厂（按北京日历日，后端筛选） */
+  arrivedToday?: boolean
   empty: string
 }
 const TABS: TabDef[] = [
   { key: 'ack', title: '待知悉', status: 'PENDING_INTERVIEW', unacknowledged: true, count: (w) => w.pendingAck, empty: '新报名都已知悉，暂无待办' },
   { key: 'interview', title: '待面试', status: 'PENDING_INTERVIEW', count: (w) => w.pendingInterview, empty: '暂无待面试的求职者' },
-  { key: 'arrived', title: '今日到厂', status: 'PENDING_INTERVIEW', filter: (a) => isToday(a.arrivedAt), empty: '今天还没有确认到厂的求职者' },
+  { key: 'arrived', title: '今日到厂', status: 'PENDING_INTERVIEW', arrivedToday: true, count: (w) => w.arrivedToday, empty: '今天还没有确认到厂的求职者' },
   { key: 'confirm', title: '待确权', status: 'PENDING_CONFIRM', count: (w) => w.pendingConfirm, empty: '暂无待确权的求职者' },
 ]
 const PAGE_SIZE = 20
-/** 前端过滤的标签页一次多取一些 */
-const FILTER_PAGE_SIZE = 100
 
 const route = useRoute()
 const router = useRouter()
@@ -83,10 +80,11 @@ async function loadMore() {
   const my = seq
   const def = current.value
   try {
-    const size = def.filter ? FILTER_PAGE_SIZE : PAGE_SIZE
+    const size = PAGE_SIZE
     const r = await tenantApi.applications({
       status: def.status,
       unacknowledged: def.unacknowledged,
+      arrivedToday: def.arrivedToday,
       projectId: projectId.value || undefined,
       page: page + 1,
       pageSize: size,
@@ -95,8 +93,8 @@ async function loadMore() {
     if (my !== seq) return
     page += 1
     fetched += r.records.length
-    rows.value = [...rows.value, ...(def.filter ? r.records.filter(def.filter) : r.records)]
-    total.value = def.filter ? rows.value.length : r.total
+    rows.value = [...rows.value, ...r.records]
+    total.value = r.total
     finished.value = fetched >= r.total || r.records.length < size
   } catch (e) {
     if (my !== seq) return
@@ -180,7 +178,7 @@ const showBack = computed(() => route.meta.tabbar !== true)
           :class="{ on: tab === t.key }"
           @click="tab = t.key"
         >
-          {{ t.title }}<span v-if="t.count && counts && !projectId" class="mono n">{{ t.count(counts) }}</span><span v-else-if="t.filter && tab === t.key && finished && !error" class="mono n">{{ total }}</span>
+          {{ t.title }}<span v-if="t.count && counts && !projectId" class="mono n">{{ t.count(counts) }}</span>
         </button>
       </div>
       <van-dropdown-menu v-if="projects.length > 1" class="filter" active-color="var(--signal)">

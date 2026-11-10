@@ -106,7 +106,7 @@ export function admissionRules(q: AdvanceQuota, companyName?: string): { rules: 
   return { rules, extra }
 }
 
-/** 审批节点名称（后端字典暂无，前端兜底） */
+/** 审批节点名称（与后端字典 AdvanceStep 一致；C 端文案按节点定制） */
 export const STEP_NAME: Record<AdvanceApprovalStep['step'], string> = { SITE: '驻场初审', PM: '项目经理终审', PAYOUT: '拨款' }
 
 /** 本笔流水类型 */

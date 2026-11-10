@@ -80,7 +80,7 @@ public class ReportService {
     /** T-402 渠道转化：各渠道码 访问 → 注册 → 报名 → 入职（只统计本公司渠道码）。 */
     public List<Map<String, Object>> channelFunnel(String companyId) {
         return Rows.camel(jdbc.queryForList("SELECT c.code, c.name, c.member_id, c.project_id, "
-                + "(SELECT COUNT(*) FROM channel_visit v WHERE v.code = c.code) AS visits, "
+                + "(SELECT COUNT(DISTINCT v.visitor_key) FROM channel_visit v WHERE v.code = c.code) AS visits, "
                 + "(SELECT COUNT(*) FROM `user` u WHERE u.register_channel_code = c.code) AS registrations, "
                 + "(SELECT COUNT(DISTINCT a.user_id) FROM application a JOIN `user` u ON u.user_id = a.user_id "
                 + "  WHERE u.register_channel_code = c.code AND a.company_id = ?) AS applied, "

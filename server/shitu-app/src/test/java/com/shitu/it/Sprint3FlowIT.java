@@ -72,6 +72,10 @@ class Sprint3FlowIT extends FlowItSupport {
         data(call(post("/api/v1/tenant/applications/" + appA + "/arrive"), c.site(), null));
         assertThat(data(call(get("/api/v1/tenant/applications/" + appA), c.site(), null)).get("allowedActions").toString())
                 .doesNotContain("ARRIVE");
+        // 今日到厂筛选与计数（北京日历日）
+        assertThat(data(call(get("/api/v1/tenant/applications?status=PENDING_INTERVIEW&arrivedToday=true"), c.site(), null))
+                .get("records").toString()).contains(appA);
+        assertThat(data(call(get("/api/v1/tenant/site/workbench"), c.site(), null)).get("arrivedToday").asLong()).isEqualTo(1);
         data(call(post("/api/v1/tenant/applications/" + appA + "/result"), c.site(), Map.of("pass", true)));
         assertThat(user(uA).get("user_status")).isEqualTo("PENDING_CONFIRM");
         assertThat(jdbc.queryForObject("SELECT stage FROM response_window WHERE user_id = ? AND status = 'OPEN'", String.class, uA))

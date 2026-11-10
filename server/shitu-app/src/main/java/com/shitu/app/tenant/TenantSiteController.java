@@ -67,8 +67,9 @@ public class TenantSiteController {
                                                                           @RequestParam(required = false) String projectId,
                                                                           @RequestParam(required = false) Integer page,
                                                                           @RequestParam(required = false) Integer pageSize,
-                                                                          @RequestParam(required = false) ApplicationService.Sort sort) {
-        return ApiResponse.ok(applications.forTenant(CurrentUser.get(), status, unacknowledged, projectId, page, pageSize, sort));
+                                                                          @RequestParam(required = false) ApplicationService.Sort sort,
+                                                                          @RequestParam(required = false) Boolean arrivedToday) {
+        return ApiResponse.ok(applications.forTenant(CurrentUser.get(), status, unacknowledged, projectId, page, pageSize, sort, Boolean.TRUE.equals(arrivedToday)));
     }
 
     @Operation(summary = "报名详情")

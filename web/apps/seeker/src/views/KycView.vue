@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, type KycView } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
 import AppealPopup from '@/components/AppealPopup.vue'
@@ -156,6 +156,25 @@ function openAppeal(t: 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL') {
   appealOpen.value = true
 }
 
+/** 情况一：证件绑在本人旧号上 → 退出当前账号，用旧手机号登录（不回显旧号，避免凭身份证号探测他人手机号） */
+async function recoverOld() {
+  try {
+    await showConfirmDialog({
+      title: '用旧手机号登录',
+      message: '将退出当前账号，请用当初实名时使用的手机号登录。登录后报名、工作记录都在旧账号里，当前新号码不会产生任何记录。',
+      confirmButtonText: '去登录',
+    })
+  } catch {
+    return
+  }
+  try {
+    await auth.logout()
+  } catch {
+    /* 本地登录态已清空 */
+  }
+  await router.replace({ path: '/login', query: { redirect: jobId.value ? `/jobs/${jobId.value}` : '/me', old: '1' } })
+}
+
 function soon(what: string) {
   showToast(`${what}功能即将上线，请先通过「问题反馈」联系平台客服`)
 }
@@ -203,7 +222,7 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
           <div class="row"><span class="tag tag-danger">情况三</span><span class="t-sm flex1">不是我本人操作 → 举报身份冒用</span></div>
         </div>
         <div class="row" style="gap: 8px; margin-top: 12px">
-          <van-button size="small" class="flex1" @click="soon('找回旧号')">找回旧号</van-button>
+          <van-button size="small" class="flex1" @click="recoverOld">找回旧号</van-button>
           <van-button size="small" class="flex1" type="primary" @click="openAppeal('ID_OCCUPIED_APPEAL')">提交申诉</van-button>
           <van-button size="small" class="flex1" type="danger" plain @click="openAppeal('ID_OCCUPIED_APPEAL')">举报冒用</van-button>
         </div>

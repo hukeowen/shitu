@@ -156,14 +156,14 @@ public class ChannelCodeService {
         return views(List.of(c)).get(0);
     }
 
-    /** 访问量（channel_visit 是平台专属表，用 JDBC 按已经过租户过滤的码列表统计）。 */
+    /** 访问人数（按访客去重；channel_visit 是平台专属表，用 JDBC 按已经过租户过滤的码列表统计）。 */
     public Map<String, Long> visitCounts(Collection<String> codeList) {
         if (codeList.isEmpty()) {
             return new HashMap<>();
         }
         String in = codeList.stream().map(x -> "?").collect(Collectors.joining(","));
         Map<String, Long> m = new HashMap<>();
-        jdbc.query("SELECT code, COUNT(*) FROM channel_visit WHERE code IN (" + in + ") GROUP BY code",
+        jdbc.query("SELECT code, COUNT(DISTINCT visitor_key) FROM channel_visit WHERE code IN (" + in + ") GROUP BY code",
                 rs -> {
                     m.put(rs.getString(1), rs.getLong(2));
                 }, codeList.toArray());

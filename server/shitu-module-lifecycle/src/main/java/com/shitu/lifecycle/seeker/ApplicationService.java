@@ -65,14 +65,14 @@ public class ApplicationService {
     }
 
     /** 待确权阶段的最近一份劳动合同：status PENDING_SIGN / SIGNED / FAILED…；signUrl 仅待签署时返回。 */
-    public record ContractBrief(String contractId, String status, String signUrl, LocalDateTime createdAt, LocalDateTime signedAt) {
+    public record ContractBrief(String contractId, String contractNo, String status, String signUrl, LocalDateTime createdAt, LocalDateTime signedAt) {
     }
 
     /** 列表排序：CREATED_ASC（默认，先来先处理）/ CREATED_DESC / DEADLINE（24h 响应窗口最紧的在前）。 */
     public enum Sort { CREATED_ASC, CREATED_DESC, DEADLINE }
 
     public record Workbench(long pendingAck, long pendingInterview, long pendingConfirm, long windowsDueIn4h,
-                            long privatePending) {
+                            long privatePending, long arrivedToday) {
     }
 
     public record AcknowledgeCommand(LocalDateTime interviewAt, String address, String routeTips, List<String> documents,
@@ -139,11 +139,11 @@ public class ApplicationService {
 
     public PageResult<SiteApplication> forTenant(AuthPrincipal p, ApplicationStatus status, Boolean unacknowledged,
                                                  String projectId, Integer page, Integer pageSize) {
-        return forTenant(p, status, unacknowledged, projectId, page, pageSize, Sort.CREATED_ASC);
+        return forTenant(p, status, unacknowledged, projectId, page, pageSize, Sort.CREATED_ASC, false);
     }
 
     public PageResult<SiteApplication> forTenant(AuthPrincipal p, ApplicationStatus status, Boolean unacknowledged,
-                                                 String projectId, Integer page, Integer pageSize, Sort sort) {
+                                                 String projectId, Integer page, Integer pageSize, Sort sort, boolean arrivedToday) {
         DataScope.Scope s = scope.of(p);
         if (!s.all() && s.projectIds().isEmpty()) {
             return new PageResult<>(List.of(), 0, 1, 20);
@@ -152,7 +152,10 @@ public class ApplicationService {
                 .in(!s.all(), Application::getProjectId, s.projectIds())
                 .eq(status != null, Application::getStatus, status)
                 .isNull(Boolean.TRUE.equals(unacknowledged), Application::getAcknowledgedAt)
-                .eq(projectId != null && !projectId.isBlank(), Application::getProjectId, projectId);
+                .eq(projectId != null && !projectId.isBlank(), Application::getProjectId, projectId)
+                // 今日到厂：按北京日历日（clock 时区）
+                .ge(arrivedToday, Application::getArrivedAt, java.time.LocalDate.now(clock).atStartOfDay())
+                .lt(arrivedToday, Application::getArrivedAt, java.time.LocalDate.now(clock).plusDays(1).atStartOfDay());
         switch (sort == null ? Sort.CREATED_ASC : sort) {
             case CREATED_DESC -> q.orderByDesc(Application::getCreatedAt);
             // 子查询同样经过租户拦截器，只看本公司的窗口；没有打开窗口的排在最后
@@ -196,10 +199,10 @@ public class ApplicationService {
         if (appIds.isEmpty()) {
             return m;
         }
-        jdbc.query("SELECT application_id, contract_id, status, sign_url, created_at, signed_at FROM contract WHERE application_id IN ("
+        jdbc.query("SELECT application_id, contract_id, status, sign_url, created_at, signed_at, contract_no FROM contract WHERE application_id IN ("
                 + String.join(",", appIds.stream().map(x -> "?").toList()) + ") ORDER BY created_at", rs -> {
             String st = rs.getString(3);
-            m.put(rs.getString(1), new ContractBrief(rs.getString(2), st, withUrl && "PENDING_SIGN".equals(st) ? rs.getString(4) : null,
+            m.put(rs.getString(1), new ContractBrief(rs.getString(2), rs.getString(7), st, withUrl && "PENDING_SIGN".equals(st) ? rs.getString(4) : null,
                     rs.getTimestamp(5).toLocalDateTime(), rs.getTimestamp(6) == null ? null : rs.getTimestamp(6).toLocalDateTime()));
         }, appIds.toArray());
         return m;
@@ -208,7 +211,7 @@ public class ApplicationService {
     public Workbench workbench(AuthPrincipal p) {
         DataScope.Scope s = scope.of(p);
         if (!s.all() && s.projectIds().isEmpty()) {
-            return new Workbench(0, 0, 0, 0, 0);
+            return new Workbench(0, 0, 0, 0, 0, 0);
         }
         long pendingAck = applications.selectCount(base(s).eq(Application::getStatus, ApplicationStatus.PENDING_INTERVIEW)
                 .isNull(Application::getAcknowledgedAt));
@@ -222,7 +225,11 @@ public class ApplicationService {
         long privatePending = windows.selectCount(new LambdaQueryWrapper<ResponseWindow>()
                 .eq(ResponseWindow::getStatus, ResponseWindow.OPEN)
                 .eq(ResponseWindow::getStage, "PRIVATE_PENDING"));
-        return new Workbench(pendingAck, pendingInterview, pendingConfirm, due, privatePending);
+        // 今日到厂、仍待录入面试结果（北京日历日）
+        long arrivedToday = applications.selectCount(base(s).eq(Application::getStatus, ApplicationStatus.PENDING_INTERVIEW)
+                .ge(Application::getArrivedAt, now.toLocalDate().atStartOfDay())
+                .lt(Application::getArrivedAt, now.toLocalDate().plusDays(1).atStartOfDay()));
+        return new Workbench(pendingAck, pendingInterview, pendingConfirm, due, privatePending, arrivedToday);
     }
 
     /** 私域待匹配用户（A-03）：扫本公司码注册、还没报名，24h 窗口内需要跟进（可一键转经纪人）。 */
