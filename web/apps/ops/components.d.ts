@@ -43,6 +43,7 @@ declare module 'vue' {
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
     ElTabs: typeof import('element-plus/es')['ElTabs']
+    ElTimeSelect: typeof import('element-plus/es')['ElTimeSelect']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     FileThumbs: typeof import('./src/components/FileThumbs.vue')['default']
     FileViewButton: typeof import('./src/components/FileViewButton.vue')['default']
