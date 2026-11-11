@@ -84,6 +84,7 @@ export const MENU: MenuGroup[] = [
       { path: '/pm/staff', title: '人员管理', proto: 'A-12', access: { perms: ['STAFF_MANAGE', 'SITE_WORKBENCH'] } },
       { path: '/pm/resign', title: '离职审核', proto: 'A-13', access: { perms: ['RESIGN_AUDIT', 'SITE_WORKBENCH'] } },
       { path: '/pm/roster', title: '花名册导入', proto: 'T-503', access: { perms: ['ROSTER_IMPORT'] } },
+      { path: '/pm/incidents', title: '工伤上报', proto: 'T-405', access: { roles: ['OWNER', 'PM', 'SITE'] } },
       { path: '/pm/advance', title: '薪酬预支审批', proto: 'A-17', access: { perms: ['ADVANCE_FINAL_REVIEW', 'ADVANCE_FIRST_REVIEW'], roles: ['OWNER'] } },
     ],
   },

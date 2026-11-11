@@ -2,7 +2,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { errorMessage, isApiError, tenantApi, useDict, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, useDict, type ApplicationInsight, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
 import AppActions from '@/components/AppActions.vue'
 import ApplicationCard from '@/components/ApplicationCard.vue'
 import QrImage from '@/components/QrImage.vue'
@@ -26,6 +26,17 @@ const actions = ref<InstanceType<typeof AppActions> | null>(null)
 
 const id = computed(() => String(route.params.id ?? ''))
 
+/** 画像标签、匹配记录、历史报名：加载失败不影响主流程，只是不显示 */
+const insight = shallowRef<ApplicationInsight | null>(null)
+async function loadInsight() {
+  insight.value = null
+  try {
+    insight.value = await tenantApi.applicationInsight(id.value)
+  } catch {
+    insight.value = null
+  }
+}
+
 async function load(silent = false) {
   if (!id.value) return
   if (!silent) loading.value = true
@@ -40,7 +51,7 @@ async function load(silent = false) {
     loading.value = false
   }
 }
-watch(id, () => load(), { immediate: true })
+watch(id, () => { void load(); void loadInsight() }, { immediate: true })
 
 function onAction(a: SiteApplication, action: SiteApplicationAction) {
   void actions.value?.run(action, a)
@@ -96,6 +107,26 @@ function back() {
           <div class="kv"><dt>合同编号</dt><dd class="num">{{ contract.contractNo || contract.contractId }}</dd></div>
         </dl>
       </section>
+      <section v-if="insight" class="acard">
+        <div class="acard-hd"><h4>求职者画像</h4></div>
+        <div v-if="insight.profileTags.length" class="chips"><span v-for="t in insight.profileTags" :key="t" class="tag tag-muted">{{ t }}</span></div>
+        <div v-else class="t-xs">没有答题记录（推荐报名）</div>
+        <template v-if="insight.matchRecords.length">
+          <div class="sub-hd">匹配记录</div>
+          <div v-for="(m, i) in insight.matchRecords" :key="i" class="rec">
+            <div class="rec-hd"><span class="num t-xs">{{ full(m.matchedAt) }}</span><span v-if="m.source" class="tag tag-ok">本次报名</span></div>
+            <div v-for="j in m.jobs" :key="j.jobId" class="rec-job">
+              <span :class="{ strong: j.appliedJob }">{{ j.title }}</span><b class="num">{{ Number(j.matchScore).toFixed(0) }}%</b>
+            </div>
+          </div>
+        </template>
+        <div class="sub-hd">在本公司的历史报名</div>
+        <div v-if="insight.history.length === 0" class="t-xs">这是第一次报名本公司岗位</div>
+        <div v-for="h in insight.history" :key="h.applicationId" class="his">
+          <div><span class="strong">{{ h.jobTitle }}</span> <span class="tag tag-muted">{{ label('ApplicationStatus', h.status) }}</span></div>
+          <div class="t-xs num">{{ full(h.createdAt) }}<template v-if="h.endReason"> · {{ label('LifecycleEvent', h.endReason) }}</template></div>
+        </div>
+      </section>
       <section class="acard">
         <div class="acard-hd"><h4>跟进记录</h4></div>
         <dl>
@@ -120,4 +151,11 @@ function back() {
 .sign { display: flex; gap: 12px; align-items: flex-start; padding-bottom: 10px; margin-bottom: 2px; border-bottom: 1px dashed var(--line); }
 .link { font-size: 11px; color: var(--ink-600); word-break: break-all; margin: 4px 0 8px; }
 .copy { border-radius: var(--r-sm); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sub-hd { margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ink-600); }
+.rec { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 6px; }
+.rec-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.rec-job { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; }
+.strong { font-weight: 700; color: var(--ink-900); }
+.his { padding: 7px 0; border-top: 1px dashed var(--line); line-height: 1.7; font-size: 13px; }
 </style>

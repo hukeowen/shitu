@@ -46,7 +46,7 @@ public class DictController {
         s.put("EmploymentOrigin", ordered("PLATFORM_ONBOARD", "平台入职", "ROSTER_IMPORT", "花名册导入"));
         s.put("ComplaintCategory", ordered("FULL_STILL_HIRING", "招满了还在招", "INFO_FALSE", "岗位信息不实", "MISMATCH_AFTER_INTERVIEW", "面试后发现不符"));
         s.put("ComplaintStatus", ordered("PENDING", "待核实", "VERIFIED", "属实", "REJECTED", "不属实"));
-        s.put("KycReviewType", ordered("ID_OCCUPIED_APPEAL", "身份证被占用申诉", "BLACKLIST_APPEAL", "失信申诉", "LOW_CONFIDENCE", "识别置信度低", "FRAUD_SUSPECT", "疑似冒用"));
+        s.put("KycReviewType", ordered("ID_OCCUPIED_APPEAL", "身份证被占用申诉", "BLACKLIST_APPEAL", "失信申诉", "LOW_CONFIDENCE", "识别置信度低", "FRAUD_SUSPECT", "疑似刷单注册"));
         s.put("ReviewStatus", ordered("PENDING", "待处理", "APPROVED", "已通过", "REJECTED", "已驳回"));
         s.put("BlacklistReason", ordered("UNPAID_ADVANCE", "预支未还", "FRAUD", "冒名 / 欺诈", "MALICIOUS", "恶意行为"));
         s.put("VersionStatus", ordered("DRAFT", "草稿", "ACTIVE", "生效中", "ARCHIVED", "已归档"));
@@ -58,7 +58,9 @@ public class DictController {
         s.put("FactoryWillingness", ordered("YES", "接受", "MAYBE", "可以试试", "NO", "不接受"));
         s.put("LockedRegion", ordered("LOCKED", "锁定城市", "ANY", "不限"));
         s.put("DormRequirement", ordered("REQUIRED", "必须包住", "SMALL_ROOM", "4 人间以内", "AIRCON", "要有空调", "NONE", "不需要住宿"));
-        s.put("CreditRule", ordered("MANUAL", "人工调整", "COMPLAINT_3X", "投诉属实累计 3 次", "STALE_JOB", "岗位长期未更新"));
+        s.put("IncidentSeverity", ordered("MINOR", "轻伤", "SERIOUS", "需送医", "CRITICAL", "危重"));
+        s.put("IncidentStatus", ordered("OPEN", "处理中", "CLOSED", "已结案"));
+        s.put("CreditRule", ordered("MANUAL", "人工调整", "COMPLAINT_3X", "投诉属实累计 3 次", "STALE_JOB", "岗位长期未更新", "FRAUD_REGISTER", "刷单注册"));
         s.put("PenaltyLevel", ordered("1", "一级 · 警告", "2", "二级 · 限流 30 天", "3", "三级 · 封禁"));
         s.put("KycStatus", ordered("NONE", "未实名", "VERIFIED", "已实名", "REVIEWING", "人工复核中", "REJECTED", "未通过"));
         s.put("LifecycleEvent", ordered("REGISTER_VIA_COMPANY", "扫码注册", "REGISTER_PUBLIC", "自主注册", "ROSTER_IMPORT", "花名册导入",

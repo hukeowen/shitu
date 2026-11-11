@@ -163,4 +163,65 @@ class OpsConfigIT extends FlowItSupport {
             data(call(put("/api/v1/ops/notify-templates/KB_ANSWERED"), ops, Map.of("title", title, "content", content)));
         }
     }
+
+    @Test
+    void fraudSuspectQueueAndPenalty() throws Exception {
+        // D-17：同一证件 24h 内被 3 个手机号提交实名 → 自动进确认队列 → 确认后引流公司扣 30 分
+        Company c = company();
+        String code = data(call(post("/api/v1/tenant/channel-codes"), c.owner(), Map.of("name", "刷单测试码"))).get("code").asText();
+        String holder = seekerLogin(phone(), null);
+        String id = idCard(28);
+        Map<String, Object> kyc = Map.of("realName", "周强", "idCard", id, "idCardConfirm", id);
+        data(call(post("/api/v1/seeker/kyc"), holder, kyc));
+        String f1 = seekerLogin(phone(), code);
+        assertThat(code(call(post("/api/v1/seeker/kyc"), f1, kyc))).isEqualTo("APP_4007");
+        String hash = jdbc.queryForObject("SELECT id_card_hash FROM `user` WHERE user_id = ?", String.class, userId(holder));
+        String pendingSql = "SELECT COUNT(*) FROM kyc_review r JOIN kyc_record k ON k.id = r.kyc_record_id "
+                + "WHERE r.review_type = 'FRAUD_SUSPECT' AND k.id_card_hash = ?";
+        assertThat(jdbc.queryForObject(pendingSql, Long.class, hash)).as("2 个手机号不触发").isZero();
+        String f2 = seekerLogin(phone(), code);
+        call(post("/api/v1/seeker/kyc"), f2, kyc);
+        call(post("/api/v1/seeker/kyc"), f2, kyc);
+        assertThat(jdbc.queryForObject(pendingSql, Long.class, hash)).as("第 3 个手机号触发，且不重复建单").isEqualTo(1);
+        assertThat(data(call(get("/api/v1/seeker/kyc/appeals"), f2, null))).as("系统建的单不出现在用户的申诉列表").isEmpty();
+
+        JsonNode q = data(call(get("/api/v1/ops/kyc-reviews?type=FRAUD_SUSPECT&status=PENDING"), ops, null));
+        JsonNode item = find(q, "userId", userId(f2));
+        assertThat(item.get("accounts")).hasSize(3);
+        assertThat(find(item.get("accounts"), "userId", userId(holder)).get("holder").asBoolean()).isTrue();
+        assertThat(find(item.get("accounts"), "userId", userId(f1)).get("sourceCompanyId").asText()).isEqualTo(c.companyId());
+
+        int before = jdbc.queryForObject("SELECT credit_score FROM company WHERE company_id = ?", Integer.class, c.companyId());
+        data(call(post("/api/v1/ops/kyc-reviews/" + item.get("id").asLong() + "/decide"), ops, Map.of("approve", true, "remark", "同一渠道码批量注册")));
+        assertThat(jdbc.queryForObject("SELECT credit_score FROM company WHERE company_id = ?", Integer.class, c.companyId()))
+                .as("两个涉事账号同属一家公司，只扣一次").isEqualTo(before - 30);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM credit_score_log WHERE company_id = ? AND rule_code = 'FRAUD_REGISTER'",
+                Long.class, c.companyId())).isEqualTo(1);
+    }
+
+    @Test
+    void sysParams() throws Exception {
+        JsonNode list = data(call(get("/api/v1/ops/sys-params"), ops, null));
+        JsonNode p = find(list, "paramKey", "matching.rematch_alert_count");
+        String old = p.get("paramValue").asText();
+        assertThat(list.toString()).as("由引擎参数管理的副本已移除").doesNotContain("matching.result_count");
+        String url = "/api/v1/ops/sys-params/matching.rematch_alert_count";
+        try {
+            assertThat(code(call(put(url), ops, Map.of("value", "abc", "remark", "x")))).isEqualTo("SYS_4000");
+            assertThat(code(call(put(url), ops, Map.of("value", "5")))).as("必须写原因").isEqualTo("SYS_4000");
+            assertThat(code(call(put("/api/v1/ops/sys-params/response_window.duration"), ops, Map.of("value", "24h", "remark", "x"))))
+                    .isEqualTo("SYS_4000");
+            assertThat(code(call(put("/api/v1/ops/sys-params/response_window.day_start"), ops, Map.of("value", "25:00", "remark", "x"))))
+                    .isEqualTo("SYS_4000");
+            assertThat(status(put(url), company().owner(), Map.of("value", "5", "remark", "x"))).isEqualTo(403);
+            data(call(put(url), ops, Map.of("value", "5", "remark", "试点期放宽")));
+            JsonNode after = find(data(call(get("/api/v1/ops/sys-params"), ops, null)), "paramKey", "matching.rematch_alert_count");
+            assertThat(after.get("paramValue").asText()).isEqualTo("5");
+            assertThat(after.get("updateRemark").asText()).isEqualTo("试点期放宽");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_log WHERE action = 'SYS_PARAM_UPDATE' AND target_id = ?",
+                    Long.class, "matching.rematch_alert_count")).isPositive();
+        } finally {
+            jdbc.update("UPDATE sys_param SET param_value = ? WHERE param_key = 'matching.rematch_alert_count'", old);
+        }
+    }
 }

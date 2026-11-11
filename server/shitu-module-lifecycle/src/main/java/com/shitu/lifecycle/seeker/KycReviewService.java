@@ -27,6 +27,8 @@ import java.util.Set;
  *   <li>ID_OCCUPIED_APPEAL：身份证已被其他账号绑定（换号 / 被冒用）。通过 = 解除原账号实名，申诉人可重新实名。
  *       原账号正在报名 / 待确权 / 在岗时不能解除（先处理业务关系，避免合同与在职记录失去实名主体）。</li>
  *   <li>BLACKLIST_APPEAL：平台级失信申诉。通过 = 解除该用户（及其身份证）的全部黑名单记录。</li>
+ *   <li>FRAUD_SUSPECT（D-17）：24 小时内同一证件被多个手机号提交实名，系统自动进队列。
+ *       确认 = 判定刷单，涉事账号（证件持有人以外）的引流公司各扣诚信分；驳回 = 误报，只留痕。</li>
  * </ul>
  * 所有表都是平台表；JDBC 直接访问，调用方处于 SEEKER / OPS 上下文。
  */
@@ -44,8 +46,11 @@ public class KycReviewService {
     private final OutboxWriter outbox;
     private final AuditLogger audit;
     private final Clock clock;
+    private final FraudPenalty fraudPenalty;
 
-    public KycReviewService(JdbcTemplate jdbc, FieldCipher cipher, OutboxWriter outbox, AuditLogger audit, Clock clock) {
+    public KycReviewService(JdbcTemplate jdbc, FieldCipher cipher, OutboxWriter outbox, AuditLogger audit, Clock clock,
+                            FraudPenalty fraudPenalty) {
+        this.fraudPenalty = fraudPenalty;
         this.jdbc = jdbc;
         this.cipher = cipher;
         this.outbox = outbox;
@@ -77,7 +82,60 @@ public class KycReviewService {
 
     public List<Map<String, Object>> mine(String userId) {
         return Rows.camel(jdbc.queryForList("SELECT id, review_type, status, remark, reviewer_remark, created_at, reviewed_at "
-                + "FROM kyc_review WHERE user_id = ? ORDER BY id DESC LIMIT 20", userId));
+                + "FROM kyc_review WHERE user_id = ? AND review_type <> 'FRAUD_SUSPECT' ORDER BY id DESC LIMIT 20", userId));
+    }
+
+    // ================================================================= 刷单判定（D-17）
+
+    /**
+     * 实名尝试落库后调用：24 小时内使用同一证件提交实名的账号数达到阈值，进入人工确认队列。
+     * 同一证件已有待确认记录时不重复建单。
+     */
+    public void flagFraudIfNeeded(String idCardHash, String userId, int threshold) {
+        if (idCardHash == null || threshold < 2) {
+            return;
+        }
+        LocalDateTime since = LocalDateTime.now(clock).minusHours(24);
+        long phones = count("SELECT COUNT(DISTINCT user_id) FROM kyc_record WHERE id_card_hash = ? AND created_at >= ?", idCardHash, since);
+        if (phones < threshold) {
+            return;
+        }
+        if (count("SELECT COUNT(*) FROM kyc_review r JOIN kyc_record k ON k.id = r.kyc_record_id "
+                + "WHERE r.review_type = 'FRAUD_SUSPECT' AND r.status = 'PENDING' AND k.id_card_hash = ?", idCardHash) > 0) {
+            return;
+        }
+        List<Long> rec = jdbc.queryForList("SELECT id FROM kyc_record WHERE id_card_hash = ? AND user_id = ? ORDER BY id DESC LIMIT 1",
+                Long.class, idCardHash, userId);
+        if (rec.isEmpty()) {
+            return;
+        }
+        jdbc.update("INSERT INTO kyc_review (user_id, kyc_record_id, review_type, remark) VALUES (?, ?, 'FRAUD_SUSPECT', ?)",
+                userId, rec.get(0), "24 小时内有 " + phones + " 个手机号使用同一证件提交实名");
+        audit.log("KYC_FRAUD_SUSPECT", "USER", userId, Map.of("phones", phones));
+    }
+
+    /** 刷单嫌疑涉及的账号：建单前 24 小时内用该证件提交过实名的全部账号。holder = 证件当前绑定在该账号上。 */
+    private List<Map<String, Object>> fraudAccounts(String hash, Object reviewCreatedAt) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> a : jdbc.queryForList("SELECT u.user_id, u.phone_enc, u.registered_at, u.source_company_id, "
+                + "u.register_channel_code, u.id_card_hash, c.name AS company_name, COUNT(*) AS attempts, MAX(k.created_at) AS last_at "
+                + "FROM kyc_record k JOIN `user` u ON u.user_id = k.user_id LEFT JOIN company c ON c.company_id = u.source_company_id "
+                + "WHERE k.id_card_hash = ? AND k.created_at >= DATE_SUB(?, INTERVAL 24 HOUR) AND k.created_at <= ? "
+                + "GROUP BY u.user_id, u.phone_enc, u.registered_at, u.source_company_id, u.register_channel_code, u.id_card_hash, c.name "
+                + "ORDER BY MIN(k.id)", hash, reviewCreatedAt, reviewCreatedAt)) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("userId", a.get("user_id"));
+            m.put("phoneMasked", Masks.phone(cipher.decrypt((String) a.get("phone_enc"))));
+            m.put("registeredAt", a.get("registered_at"));
+            m.put("sourceCompanyId", a.get("source_company_id"));
+            m.put("sourceCompanyName", a.get("company_name"));
+            m.put("channelCode", a.get("register_channel_code"));
+            m.put("attempts", a.get("attempts"));
+            m.put("lastAt", a.get("last_at"));
+            m.put("holder", hash.equals(a.get("id_card_hash")));
+            out.add(m);
+        }
+        return out;
     }
 
     // ================================================================= 平台复核队列
@@ -107,6 +165,9 @@ public class KycReviewService {
             String hash = (String) r.get("id_card_hash");
             if ("ID_OCCUPIED_APPEAL".equals(r.get("review_type")) && hash != null) {
                 m.put("occupant", occupant(hash));
+            }
+            if ("FRAUD_SUSPECT".equals(r.get("review_type")) && hash != null) {
+                m.put("accounts", fraudAccounts(hash, r.get("created_at")));
             }
             if ("BLACKLIST_APPEAL".equals(r.get("review_type"))) {
                 m.put("blacklist", Rows.camel(jdbc.queryForList("SELECT id, reason_code, detail, created_at FROM blacklist "
@@ -138,7 +199,7 @@ public class KycReviewService {
     public void decide(long id, boolean approve, String remark, String operatorId) {
         Map<String, Object> r;
         try {
-            r = jdbc.queryForMap("SELECT r.user_id, r.review_type, r.status, k.id_card_hash FROM kyc_review r "
+            r = jdbc.queryForMap("SELECT r.user_id, r.review_type, r.status, r.created_at, k.id_card_hash FROM kyc_review r "
                     + "LEFT JOIN kyc_record k ON k.id = r.kyc_record_id WHERE r.id = ? FOR UPDATE", id);
         } catch (EmptyResultDataAccessException e) {
             throw new BizException(ErrorCode.SYS_NOT_FOUND);
@@ -162,6 +223,20 @@ public class KycReviewService {
                         "result", "你的账号实名已被平台解除（该身份证由本人在另一手机号申诉找回），如有疑问请联系客服"));
             }
         }
+        int penalized = 0;
+        if (approve && "FRAUD_SUSPECT".equals(type)) {
+            BizException.check(hash != null, ErrorCode.SYS_BAD_REQUEST, "缺少实名记录，无法处理");
+            Set<String> companies = new java.util.LinkedHashSet<>();
+            for (Map<String, Object> a : fraudAccounts(hash, r.get("created_at"))) {
+                if (!Boolean.TRUE.equals(a.get("holder")) && a.get("sourceCompanyId") != null) {
+                    companies.add((String) a.get("sourceCompanyId"));
+                }
+            }
+            for (String companyId : companies) {
+                fraudPenalty.penalize(companyId, id, "同一证件多手机号注册，确认为刷单：" + remark.trim(), operatorId);
+                penalized++;
+            }
+        }
         if (approve && "BLACKLIST_APPEAL".equals(type)) {
             jdbc.update("UPDATE blacklist SET status = 'LIFTED', lifted_at = ? WHERE status = 'ACTIVE' "
                     + "AND (user_id = ? OR (id_card_hash IS NOT NULL AND id_card_hash = ?))", LocalDateTime.now(clock), userId, hash);
@@ -169,7 +244,10 @@ public class KycReviewService {
         }
         jdbc.update("UPDATE kyc_review SET status = ?, reviewer_id = ?, reviewer_remark = ?, reviewed_at = ? WHERE id = ?",
                 approve ? "APPROVED" : "REJECTED", operatorId, remark.trim(), LocalDateTime.now(clock), id);
-        audit.log("KYC_REVIEW_DECIDE", "KYC_REVIEW", String.valueOf(id), Map.of("approve", approve, "type", type));
+        audit.log("KYC_REVIEW_DECIDE", "KYC_REVIEW", String.valueOf(id), Map.of("approve", approve, "type", type, "penalized", penalized));
+        if ("FRAUD_SUSPECT".equals(type)) {
+            return; // 系统建单，不是用户申诉，不通知账号本人
+        }
         String result = !approve ? "申诉未通过：" + remark.trim()
                 : "ID_OCCUPIED_APPEAL".equals(type) ? "申诉已通过，请重新提交实名认证" : "申诉已通过，失信记录已解除";
         outbox.publish("KYC_APPEAL_RESULT", "USER", userId, Map.of("userId", userId, "result", result));

@@ -41,9 +41,11 @@ public class KycService {
     private final RateLimiter limiter;
     private final SysParams params;
     private final Clock clock;
+    private final KycReviewService reviews;
 
     public KycService(SeekerUserMapper users, FieldCipher cipher, IdentityVerifier verifier, JdbcTemplate jdbc,
-                      RateLimiter limiter, SysParams params, Clock clock) {
+                      RateLimiter limiter, SysParams params, Clock clock, KycReviewService reviews) {
+        this.reviews = reviews;
         this.users = users;
         this.cipher = cipher;
         this.verifier = verifier;
@@ -175,5 +177,9 @@ public class KycService {
         jdbc.update("INSERT INTO kyc_record (user_id, method, id_card_hash, birth_date, result, provider_trace_id, ip) "
                         + "VALUES (?, 'MANUAL_INPUT', ?, ?, ?, ?, ?)",
                 userId, hash == null ? "-" : hash, birth, result, traceId, ClientInfo.ip());
+        if (hash != null) {
+            // D-17：同一证件 24 小时内被多个手机号提交实名 → 进人工确认队列
+            reviews.flagFraudIfNeeded(hash, userId, params.getInt("kyc.fraud_phone_count_24h", 3));
+        }
     }
 }

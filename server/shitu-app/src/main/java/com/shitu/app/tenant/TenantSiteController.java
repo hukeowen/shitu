@@ -39,8 +39,10 @@ public class TenantSiteController {
 
     private final ApplicationService applications;
     private final NotificationService notifications;
+    private final ApplicationInsightService insights;
 
-    public TenantSiteController(ApplicationService applications, NotificationService notifications) {
+    public TenantSiteController(ApplicationService applications, NotificationService notifications, ApplicationInsightService insights) {
+        this.insights = insights;
         this.applications = applications;
         this.notifications = notifications;
     }
@@ -77,6 +79,13 @@ public class TenantSiteController {
     @GetMapping("/applications/{applicationId}")
     public ApiResponse<ApplicationService.SiteApplication> one(@PathVariable String applicationId) {
         return ApiResponse.ok(applications.one(CurrentUser.get(), applicationId));
+    }
+
+    @Operation(summary = "求职者画像：画像标签、匹配记录、在本公司的历史报名（M-04）")
+    @PreAuthorize("hasAnyRole('SITE','PM','OWNER')")
+    @GetMapping("/applications/{applicationId}/insight")
+    public ApiResponse<ApplicationInsightService.Insight> insight(@PathVariable String applicationId) {
+        return ApiResponse.ok(insights.of(CurrentUser.get(), applicationId));
     }
 
     @Operation(summary = "知悉并推送面试信息（可重复推送，以最后一次为准）")

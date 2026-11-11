@@ -45,7 +45,8 @@ public class NotificationRoutes implements OutboxHandler {
             "BROKER_RECOMMENDED", "BROKER_CONTACT_OVERDUE", "ADVANCE_SUBMITTED", "ADVANCE_SITE_APPROVED", "ADVANCE_RESULT",
             "JOB_STALE", "COMPANY_PENALIZED", "KB_QUESTION_PENDING", "KB_ANSWERED", "KYC_APPEAL_RESULT",
             "MONTHLY_BILL_ISSUED", "COMPANY_APPROVED", "COMPANY_REJECTED", "JOB_APPROVED", "JOB_REJECTED", "JOB_FORCE_OFFLINE",
-            "REMATCH_LIMIT_REACHED", "FEEDBACK_REPLIED", "PAYSLIP_APPEAL_SUBMITTED", "PAYSLIP_APPEAL_HANDLED");
+            "REMATCH_LIMIT_REACHED", "FEEDBACK_REPLIED", "PAYSLIP_APPEAL_SUBMITTED", "PAYSLIP_APPEAL_HANDLED",
+            "INJURY_REPORTED");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -126,6 +127,14 @@ public class NotificationRoutes implements OutboxHandler {
                                 : companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.PM)),
                         Map.of("seekerName", seekerName(text(p, "userId")), "month", text(p, "month"), "content", text(p, "content")),
                         "/payroll/appeals");
+                case "INJURY_REPORTED" -> {
+                    // T-405：老板 + 该项目的项目经理，上报人自己不重复收
+                    Set<Recipient> to = new LinkedHashSet<>(companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)));
+                    to.addAll(projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.PM)));
+                    to.remove(Recipient.member(text(p, "reportedBy")));
+                    notifications.send(outboxId, "INJURY_ALERT", List.copyOf(to),
+                            Map.of("projectName", text(p, "projectName"), "detail", text(p, "detail")), "/incidents");
+                }
                 case "PAYSLIP_APPEAL_HANDLED" -> notifications.send(outboxId, "PAYSLIP_APPEAL_RESULT",
                         List.of(Recipient.seeker(text(p, "userId"))), Map.of("month", text(p, "month"), "reply", text(p, "reply")),
                         "/payslips/" + aggregateId);

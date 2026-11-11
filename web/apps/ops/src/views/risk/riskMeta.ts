@@ -6,6 +6,7 @@ export const CREDIT_RULES: Record<string, string> = {
   MANUAL: '人工调分',
   COMPLAINT_3X: '岗位投诉属实 3 次',
   STALE_JOB: '岗位长期未更新',
+  FRAUD_REGISTER: '刷单注册',
 }
 export const creditRuleLabel = (code?: string | null) => (code ? CREDIT_RULES[code] ?? code : '—')
 

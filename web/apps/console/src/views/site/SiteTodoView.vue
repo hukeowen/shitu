@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type ApplicationStatus, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
+import ApplicantInsightDrawer from '@/components/site/ApplicantInsightDrawer.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
 import DictTag from '@/components/DictTag.vue'
 import PersonCell from '@/components/PersonCell.vue'
@@ -90,6 +91,12 @@ function rowClass({ row }: { row: SiteApplication }) {
   const ms = remainMs(row.responseDeadline, now.value)
   return ms != null && ms < 3600_000 ? 'row-danger' : ''
 }
+
+const insight = reactive({ open: false, app: null as SiteApplication | null })
+function openInsight(row: SiteApplication) {
+  insight.app = row
+  insight.open = true
+}
 </script>
 
 <template>
@@ -123,7 +130,11 @@ function rowClass({ row }: { row: SiteApplication }) {
           <template #default="{ $index }"><span class="mono t-xs">{{ String((page.page - 1) * page.pageSize + $index + 1).padStart(2, '0') }}</span></template>
         </el-table-column>
         <el-table-column label="求职者" min-width="130">
-          <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" :sub="row.applicationId" /></template>
+          <template #default="{ row }">
+            <button type="button" class="person-btn" title="查看画像、匹配记录与历史报名" @click="openInsight(row)">
+              <PersonCell :name="row.seekerName" :accent="!row.fromPublic" :sub="row.applicationId" />
+            </button>
+          </template>
         </el-table-column>
         <el-table-column label="手机号" width="130">
           <template #default="{ row }">
@@ -163,6 +174,7 @@ function rowClass({ row }: { row: SiteApplication }) {
           <el-empty :image-size="80" :description="loadError ? '加载失败' : `暂无${current.label}`" />
         </template>
       </el-table>
+      <ApplicantInsightDrawer v-model="insight.open" :app="insight.app" />
       <div v-if="page.total > 0" class="pager">
         <el-pagination
           v-model:current-page="page.page"
@@ -196,3 +208,9 @@ function rowClass({ row }: { row: SiteApplication }) {
     <AppActionDialogs ref="dialogs" @done="refresh" />
   </div>
 </template>
+
+<style scoped>
+.person-btn { all: unset; cursor: pointer; display: block; border-radius: var(--r-xs); }
+.person-btn:hover { opacity: 0.8; }
+.person-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+</style>

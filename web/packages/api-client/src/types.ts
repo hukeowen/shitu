@@ -540,6 +540,47 @@ export interface InboxItem {
 }
 
 /** 驻场 / 项目经理看到的报名（phone 仅驻场返回） */
+export type IncidentSeverity = 'MINOR' | 'SERIOUS' | 'CRITICAL'
+export type IncidentStatus = 'OPEN' | 'CLOSED'
+
+/** 工伤紧急异常（T-405） */
+export interface IncidentRow {
+  id: number
+  projectId: string
+  projectName: string
+  personName: string
+  severity: IncidentSeverity
+  occurredAt: string
+  detail: string
+  status: IncidentStatus
+  handleNote?: string
+  createdAt: string
+  closedAt?: string
+  reportedByName?: string
+  closedByName?: string
+}
+
+/** 求职者画像（M-04）：只含本公司的岗位与报名 */
+export interface ApplicationInsight {
+  profileTags: string[]
+  matchRecords: {
+    matchedAt: string
+    /** 本次报名来自这次匹配 */
+    source: boolean
+    jobs: { jobId: string; title: string; matchScore: number; reasonText?: string; appliedJob: boolean }[]
+  }[]
+  history: {
+    applicationId: string
+    jobId: string
+    jobTitle: string
+    status: string
+    createdAt: string
+    interviewResult?: string
+    endedAt?: string
+    endReason?: string
+  }[]
+}
+
 export interface SiteApplication {
   applicationId: string
   userId: string
@@ -1097,6 +1138,31 @@ export interface KycOccupant {
   releasable: boolean
 }
 
+/** 刷单嫌疑涉及的账号（D-17）：建单前 24 小时内用同一证件提交过实名 */
+export interface FraudAccount {
+  userId: string
+  phoneMasked: string
+  registeredAt: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
+  channelCode?: string
+  attempts: number
+  lastAt: string
+  /** 证件当前绑定在这个账号上（持有人不计入扣分） */
+  holder: boolean
+}
+
+export interface SysParamRow {
+  paramKey: string
+  paramValue: string
+  valueType: 'INT' | 'DECIMAL' | 'DURATION' | 'TIME' | 'STRING' | 'BOOL'
+  description: string
+  updatedBy?: string
+  updatedByName?: string
+  updateRemark?: string
+  updatedAt: string
+}
+
 export interface KycReviewRow {
   id: number
   userId: string
@@ -1113,6 +1179,7 @@ export interface KycReviewRow {
   kycAt?: string
   phoneMasked: string
   occupant?: KycOccupant | null
+  accounts?: FraudAccount[]
   blacklist?: { id: number; reasonCode: string; detail?: string; createdAt: string }[]
 }
 

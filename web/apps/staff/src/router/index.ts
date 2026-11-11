@@ -21,6 +21,7 @@ const router = createRouter({
     { path: '/advance', component: () => import('@/views/AdvanceReviewView.vue'), meta: { title: '预支初审', proto: 'M-11' } },
     { path: '/advance/:id', component: () => import('@/views/AdvanceDetailView.vue'), meta: { title: '预支详情', proto: 'M-11' } },
     { path: '/employees', component: () => import('@/views/EmployeesView.vue'), meta: { title: '在岗人员', proto: 'M-15' } },
+    { path: '/incidents', component: () => import('@/views/IncidentsView.vue'), meta: { title: '工伤上报', proto: 'T-405' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, title: '我的', allowInactive: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

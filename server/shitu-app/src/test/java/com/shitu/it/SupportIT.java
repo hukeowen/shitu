@@ -67,4 +67,49 @@ class SupportIT extends FlowItSupport {
         // 入驻审核通过通知老板（company() 里已审核通过）
         assertThat(data(call(get("/api/v1/tenant/messages"), c.owner(), null)).toString()).contains("入驻审核");
     }
+
+    @Test
+    void injuryReportFlow() throws Exception {
+        // T-405：驻场上报 → 老板、项目经理收到最高优先级站内信 → 项目经理结案；别的项目的驻场看不到
+        Company c = company();
+        Company other = company();
+        String at = java.time.LocalDateTime.now().minusMinutes(10).withNano(0).toString();
+        Map<String, Object> req = Map.of("projectId", c.projectId(), "personName", "赵大勇", "severity", "SERIOUS",
+                "occurredAt", at, "detail", "冲压车间操作时左手被夹伤，已送昆山市第一人民医院");
+        assertThat(status(post("/api/v1/tenant/incidents"), c.owner(), req)).as("老板不上报").isEqualTo(403);
+        assertThat(code(call(post("/api/v1/tenant/incidents"), c.site(), Map.of("projectId", c.projectId2(), "personName", "赵大勇",
+                "severity", "SERIOUS", "occurredAt", at, "detail", "不在自己负责的项目上报")))).as("驻场只能报自己的项目").isNotEqualTo("0");
+        assertThat(code(call(post("/api/v1/tenant/incidents"), other.site(), req))).as("不能报别家公司的项目").isNotEqualTo("0");
+        long id = data(call(post("/api/v1/tenant/incidents"), c.site(), req)).asLong();
+        while (dispatcher.dispatch() > 0) { }
+        assertThat(data(call(get("/api/v1/tenant/messages"), c.owner(), null)).toString()).contains("工伤").contains("赵大勇");
+        assertThat(data(call(get("/api/v1/tenant/messages"), c.site(), null)).toString()).as("上报人自己不收").doesNotContain("赵大勇");
+        assertThat(jdbc.queryForObject("SELECT MAX(priority) FROM notification WHERE content LIKE '%赵大勇%'", Integer.class)).isEqualTo(2);
+
+        assertThat(find(data(call(get("/api/v1/tenant/incidents?status=OPEN"), c.owner(), null)), "id", String.valueOf(id))
+                .get("reportedByName").asText()).isEqualTo("王磊");
+        assertThat(data(call(get("/api/v1/tenant/incidents"), other.owner(), null)).toString()).doesNotContain("赵大勇");
+        assertThat(status(post("/api/v1/tenant/incidents/" + id + "/close"), c.site(), Map.of("note", "已处理"))).isEqualTo(403);
+        assertThat(code(call(post("/api/v1/tenant/incidents/" + id + "/close"), other.owner(), Map.of("note", "越权结案")))).isEqualTo("SYS_4040");
+        data(call(post("/api/v1/tenant/incidents/" + id + "/close"), c.owner(), Map.of("note", "已申报工伤认定，医疗费由公司垫付")));
+        assertThat(code(call(post("/api/v1/tenant/incidents/" + id + "/close"), c.owner(), Map.of("note", "重复结案")))).isEqualTo("SYS_4090");
+        assertThat(find(data(call(get("/api/v1/tenant/incidents"), c.site(), null)), "id", String.valueOf(id)).get("status").asText()).isEqualTo("CLOSED");
+    }
+
+    @Test
+    void applicationInsight() throws Exception {
+        // M-04：报名详情带画像标签、匹配记录、本公司历史报名；别家公司拿不到
+        Company c = company();
+        Company other = company();
+        String jobId = job(c, c.projectId(), "画像测试岗位", 5);
+        String s = readySeeker(null);
+        String appId = apply(s, jobId);
+        JsonNode in = data(call(get("/api/v1/tenant/applications/" + appId + "/insight"), c.site(), null));
+        assertThat(in.get("profileTags").size()).isGreaterThan(3);
+        assertThat(in.get("matchRecords").get(0).get("source").asBoolean()).isTrue();
+        assertThat(find(in.get("matchRecords").get(0).get("jobs"), "jobId", jobId).get("appliedJob").asBoolean()).isTrue();
+        assertThat(in.get("history").size()).isZero();
+        assertThat(code(call(get("/api/v1/tenant/applications/" + appId + "/insight"), other.owner(), null))).isNotEqualTo("0");
+        assertThat(status(get("/api/v1/tenant/applications/" + appId + "/insight"), s, null)).isIn(401, 403);
+    }
 }

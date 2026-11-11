@@ -48,6 +48,10 @@ import type {
   ApplicationStatus,
   InboxItem,
   SiteApplication,
+  ApplicationInsight,
+  IncidentRow,
+  IncidentSeverity,
+  IncidentStatus,
   SiteWorkbench,
   AcknowledgeRequest,
   MatchSnapshot,
@@ -95,6 +99,7 @@ import type {
   PrivatePendingRow,
   EngineVersion,
   KycReviewRow,
+  SysParamRow,
   BlacklistRow,
   MyAppeal,
   KycReviewType,
@@ -289,6 +294,7 @@ export const tenantApi = {
   applications: (params?: { status?: ApplicationStatus; unacknowledged?: boolean; arrivedToday?: boolean; projectId?: string; page?: number; pageSize?: number; sort?: SiteApplicationSort }) =>
     get<PageResult<SiteApplication>>('/tenant/applications', params),
   application: (applicationId: string) => get<SiteApplication>(`/tenant/applications/${applicationId}`),
+  applicationInsight: (applicationId: string) => get<ApplicationInsight>(`/tenant/applications/${applicationId}/insight`),
   /** 知悉并推送面试信息（可重复推送） */
   acknowledge: (applicationId: string, req: AcknowledgeRequest) =>
     post<SiteApplication>(`/tenant/applications/${applicationId}/acknowledge`, req),
@@ -365,6 +371,10 @@ export const tenantApi = {
   /** 工资表导入（.xlsx：手机号、工号、应发、社保、个税、其他扣款），month：YYYY-MM */
   importPayroll: (file: File, month: string) => upload<PayrollBatchResult>('/tenant/payroll/import', file, { month }),
   payrollBatches: () => get<PayrollBatch[]>('/tenant/payroll/batches'),
+  incidents: (params?: { status?: IncidentStatus }) => get<IncidentRow[]>('/tenant/incidents', params),
+  reportIncident: (body: { projectId: string; personName: string; severity: IncidentSeverity; occurredAt: string; detail: string }) =>
+    post<number>('/tenant/incidents', body),
+  closeIncident: (id: number, note: string) => post<void>('/tenant/incidents/' + id + '/close', { note }),
   payslipAppeals: (params?: { status?: PayslipAppealStatus }) => get<PayslipAppealRow[]>('/tenant/payroll/appeals', params),
   handlePayslipAppeal: (id: number, body: { accept: boolean; reply: string }) => post<void>(`/tenant/payroll/appeals/${id}/handle`, body),
   /** 工资表模板下载路径（配合 fetchFileUrl / 下载工具使用） */
@@ -485,6 +495,8 @@ export const opsApi = {
   engineDelete: (id: number) => del<void>(`/ops/engine/versions/${id}`),
   enginePublish: (id: number) => post<EngineVersion>(`/ops/engine/versions/${id}/publish`),
 
+  sysParams: () => get<SysParamRow[]>('/ops/sys-params'),
+  updateSysParam: (key: string, body: { value: string; remark: string }) => put<void>('/ops/sys-params/' + encodeURIComponent(key), body),
   kycReviews: (params?: { status?: ReviewStatus; type?: KycReviewType }) => get<KycReviewRow[]>('/ops/kyc-reviews', params),
   feedbackList: (params?: { status?: FeedbackStatus }) => get<FeedbackRow[]>('/ops/feedback', params),
   replyFeedback: (id: number, body: { reply?: string; close?: boolean }) => post<void>(`/ops/feedback/${id}/reply`, body),

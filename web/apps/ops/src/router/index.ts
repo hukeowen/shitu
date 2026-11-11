@@ -26,6 +26,7 @@ const VIEWS: Record<string, Lazy> = {
   '/settlement/rules': () => import('@/views/billing/BillingRulesView.vue'),
   '/settlement/bills': () => import('@/views/billing/BillListView.vue'),
   '/system/templates': () => import('@/views/notify/TemplatesView.vue'),
+  '/system/params': () => import('@/views/system/SysParamsView.vue'),
 }
 
 const children: RouteRecordRaw[] = MENU.flatMap((g) =>

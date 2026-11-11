@@ -51,10 +51,20 @@ const approveHint = computed(() => {
       return '通过后将解除原账号的实名绑定，身份证可由申诉人重新实名。'
     case 'BLACKLIST_APPEAL':
       return '通过后将解除该用户命中的全部有效黑名单记录。'
+    case 'FRAUD_SUSPECT': {
+      const names = fraudCompanies(dec.row)
+      return names.length
+        ? '确认后，涉事账号的引流公司（' + names.join('、') + '）各扣诚信分一次，证件持有人所在公司不扣。'
+        : '涉事账号没有引流公司（自然注册），确认后只留痕，不扣分。'
+    }
     default:
       return '通过后该用户的实名认证视为有效。'
   }
 })
+const isFraud = computed(() => dec.row?.reviewType === 'FRAUD_SUSPECT')
+function fraudCompanies(r: KycReviewRow): string[] {
+  return [...new Set((r.accounts ?? []).filter((a) => !a.holder && a.sourceCompanyName).map((a) => a.sourceCompanyName as string))]
+}
 async function submitDecide() {
   if (!dec.row) return
   const remark = dec.remark.trim()
@@ -65,7 +75,7 @@ async function submitDecide() {
   dec.loading = true
   try {
     await opsApi.kycDecide(dec.row.id, dec.approve, remark)
-    ElMessage.success(dec.approve ? '申诉已通过' : '申诉已驳回')
+    ElMessage.success(isFraud.value ? (dec.approve ? '已确认刷单并扣分' : '已标记为误报') : dec.approve ? '申诉已通过' : '申诉已驳回')
     dec.visible = false
     await loadReviews()
     if (dec.row.reviewType === 'BLACKLIST_APPEAL') void loadBlacklist()
@@ -157,7 +167,7 @@ onMounted(() => {
     <div class="page-hd">
       <div>
         <h2>实名与合规</h2>
-        <p>实名拦截后的人工复核（身份证被占用申诉、失信申诉）与平台黑名单 · 对外只显示「平台级失信」，不暴露具体原因</p>
+        <p>实名拦截后的人工复核（身份证被占用申诉、失信申诉、疑似刷单注册）与平台黑名单 · 对外只显示「平台级失信」，不暴露具体原因</p>
       </div>
       <div class="spacer" />
       <el-button v-if="tab === 'blacklist'" type="danger" plain @click="openAdd">拉黑用户</el-button>
@@ -198,6 +208,21 @@ onMounted(() => {
                 </template>
                 <div v-else class="t-xs">身份证当前未被其他账号占用（可能已被释放）。</div>
               </div>
+              <div v-else-if="row.reviewType === 'FRAUD_SUSPECT'">
+                <div class="sec-title">24 小时内用同一证件提交实名的账号</div>
+                <el-table :data="row.accounts ?? []" size="small" row-key="userId">
+                  <el-table-column label="账号" min-width="210">
+                    <template #default="{ row: a }"><span class="mono">{{ a.userId }} · {{ a.phoneMasked }}</span> <span v-if="a.holder" class="tag tag--ok">证件持有人</span></template>
+                  </el-table-column>
+                  <el-table-column label="引流公司" min-width="200">
+                    <template #default="{ row: a }">{{ a.sourceCompanyName ?? '自然注册' }}<span v-if="a.channelCode" class="t-xs mono"> · 渠道码 {{ a.channelCode }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="注册时间" width="140"><template #default="{ row: a }"><span class="mono t-sm">{{ fmtDateTime(a.registeredAt) }}</span></template></el-table-column>
+                  <el-table-column label="提交次数" width="90" align="right"><template #default="{ row: a }"><span class="num">{{ a.attempts }}</span></template></el-table-column>
+                  <el-table-column label="最近提交" width="140"><template #default="{ row: a }"><span class="mono t-sm">{{ fmtDateTime(a.lastAt) }}</span></template></el-table-column>
+                </el-table>
+                <div class="notice notice--info note">确认刷单后，除证件持有人外，其余账号的引流公司各扣一次诚信分。同一个人换号重新注册也会进这里，核实后标记误报即可。</div>
+              </div>
               <div v-else-if="row.reviewType === 'BLACKLIST_APPEAL'">
                 <div class="sec-title">命中的黑名单记录</div>
                 <el-empty v-if="!row.blacklist || row.blacklist.length === 0" :image-size="40" description="当前无有效黑名单记录" />
@@ -214,14 +239,14 @@ onMounted(() => {
           </template>
         </el-table-column>
         <el-table-column label="类型" width="150"><template #default="{ row }"><span class="tag tag--info">{{ label('KycReviewType', row.reviewType) }}</span></template></el-table-column>
-        <el-table-column label="申诉人" min-width="170">
+        <el-table-column label="账号" min-width="170">
           <template #default="{ row }">
             <span v-if="canAttribution" class="link-cell mono" @click="toAttribution(row.userId)">{{ row.userId }}</span>
             <span v-else class="mono strong">{{ row.userId }}</span>
             <div class="t-xs mono">{{ row.phoneMasked }} · {{ label('UserStatus', row.userStatus) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="申诉理由" min-width="240"><template #default="{ row }"><div class="t-sm pre">{{ row.remark }}</div></template></el-table-column>
+        <el-table-column label="申诉理由 / 触发原因" min-width="240"><template #default="{ row }"><div class="t-sm pre">{{ row.remark }}</div></template></el-table-column>
         <el-table-column label="关键信息" min-width="190">
           <template #default="{ row }">
             <template v-if="row.reviewType === 'ID_OCCUPIED_APPEAL'">
@@ -236,6 +261,10 @@ onMounted(() => {
               <span class="tags"><span v-for="b in row.blacklist ?? []" :key="b.id" class="tag tag--danger">{{ label('BlacklistReason', b.reasonCode) }}</span></span>
               <span v-if="!row.blacklist?.length" class="dim t-sm">无有效记录</span>
             </template>
+            <template v-else-if="row.reviewType === 'FRAUD_SUSPECT'">
+              <div class="t-sm">涉及 <b class="num">{{ row.accounts?.length ?? 0 }}</b> 个手机号</div>
+              <div class="t-xs">{{ fraudCompanies(row).join('、') || '无引流公司' }}</div>
+            </template>
             <span v-else class="dim t-sm">—</span>
           </template>
         </el-table-column>
@@ -243,15 +272,21 @@ onMounted(() => {
         <el-table-column label="状态 / 操作" width="170" align="right" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'PENDING'">
-              <el-button size="small" type="danger" plain @click="openDecide(row, false)">驳回</el-button>
-              <el-button size="small" type="primary" @click="openDecide(row, true)">通过</el-button>
+              <template v-if="row.reviewType === 'FRAUD_SUSPECT'">
+                <el-button size="small" @click="openDecide(row, false)">误报</el-button>
+                <el-button size="small" type="danger" @click="openDecide(row, true)">确认刷单</el-button>
+              </template>
+              <template v-else>
+                <el-button size="small" type="danger" plain @click="openDecide(row, false)">驳回</el-button>
+                <el-button size="small" type="primary" @click="openDecide(row, true)">通过</el-button>
+              </template>
             </template>
             <StatusTag v-else type="ReviewStatus" :value="row.status" />
           </template>
         </el-table-column>
         <template #empty>
           <el-empty v-if="rError" :image-size="64" :description="rError"><el-button size="small" @click="loadReviews">重试</el-button></el-empty>
-          <el-empty v-else :image-size="64" :description="rStatus === 'PENDING' ? '暂无待处理的申诉' : '暂无数据'" />
+          <el-empty v-else :image-size="64" :description="rStatus === 'PENDING' ? '暂无待处理的记录' : '暂无数据'" />
         </template>
       </el-table>
     </div>
@@ -295,23 +330,23 @@ onMounted(() => {
       </el-table>
     </div>
 
-    <el-dialog v-model="dec.visible" :title="dec.approve ? '通过申诉' : '驳回申诉'" width="500px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-model="dec.visible" :title="isFraud ? (dec.approve ? '确认刷单' : '标记为误报') : dec.approve ? '通过申诉' : '驳回申诉'" width="500px" destroy-on-close :close-on-click-modal="false">
       <template v-if="dec.row">
         <dl class="kv-grid one">
           <div class="kv"><dt>类型</dt><dd>{{ label('KycReviewType', dec.row.reviewType) }}</dd></div>
-          <div class="kv"><dt>申诉人</dt><dd class="mono">{{ dec.row.userId }} · {{ dec.row.phoneMasked }}</dd></div>
-          <div class="kv block"><dt>申诉理由</dt><dd>{{ dec.row.remark }}</dd></div>
+          <div class="kv"><dt>{{ isFraud ? '触发账号' : '申诉人' }}</dt><dd class="mono">{{ dec.row.userId }} · {{ dec.row.phoneMasked }}</dd></div>
+          <div class="kv block"><dt>{{ isFraud ? '触发原因' : '申诉理由' }}</dt><dd>{{ dec.row.remark }}</dd></div>
         </dl>
         <div v-if="blockedApprove" class="notice notice--danger gap">
           身份证占用者 <span class="mono">{{ dec.row.occupant?.phoneMasked }}</span> 当前处于「{{ label('UserStatus', dec.row.occupant?.userStatus) }}」，正处于报名 / 待确权 / 在岗流程中，通过申诉会被系统拒绝。
         </div>
         <div v-else-if="dec.approve" class="notice notice--warn gap">{{ approveHint }}</div>
-        <el-input v-model="dec.remark" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="处理意见（必填，将通知申诉人）" @input="dec.error = ''" />
+        <el-input v-model="dec.remark" type="textarea" :rows="3" maxlength="500" show-word-limit :placeholder="isFraud ? '处理意见（必填，记入企业诚信记录）' : '处理意见（必填，将通知申诉人）'" @input="dec.error = ''" />
         <div v-if="dec.error" class="notice notice--danger err">{{ dec.error }}</div>
       </template>
       <template #footer>
         <el-button @click="dec.visible = false">取消</el-button>
-        <el-button :type="dec.approve ? 'primary' : 'danger'" :loading="dec.loading" @click="submitDecide">{{ dec.approve ? '通过' : '驳回' }}</el-button>
+        <el-button :type="dec.approve ? 'primary' : 'danger'" :loading="dec.loading" @click="submitDecide">{{ isFraud ? (dec.approve ? '确认刷单并扣分' : '标记误报') : dec.approve ? '通过' : '驳回' }}</el-button>
       </template>
     </el-dialog>
 
