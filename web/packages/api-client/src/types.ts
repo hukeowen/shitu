@@ -1232,6 +1232,21 @@ export interface TimeoutReleases {
   byReason: { event: string; cnt: number }[]
 }
 
+/** 归属争议（P-08） */
+export interface AttributionDispute {
+  id: number
+  userId: string
+  companyId?: string
+  companyName?: string
+  content: string
+  status: 'OPEN' | 'RESOLVED'
+  conclusion?: string
+  createdAt: string
+  resolvedAt?: string
+  createdByName?: string
+  resolvedByName?: string
+}
+
 export interface HolidayRow {
   holidayDate: string
   /** true = 调休上班日；false = 放假 */

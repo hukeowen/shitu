@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
+import { useFileUrls } from '@/composables/useFileUrls'
 import { fmtDateTime } from '@/utils/format'
 
 /** P-06 投诉管理：核实 / 驳回；同岗属实满 3 次自动下架并扣 10 分 */
@@ -15,6 +16,7 @@ interface ComplaintRow {
   userId: string
   category: string
   content: string
+  images?: string[]
   status: 'PENDING' | 'VERIFIED' | 'REJECTED'
   handleRemark?: string
   createdAt: string
@@ -22,6 +24,7 @@ interface ComplaintRow {
   complaintVerified: number
 }
 const AUTO_OFFLINE_AT = 3
+const files = useFileUrls()
 
 const router = useRouter()
 const { label, options } = useDict()
@@ -112,6 +115,9 @@ function toCredit(companyId: string) {
         <el-table-column label="投诉内容" min-width="240">
           <template #default="{ row }">
             <div class="t-sm content">{{ row.content }}</div>
+            <div v-if="row.images?.length" class="imgs">
+              <el-button v-for="(k, i) in row.images" :key="k" size="small" link type="primary" @click="files.openInTab(k)">图片 {{ i + 1 }}</el-button>
+            </div>
             <div class="t-xs mono">{{ row.userId }} · {{ fmtDateTime(row.createdAt) }}</div>
           </template>
         </el-table-column>
@@ -144,7 +150,10 @@ function toCredit(companyId: string) {
         <dl class="kv-grid one">
           <div class="kv"><dt>岗位</dt><dd>{{ dlg.row.title }} <span class="mono dim">{{ dlg.row.jobId }}</span></dd></div>
           <div class="kv"><dt>类别</dt><dd>{{ label('ComplaintCategory', dlg.row.category) }}</dd></div>
-          <div class="kv block"><dt>投诉内容</dt><dd>{{ dlg.row.content }}</dd></div>
+          <div class="kv block"><dt>投诉内容</dt><dd>{{ dlg.row.content || '（未填写说明）' }}</dd></div>
+          <div v-if="dlg.row.images?.length" class="kv block"><dt>图片凭证</dt><dd>
+            <el-button v-for="(k, i) in dlg.row.images" :key="k" size="small" @click="files.openInTab(k)">查看图片 {{ i + 1 }}</el-button>
+          </dd></div>
         </dl>
         <el-form label-position="top" class="form">
           <el-form-item label="核实结论" required>

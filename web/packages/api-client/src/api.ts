@@ -102,6 +102,7 @@ import type {
   KycReviewRow,
   SysParamRow,
   HolidayRow,
+  AttributionDispute,
   QuizFunnel,
   KycInterception,
   TimeoutReleases,
@@ -216,8 +217,10 @@ export const seekerApi = {
   submitFeedback: (body: { category: FeedbackCategory; content: string; contact?: string }) => post<number>('/seeker/feedback', body),
   /** 岗位投诉（C-402）：只能投诉匹配到或报名过的岗位 */
   askJob: (jobId: string, question: string) => post<KbAskResult>(`/seeker/jobs/${jobId}/ask`, { question }),
-  complain: (jobId: string, category: ComplaintCategory, content?: string) =>
-    post<number>('/seeker/complaints', { jobId, category, content }),
+  complain: (jobId: string, category: ComplaintCategory, content?: string, images?: string[]) =>
+    post<number>('/seeker/complaints', { jobId, category, content, images }),
+  /** 投诉凭证图片：JPG / PNG，5MB 以内 */
+  uploadComplaintImage: (file: File) => upload<UploadedFile>('/seeker/complaints/images', file),
 }
 
 // ------------------------------------------------------------------ 公司后台 / 驻场端
@@ -455,6 +458,9 @@ export const opsApi = {
   /** 存量基数与免费期 P-03 */
   stockBases: (companyId?: string) => get<Record<string, unknown>[]>('/ops/stock-bases', { companyId }),
   /** 归属治理 P-08 */
+  attributionDisputes: (userId?: string) => get<AttributionDispute[]>('/ops/attribution/disputes', { userId }),
+  addAttributionDispute: (body: { userId: string; companyId?: string; content: string }) => post<number>('/ops/attribution/disputes', body),
+  resolveAttributionDispute: (id: number, conclusion: string) => post<void>('/ops/attribution/disputes/' + id + '/resolve', { conclusion }),
   attribution: (params: { phone?: string; userId?: string }) => get<Record<string, unknown>>('/ops/attribution', params),
   /** 风控（超管 / 风控） */
   complaints: (status?: 'PENDING' | 'VERIFIED' | 'REJECTED') => get<Record<string, unknown>[]>('/ops/complaints', { status }),

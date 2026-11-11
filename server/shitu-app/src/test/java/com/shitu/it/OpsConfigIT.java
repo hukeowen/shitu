@@ -252,4 +252,27 @@ class OpsConfigIT extends FlowItSupport {
             jdbc.update("DELETE FROM holiday WHERE holiday_date >= '2099-01-01'");
         }
     }
+
+    @Test
+    void attributionDisputes() throws Exception {
+        // P-08：登记争议 → 待处理队列 → 写结论结案；只留痕不改归属；公司后台不能访问
+        Company c = company();
+        String s = seekerLogin(phone(), null);
+        String uid = userId(s);
+        String source = jdbc.queryForObject("SELECT source_company_id FROM `user` WHERE user_id = ?", String.class, uid);
+        assertThat(code(call(post("/api/v1/ops/attribution/disputes"), ops, Map.of("userId", "U-NOPE", "content", "x")))).isEqualTo("SYS_4040");
+        assertThat(code(call(post("/api/v1/ops/attribution/disputes"), ops, Map.of("userId", uid, "companyId", "C-NOPE", "content", "x"))))
+                .isEqualTo("SYS_4040");
+        long id = data(call(post("/api/v1/ops/attribution/disputes"), ops, Map.of("userId", uid, "companyId", c.companyId(),
+                "content", "公司称该用户是其线下门店引流，扫码时网络故障未带上渠道码"))).asLong();
+        assertThat(find(data(call(get("/api/v1/ops/attribution/disputes"), ops, null)), "id", String.valueOf(id)).get("status").asText())
+                .isEqualTo("OPEN");
+        assertThat(status(get("/api/v1/ops/attribution/disputes"), c.owner(), null)).isEqualTo(403);
+        data(call(post("/api/v1/ops/attribution/disputes/" + id + "/resolve"), ops, Map.of("conclusion", "注册日志显示为自然注册，来源归属不变")));
+        assertThat(code(call(post("/api/v1/ops/attribution/disputes/" + id + "/resolve"), ops, Map.of("conclusion", "重复处理")))).isEqualTo("SYS_4090");
+        JsonNode mine = data(call(get("/api/v1/ops/attribution/disputes?userId=" + uid), ops, null));
+        assertThat(mine.get(0).get("conclusion").asText()).contains("来源归属不变");
+        assertThat(mine.get(0).get("companyName").isNull()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT source_company_id FROM `user` WHERE user_id = ?", String.class, uid)).as("归属不变").isEqualTo(source);
+    }
 }

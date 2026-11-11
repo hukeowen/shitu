@@ -54,6 +54,22 @@ class Sprint5RiskIT extends FlowItSupport {
                         .as("重复投诉").isEqualTo("SYS_4090");
             }
         }
+        // 投诉带图片凭证（C-402）：只能用自己刚上传的图片，最多 3 张；运营能看到并打开，企业不能
+        String withImg = readySeeker(null);
+        String key = data(upload("/api/v1/seeker/complaints/images", withImg, null)).get("key").asText();
+        String stolen = data(upload("/api/v1/seeker/complaints/images", readySeeker(null), null)).get("key").asText();
+        assertThat(code(call(post("/api/v1/seeker/complaints"), withImg, Map.of("jobId", job, "category", "INFO_FALSE",
+                "images", java.util.List.of(stolen))))).as("不能引用别人上传的图片").isNotEqualTo("0");
+        assertThat(code(call(post("/api/v1/seeker/complaints"), withImg, Map.of("jobId", job, "category", "INFO_FALSE",
+                "images", java.util.List.of(key, "a", "b", "c"))))).as("超过 3 张").isNotEqualTo("0");
+        long imgId = data(call(post("/api/v1/seeker/complaints"), withImg, Map.of("jobId", job, "category", "INFO_FALSE",
+                "content", "宿舍照片和岗位描述不符", "images", java.util.List.of(key)))).asLong();
+        JsonNode imgRow = find(data(call(get("/api/v1/ops/complaints?status=PENDING"), ops, null)), "id", String.valueOf(imgId));
+        assertThat(imgRow.get("images").get(0).asText()).isEqualTo(key);
+        assertThat(status(get("/api/v1/ops/files?key=" + key), ops, null)).isEqualTo(200);
+        assertThat(status(get("/api/v1/tenant/files?key=" + key), c.owner(), null)).as("企业打不开投诉凭证").isNotEqualTo(200);
+        assertThat(code(upload("/api/v1/seeker/complaints/images", c.owner(), null))).as("公司账号不能用求职者的上传口").isNotEqualTo("0");
+
         assertThat(status(get("/api/v1/ops/complaints"), c.owner(), null)).as("企业看不到投诉").isEqualTo(403);
         data(call(post("/api/v1/ops/complaints/" + ids[0] + "/handle"), ops, Map.of("verified", true, "remark", "电话核实属实")));
         data(call(post("/api/v1/ops/complaints/" + ids[1] + "/handle"), ops, Map.of("verified", true, "remark", "电话核实属实")));

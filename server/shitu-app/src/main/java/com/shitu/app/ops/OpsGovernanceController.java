@@ -136,4 +136,62 @@ public class OpsGovernanceController {
         audit.log("ATTRIBUTION_QUERY", "USER", uid, null);
         return ApiResponse.ok(out);
     }
+
+    // ------------------------------------------------------------------ 归属争议（P-08）
+
+    public record DisputeRequest(@jakarta.validation.constraints.NotBlank(message = "请填写用户 ID") String userId, String companyId,
+                                 @jakarta.validation.constraints.NotBlank(message = "请填写争议内容")
+                                 @jakarta.validation.constraints.Size(max = 500) String content) {
+    }
+
+    public record ResolveRequest(@jakarta.validation.constraints.NotBlank(message = "请填写处理结论")
+                                 @jakarta.validation.constraints.Size(max = 500) String conclusion) {
+    }
+
+    @Operation(summary = "归属争议列表：传 userId 看某个人的全部争议，不传看待处理的")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','RISK')")
+    @GetMapping("/attribution/disputes")
+    public ApiResponse<List<Map<String, Object>>> disputes(@RequestParam(required = false) String userId) {
+        boolean one = userId != null && !userId.isBlank();
+        return ApiResponse.ok(Rows.camel(jdbc.queryForList("SELECT d.id, d.user_id, d.company_id, c.name AS company_name, d.content, d.status, "
+                + "d.conclusion, d.created_at, d.resolved_at, a.display_name AS created_by_name, r.display_name AS resolved_by_name "
+                + "FROM attribution_dispute d LEFT JOIN company c ON c.company_id = d.company_id "
+                + "LEFT JOIN ops_admin a ON a.admin_id = d.created_by LEFT JOIN ops_admin r ON r.admin_id = d.resolved_by WHERE "
+                + (one ? "d.user_id = ?" : "d.status = 'OPEN'") + " ORDER BY d.status = 'OPEN' DESC, d.id DESC LIMIT 200",
+                one ? new Object[]{userId.trim()} : new Object[0])));
+    }
+
+    @Operation(summary = "登记归属争议")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','RISK')")
+    @PostMapping("/attribution/disputes")
+    public ApiResponse<Long> disputeAdd(@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody DisputeRequest req) {
+        String uid = req.userId().trim();
+        BizException.check(count("SELECT COUNT(*) FROM `user` WHERE user_id = ?", uid) > 0, ErrorCode.SYS_NOT_FOUND, "未找到该用户");
+        String companyId = req.companyId() == null || req.companyId().isBlank() ? null : req.companyId().trim();
+        BizException.check(companyId == null || count("SELECT COUNT(*) FROM company WHERE company_id = ?", companyId) > 0,
+                ErrorCode.SYS_NOT_FOUND, "未找到该公司");
+        jdbc.update("INSERT INTO attribution_dispute (user_id, company_id, content, created_by) VALUES (?, ?, ?, ?)",
+                uid, companyId, req.content().trim(), com.shitu.framework.security.CurrentUser.subjectId());
+        Long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+        audit.log("ATTRIBUTION_DISPUTE_ADD", "USER", uid, Map.of("disputeId", id == null ? 0 : id));
+        return ApiResponse.ok(id);
+    }
+
+    @Operation(summary = "写处理结论并结案（只留痕，不改归属）")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','RISK')")
+    @PostMapping("/attribution/disputes/{id}/resolve")
+    public ApiResponse<Void> disputeResolve(@org.springframework.web.bind.annotation.PathVariable long id,
+                                            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ResolveRequest req) {
+        int n = jdbc.update("UPDATE attribution_dispute SET status = 'RESOLVED', conclusion = ?, resolved_by = ?, resolved_at = ? "
+                + "WHERE id = ? AND status = 'OPEN'", req.conclusion().trim(), com.shitu.framework.security.CurrentUser.subjectId(),
+                java.time.LocalDateTime.now(clock), id);
+        BizException.check(n == 1, ErrorCode.SYS_CONFLICT, "该争议不存在或已处理");
+        audit.log("ATTRIBUTION_DISPUTE_RESOLVE", "ATTRIBUTION_DISPUTE", String.valueOf(id), Map.of("conclusion", req.conclusion().trim()));
+        return ApiResponse.ok(null);
+    }
+
+    private long count(String sql, Object... args) {
+        Long n = jdbc.queryForObject(sql, Long.class, args);
+        return n == null ? 0 : n;
+    }
 }

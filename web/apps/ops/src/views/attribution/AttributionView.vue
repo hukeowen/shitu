@@ -3,6 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, opsApi, useDict } from '@shitu/api-client'
 import { fmtDate, fmtDateTime, yesNo } from '@/utils/format'
+import AttributionDisputes from './AttributionDisputes.vue'
 
 /** P-08 归属治理：按手机号 / 用户 ID 查用户当前状态、来源与当前归属、状态迁移日志、报名与任职 */
 interface StatusLogRow {
@@ -93,6 +94,13 @@ async function search() {
 }
 if (keyword.value) void search()
 
+/** 从待处理争议列表点用户 ID：直接按用户 ID 查询 */
+function openUser(userId: string) {
+  mode.value = 'userId'
+  keyword.value = userId
+  void search()
+}
+
 const truthy = (v: unknown) => v === true || v === 1
 const bindChanged = (r: StatusLogRow) => (r.boundBefore ?? '') !== (r.boundAfter ?? '')
 const counts = computed(() => ({
@@ -107,7 +115,7 @@ const counts = computed(() => ({
     <div class="page-hd">
       <div>
         <h2>归属治理</h2>
-        <p>查询求职者当前状态、来源公司 / 当前归属公司，以及完整的状态迁移日志 —— 用于归属争议的事实核查（查询行为写入审计日志）</p>
+        <p>查询求职者当前状态、来源公司 / 当前归属公司与完整的状态迁移日志，登记归属争议并记录核查结论（查询行为写入审计日志）</p>
       </div>
       <div class="spacer" />
     </div>
@@ -216,6 +224,8 @@ const counts = computed(() => ({
         </el-table>
       </div>
     </div>
+
+    <AttributionDisputes :user-id="data?.userId" @open="openUser" />
   </div>
 </template>
 

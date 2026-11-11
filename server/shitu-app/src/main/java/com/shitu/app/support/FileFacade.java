@@ -75,6 +75,24 @@ public class FileFacade {
         return new Uploaded(key, name.length() > 100 ? name.substring(0, 100) : name, bytes.length);
     }
 
+    /** 求职者上传的投诉凭证图片（C-402）：只收 JPG / PNG，5MB 以内。owner 为 "u:{userId}"。 */
+    public Uploaded uploadComplaintImage(MultipartFile file, String owner) {
+        BizException.check(file != null && !file.isEmpty() && file.getSize() <= 5L * 1024 * 1024,
+                ErrorCode.TEN_FILE_INVALID, "请上传 5MB 以内的 JPG / PNG 图片");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        String ext = UploadPolicy.detect(bytes).filter(x -> !"pdf".equals(x)).orElseThrow(() ->
+                new BizException(ErrorCode.TEN_FILE_INVALID, "只支持 JPG / PNG 图片"));
+        String key = storage.put("complaint", ext, new ByteArrayInputStream(bytes), bytes.length,
+                "png".equals(ext) ? MediaType.IMAGE_PNG_VALUE : MediaType.IMAGE_JPEG_VALUE);
+        kv.set("file:owner:" + key, owner, OWNER_TTL);
+        return new Uploaded(key, key, bytes.length);
+    }
+
     /** 校验一组 key 都是该上传者刚传的（或已被该公司引用）。 */
     public void checkOwned(Collection<String> keys, String owner, String companyId) {
         if (keys == null) {

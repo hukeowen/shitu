@@ -237,12 +237,30 @@ public class SeekerJourneyController {
     }
 
     public record ComplaintRequest(@NotBlank String jobId,
-                                   @NotBlank(message = "请选择投诉类型") String category, String content) {
+                                   @NotBlank(message = "请选择投诉类型") String category, String content,
+                                   java.util.List<String> images) {
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.shitu.app.support.FileFacade files;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.shitu.framework.kv.RateLimiter limiter;
+
+    @Operation(summary = "上传投诉凭证图片（JPG / PNG，5MB 以内；每次投诉最多 3 张）")
+    @PostMapping("/complaints/images")
+    public ApiResponse<com.shitu.app.support.FileFacade.Uploaded> complaintImage(
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String userId = CurrentUser.subjectId();
+        com.shitu.common.exception.BizException.check(limiter.tryAcquire("cmp-img:" + userId, 12, java.time.Duration.ofHours(1)),
+                com.shitu.common.exception.ErrorCode.SYS_TOO_MANY_REQUESTS, "上传太频繁，请稍后再试");
+        return ApiResponse.ok(files.uploadComplaintImage(file, "u:" + userId));
     }
 
     @Operation(summary = "岗位投诉（C-402）：FULL_STILL_HIRING 已满仍在招 / INFO_FALSE 信息不实 / MISMATCH_AFTER_INTERVIEW 面试后不符")
     @PostMapping("/complaints")
     public ApiResponse<Long> complain(@Valid @RequestBody ComplaintRequest req) {
-        return ApiResponse.ok(complaints.submit(CurrentUser.subjectId(), req.jobId(), req.category(), req.content()));
+        java.util.List<String> images = req.images() == null ? java.util.List.of() : req.images().stream().distinct().toList();
+        files.checkOwned(images, "u:" + CurrentUser.subjectId(), null);
+        return ApiResponse.ok(complaints.submit(CurrentUser.subjectId(), req.jobId(), req.category(), req.content(), images));
     }
 }
