@@ -50,6 +50,7 @@ import type {
   SiteApplication,
   ApplicationInsight,
   IncidentRow,
+  AdvanceRecon,
   IncidentSeverity,
   IncidentStatus,
   SiteWorkbench,
@@ -100,6 +101,7 @@ import type {
   EngineVersion,
   KycReviewRow,
   SysParamRow,
+  HolidayRow,
   BlacklistRow,
   MyAppeal,
   KycReviewType,
@@ -371,6 +373,7 @@ export const tenantApi = {
   /** 工资表导入（.xlsx：手机号、工号、应发、社保、个税、其他扣款），month：YYYY-MM */
   importPayroll: (file: File, month: string) => upload<PayrollBatchResult>('/tenant/payroll/import', file, { month }),
   payrollBatches: () => get<PayrollBatch[]>('/tenant/payroll/batches'),
+  advanceRecon: (month?: string) => get<AdvanceRecon>('/tenant/payroll/recon', { month }),
   incidents: (params?: { status?: IncidentStatus }) => get<IncidentRow[]>('/tenant/incidents', params),
   reportIncident: (body: { projectId: string; personName: string; severity: IncidentSeverity; occurredAt: string; detail: string }) =>
     post<number>('/tenant/incidents', body),
@@ -495,6 +498,9 @@ export const opsApi = {
   engineDelete: (id: number) => del<void>(`/ops/engine/versions/${id}`),
   enginePublish: (id: number) => post<EngineVersion>(`/ops/engine/versions/${id}/publish`),
 
+  holidays: (year: number) => get<HolidayRow[]>('/ops/holidays', { year }),
+  saveHolidays: (items: { date: string; workday: boolean; name: string }[]) => post<number>('/ops/holidays', { items }),
+  deleteHoliday: (date: string) => del<void>('/ops/holidays/' + date),
   sysParams: () => get<SysParamRow[]>('/ops/sys-params'),
   updateSysParam: (key: string, body: { value: string; remark: string }) => put<void>('/ops/sys-params/' + encodeURIComponent(key), body),
   kycReviews: (params?: { status?: ReviewStatus; type?: KycReviewType }) => get<KycReviewRow[]>('/ops/kyc-reviews', params),

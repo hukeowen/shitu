@@ -57,9 +57,12 @@ public class NotificationService {
     private final com.shitu.framework.crypto.FieldCipher cipher;
     private final Clock clock;
 
+    private final com.shitu.framework.param.SysParams params;
+
     public NotificationService(NotifyTemplateMapper templates, NotificationMapper notifications, SmsSender sms,
                                PhoneDirectory phones, JdbcTemplate jdbc, com.shitu.framework.crypto.FieldCipher cipher,
-                               Clock clock) {
+                               Clock clock, com.shitu.framework.param.SysParams params) {
+        this.params = params;
         this.templates = templates;
         this.notifications = notifications;
         this.sms = sms;
@@ -98,11 +101,61 @@ public class NotificationService {
                 }
                 sent++;
                 if (t.hasChannel("SMS")) {
-                    sendSms(r, templateCode, content);
+                    LocalDateTime quietUntil = Boolean.TRUE.equals(t.getRespectQuietHours()) ? quietUntil(LocalDateTime.now(clock),
+                            params.getString("sms.quiet_start", "22:00"), params.getString("sms.quiet_end", "08:00")) : null;
+                    if (quietUntil != null) {
+                        // P-16：免打扰时段内只发站内信，短信延迟到时段结束
+                        jdbc.update("INSERT INTO sms_deferred (recipient_type, recipient_id, template_code, content, send_after) VALUES (?, ?, ?, ?, ?)",
+                                r.type(), r.id(), templateCode, content, quietUntil);
+                    } else {
+                        sendSms(r, templateCode, content);
+                    }
                 }
             }
             return sent;
         });
+    }
+
+    /**
+     * 当前是否处于短信免打扰时段（默认 22:00–08:00，可跨零点）。
+     *
+     * @return 时段结束的时间；不在时段内返回 null
+     */
+    static LocalDateTime quietUntil(LocalDateTime now, String quietStart, String quietEnd) {
+        java.time.LocalTime start;
+        java.time.LocalTime end;
+        try {
+            start = java.time.LocalTime.parse(quietStart);
+            end = java.time.LocalTime.parse(quietEnd);
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+        java.time.LocalTime t = now.toLocalTime();
+        if (start.equals(end)) {
+            return null;
+        }
+        if (start.isBefore(end)) {
+            return !t.isBefore(start) && t.isBefore(end) ? now.toLocalDate().atTime(end) : null;
+        }
+        if (!t.isBefore(start)) {
+            return now.toLocalDate().plusDays(1).atTime(end);
+        }
+        return t.isBefore(end) ? now.toLocalDate().atTime(end) : null;
+    }
+
+    /** 发送到期的延迟短信。@return 本次发出的条数 */
+    public int flushDeferredSms() {
+        List<Map<String, Object>> due = jdbc.queryForList("SELECT id, recipient_type, recipient_id, template_code, content FROM sms_deferred "
+                + "WHERE status = 'PENDING' AND send_after <= ? ORDER BY id LIMIT 200", LocalDateTime.now(clock));
+        for (Map<String, Object> d : due) {
+            // 先标记再发送：宁可漏发一条（站内信已到），不重复打扰
+            if (jdbc.update("UPDATE sms_deferred SET status = 'SENT', sent_at = ? WHERE id = ? AND status = 'PENDING'",
+                    LocalDateTime.now(clock), d.get("id")) == 1) {
+                sendSms(new Recipient((String) d.get("recipient_type"), (String) d.get("recipient_id")),
+                        (String) d.get("template_code"), (String) d.get("content"));
+            }
+        }
+        return due.size();
     }
 
     private void sendSms(Recipient r, String templateCode, String content) {

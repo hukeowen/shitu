@@ -540,6 +540,42 @@ export interface InboxItem {
 }
 
 /** 驻场 / 项目经理看到的报名（phone 仅驻场返回） */
+/** 预支抵扣对账（T-505） */
+export interface AdvanceRecon {
+  month: string
+  months: string[]
+  summary: {
+    deductTotal: number
+    deductCount: number
+    payoutTotal: number
+    payoutCount: number
+    outstandingTotal: number
+    outstandingCount: number
+    outstandingLeftCount: number
+  }
+  deductions: {
+    payslipId: string
+    userId: string
+    seekerName: string
+    employeeNo?: string
+    projectName?: string
+    endDate?: string
+    grossPay: number
+    netPay: number
+    advanceDeduct: number
+    debtAfter?: number | null
+  }[]
+  outstanding: {
+    userId: string
+    seekerName: string
+    employeeNo?: string
+    projectName?: string
+    endDate?: string
+    debt: number
+    lastChangeAt: string
+  }[]
+}
+
 export type IncidentSeverity = 'MINOR' | 'SERIOUS' | 'CRITICAL'
 export type IncidentStatus = 'OPEN' | 'CLOSED'
 
@@ -1150,6 +1186,13 @@ export interface FraudAccount {
   lastAt: string
   /** 证件当前绑定在这个账号上（持有人不计入扣分） */
   holder: boolean
+}
+
+export interface HolidayRow {
+  holidayDate: string
+  /** true = 调休上班日；false = 放假 */
+  isWorkday: boolean
+  name: string
 }
 
 export interface SysParamRow {

@@ -26,6 +26,7 @@ const VIEWS: Record<string, Lazy> = {
   '/settlement/rules': () => import('@/views/billing/BillingRulesView.vue'),
   '/settlement/bills': () => import('@/views/billing/BillListView.vue'),
   '/system/templates': () => import('@/views/notify/TemplatesView.vue'),
+  '/system/holidays': () => import('@/views/system/HolidaysView.vue'),
   '/system/params': () => import('@/views/system/SysParamsView.vue'),
 }
 

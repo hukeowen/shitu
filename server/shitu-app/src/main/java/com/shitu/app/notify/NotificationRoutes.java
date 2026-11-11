@@ -46,7 +46,7 @@ public class NotificationRoutes implements OutboxHandler {
             "JOB_STALE", "COMPANY_PENALIZED", "KB_QUESTION_PENDING", "KB_ANSWERED", "KYC_APPEAL_RESULT",
             "MONTHLY_BILL_ISSUED", "COMPANY_APPROVED", "COMPANY_REJECTED", "JOB_APPROVED", "JOB_REJECTED", "JOB_FORCE_OFFLINE",
             "REMATCH_LIMIT_REACHED", "FEEDBACK_REPLIED", "PAYSLIP_APPEAL_SUBMITTED", "PAYSLIP_APPEAL_HANDLED",
-            "INJURY_REPORTED");
+            "INJURY_REPORTED", "CONTRACT_EXPIRING", "CONTRACT_EXPIRED");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -127,6 +127,16 @@ public class NotificationRoutes implements OutboxHandler {
                                 : companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.PM)),
                         Map.of("seekerName", seekerName(text(p, "userId")), "month", text(p, "month"), "content", text(p, "content")),
                         "/payroll/appeals");
+                case "CONTRACT_EXPIRING" -> {
+                    // J-13 / C-503：本人 + 该项目的项目经理（没有项目经理时通知老板）
+                    notifications.send(outboxId, "CONTRACT_EXPIRING_SEEKER", List.of(Recipient.seeker(text(p, "userId"))),
+                            Map.of("companyName", text(p, "companyName"), "days", text(p, "days"), "termEnd", text(p, "termEnd")), "/contracts");
+                    notifications.send(outboxId, "CONTRACT_EXPIRING_MANAGER", contractManagers(text(p, "companyId"), text(p, "projectId")),
+                            Map.of("seekerName", seekerName(text(p, "userId")), "days", text(p, "days"), "termEnd", text(p, "termEnd")), null);
+                }
+                case "CONTRACT_EXPIRED" -> notifications.send(outboxId, "CONTRACT_EXPIRED_MANAGER",
+                        contractManagers(text(p, "companyId"), text(p, "projectId")),
+                        Map.of("seekerName", seekerName(text(p, "userId")), "termEnd", text(p, "termEnd")), null);
                 case "INJURY_REPORTED" -> {
                     // T-405：老板 + 该项目的项目经理，上报人自己不重复收
                     Set<Recipient> to = new LinkedHashSet<>(companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)));
@@ -232,6 +242,11 @@ public class NotificationRoutes implements OutboxHandler {
         } catch (RuntimeException e) {
             return "";
         }
+    }
+
+    private List<Recipient> contractManagers(String companyId, String projectId) {
+        List<Recipient> pms = projectRoles(companyId, projectId, EnumSet.of(ActorRole.PM));
+        return pms.isEmpty() ? companyMembers(companyId, EnumSet.of(ActorRole.OWNER)) : pms;
     }
 
     private List<Recipient> companyMembers(String companyId, Set<ActorRole> roles) {

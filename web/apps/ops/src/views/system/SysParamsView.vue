@@ -17,7 +17,7 @@ const GROUPS: { prefix: string; title: string; desc: string }[] = [
   { prefix: 'kyc.', title: '实名与风控', desc: '年龄门槛、刷单判定' },
   { prefix: 'advance.', title: '预支', desc: '预支资格、金额与次数' },
   { prefix: 'bill.', title: '账单', desc: '异议期与结算日' },
-  { prefix: 'sms.', title: '短信验证码', desc: '发送频率限制' },
+  { prefix: 'sms.', title: '短信', desc: '验证码发送频率、通知短信的免打扰时段' },
   { prefix: 'disclaimer.', title: '告知书', desc: '版本号变更后，所有用户下次使用时需要重新同意' },
 ]
 const TYPE_LABEL: Record<string, string> = { INT: '整数', DECIMAL: '金额', DURATION: '时长', TIME: '时间', STRING: '文本', BOOL: '开关' }

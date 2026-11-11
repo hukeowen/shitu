@@ -54,6 +54,8 @@ class Sprint3FlowIT extends FlowItSupport {
     @Autowired
     OutboxDispatcher dispatcher;
     @Autowired
+    com.shitu.app.support.ContractExpiryTask contractExpiry;
+    @Autowired
     FollowUpReminderTask followUps;
 
     @Test
@@ -143,6 +145,26 @@ class Sprint3FlowIT extends FlowItSupport {
         assertThat(data(call(get("/api/v1/tenant/messages"), c.owner(), null)).toString()).contains("签约完成");
         assertThat(data(call(get("/api/v1/seeker/work"), sA, null)).get("employeeNo").asText()).isEqualTo("KS-0001");
         assertThat(data(call(get("/api/v1/seeker/contracts"), sA, null)).get(0).get("status").asText()).isEqualTo("EFFECTIVE");
+
+        // 合同到期（J-13）：剩 20 天 → 只补「30 天」这一档，不连发；重跑不重复；过期 → 已到期并通知项目经理
+        String cid = jdbc.queryForObject("SELECT contract_id FROM contract WHERE esign_flow_id = ?", String.class, flowId);
+        jdbc.update("UPDATE contract SET term_end = ? WHERE contract_id = ?", java.time.LocalDate.now().plusDays(20), cid);
+        contractExpiry.run();
+        contractExpiry.run();
+        while (dispatcher.dispatch() > 0) { }
+        assertThat(jdbc.queryForObject("SELECT expiry_reminded FROM contract WHERE contract_id = ?", Integer.class, cid)).isEqualTo(30);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE template_code = 'CONTRACT_EXPIRING_SEEKER' AND recipient_id = ?",
+                Integer.class, userId(sA))).as("只提醒一次").isEqualTo(1);
+        assertThat(data(call(get("/api/v1/seeker/messages"), sA, null)).toString()).contains("20 天后");
+        assertThat(data(call(get("/api/v1/tenant/messages"), c.pm(), null)).toString()).contains("员工合同即将到期");
+        jdbc.update("UPDATE contract SET term_end = ? WHERE contract_id = ?", java.time.LocalDate.now().minusDays(1), cid);
+        contractExpiry.run();
+        while (dispatcher.dispatch() > 0) { }
+        assertThat(data(call(get("/api/v1/seeker/contracts"), sA, null)).get(0).get("status").asText()).isEqualTo("EXPIRED");
+        assertThat(data(call(get("/api/v1/tenant/messages"), c.pm(), null)).toString()).contains("员工合同已到期");
+        assertThat(data(call(get("/api/v1/seeker/work"), sA, null)).get("employeeNo").asText()).as("任职不受影响").isEqualTo("KS-0001");
+        jdbc.update("UPDATE contract SET status = 'EFFECTIVE', ended_at = NULL, term_end = ? WHERE contract_id = ?",
+                java.time.LocalDate.now().plusYears(1), cid);
 
         // ---------------------------------------------------------------- 3a. 面试未通过：公域用户回公域，私域用户回私域（D-31），名额 +1
         String sB = readySeeker(null);

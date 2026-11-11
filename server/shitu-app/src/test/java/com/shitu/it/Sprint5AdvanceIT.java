@@ -147,6 +147,19 @@ class Sprint5AdvanceIT extends FlowItSupport {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM blacklist WHERE user_id = ? AND status = 'ACTIVE' AND reason_code = 'UNPAID_ADVANCE' "
                 + "AND created_by = 'SYSTEM'", Integer.class, uid)).isEqualTo(1);
 
+        // 预支抵扣对账（T-505）：本月抵扣 30、抵扣后仍欠 70 且人已离职；驻场与别家公司看不到
+        JsonNode recon = data(call(get("/api/v1/tenant/payroll/recon?month=" + YearMonth.now()), c.pm(), null));
+        JsonNode dRow = find(recon.get("deductions"), "userId", uid);
+        assertThat(dRow.get("advanceDeduct").decimalValue()).isEqualByComparingTo("30.00");
+        assertThat(dRow.get("debtAfter").decimalValue()).isEqualByComparingTo("70.00");
+        JsonNode oRow = find(recon.get("outstanding"), "userId", uid);
+        assertThat(oRow.get("debt").decimalValue()).isEqualByComparingTo("70.00");
+        assertThat(oRow.get("endDate").isNull()).as("已离职").isFalse();
+        assertThat(recon.get("summary").get("outstandingLeftCount").asInt()).isEqualTo(1);
+        assertThat(recon.toString()).doesNotContain("realNameEnc");
+        assertThat(status(get("/api/v1/tenant/payroll/recon"), c.site(), null)).isEqualTo(403);
+        assertThat(data(call(get("/api/v1/tenant/payroll/recon"), company().owner(), null)).get("outstanding").size()).isZero();
+
         JsonNode slips = data(call(get("/api/v1/seeker/payslips"), s, null));
         assertThat(slips.size()).isEqualTo(2);
         assertThat(data(call(get("/api/v1/seeker/advance/debt-log"), s, null)).size()).isEqualTo(3);

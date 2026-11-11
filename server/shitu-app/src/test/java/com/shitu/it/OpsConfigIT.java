@@ -224,4 +224,32 @@ class OpsConfigIT extends FlowItSupport {
             jdbc.update("UPDATE sys_param SET param_value = ? WHERE param_key = 'matching.rematch_alert_count'", old);
         }
     }
+
+    @Test
+    void holidays() throws Exception {
+        // D-23：只接受「工作日放假」「周末上班」两种记录；重复录入覆盖；公司后台不能访问
+        java.time.LocalDate d = java.time.LocalDate.of(2099, 1, 1);
+        while (d.getDayOfWeek().getValue() >= 6) {
+            d = d.plusDays(1);
+        }
+        java.time.LocalDate sat = d.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.SATURDAY));
+        try {
+            assertThat(code(call(post("/api/v1/ops/holidays"), ops, Map.of("items", List.of(
+                    Map.of("date", sat.toString(), "workday", false, "name", "周末放假")))))).isEqualTo("SYS_4000");
+            assertThat(code(call(post("/api/v1/ops/holidays"), ops, Map.of("items", List.of(
+                    Map.of("date", d.toString(), "workday", true, "name", "工作日上班")))))).isEqualTo("SYS_4000");
+            data(call(post("/api/v1/ops/holidays"), ops, Map.of("items", List.of(
+                    Map.of("date", d.toString(), "workday", false, "name", "元旦"),
+                    Map.of("date", sat.toString(), "workday", true, "name", "调休上班")))));
+            data(call(post("/api/v1/ops/holidays"), ops, Map.of("items", List.of(Map.of("date", d.toString(), "workday", false, "name", "元旦节")))));
+            JsonNode list = data(call(get("/api/v1/ops/holidays?year=2099"), ops, null));
+            assertThat(list.size()).isEqualTo(2);
+            assertThat(find(list, "holidayDate", d.toString()).get("name").asText()).isEqualTo("元旦节");
+            assertThat(status(get("/api/v1/ops/holidays?year=2099"), company().owner(), null)).isEqualTo(403);
+            data(call(delete("/api/v1/ops/holidays/" + sat), ops, null));
+            assertThat(data(call(get("/api/v1/ops/holidays?year=2099"), ops, null)).size()).isEqualTo(1);
+        } finally {
+            jdbc.update("DELETE FROM holiday WHERE holiday_date >= '2099-01-01'");
+        }
+    }
 }

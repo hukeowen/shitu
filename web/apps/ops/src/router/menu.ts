@@ -115,6 +115,7 @@ export const MENU: MenuGroup[] = [
     items: [
       { path: '/system/admins', title: '平台账号', proto: 'P-15', roles: ADMIN_ROLES, ready: true },
       { path: '/system/templates', title: '通知模板', proto: 'P-16', roles: TEMPLATE_ROLES, ready: true },
+      { path: '/system/holidays', title: '节假日', proto: 'P-10', roles: ['SUPER', 'FINANCE', 'OPERATOR'], ready: true },
       { path: '/system/params', title: '系统参数', proto: 'P-13', roles: ['SUPER', 'OPERATOR'], ready: true },
     ],
   },
