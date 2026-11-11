@@ -155,7 +155,6 @@ function rowClass({ row }: { row: JobView }) {
         <p>创建 / 编辑 / 下架 / 暂停招聘 · 发布与编辑均需平台审核，暂停的岗位数据保留可随时恢复</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-302 / T-303</b></span>
       <el-button v-if="canManage" type="primary" @click="router.push('/pm/jobs/edit')">+ 创建岗位</el-button>
     </div>
 
@@ -189,31 +188,31 @@ function rowClass({ row }: { row: JobView }) {
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="list" row-key="jobId" :row-class-name="rowClass">
-        <el-table-column label="岗位名称" min-width="200">
+        <el-table-column label="岗位名称" min-width="180">
           <template #default="{ row }">
             <el-button link class="title" @click="openDetail(row)">{{ row.title }}</el-button>
             <div class="t-xs">{{ label('JobType', row.jobType) }}{{ row.mealProvided || row.dormProvided ? ' · ' : '' }}{{ row.mealProvided ? '包吃' : '' }}{{ row.dormProvided ? '包住' : '' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="所属项目" min-width="170">
+        <el-table-column label="所属项目" min-width="150">
           <template #default="{ row }">
             <div class="t-sm strong">{{ row.projectName }}</div>
             <div class="t-xs">{{ row.clientName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="薪资（元/月）" width="130">
+        <el-table-column label="薪资（元/月）" width="120">
           <template #default="{ row }"><span class="mono t-sm">{{ salaryRange(row.salaryMin, row.salaryMax) }}</span></template>
         </el-table-column>
         <el-table-column label="班次" width="80">
           <template #default="{ row }"><span class="t-sm">{{ label('ShiftType', row.shiftType) }}</span></template>
         </el-table-column>
-        <el-table-column label="名额 占用/总数" width="120" align="center">
+        <el-table-column label="名额 占用/总数" width="110" align="center">
           <template #default="{ row }">
             <span class="num">{{ row.quotaOccupied }} / {{ row.quotaTotal }}</span>
             <div class="t-xs">剩余 {{ row.quotaRemaining }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" min-width="150">
+        <el-table-column label="状态" min-width="110">
           <template #default="{ row }">
             <DictTag type="JobStatus" :value="row.status" pill />
             <el-tooltip v-if="row.auditRemark && (row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE')" :content="row.auditRemark" placement="top">
@@ -221,10 +220,10 @@ function rowClass({ row }: { row: JobView }) {
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="上架时间" width="140">
+        <el-table-column label="上架时间" width="150">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.postedAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="230" align="right" fixed="right">
+        <el-table-column label="操作" width="270" align="right" fixed="right" class-name="ops-col">
           <template #default="{ row }">
             <el-button v-if="has(row, 'EDIT')" size="small" :type="row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE' ? 'primary' : 'default'" @click="router.push({ path: '/pm/jobs/edit', query: { id: row.jobId } })">
               {{ row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE' ? '修改重提' : '编辑' }}
@@ -259,7 +258,7 @@ function rowClass({ row }: { row: JobView }) {
 
     <div class="grid g-2" style="margin-top: 14px">
       <div class="card">
-        <div class="card__hd"><h3>暂停招聘的使用规范</h3><span class="ref">文档 <b>12.3.1</b></span></div>
+        <div class="card__hd"><h3>暂停招聘的使用规范</h3></div>
         <div class="card__bd">
           <p class="t-sm" style="line-height: 1.9">岗位今天暂停但后续还要招，可点击「暂停」—— 岗位移出匹配池但不删除，<b class="strong">所有历史数据保留</b>；恢复后重新进入匹配池，挂岗天数重新计算。</p>
           <div class="note note--danger" style="margin-top: 10px"><b>硬性要求：</b>一旦从甲方得知招聘满员，<b>24 小时内必须暂停招聘</b>，否则用户报名却无法面试将产生投诉，计入企业诚信档案。</div>

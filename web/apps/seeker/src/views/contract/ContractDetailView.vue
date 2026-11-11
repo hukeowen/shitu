@@ -115,7 +115,7 @@ const partyB = computed(() => (kyc.value?.kycStatus === 'VERIFIED' ? kyc.value.r
         </ul>
       </section>
 
-      <van-button block class="btn-cta" disabled>下载合同 PDF · 即将上线</van-button>
+      <p class="t-xs" style="text-align: center; color: var(--ink-400)">需要纸质或 PDF 合同，请联系驻场老师提供</p>
       <p class="t-xs" style="text-align: center">合同文件由电子签平台存证，PDF 下载功能即将开放</p>
       <div class="page-bottom-gap"></div>
     </div>

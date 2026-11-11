@@ -116,7 +116,6 @@ async function doImport() {
         <p>存量员工批量建档 · Excel 模板、逐行校验报告、失败行下载后修改重传</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-503</b></span>
       <el-button :loading="downloading === 'template'" @click="download('template')">下载模板</el-button>
     </div>
 
@@ -186,7 +185,7 @@ async function doImport() {
             <dl class="kv"><dt>公域 / 私域</dt><dd><span class="tag tag--private">私域</span></dd></dl>
             <dl class="kv"><dt>匹配范围</dt><dd>仅本公司内部调岗</dd></dl>
             <dl class="kv"><dt>免费期内导入</dt><dd>计入存量基数，永久免费</dd></dl>
-            <div class="note" style="margin-top: 10px">存量基数按<b>免费期最后一天</b>的在岗人数统计，免费期满次日锁定（D-42）。逐行处理，失败行不影响其他行。</div>
+            <div class="note" style="margin-top: 10px">存量基数按<b>免费期最后一天</b>的在岗人数统计，免费期满次日锁定。逐行处理，失败行不影响其他行。</div>
           </div>
         </div>
       </div>

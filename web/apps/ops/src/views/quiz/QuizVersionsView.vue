@@ -90,7 +90,6 @@ async function publish(v: QuizView) {
         <p>平台唯一核心引擎的入口层 —— 最多 {{ MAX_QUESTIONS }} 道题决定用户画像，画像决定匹配范围与结果。题库版本化：草稿 → 发布，可回滚到任一归档版本</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-12</b></span>
       <el-button @click="router.push('/engine/match-snapshot')">匹配快照查询</el-button>
       <el-button type="primary" :loading="creating" @click="createDraft">{{ draft ? '继续编辑草稿' : '新建草稿' }}</el-button>
     </div>

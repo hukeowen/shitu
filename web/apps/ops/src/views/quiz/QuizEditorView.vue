@@ -190,7 +190,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         </p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-12</b></span>
       <el-button @click="router.push('/engine/quiz')">返回列表</el-button>
       <template v-if="view">
         <el-button v-if="view.status === 'ACTIVE'" @click="newDraft">基于此版本新建草稿</el-button>

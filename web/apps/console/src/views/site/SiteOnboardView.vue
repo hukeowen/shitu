@@ -66,7 +66,6 @@ onMounted(load)
         <p>唯一数据统计节点 —— 确权完成即写入归属、锁定匹配范围、开始计费</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-103</b></span>
       <el-select v-model="projectId" placeholder="全部项目" clearable filterable style="width: 200px">
         <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
       </el-select>
@@ -136,7 +135,7 @@ onMounted(load)
             <ul class="tl">
               <li class="now"><div class="tl-t">写入归属</div><div class="t-sm">公域用户写入本公司、标签变私域；私域用户保持不变</div></li>
               <li class="now"><div class="tl-t">锁定匹配范围</div><div class="t-sm">仅本公司内部调岗</div></li>
-              <li class="now"><div class="tl-t">触发增长技术服务费</div><div class="t-sm">按公司在岗人数 − 存量基数计费（D-18）</div></li>
+              <li class="now"><div class="tl-t">触发增长技术服务费</div><div class="t-sm">按公司在岗人数 − 存量基数计费</div></li>
               <li class="now"><div class="tl-t">触发人才流转费</div><div class="t-sm">来源归属为其他公司时，10 元/人/天</div></li>
               <li class="now"><div class="tl-t">生成电子合同并推送签署</div><div class="t-sm">签署完成 → 已入职在岗，消息推送项目经理 / 老板</div></li>
             </ul>

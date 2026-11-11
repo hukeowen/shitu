@@ -74,10 +74,6 @@ const rows = [
   { key: 'appeals', title: '我的申诉', desc: '身份证被占用 / 账号受限的申诉进度', to: '/kyc/appeals' },
   { key: 'feedback', title: '问题反馈', desc: '投诉、建议、维权求助', to: '/feedback' },
 ]
-const soon = [
-  { key: 'resume', title: '我的简历', desc: '完善基础信息', pill: '即将上线' },
-  { key: 'refer', title: '推荐裂变', desc: '推荐工友入职得奖励', pill: '预留' },
-]
 
 async function onLogout() {
   try {
@@ -166,10 +162,6 @@ async function onLogout() {
           <i v-if="r.key === 'messages' && inbox.unread > 0" class="badge num">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</i>
           <van-icon name="arrow" class="chev" />
         </router-link>
-        <button v-for="r in soon" :key="r.key" type="button" class="lrow" @click="showToast('即将上线')">
-          <div class="lt"><b>{{ r.title }}</b><span>{{ r.desc }}</span></div>
-          <span class="tag">{{ r.pill }}</span>
-        </button>
       </section>
 
       <section v-if="profile" class="acard">

@@ -74,7 +74,6 @@ const disabledMonth = (d: Date) => d.getTime() > shNowMs()
         <p>{{ month }} · 我的人流出去谁在用、谁的人流进来我该付给谁</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-404</b></span>
       <el-date-picker v-model="month" type="month" value-format="YYYY-MM" :clearable="false" :disabled-date="disabledMonth" style="width: 140px" />
       <el-button @click="load">刷新</el-button>
     </div>

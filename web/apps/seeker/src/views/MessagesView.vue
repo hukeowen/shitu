@@ -137,7 +137,7 @@ function kindOf(m: InboxItem): Kind {
         <van-empty description="暂无消息" />
       </div>
       <div class="pad">
-        <div class="note note--info">系统消息覆盖：面试确认、到厂 / 确权、状态释放变更等。状态变化都会在这里告诉你。</div>
+        <div class="note note--info">系统消息覆盖：面试确认、到厂、入职办理、状态变化等。状态变化都会在这里告诉你。</div>
       </div>
     </van-pull-refresh>
   </div>

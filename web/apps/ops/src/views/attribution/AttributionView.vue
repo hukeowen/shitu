@@ -110,7 +110,6 @@ const counts = computed(() => ({
         <p>查询求职者当前状态、来源公司 / 当前归属公司，以及完整的状态迁移日志 —— 用于归属争议的事实核查（查询行为写入审计日志）</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-08</b></span>
     </div>
 
     <div class="card">

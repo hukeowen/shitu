@@ -160,7 +160,6 @@ onMounted(() => {
         <p>实名拦截后的人工复核（身份证被占用申诉、失信申诉）与平台黑名单 · 对外只显示「平台级失信」，不暴露具体原因</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-14</b></span>
       <el-button v-if="tab === 'blacklist'" type="danger" plain @click="openAdd">拉黑用户</el-button>
     </div>
 

@@ -215,7 +215,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         <p>软打分因子权重、距离分档、挂岗衰减、诚信 / 处罚 / 名额系数、展示阈值与同公司上限 · 版本化：草稿 → 发布（仅超管），可回滚</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-13</b></span>
       <el-button type="primary" :loading="acting && !current" @click="createDraft">{{ draft ? '继续编辑草稿' : '新建草稿' }}</el-button>
     </div>
 

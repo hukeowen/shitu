@@ -38,7 +38,15 @@ const kpis = computed(() => {
 const W = 560
 const H = 160
 const PAD = { l: 34, r: 8, t: 12, b: 22 }
-const trend = computed(() => data.value?.trend ?? [])
+/** 补齐近 14 天：后端只返回有注册的日期，没有数据的日子按 0 画出来（按北京日期） */
+const trend = computed(() => {
+  const by = new Map((data.value?.trend ?? []).map((p) => [p.d, p]))
+  const end = Date.now() + 8 * 3600_000
+  return Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(end - (13 - i) * 86400_000).toISOString().slice(0, 10)
+    return by.get(d) ?? { d, registrations: 0 }
+  })
+})
 const chart = computed(() => {
   const pts = trend.value
   const max = Math.max(1, ...pts.map((p) => p.registrations))
@@ -74,7 +82,6 @@ const hover = ref<number | null>(null)
         <p>入驻企业、在职人数、当日增量与计费 · 数据实时汇总，计费数据为昨日日结结果</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-01</b></span>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
@@ -137,7 +144,7 @@ const hover = ref<number | null>(null)
                 <g v-for="(b, i) in chart.bars" :key="b.p.d" @mouseenter="hover = i" @mouseleave="hover = null">
                   <rect :x="b.x - chart.bw * 0.18" :y="PAD.t" :width="chart.bw" :height="H - PAD.t - PAD.b" fill="transparent" />
                   <rect :x="b.x" :y="b.y" :width="b.w" :height="Math.max(b.h, b.p.registrations > 0 ? 1 : 0)" rx="2" class="bar" :class="{ on: hover === i }" />
-                  <text v-if="i % 2 === 0 || i === chart.bars.length - 1" :x="b.x + b.w / 2" :y="H - 6" text-anchor="middle" class="ax">{{ b.label }}</text>
+                  <text v-if="i % 2 === 1" :x="b.x + b.w / 2" :y="H - 6" text-anchor="middle" class="ax">{{ b.label }}</text>
                 </g>
               </svg>
               <div v-if="hover !== null && chart.bars[hover]" class="tip">

@@ -1,5 +1,5 @@
 // 浏览器冒烟：用真实会话逐个打开菜单路由，收集 JS 异常、console.error、接口 ≥ 400 与页面上的错误提示。
-// 用法：node ui-smoke.mjs   （需要：Chrome 已以 --remote-debugging-port=9888 启动；console 5175、ops 5176 的 vite dev 在跑）
+// 用法：node ui-smoke.mjs（SUITE=console-owner 只跑一组；SHOT_ALL=1 每页都截图，用于界面走查）  （需要：Chrome 已以 --remote-debugging-port=9888 启动；console 5175、ops 5176 的 vite dev 在跑）
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +26,7 @@ async function freshSeekerCookie() {
   const m = (r.headers.get('set-cookie') || '').match(/shitu_rt=([^;]+)/)
   fs.writeFileSync(path.join(DIR, 'seeker.rt'), m[1])
 }
-await freshSeekerCookie()
+if (!process.env.SUITE || process.env.SUITE.includes("seeker")) await freshSeekerCookie()
 
 const SUITES = [
   { name: 'ops-super', base: 'http://127.0.0.1:5176', cookieFile: 'ops.cookies', cookiePath: '/api/v1/ops/auth', paths: menuPaths('ops') },
@@ -76,7 +76,7 @@ async function session(mobile) {
 }
 
 const report = []
-for (const s of SUITES) {
+for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.split(",").includes(x.name))) {
   const b = await session(s.mobile)
   await b.send('Network.setCookie', { name: 'shitu_rt', value: readRt(s.cookieFile), url: s.base + s.cookiePath, path: s.cookiePath, httpOnly: true })
   for (const p of s.paths) {
@@ -87,7 +87,25 @@ for (const s of SUITES) {
     const r = await b.send('Runtime.evaluate', {
       returnByValue: true,
       expression: `({ url: location.pathname, chromeError: location.protocol === "chrome-error:", errs: [...document.querySelectorAll('.el-message--error, .el-alert--error, .error, .van-toast')].map(e => e.innerText.trim()).filter(Boolean).slice(0, 3),
-        empty: document.body.innerText.trim().length < 20 })`,
+        empty: document.body.innerText.trim().length < 20,
+        layout: (() => {
+          const out = []
+          // 表格操作列按钮折行
+          const wrapped = [...document.querySelectorAll('.el-table__body td.el-table-fixed-column--right .cell, .el-table__body td:last-child .cell')].some((c) => {
+            const tops = [...c.querySelectorAll('.el-button')].map((b) => b.getBoundingClientRect().top)
+            return tops.length > 1 && Math.max(...tops) - Math.min(...tops) > 8
+          })
+          if (wrapped) out.push('表格操作列按钮折行')
+          // 页面横向溢出
+          if (document.documentElement.scrollWidth > window.innerWidth + 2) out.push('页面横向溢出 ' + (document.documentElement.scrollWidth - window.innerWidth) + 'px')
+          // 按钮 / 标签文字被裁切
+          const clipped = [...document.querySelectorAll('.el-button, .van-button, .tag, .el-tag')].filter((e) => e.offsetParent && e.scrollWidth > e.clientWidth + 2).map((e) => e.innerText.trim().slice(0, 12))
+          if (clipped.length) out.push('文字被裁切: ' + [...new Set(clipped)].slice(0, 4).join(' / '))
+          // 栅格内按钮没对齐
+          const mis = [...document.querySelectorAll('.grid')].some((g) => { const xs = [...g.children].filter((c) => c.classList.contains('el-button')).map((c) => Math.round(c.getBoundingClientRect().left)); return new Set(xs).size > Math.max(1, Math.round(Math.sqrt(xs.length))) + 1 })
+          if (mis) out.push('栅格按钮未对齐')
+          return out
+        })() })`,
     })
     const v = r.result?.result?.value ?? {}
     const issues = [...new Set(b.events)]
@@ -95,10 +113,11 @@ for (const s of SUITES) {
     if (v.url === '/login') issues.push('被踢回登录页（会话无效）')
     if (v.errs?.length) issues.push('页面错误提示: ' + v.errs.join(' | '))
     if (v.empty) issues.push('页面几乎空白')
+    for (const w of v.layout ?? []) issues.push('排版: ' + w)
     const redirected = v.url !== p
     report.push({ suite: s.name, path: p, landed: v.url, issues })
     console.log(`${issues.length ? 'ISSUE' : 'ok   '}  ${s.name.padEnd(13)} ${p.padEnd(26)} ${redirected ? '→ ' + v.url : ''}${issues.length ? '\n        ' + issues.join('\n        ') : ''}`)
-    if (issues.length) {
+    if (issues.length || process.env.SHOT_ALL) {
       const shot = await b.send('Page.captureScreenshot', { format: 'png' })
       fs.writeFileSync(path.join(SHOTS, `${s.name}${p.replaceAll('/', '_')}.png`), Buffer.from(shot.result.data, 'base64'))
     }

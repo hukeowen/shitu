@@ -25,7 +25,6 @@ watch(
     <div class="page-hd">
       <div><h2>岗位审核 · 合同备案</h2><p>劳务公司发布岗位前必须有与甲方审核通过且在有效期内的合作合同；岗位审核通过后进入匹配池</p></div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-04</b></span>
     </div>
 
     <el-tabs v-model="tab" class="tabs">

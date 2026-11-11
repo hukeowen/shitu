@@ -93,7 +93,6 @@ const transferCount = computed(() => list.value.filter((r) => r.source === 'TRAN
         <p>姓名、岗位、在岗状态、来源归属、入职时间 · {{ isSite ? '驻场可见完整手机号' : '项目经理端自动隐藏手机号与证件号' }}</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-307</b></span>
       <el-button @click="refresh">刷新</el-button>
     </div>
 

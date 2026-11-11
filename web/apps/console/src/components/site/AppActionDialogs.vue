@@ -203,7 +203,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       ElMessage.success('已标记面试通过，进入待确权')
     } else if (action === 'FAIL') {
       const { value } = await ElMessageBox.prompt(
-        `${who(app)} 面试未通过。私域用户回到本公司私域待匹配，公域用户回到公域（D-31）。`,
+        `${who(app)} 面试未通过。本公司渠道来的求职者回到「私域待匹配」继续跟进，其他求职者回到公域。`,
         '面试未通过',
         {
           confirmButtonText: '确认未通过',

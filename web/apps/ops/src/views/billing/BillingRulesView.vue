@@ -99,7 +99,6 @@ async function submit() {
         <p>增长技术服务费单价、人才流转费单价、流转费分账比例、新入驻免费期 · 版本化，按生效日期适用，历史计费不受影响</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-09</b></span>
       <el-button v-if="canAdd" type="primary" @click="openAdd">新增规则版本</el-button>
     </div>
 

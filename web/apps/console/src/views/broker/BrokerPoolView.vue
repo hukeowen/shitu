@@ -105,7 +105,6 @@ function open(c: BrokerCaseRow, tab?: CaseTab) {
         <p>驻场流转、匹配度不足 80% 自动转入、多次匹配未报名 · 2 小时内联系、24 小时内出结果，超时自动释放</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-201 ~ T-204</b></span>
       <el-button @click="load">刷新</el-button>
     </div>
 

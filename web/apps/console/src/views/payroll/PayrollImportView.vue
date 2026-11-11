@@ -171,10 +171,9 @@ async function doImport() {
     <div class="page-hd">
       <div>
         <h2>工资表导入</h2>
-        <p>按月导入工资表 → 自动抵扣预支欠款 → 生成员工工资条（核算与代发审批 V1.5 上线）</p>
+        <p>按月导入工资表 → 自动抵扣预支欠款 → 生成员工工资条</p>
       </div>
       <span class="spacer" />
-      <span class="ref">决策 <b>D-28</b></span>
     </div>
 
     <div class="grid g-32">

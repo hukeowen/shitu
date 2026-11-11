@@ -16,7 +16,6 @@ withDefaults(defineProps<{ wide?: boolean }>(), { wide: false })
       <div class="b1">
         <BrandMark :size="28" />
         <b>{{ APP_TITLE }}</b>
-        <span class="env">TENANT</span>
       </div>
 
       <div class="hero">

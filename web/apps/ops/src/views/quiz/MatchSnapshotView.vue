@@ -59,7 +59,6 @@ const scopeText = (v: string) => label('MatchScope', v)
     <div class="page-hd">
       <div><h2>匹配快照查询</h2><p>每次 AI 问薪匹配都会保存快照：使用的题库 / 引擎版本、答案、画像以及每个候选岗位的因子得分，用于解释推荐结果与投诉复核</p></div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-12</b></span>
     </div>
 
     <div class="card">

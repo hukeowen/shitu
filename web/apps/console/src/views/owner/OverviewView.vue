@@ -64,7 +64,6 @@ function signed(n: number) {
         <p>{{ meStore.me?.company.name }} · 仅展示聚合统计数据，不含单个求职者隐私信息</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-401</b></span>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 

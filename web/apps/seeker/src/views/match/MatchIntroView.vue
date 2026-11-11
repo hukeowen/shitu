@@ -27,8 +27,8 @@ const scopeTitle = computed(() => {
   return label('MatchScope', scope.value)
 })
 const scopeDesc = computed(() => {
-  if (scope.value === 'OWN_COMPANY') return '你当前为私域用户，仅匹配该公司旗下所有项目岗位'
-  if (scope.value === 'ALL_PLATFORM') return '你当前为公域用户，可匹配平台全部劳务公司岗位，按匹配度排序'
+  if (scope.value === 'OWN_COMPANY') return '由你的服务公司提供岗位，将在该公司全部项目中为你匹配'
+  if (scope.value === 'ALL_PLATFORM') return '将在平台全部劳务公司的岗位中为你匹配，按匹配度排序'
   if (scope.value === 'INTERNAL_TRANSFER_ONLY') return '在岗期间仅可匹配本公司内部调岗岗位'
   return ''
 })

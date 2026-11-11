@@ -9,6 +9,6 @@ const route = useRoute()
     <template #header>
       <b>{{ route.meta.title }}</b>
     </template>
-    <el-empty :description="`原型 ${route.meta.proto ?? '—'} · 待实现`" />
+    <el-empty :description="'该功能暂未开放'" />
   </el-card>
 </template>

@@ -81,7 +81,6 @@ const STAGES = [
         <p>各渠道码带来的访问、注册、报名、入职人数与转化率（累计口径）</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-402</b></span>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 

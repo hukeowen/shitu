@@ -180,7 +180,6 @@ const roleHint = computed(() => {
         <p>员工本人发起 → 驻场初审 → 项目经理终审 → 登记拨款（<b>双级审核</b>）</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-309</b></span>
       <el-select v-model="projectId" placeholder="全部项目" clearable filterable style="width: 200px">
         <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
       </el-select>

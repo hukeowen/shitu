@@ -106,7 +106,7 @@ const formBSteps = computed(() => {
         <header class="hero whero" :class="heroClass(profile.domainTag)">
           <div class="hero-state" style="margin-top: 0">
             <span class="tag tag--lg" :class="STATUS_TAG_CLASS[profile.status]"><i class="dot"></i>{{ label('UserStatus', profile.status) }}</span>
-            <DomainTag :domain="profile.domainTag" />
+            <DomainTag :domain="profile.domainTag" :text="label('DomainTag', profile.domainTag)" />
           </div>
           <div class="hero-meta">
             <div>所属劳务公司<b>{{ work.companyName || '—' }}</b></div>
@@ -154,8 +154,8 @@ const formBSteps = computed(() => {
           </section>
 
           <section class="acard">
-            <div class="acard-hd"><h4>考勤汇总</h4><span class="tag">V1.5 打卡</span></div>
-            <p class="t-sm" style="line-height: 1.7">考勤打卡将在 V1.5 开放。请假或旷工由驻场老师登记，会扣减预支所需的在岗日。</p>
+            <div class="acard-hd"><h4>考勤说明</h4></div>
+            <p class="t-sm" style="line-height: 1.7">请假或旷工由驻场老师登记，会扣减预支所需的在岗日。</p>
           </section>
 
           <div class="note note--warn">
@@ -195,14 +195,14 @@ const formBSteps = computed(() => {
               <p class="t-sm" style="line-height: 1.7">劳务公司已发起电子签约，签署劳动合同后即正式入职在岗。</p>
               <van-button type="primary" block class="btn-cta mt10" @click="router.push('/contracts/sign')">去签署劳动合同</van-button>
             </template>
-            <p v-else class="t-sm" style="line-height: 1.7">驻场老师正在办理入职确权，完成后会推送电子合同供你签署。</p>
+            <p v-else class="t-sm" style="line-height: 1.7">驻场老师正在办理入职，完成后会推送电子合同供你签署。</p>
           </template>
         </section>
 
         <!-- 形态 B · 公域求职 / 私域待匹配 -->
         <section v-else class="acard fb">
           <div class="acard-hd">
-            <h4 class="fb-h">{{ profile.status === 'PRIVATE_PENDING' ? '私域待匹配' : '求职中' }}</h4>
+            <h4 class="fb-h">{{ profile.status === 'PRIVATE_PENDING' ? '顾问跟进中' : '求职中' }}</h4>
             <span class="tag" :class="STATUS_TAG_CLASS[profile.status]">{{ label('UserStatus', profile.status) }}</span>
           </div>
           <div class="steps" style="margin-bottom: 12px">

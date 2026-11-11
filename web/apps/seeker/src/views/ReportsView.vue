@@ -77,7 +77,7 @@ function rightMeta(a: MyApplication): string {
 }
 function stateText(a: MyApplication): string {
   if (a.status === 'PENDING_INTERVIEW') return a.notice ? '驻场已推送面试信息 · 待面试' : '已通知驻场 · 等待面试安排'
-  if (a.status === 'PENDING_CONFIRM') return '面试已通过 · 等待入职确权'
+  if (a.status === 'PENDING_CONFIRM') return '面试已通过 · 等待办理入职'
   return label('ApplicationStatus', a.status)
 }
 function where(a: MyApplication) {

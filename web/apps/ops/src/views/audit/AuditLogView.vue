@@ -45,7 +45,6 @@ onMounted(() => list.load())
     <div class="page-hd">
       <div><h2>系统审计日志</h2><p>关键操作全程留痕：登录、入驻审核、岗位审核 / 强制下架、合同备案、账号与权限变更</p></div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-11</b></span>
     </div>
 
     <div class="card">

@@ -19,6 +19,8 @@ export interface MenuItem {
   title: string
   proto: string
   access?: Access
+  /** 不在侧栏显示（由列表页进入的子页面），仍参与路由权限 */
+  hidden?: boolean
 }
 export interface MenuGroup {
   key: string
@@ -76,7 +78,7 @@ export const MENU: MenuGroup[] = [
     items: [
       { path: '/pm/board', title: '数据看板', proto: 'T-306', access: { perms: ['PM_WORKBENCH'], roles: ['SITE'] } },
       { path: '/pm/jobs', title: '岗位管理', proto: 'v-jobs', access: { perms: ['JOB_MANAGE', 'JOB_VIEW'] } },
-      { path: '/pm/jobs/edit', title: '创建 / 编辑岗位', proto: 'v-job-edit', access: { perms: ['JOB_MANAGE'] } },
+      { path: '/pm/jobs/edit', title: '创建 / 编辑岗位', proto: 'v-job-edit', access: { perms: ['JOB_MANAGE'] }, hidden: true },
       { path: '/pm/kb', title: '知识库管理', proto: 'A-11', access: { perms: ['KB_MANAGE'], roles: ['OWNER'] } },
       { path: '/pm/staff', title: '人员管理', proto: 'A-12', access: { perms: ['STAFF_MANAGE', 'SITE_WORKBENCH'] } },
       { path: '/pm/resign', title: '离职审核', proto: 'A-13', access: { perms: ['RESIGN_AUDIT', 'SITE_WORKBENCH'] } },

@@ -5,10 +5,16 @@ import 'vant/es/toast/style'
 import 'vant/es/dialog/style'
 import '@shitu/ui-tokens/vant-theme.css'
 import './styles/app.css'
-import { configureAuth } from '@shitu/api-client'
+import { configureAuth, setDictOverrides } from '@shitu/api-client'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
+
+// 面向求职者的叫法：不出现「私域 / 公域 / 确权」等内部术语
+setDictOverrides({
+  DomainTag: { PUBLIC: '自由求职', PRIVATE: '专属服务', TEMP_PRIVATE: '报名中' },
+  UserStatus: { PUBLIC_SEEKING: '求职中', PRIVATE_PENDING: '顾问跟进中', PENDING_CONFIRM: '待签约入职', EMPLOYED: '在岗' },
+})
 
 const app = createApp(App)
 app.use(createPinia())

@@ -91,7 +91,6 @@ const projectsText = computed(() => {
         <p>{{ projectsText }} · 数据按负责项目聚合</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-306</b></span>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
@@ -154,7 +153,7 @@ const projectsText = computed(() => {
           <dl class="kv"><dt>在岗</dt><dd>任职未结束</dd></dl>
           <dl class="kv"><dt>本月入职 / 离职</dt><dd>按入职日 / 离职日</dd></dl>
           <dl class="kv"><dt>今日到厂</dt><dd>今日完成到厂确认</dd></dl>
-          <div class="note note--info" style="margin-top: 10px">看板只含聚合数字。趋势图、岗位分布、来源构成待后端提供聚合接口后补充。</div>
+          <div class="note note--info" style="margin-top: 10px">看板只展示汇总数字，不含单个求职者信息；明细请进入对应列表查看。</div>
         </div>
       </div>
     </div>

@@ -110,7 +110,6 @@ async function doIssue() {
         <p>月账单 = 增长技术服务费 + 应付流转费（应收流转费不与应付轧差）· 下发 → 异议复核 → 确认 → 登记结算</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-10</b></span>
       <el-button @click="openRerun">重算日计费</el-button>
       <el-button v-if="canIssue" type="primary" @click="openIssue">生成并下发月账单</el-button>
     </div>

@@ -142,9 +142,9 @@ interface Entry {
 const entries = computed<Entry[]>(() => [
   { key: 'interview', title: '待面试', desc: '已报名待面试', icon: 'calendar-o', to: '/todo?tab=interview', count: wb.value?.pendingInterview },
   { key: 'confirm', title: '待确权', desc: '已到厂待确权', icon: 'passed', to: '/todo?tab=confirm', count: wb.value?.pendingConfirm },
-  { key: 'arrive', title: '今日到厂', desc: '已到厂待面试结果', icon: 'location-o', to: '/todo?tab=arrived' },
+  { key: 'arrive', title: '今日到厂', desc: '待录面试结果', icon: 'location-o', to: '/todo?tab=arrived', count: wb.value?.arrivedToday },
   { key: 'advance', title: '预支初审', desc: '待你初审', icon: 'balance-o', to: '/advance', count: advTodo.value ?? undefined, open: true },
-  { key: 'private', title: '私域待匹配', desc: '24h 跟进 / 流转经纪人', icon: 'friends-o', to: '/reminders?f=private', count: wb.value?.privatePending, open: true },
+  { key: 'private', title: '私域待匹配', desc: '24h 内跟进', icon: 'friends-o', to: '/reminders?f=private', count: wb.value?.privatePending, open: true },
   { key: 'absence', title: '请假 / 旷工', desc: '按人按日标记', icon: 'notes-o', to: '/employees', open: true },
 ])
 

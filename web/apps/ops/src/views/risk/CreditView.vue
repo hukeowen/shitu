@@ -199,7 +199,6 @@ async function submitPenalty() {
         <p>公司诚信分（0–100）、变更记录、三级处罚（警告 / 限流 30 天 / 封禁）、人工调分（必须留痕）· 诚信分低于 {{ REVOKE_BELOW }} 自动取消收费服务权限</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-07</b></span>
     </div>
 
     <div class="card">

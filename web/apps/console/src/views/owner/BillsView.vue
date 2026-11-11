@@ -92,7 +92,6 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <p>增长技术服务费 + 人才流转费 · 按月出账，次月 15 日前完成结算</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-403</b></span>
       <el-select v-if="list.length" v-model="selectedId" style="width: 140px">
         <el-option v-for="b in list" :key="b.billId" :label="b.billMonth" :value="b.billId" />
       </el-select>

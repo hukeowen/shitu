@@ -12,9 +12,9 @@ const guide = useGuideStore()
 
 const quad: QuadItem[] = [
   { key: 'match', title: 'AI 问薪', desc: '7 题定岗，出 3 个匹配岗位' },
-  { key: 'refer', title: '推荐裂变', desc: '推荐工友，得推荐奖励' },
-  { key: 'advance', title: '薪资预支', desc: '仅在岗员工可用', off: true, pill: '置灰' },
-  { key: 'points', title: '工分变现', desc: '在岗积累工分兑换', off: true, pill: 'V1.5' },
+  { key: 'reports', title: '我的报备', desc: '报名、面试、入职进度' },
+  { key: 'advance', title: '薪资预支', desc: '入职满 7 天可申请' },
+  { key: 'contracts', title: '电子合同', desc: '线上签约，随时查看' },
 ]
 
 const steps = [
@@ -25,7 +25,7 @@ const steps = [
 ]
 
 const guarantees = [
-  { k: '合同', v: '电子签约，合同永久留存可下载' },
+  { k: '合同', v: '电子签约，合同在线留存随时可查' },
   { k: '台账', v: '报名 / 面试 / 入职 / 出勤全程可查' },
   { k: '预支', v: '在岗满 7 天可申请薪酬预支' },
   { k: '投诉', v: '岗位信息不实可一键投诉' },
@@ -41,7 +41,7 @@ function onTap() {
     <header class="hero">
       <div class="hero-top">
         <div class="avatar avatar--glass">游</div>
-        <div class="who"><b>你好，访客</b><span>未注册 · 尚未生成用户 ID</span></div>
+        <div class="who"><b>你好，访客</b><span>注册后即可匹配岗位</span></div>
       </div>
       <div class="hero-state">
         <span class="tag tag--lg tag-public"><i class="dot"></i>{{ label('UserStatus', 'GUEST') }}</span>

@@ -59,7 +59,6 @@ function go(path: string, query?: Record<string, string>) {
         <p>{{ meStore.me?.company.shortName || meStore.me?.company.name }}· {{ meStore.me?.name }}</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-101</b></span>
       <el-button @click="load">刷新</el-button>
       <el-button type="primary" @click="go('/site/todo')">处理待办</el-button>
     </div>
@@ -150,7 +149,7 @@ function go(path: string, query?: Record<string, string>) {
             <dl class="kv"><dt>新报名知悉</dt><dd>24 小时内</dd></dl>
             <dl class="kv"><dt>面试通过 → 确权</dt><dd>24 小时内</dd></dl>
             <dl class="kv"><dt>超时后果</dt><dd style="color: var(--danger)">系统释放至公域</dd></dl>
-            <div class="note note--info" style="margin-top: 10px">公域用户不触发 24 小时响应窗口；倒计时以后端窗口截止时间为准。</div>
+            <div class="note note--info" style="margin-top: 10px">公域用户不触发 24 小时响应窗口；倒计时以系统记录的截止时间为准。</div>
           </div>
         </div>
       </div>

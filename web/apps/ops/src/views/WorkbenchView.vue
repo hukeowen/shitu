@@ -67,12 +67,11 @@ onMounted(() => pending.refresh())
       <div class="card__bd">
         <div v-if="modules.length" class="grid g-4">
           <router-link v-for="m in modules" :key="m.path" :to="m.path" class="mod-it">
-            <span class="ref">{{ m.proto }}</span>
             <b>{{ m.title }}</b>
             <span class="t-xs">{{ m.group }}</span>
           </router-link>
         </div>
-        <el-empty v-else :image-size="72" description="当前角色在 Sprint 1 暂无可用功能，后续版本开放" />
+        <el-empty v-else :image-size="72" description="当前角色暂无可用功能，请联系超级管理员分配" />
       </div>
     </div>
   </div>

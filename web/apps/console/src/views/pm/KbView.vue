@@ -262,7 +262,6 @@ onMounted(async () => {
         <p>录入岗位常见问答，供求职者岗位问答自动回复；未命中的问题回流到「待补充」</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-305</b></span>
       <el-button type="primary" @click="openCreate">+ 新增问答</el-button>
     </div>
 

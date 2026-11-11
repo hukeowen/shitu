@@ -26,8 +26,16 @@ function load(): Promise<void> {
   return loading
 }
 
+/** 应用级文案覆盖：同一枚举在不同端的叫法不同（例如 C 端不对求职者说「私域 / 公域」） */
+let overrides: Record<string, Record<string, string>> = {}
+export function setDictOverrides(o: Record<string, Record<string, string>>) {
+  overrides = o
+}
+
 export function dictLabel(type: string, value: string | null | undefined): string {
   if (value == null) return ''
+  const o = overrides[type]?.[value]
+  if (o) return o
   return dict.value[type]?.find((i) => i.value === value)?.label ?? value
 }
 

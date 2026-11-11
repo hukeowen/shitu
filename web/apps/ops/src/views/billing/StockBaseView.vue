@@ -79,7 +79,6 @@ function rowClass({ row }: { row: StockRow }) {
         <p>新入驻企业免费期内导入花名册；免费期到期自动锁定存量基数，之后只对基数外的增量在岗人数收取增长技术服务费</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-03</b></span>
     </div>
 
     <div class="grid g-4 stats">

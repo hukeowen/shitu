@@ -138,7 +138,7 @@ async function decline(r: MyRecommendation) {
         </template>
 
         <div class="note note--info">
-          推荐岗位与 AI 问薪结果一样，需先同意求职告知书并完成实名认证才能报名。都不满意时，顾问可将你释放至公域，届时可匹配全平台岗位。
+          推荐岗位与 AI 问薪结果一样，需先同意求职告知书并完成实名认证才能报名。都不满意时，顾问可为你开放全平台岗位匹配，届时可匹配全平台岗位。
         </div>
         <div class="page-bottom-gap"></div>
       </div>

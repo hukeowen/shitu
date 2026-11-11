@@ -125,7 +125,6 @@ onMounted(() => {
           <path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
         </svg>
         <b>{{ APP_TITLE }}</b>
-        <span class="env">OPS</span>
       </div>
       <div class="glow g1" />
       <div class="glow g2" />
@@ -149,7 +148,7 @@ onMounted(() => {
           <span><b>内网</b>域名访问</span><span><b>IP</b>白名单</span><span><b>全量</b>操作审计</span>
         </div>
       </div>
-      <div class="foot mono">SHITU PLATFORM · V1.0 · 仅限内网访问</div>
+      <div class="foot mono">仕兔平台运营中台 · 仅限内网访问</div>
     </section>
 
     <section class="panel">

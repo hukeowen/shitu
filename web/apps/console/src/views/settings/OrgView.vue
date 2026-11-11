@@ -173,7 +173,6 @@ onMounted(() => {
         <p>租户内角色体系与数据可见范围 · 角色变更或停用会使该成员立即下线</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-502</b></span>
       <el-button v-if="canManage" type="primary" @click="openCreate">+ 新增成员</el-button>
     </div>
 
@@ -228,7 +227,7 @@ onMounted(() => {
         <el-table-column label="最近登录" width="150">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.lastLoginAt) }}</span></template>
         </el-table-column>
-        <el-table-column v-if="canManage" label="操作" width="130" align="right" fixed="right">
+        <el-table-column v-if="canManage" label="操作" width="150" align="right" fixed="right" class-name="ops-col">
           <template #default="{ row }">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
             <el-button size="small" :type="row.status === 'NORMAL' ? 'danger' : 'primary'" plain @click="toggleStatus(row)">
@@ -244,7 +243,7 @@ onMounted(() => {
     <div class="card" style="margin-top: 14px">
       <div class="card__hd">
         <h3>角色权限矩阵</h3>
-        <span class="ref">原型 <b>A-19</b> · 预支审批按 D-02 双级</span>
+        <span class="t-xs">预支审批：驻场初审 + 项目经理终审</span>
       </div>
       <el-table :data="MATRIX" size="small">
         <el-table-column label="能力" min-width="200">

@@ -54,7 +54,7 @@ function open(c: LaborContractView) {
         </div>
         <div v-else-if="!list.length" class="page-state">
           <van-empty description="还没有劳动合同">
-            <p class="t-xs">面试通过、驻场完成入职确权后，合同将在这里签署和留存</p>
+            <p class="t-xs">面试通过、驻场办理入职后，合同将在这里签署和留存</p>
           </van-empty>
         </div>
 
@@ -84,10 +84,7 @@ function open(c: LaborContractView) {
               </dl>
               <div class="row" style="gap: 9px; margin-top: 12px">
                 <van-button v-if="c.status === 'PENDING_SIGN'" type="primary" size="small" class="flex1 b" @click.stop="open(c)">去签署</van-button>
-                <template v-else>
-                  <van-button size="small" class="flex1 b" @click.stop="open(c)">查看详情</van-button>
-                  <van-button size="small" class="flex1 b" disabled @click.stop>下载 PDF · 即将上线</van-button>
-                </template>
+                <van-button v-else size="small" class="flex1 b" @click.stop="open(c)">查看详情</van-button>
               </div>
             </article>
 

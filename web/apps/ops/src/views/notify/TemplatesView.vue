@@ -189,7 +189,6 @@ const highlight = (s: string) =>
         <p>站内信 / 短信文案、渠道、是否遵守免打扰时段、启停 · 文案只能使用模板已有变量，保存即生效</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-16</b></span>
     </div>
 
     <div class="card">

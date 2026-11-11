@@ -176,7 +176,6 @@ onMounted(() => {
         <p>公司专属二维码与分享链接 · 决定扫码注册用户的初始归属（本公司私域）</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-501</b></span>
       <el-button v-if="canManage" type="primary" @click="openCreate">+ 生成渠道码</el-button>
     </div>
 

@@ -108,7 +108,6 @@ async function reject(r: ResignRow) {
         <p>确认离职 → 归属清空 → 变更公域 → 计费停止 → 合同终止 · 有未还清的薪酬预支须先结清</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-308</b></span>
       <el-button @click="load">刷新</el-button>
     </div>
 
@@ -166,7 +165,7 @@ async function reject(r: ResignRow) {
 
       <div class="grid" style="gap: 14px; align-content: start">
         <div class="card">
-          <div class="card__hd"><h3>离职后系统自动执行</h3><span class="ref">节点八</span></div>
+          <div class="card__hd"><h3>离职后系统自动执行</h3></div>
           <div class="card__bd">
             <dl class="kv"><dt>当前归属（bound）</dt><dd>清空</dd></dl>
             <dl class="kv"><dt>公域 / 私域</dt><dd><span class="tag tag--public">公域</span></dd></dl>

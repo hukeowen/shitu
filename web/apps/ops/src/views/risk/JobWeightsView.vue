@@ -71,10 +71,9 @@ function toCredit(id: string) {
     <div class="page-hd">
       <div>
         <h2>降权与限流</h2>
-        <p>招聘中岗位的真实匹配权重 = 挂岗衰减 × 低转化 × 名额 × 诚信 × 处罚 × 新岗加权（参数见匹配引擎参数 P-13）· 降权不向企业做任何提示</p>
+        <p>招聘中岗位的真实匹配权重 = 挂岗衰减 × 低转化 × 名额 × 诚信 × 处罚 × 新岗加权（参数见「匹配引擎参数」）· 降权不向企业做任何提示</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-05</b></span>
     </div>
 
     <div class="grid g-4 stats">

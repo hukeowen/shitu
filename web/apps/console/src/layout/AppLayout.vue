@@ -38,7 +38,6 @@ async function doLogout() {
       <div class="brand">
         <BrandMark />
         <b>{{ APP_TITLE }}</b>
-        <span class="env">TENANT</span>
       </div>
       <div v-if="company" class="tenant">
         <div class="avatar">{{ companyName.slice(0, 1) }}</div>
@@ -49,8 +48,8 @@ async function doLogout() {
       </div>
       <nav class="nav">
         <template v-for="g in menu" :key="g.key">
-          <div class="grp">{{ g.title }} <i>{{ g.en }}</i></div>
-          <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="item" exact-active-class="is-active">
+          <div class="grp">{{ g.title }}</div>
+          <router-link v-for="it in g.items.filter((x) => !x.hidden)" :key="it.path" :to="it.path" class="item" :class="{ 'is-active': route.path === it.path || route.path.startsWith(it.path + '/') }">
             {{ it.title }}
           </router-link>
         </template>
@@ -69,7 +68,6 @@ async function doLogout() {
           <span>{{ route.meta.group ?? APP_TITLE }}</span>
           <span>/</span>
           <b>{{ route.meta.title }}</b>
-          <span v-if="route.meta.proto" class="ref">原型 <b>{{ route.meta.proto }}</b></span>
         </div>
         <span class="spacer" />
         <div v-if="company" class="who">

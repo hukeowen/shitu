@@ -57,11 +57,10 @@ onMounted(() => pending.refresh())
           <path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
         </svg>
         <b>{{ APP_TITLE }}</b>
-        <span class="env">OPS</span>
       </div>
       <nav class="nav">
         <template v-for="g in menu" :key="g.key">
-          <div class="grp">{{ g.title }} {{ g.en }}</div>
+          <div class="grp">{{ g.title }}</div>
           <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="item" active-class="is-active" :class="{ 'is-active': route.meta.activeMenu === it.path }">
             <span class="it-t">{{ it.title }}</span>
             <span v-if="badgeOf(it) > 0" class="bdg">{{ badgeOf(it) > 99 ? '99+' : badgeOf(it) }}</span>
@@ -83,7 +82,6 @@ onMounted(() => pending.refresh())
           <el-breadcrumb-item>{{ route.meta.group ?? APP_TITLE }}</el-breadcrumb-item>
           <el-breadcrumb-item>{{ route.meta.title }}</el-breadcrumb-item>
         </el-breadcrumb>
-        <span v-if="route.meta.proto" class="ref">原型 <b>{{ route.meta.proto }}</b></span>
         <div class="spacer" />
         <el-dropdown trigger="click" @command="onCommand">
           <button type="button" class="me">
@@ -121,7 +119,7 @@ onMounted(() => pending.refresh())
 .brand b { font-family: var(--f-dis); font-size: 16px; letter-spacing: .02em; }
 .env { margin-left: auto; font-family: var(--f-mono); font-size: 9px; letter-spacing: .1em; border: 1px solid rgba(255, 255, 255, .22); color: rgba(255, 255, 255, .6); padding: 1px 5px; border-radius: 3px; }
 .nav { flex: 1; overflow: auto; padding: 8px 10px 22px; }
-.grp { display: flex; align-items: center; gap: 6px; padding: 14px 8px 5px; font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .14em; color: rgba(255, 255, 255, .32); }
+.grp { display: flex; align-items: center; gap: 6px; padding: 14px 8px 5px; font-size: 11px; color: rgba(255, 255, 255, .45); }
 .grp::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, .08); }
 .item { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: var(--r-sm); font-size: 12.5px; color: rgba(255, 255, 255, .68); text-decoration: none; transition: .14s; }
 .item:hover { background: rgba(255, 255, 255, .07); color: #fff; }

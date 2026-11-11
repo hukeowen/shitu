@@ -86,7 +86,6 @@ function toCredit(companyId: string) {
         <p>求职者对岗位的投诉 · 核实属实 / 驳回；同一岗位属实满 {{ AUTO_OFFLINE_AT }} 次自动下架并扣公司诚信分 10 分（每岗只触发一次）</p>
       </div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-06</b></span>
     </div>
 
     <div class="card">

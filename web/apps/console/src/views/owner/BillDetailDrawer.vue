@@ -108,7 +108,7 @@ function summary({ columns, data }: SummaryParam): string[] {
           </el-table-column>
           <template #empty><span class="t-xs">暂无每日明细</span></template>
         </el-table>
-        <div class="note" style="margin-top: 10px">增长服务费 = max(当日在岗人数 − 存量基数, 0) × 单价（D-18）；免费期内不计费，存量基数在免费期满次日锁定（D-42）。</div>
+        <div class="note" style="margin-top: 10px">增长服务费 = max(当日在岗人数 − 存量基数, 0) × 单价；免费期内不计费，存量基数在免费期满次日锁定。</div>
 
         <div class="form-sec" style="margin-top: 18px">异议记录</div>
         <div v-if="!detail.disputes.length" class="t-sm dim">暂无异议</div>

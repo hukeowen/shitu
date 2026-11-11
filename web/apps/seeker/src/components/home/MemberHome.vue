@@ -17,7 +17,7 @@ import { STATUS_TAG_CLASS, heroClass } from '@/utils/status'
 
 /**
  * 登录后首页（C-201~C-203）：S-06 公域求职 / S-07 私域待匹配（24h 专属跟进）/ S-08 待面试 / S-09 待确权 / S-10 在岗。
- * 四宫格（C-202）：AI 问薪全状态可点（报名锁定期给出锁定说明，R-03）、推荐裂变预留、薪资预支仅在岗、工分变现 V1.5。
+ * 四宫格（C-202）：AI 问薪全状态可点（报名锁定期给出锁定说明，R-03）、我的报备、薪资预支仅在岗、我的合同。
  * 动态提醒（C-203）：待面试 → 面试信息卡；待确权 → 待签署合同卡；在岗 → 最新通知。专属顾问推荐（T-203）有待确认时展示横幅。
  */
 const auth = useAuthStore()
@@ -149,9 +149,9 @@ const quad = computed<QuadItem[]>(() => {
   else if (isPrivate.value && company.value) matchDesc = `匹配${company.value}岗位`
   return [
     { key: 'match', title: 'AI 问薪', desc: matchDesc, off: matchLocked.value, pill: matchLocked.value ? '锁定' : undefined },
-    { key: 'refer', title: '推荐裂变', desc: '推荐工友得奖励', pill: '预留' },
+    { key: 'reports', title: '我的报备', desc: '报名与面试进度' },
     { key: 'advance', title: '薪资预支', desc: employed ? '在岗员工可申请' : '需已入职在岗', off: !employed },
-    { key: 'points', title: '工分变现', desc: '在岗积累工分兑换', off: true, pill: 'V1.5' },
+    { key: 'contracts', title: '我的合同', desc: '电子合同随时查看' },
   ]
 })
 
@@ -173,9 +173,9 @@ async function startMatch() {
 
 function onQuad(it: QuadItem) {
   if (it.key === 'match') return void startMatch()
-  if (it.key === 'refer') return showToast('推荐裂变即将上线')
+  if (it.key === 'reports') return void router.push('/reports')
   if (it.key === 'advance') return it.off ? showToast('入职在岗后可申请薪资预支') : void router.push('/advance')
-  showToast('工分变现将在 V1.5 上线')
+  void router.push('/contracts')
 }
 
 const progress = computed(() => {
@@ -194,8 +194,8 @@ const progress = computed(() => {
       <header class="hero" :class="heroClass(profile.domainTag)">
         <div class="hero-top">
           <div class="avatar" :class="isPrivate ? 'avatar--o' : 'avatar--t'">我</div>
-          <div class="who"><b>{{ profile.phoneMasked }}</b><span>{{ profile.userId }}</span></div>
-          <DomainTag :domain="profile.domainTag" />
+          <div class="who"><b>{{ profile.phoneMasked }}</b><span>{{ company ? `${company} 为你服务` : '欢迎使用仕兔求职' }}</span></div>
+          <DomainTag :domain="profile.domainTag" :text="label('DomainTag', profile.domainTag)" />
           <button type="button" class="bell" aria-label="消息中心" @click="router.push('/messages')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 8.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5M10 20a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>
             <i v-if="inbox.unread > 0" class="badge num">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</i>
@@ -212,7 +212,7 @@ const progress = computed(() => {
         </div>
         <div v-else-if="status === 'PENDING_CONFIRM'" class="hero-meta">
           <div>应聘公司<b>{{ appCompany }}</b></div>
-          <div>确权剩余<b class="num">{{ cd.active.value ? cd.text.value : '—' }}</b></div>
+          <div>入职办理时限<b class="num">{{ cd.active.value ? cd.text.value : '—' }}</b></div>
         </div>
         <div v-else-if="status === 'EMPLOYED'" class="hero-meta">
           <div>所属公司<b>{{ work?.companyName || appCompany }}</b></div>
@@ -222,8 +222,8 @@ const progress = computed(() => {
           <div v-else>报名时间<b class="num">{{ app ? formatServerTime(app.createdAt, false) : '—' }}</b></div>
         </div>
         <div v-else-if="isPrivate" class="hero-meta">
-          <div>归属公司<b>{{ company || '—' }}</b></div>
-          <div v-if="cd.active.value">专属跟进剩余<b class="num">{{ cd.text.value }}</b></div>
+          <div>服务公司<b>{{ company || '—' }}</b></div>
+          <div v-if="cd.active.value">顾问联系时限<b class="num">{{ cd.text.value }}</b></div>
         </div>
         <p v-else class="hero-desc">当前无归属公司，可匹配平台全部劳务公司岗位</p>
       </header>
@@ -242,7 +242,7 @@ const progress = computed(() => {
               </div>
               <div class="flex1">
                 <div class="warn-t">{{ company }}专属跟进期 · <span class="num">{{ cd.text.value }}</span></div>
-                <p class="t-xs warn-d">你的专属顾问来自 {{ company }}，窗口内驻场老师将主动联系你。若 24 小时内无人跟进，系统将自动把你释放至公域，届时可匹配全平台岗位。</p>
+                <p class="t-xs warn-d">你的专属顾问来自 {{ company }}，窗口内驻场老师将主动联系你。若 24 小时内无人联系你，你可以自由匹配全平台岗位。</p>
               </div>
             </div>
           </section>
@@ -271,7 +271,7 @@ const progress = computed(() => {
                 <p class="t-sm" style="line-height: 1.7">
                   驻场老师会在 <b class="num strong">{{ formatServerTime(profile.responseDeadline) }}</b> 前联系你，并推送面试时间、集合地点和所需证件。
                 </p>
-                <p v-if="cd.active.value" class="t-xs" style="margin-top: 4px">剩余 <span class="num">{{ cd.text.value }}</span>，超时未联系系统会自动释放你的报名</p>
+                <p v-if="cd.active.value" class="t-xs" style="margin-top: 4px">剩余 <span class="num">{{ cd.text.value }}</span>，超时未联系你可以重新选择岗位</p>
                 <dl v-if="app?.address" style="margin-top: 6px">
                   <div class="kv"><dt>面试地点</dt><dd>{{ app.address }}</dd></div>
                 </dl>
@@ -302,12 +302,12 @@ const progress = computed(() => {
               <div class="ok-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>
               <div class="flex1">
                 <div class="ok-t">面试已通过</div>
-                <div class="t-xs" style="color: var(--ok)">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场完成入职确权与电子签约' }}<template v-if="app?.jobTitle"> · {{ app.jobTitle }}</template></div>
+                <div class="t-xs" style="color: var(--ok)">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场办理入职并发起电子签约' }}<template v-if="app?.jobTitle"> · {{ app.jobTitle }}</template></div>
               </div>
             </div>
           </section>
           <div class="note note--warn">
-            <b>确权超时保护：</b>若劳务公司 24 小时内未完成入职确权，系统将自动清空当前归属，你将回到公域并可重新匹配全平台岗位。
+            <b>入职办理时限保护：</b>若劳务公司 24 小时内未办完入职，你可以重新匹配全平台岗位。
           </div>
         </template>
 

@@ -292,7 +292,6 @@ const preview = computed(() => {
         <p>岗位信息将作为 AI 问薪匹配的输入，并直接展示于求职者端岗位详情页</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-302</b></span>
       <el-button @click="router.push('/pm/jobs')">取消</el-button>
       <el-button type="primary" :loading="saving" :disabled="!!loadError || !meStore.can('JOB_MANAGE')" @click="submit">
         {{ isEdit ? '保存并提交审核' : '提交审核并发布' }}

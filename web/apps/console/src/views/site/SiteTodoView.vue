@@ -100,7 +100,6 @@ function rowClass({ row }: { row: SiteApplication }) {
         <p>待知悉 / 待面试 / 待确权 · 电脑端与驻场手机端同步</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-101</b></span>
       <el-button @click="refresh">刷新</el-button>
     </div>
 
@@ -190,7 +189,7 @@ function rowClass({ row }: { row: SiteApplication }) {
       </div></div>
       <div class="card"><div class="card__bd">
         <div class="eyebrow">面试未通过</div>
-        <p class="t-sm" style="margin-top: 6px; line-height: 1.8">报名前为本公司私域 → 回到「私域待匹配」并重开 24h 窗口；报名前为公域 → 回公域（决策 D-31）。爽约、超时一律释放到公域。</p>
+        <p class="t-sm" style="margin-top: 6px; line-height: 1.8">报名前为本公司私域 → 回到「私域待匹配」并重开 24h 窗口；报名前为公域 → 回公域。爽约、超时一律释放到公域。</p>
       </div></div>
     </div>
 

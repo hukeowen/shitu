@@ -159,7 +159,7 @@ function rematch() {
             <li class="done"><div class="tl-t">画像与匹配记录已同步至经纪人</div><div class="tl-m">刚刚</div></li>
             <li class="now"><div class="tl-t">经纪人电话联系你，了解需求</div><div class="tl-m">2 小时内</div></li>
             <li><div class="tl-t">人工二次匹配推荐</div><div class="tl-m">24 小时内</div></li>
-            <li><div class="tl-t">仍不满意 → 释放至公域，可匹配全平台</div><div class="tl-m">兜底路径</div></li>
+            <li><div class="tl-t">仍不满意 → 可改为匹配全平台岗位</div><div class="tl-m">兜底路径</div></li>
           </ul>
         </section>
         <router-link to="/recommendations" class="acard recl">
@@ -170,7 +170,7 @@ function rematch() {
           <span class="recl-a">{{ journey.pendingRecs.length ? '去看看' : '查看' }} ›</span>
         </router-link>
         <div class="note">
-          <b>请保持手机畅通。</b>如经纪人推荐的岗位你仍不满意，经纪人将执行「释放」，你将转为<span class="tag tag-public" style="height: 17px; margin: 0 3px">{{ label('DomainTag', 'PUBLIC') }}</span>，即可匹配全平台所有劳务公司岗位。
+          <b>请保持手机畅通。</b>如推荐的岗位你仍不满意，顾问会为你开放全平台岗位匹配，可以在所有劳务公司的岗位中选择。
         </div>
       </template>
 

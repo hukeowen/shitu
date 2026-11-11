@@ -97,3 +97,7 @@
 .ops-table .el-table__row.is-hl > td.el-table__cell { background: var(--warn-bg); }
 .link-cell { color: var(--ink-900); font-weight: 600; cursor: pointer; }
 .link-cell:hover { color: var(--signal); }
+
+/* 操作列按钮不折行；栅格里的按钮对齐 */
+.el-table .ops-col .cell { white-space: nowrap; }
+.grid > .el-button + .el-button { margin-left: 0; }

@@ -85,7 +85,6 @@ function barClass(a: SiteApplication) {
         <p>私域用户专属转化窗口 · 超时系统被动释放至公域</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-102</b></span>
       <el-select v-model="projectId" placeholder="全部项目" clearable filterable style="width: 200px">
         <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
       </el-select>
@@ -159,7 +158,7 @@ function barClass(a: SiteApplication) {
           <template #empty><el-empty :image-size="70" :description="loadError ? '加载失败' : '没有进行中的响应窗口'" /></template>
         </el-table>
         <div class="card__ft t-xs">
-          尚未报名的「私域待匹配」用户（当前 {{ wb?.privatePending ?? '—' }} 人）也有 24h 窗口，但现有接口不返回其明细，请在驻场手机端查看并拨打 / 流转经纪人。
+          尚未报名的「私域待匹配」用户（当前 {{ wb?.privatePending ?? '—' }} 人）也有 24h 窗口，请在驻场手机端「私域待匹配」里查看并拨打 / 流转经纪人。
         </div>
       </div>
 

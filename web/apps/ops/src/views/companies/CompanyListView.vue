@@ -53,7 +53,6 @@ onMounted(() => list.load())
     <div class="page-hd">
       <div><h2>劳务公司管理</h2><p>入驻审核 · 状态管理（正常 / 限流 / 封禁）· 营业执照与合作合同查看</p></div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-02</b></span>
     </div>
 
     <div class="card">

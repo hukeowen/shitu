@@ -25,7 +25,6 @@ function onTab(name: string | number) {
         <p>项目归属于甲方企业；岗位只能发布在「有审核通过且在有效期内合作合同」的甲方项目下</p>
       </div>
       <span class="spacer" />
-      <span class="ref">功能 <b>T-301</b></span>
     </div>
 
     <div class="note note--info" style="margin-bottom: 14px">

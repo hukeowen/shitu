@@ -144,7 +144,6 @@ onMounted(() => list.load())
     <div class="page-hd">
       <div><h2>平台账号与权限</h2><p>超级管理员维护平台账号与角色：超级管理员 / 运营 / 财务 / 风控。新建与重置均生成一次性密码，首次登录强制修改</p></div>
       <div class="spacer" />
-      <span class="ref">原型 <b>P-15</b></span>
     </div>
 
     <div class="card">
