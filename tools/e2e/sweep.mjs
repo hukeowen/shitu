@@ -41,12 +41,12 @@ async function main() {
     '/tenant/channel-codes', '/tenant/jobs/stats', '/tenant/bills', '/tenant/ledger?month=' + new Date().toISOString().slice(0, 7),
     '/tenant/reports/overview', '/tenant/reports/channels', '/tenant/kb', '/tenant/kb/pending', '/tenant/payroll/batches',
     '/tenant/advances', '/tenant/messages', '/tenant/messages/unread-count', '/tenant/site/workbench',
-    '/tenant/applications?pageSize=20']) {
+    '/tenant/applications?pageSize=20', '/tenant/ledger/people', '/tenant/payroll/recon?month=' + new Date().toISOString().slice(0, 7)]) {
     await probe('owner', owner, u)
   }
   for (const u of ['/tenant/reports/board', '/tenant/resign-requests', '/tenant/broker/cases', '/tenant/broker/cases/counts',
     '/tenant/employments?pageSize=20', '/tenant/applications?sort=DEADLINE&pageSize=20', '/tenant/applications?sort=CREATED_DESC',
-    '/tenant/site/private-pending', '/tenant/advances', '/tenant/roster/batches']) {
+    '/tenant/site/private-pending', '/tenant/advances', '/tenant/roster/batches', '/tenant/incidents', '/tenant/reports/timeouts']) {
     await probe('pm', pm, u, { snakeOk: u.includes('counts') })
   }
   await probe('site', site, '/tenant/channel-codes/mine')
@@ -77,8 +77,9 @@ async function main() {
     '/ops/companies/lookup?keyword=演示', '/ops/client-contracts', '/ops/jobs', '/ops/quiz/versions', '/ops/engine/versions',
     '/ops/reports/overview', '/ops/billing/rules', '/ops/bills', '/ops/stock-bases', '/ops/complaints', '/ops/penalties',
     '/ops/job-weights', '/ops/kyc-reviews', '/ops/blacklist', '/ops/notify-templates', '/ops/admins', '/ops/audit-logs',
+    '/ops/sys-params', '/ops/holidays', '/ops/attribution/disputes', '/ops/kyc-records', '/ops/reports/quiz-funnel',
     '/ops/attribution?phone=13800000001']) {
-    await probe('ops', ops, u, { expect: u.includes('attribution') ? [200, 404] : [200] })
+    await probe('ops', ops, u, { expect: u.includes('attribution?') ? [200, 404] : [200] })
   }
   const qv = await get('/ops/quiz/versions', ops)
   if (qv.data?.[0]) await probe('ops', ops, '/ops/quiz/versions/' + qv.data[0].versionId)
@@ -95,7 +96,7 @@ async function main() {
   for (const u of ['/seeker/me', '/seeker/quiz', '/seeker/disclaimer', '/seeker/kyc', '/seeker/kyc/appeals', '/seeker/applications',
     '/seeker/messages', '/seeker/messages/unread-count', '/seeker/match/latest', '/seeker/work', '/seeker/contracts',
     '/seeker/contracts/pending', '/seeker/recommendations', '/seeker/advance', '/seeker/advance/quota', '/seeker/advance/debt-log',
-    '/seeker/payslips', '/seeker/public/channel/qYAtWMU9']) {
+    '/seeker/payslips', '/seeker/broker-case', '/seeker/ledger', '/seeker/resume', '/seeker/feedback', '/seeker/public/channel/qYAtWMU9']) {
     await probe('seeker', seeker, u, { snakeOk: u === '/seeker/quiz' })
   }
   if (jobId) await probe('seeker', seeker, '/seeker/jobs/' + jobId, { expect: [200, 404, 403] })
