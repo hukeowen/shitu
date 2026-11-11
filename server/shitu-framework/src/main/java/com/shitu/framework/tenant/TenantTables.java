@@ -35,7 +35,7 @@ public final class TenantTables {
             "ops_admin", "audit_log", "shedlock", "outbox_event", "channel_visit", "sms_log",
             "biz_sequence", "auth_session",
             "follow_up_reminder", "esign_callback_log",
-            "kyc_record", "kyc_review", "blacklist", "feedback", "sms_deferred",
+            "kyc_record", "kyc_review", "blacklist", "feedback", "sms_deferred", "quiz_open",
             "job_weight_daily", "complaint", "credit_score_log", "risk_event", "penalty",
             "flyway_schema_history");
 

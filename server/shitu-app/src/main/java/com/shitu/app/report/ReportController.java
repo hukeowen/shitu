@@ -58,6 +58,20 @@ public class ReportController {
         return ApiResponse.ok(reports.channelFunnel(CurrentUser.companyId()));
     }
 
+    @Operation(summary = "本月超时释放与获客损失（T-102）")
+    @PreAuthorize("hasAnyRole('OWNER','PM','SITE')")
+    @GetMapping("/api/v1/tenant/reports/timeouts")
+    public ApiResponse<Map<String, Object>> timeouts() {
+        return ApiResponse.ok(reports.timeoutReleases(CurrentUser.companyId()));
+    }
+
+    @Operation(summary = "答题漏斗（P-12）：打开 → 提交 → 匹配到岗位 → 报名")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR')")
+    @GetMapping("/api/v1/ops/reports/quiz-funnel")
+    public ApiResponse<Map<String, Object>> quizFunnel(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "7") int days) {
+        return ApiResponse.ok(reports.quizFunnel(Math.max(1, Math.min(days, 90))));
+    }
+
     @Operation(summary = "运营总览（P-01）")
     @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
     @GetMapping("/api/v1/ops/reports/overview")

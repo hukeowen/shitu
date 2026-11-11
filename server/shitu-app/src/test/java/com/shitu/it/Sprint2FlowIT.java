@@ -215,6 +215,11 @@ class Sprint2FlowIT {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_status_log WHERE user_id = ? AND event = 'TIMEOUT_24H' AND actor_role = 'SYSTEM'",
                 Long.class, u1)).isEqualTo(1);
         assertThat(scanner.scan()).as("重复扫描幂等").isZero();
+        // T-102：本月超时释放统计
+        JsonNode timeouts = data(call(get("/api/v1/tenant/reports/timeouts"), owner, null));
+        assertThat(timeouts.get("released").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(timeouts.get("byReason").toString()).contains("TIMEOUT_24H");
+        assertThat(timeouts.get("ownLeadsLost").asLong()).isLessThanOrEqualTo(timeouts.get("released").asLong());
         while (dispatcher.dispatch() > 0) { }
         assertThat(data(call(get("/api/v1/seeker/messages"), s1, null)).toString()).contains("求职状态变更");
         assertThat(data(call(get("/api/v1/tenant/messages"), owner, null)).toString()).contains("已被释放至公域").contains("24h 超时");

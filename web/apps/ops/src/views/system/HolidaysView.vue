@@ -147,8 +147,10 @@ async function remove(r: HolidayRow) {
         </el-form-item>
       </el-form>
       <div v-if="picked.length" class="notice notice--info">
-        将录入 {{ picked.length }} 天：<span class="mono">{{ picked.join('、') }}</span>
-        <div class="t-xs" style="margin-top: 4px">{{ form.workday ? '只录入范围内的周六、周日。' : '范围内的周六、周日本来就不算工作日，已自动跳过。' }}</div>
+        <div>
+          将录入 {{ picked.length }} 天：<span class="mono">{{ picked.join('、') }}</span>
+          <div class="t-xs" style="margin-top: 4px">{{ form.workday ? '只录入范围内的周六、周日。' : '范围内的周六、周日本来就不算工作日，已自动跳过。' }}</div>
+        </div>
       </div>
       <div v-if="form.error" class="notice notice--danger" style="margin-top: 10px">{{ form.error }}</div>
       <template #footer>

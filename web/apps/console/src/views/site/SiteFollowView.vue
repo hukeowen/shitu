@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { errorMessage, tenantApi, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
+import { errorMessage, tenantApi, type SiteApplication, type SiteWorkbench, type TimeoutReleases } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
@@ -66,6 +66,16 @@ async function load() {
 watch(projectId, load)
 onMounted(load)
 
+/** 本月超时释放与获客损失（T-102） */
+const timeouts = ref<TimeoutReleases | null>(null)
+onMounted(async () => {
+  try {
+    timeouts.value = await tenantApi.timeoutReleases()
+  } catch {
+    timeouts.value = null
+  }
+})
+
 /** 进度条：窗口已用时长占比（24h 窗口） */
 function used(a: SiteApplication): number {
   const ms = remainMs(a.responseDeadline, now.value) ?? 24 * H
@@ -112,6 +122,13 @@ function barClass(a: SiteApplication) {
         <div class="stat-v">{{ wb?.privatePending ?? '—' }}</div>
         <div class="stat-d">4 小时内到期窗口 {{ wb?.windowsDueIn4h ?? '—' }} 个（全公司）</div>
       </div>
+    </div>
+
+    <div v-if="timeouts" class="note" :class="timeouts.released > 0 ? 'note--warn' : 'note--ok'" style="margin-top: 14px">
+      <template v-if="timeouts.released > 0">
+        本月已有 <b>{{ timeouts.released }}</b> 人因超时被释放到公域（上月 {{ timeouts.releasedLastMonth }} 人），其中 <b>{{ timeouts.ownLeadsLost }}</b> 人是本公司自己引流来的 —— 释放后其他公司可以直接匹配。
+      </template>
+      <template v-else>本月还没有人因超时被释放（上月 {{ timeouts.releasedLastMonth }} 人）。</template>
     </div>
 
     <div class="grid g-32" style="margin-top: 14px">

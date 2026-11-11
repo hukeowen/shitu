@@ -1099,8 +1099,20 @@ export interface OpsOverview {
   applicationsToday: number
   publicSeekers: number
   recruitingJobs: number
-  yesterday: { date: string; serviceFee: number; transferFee: number; transferCount: number; platformTake: number }
+  yesterday: {
+    date: string
+    serviceFee: number
+    transferFee: number
+    transferCount: number
+    platformTake: number
+    /** 与来源公司分成后平台拿到的部分（D-19） */
+    transferCommission: number
+    /** 来源为平台 / 来源公司已注销，流转费全归平台（D-19） */
+    transferFullIncome: number
+  }
   monthServiceFee: number
+  monthTransferCommission: number
+  monthTransferFullIncome: number
   trend: { d: string; registrations: number }[]
 }
 
@@ -1186,6 +1198,38 @@ export interface FraudAccount {
   lastAt: string
   /** 证件当前绑定在这个账号上（持有人不计入扣分） */
   holder: boolean
+}
+
+/** 答题漏斗（P-12）：最近 N 天，按人去重 */
+export interface QuizFunnel {
+  days: number
+  from: string
+  opened: number
+  submitted: number
+  matched: number
+  applied: number
+}
+
+/** 实名拦截记录（P-14） */
+export interface KycInterception {
+  id: number
+  userId: string
+  result: string
+  birthDate?: string
+  ip?: string
+  createdAt: string
+  phoneMasked?: string
+  kycStatus: string
+  sourceCompanyName?: string
+}
+
+/** 本月超时释放与获客损失（T-102） */
+export interface TimeoutReleases {
+  month: string
+  released: number
+  ownLeadsLost: number
+  releasedLastMonth: number
+  byReason: { event: string; cnt: number }[]
 }
 
 export interface HolidayRow {

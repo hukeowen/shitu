@@ -138,6 +138,24 @@ public class KycReviewService {
         return out;
     }
 
+    // ================================================================= 拦截记录（P-14，只读）
+
+    private static final Set<String> BLOCKED = Set.of("UNDERAGE", "ID_OCCUPIED", "BLACKLISTED", "VERIFY_FAILED", "ID_MISMATCH");
+
+    public List<Map<String, Object>> interceptions(String result) {
+        BizException.check(result == null || result.isBlank() || BLOCKED.contains(result), ErrorCode.SYS_BAD_REQUEST, "拦截类型不正确");
+        boolean all = result == null || result.isBlank();
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT k.id, k.user_id, k.result, k.birth_date, k.ip, k.created_at, u.phone_enc, "
+                + "u.kyc_status, c.name AS source_company_name FROM kyc_record k JOIN `user` u ON u.user_id = k.user_id "
+                + "LEFT JOIN company c ON c.company_id = u.source_company_id WHERE "
+                + (all ? "k.result <> 'PASS'" : "k.result = ?") + " ORDER BY k.id DESC LIMIT 300", all ? new Object[0] : new Object[]{result});
+        rows.forEach(r -> {
+            Object enc = r.remove("phone_enc");
+            r.put("phone_masked", enc == null ? null : Masks.phone(cipher.decrypt((String) enc)));
+        });
+        return Rows.camel(rows);
+    }
+
     // ================================================================= 平台复核队列
 
     public List<Map<String, Object>> queue(String status, String type) {

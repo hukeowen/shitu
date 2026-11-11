@@ -116,13 +116,14 @@ const hover = ref<number | null>(null)
                 <div class="stat-d">流转 {{ fmtNum(data?.yesterday.transferCount) }} 人·天</div>
               </div>
               <div class="fee">
-                <div class="stat-l">平台流转抽佣</div>
+                <div class="stat-l">平台流转收入</div>
                 <div class="fee-v">{{ fmtMoney(data?.yesterday.platformTake) }}<small>元</small></div>
+                <div class="stat-d">抽佣 {{ fmtMoney(data?.yesterday.transferCommission) }} · 全额 {{ fmtMoney(data?.yesterday.transferFullIncome) }}</div>
               </div>
               <div class="fee hl">
                 <div class="stat-l">本月累计服务费</div>
                 <div class="fee-v">{{ fmtMoney(data?.monthServiceFee) }}<small>元</small></div>
-                <div class="stat-d">截至昨日日结</div>
+                <div class="stat-d">截至昨日日结 · 流转抽佣 {{ fmtMoney(data?.monthTransferCommission) }} · 流转全额 {{ fmtMoney(data?.monthTransferFullIncome) }}</div>
               </div>
             </div>
           </div>

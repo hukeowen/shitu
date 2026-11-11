@@ -58,6 +58,8 @@ public class DictController {
         s.put("FactoryWillingness", ordered("YES", "接受", "MAYBE", "可以试试", "NO", "不接受"));
         s.put("LockedRegion", ordered("LOCKED", "锁定城市", "ANY", "不限"));
         s.put("DormRequirement", ordered("REQUIRED", "必须包住", "SMALL_ROOM", "4 人间以内", "AIRCON", "要有空调", "NONE", "不需要住宿"));
+        s.put("KycResult", ordered("UNDERAGE", "未满 16 岁", "ID_OCCUPIED", "证件已被占用", "BLACKLISTED", "平台失信",
+                "VERIFY_FAILED", "姓名与证件不一致", "ID_MISMATCH", "证件号无效", "PASS", "通过"));
         s.put("IncidentSeverity", ordered("MINOR", "轻伤", "SERIOUS", "需送医", "CRITICAL", "危重"));
         s.put("IncidentStatus", ordered("OPEN", "处理中", "CLOSED", "已结案"));
         s.put("CreditRule", ordered("MANUAL", "人工调整", "COMPLAINT_3X", "投诉属实累计 3 次", "STALE_JOB", "岗位长期未更新", "FRAUD_REGISTER", "刷单注册"));

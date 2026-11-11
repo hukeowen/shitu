@@ -106,6 +106,13 @@ public class OpsConfigController {
         return ApiResponse.ok(kyc.queue(status, type));
     }
 
+    @Operation(summary = "实名拦截记录（未成年 / 证件被占用 / 失信 / 核验不一致），最近 300 条")
+    @PreAuthorize("hasAnyRole('SUPER','RISK')")
+    @GetMapping("/kyc-records")
+    public ApiResponse<List<Map<String, Object>>> kycRecords(@RequestParam(required = false) String result) {
+        return ApiResponse.ok(kyc.interceptions(result));
+    }
+
     @Operation(summary = "处理申诉")
     @PreAuthorize("hasAnyRole('SUPER','RISK')")
     @PostMapping("/kyc-reviews/{id}/decide")

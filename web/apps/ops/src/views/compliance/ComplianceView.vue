@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { errorMessage, opsApi, useDict, type BlacklistRow, type KycReviewRow, type KycReviewType, type ReviewStatus } from '@shitu/api-client'
+import { errorMessage, opsApi, useDict, type BlacklistRow, type KycInterception, type KycReviewRow, type KycReviewType, type ReviewStatus } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
 import { promptRemark } from '@/composables/useRemark'
 import { ATTRIBUTION_ROLES } from '@/router/menu'
@@ -14,7 +14,32 @@ const router = useRouter()
 const auth = useAuthStore()
 const canAttribution = computed(() => auth.hasAnyRole(ATTRIBUTION_ROLES))
 const { label, options } = useDict()
-const tab = ref<'reviews' | 'blacklist'>('reviews')
+const tab = ref<'reviews' | 'blacklist' | 'blocked'>('reviews')
+
+/** 实名拦截记录（只读）：未成年、证件被占用、失信、核验不一致 */
+const BLOCK_TYPES = ['UNDERAGE', 'ID_OCCUPIED', 'BLACKLISTED', 'VERIFY_FAILED', 'ID_MISMATCH']
+const blockType = ref('')
+const blocked = shallowRef<KycInterception[]>([])
+const bkLoading = ref(false)
+const bkError = ref('')
+let blockedLoaded = false
+async function loadBlocked() {
+  bkLoading.value = true
+  bkError.value = ''
+  try {
+    blocked.value = await opsApi.kycInterceptions(blockType.value || undefined)
+    blockedLoaded = true
+  } catch (e) {
+    bkError.value = errorMessage(e, '加载失败，请稍后重试')
+    blocked.value = []
+  } finally {
+    bkLoading.value = false
+  }
+}
+function showBlocked() {
+  tab.value = 'blocked'
+  if (!blockedLoaded) void loadBlocked()
+}
 
 // ---------------------------------------------------------------- 复核队列
 const rStatus = ref<ReviewStatus | ''>('PENDING')
@@ -176,6 +201,7 @@ onMounted(() => {
     <div class="filter-tabs main-tabs">
       <button type="button" :class="{ on: tab === 'reviews' }" @click="tab = 'reviews'">人工复核队列</button>
       <button type="button" :class="{ on: tab === 'blacklist' }" @click="tab = 'blacklist'">平台黑名单</button>
+      <button type="button" :class="{ on: tab === 'blocked' }" @click="showBlocked">拦截记录</button>
     </div>
 
     <!-- 复核队列 -->
@@ -287,6 +313,38 @@ onMounted(() => {
         <template #empty>
           <el-empty v-if="rError" :image-size="64" :description="rError"><el-button size="small" @click="loadReviews">重试</el-button></el-empty>
           <el-empty v-else :image-size="64" :description="rStatus === 'PENDING' ? '暂无待处理的记录' : '暂无数据'" />
+        </template>
+      </el-table>
+    </div>
+
+    <!-- 拦截记录 -->
+    <div v-show="tab === 'blocked'" class="card">
+      <div class="toolbar">
+        <span class="t-xs">最近 300 条实名被拦截的记录，只读</span>
+        <div class="spacer" />
+        <el-select v-model="blockType" clearable placeholder="全部类型" style="width: 180px" @change="loadBlocked">
+          <el-option v-for="t in BLOCK_TYPES" :key="t" :label="label('KycResult', t)" :value="t" />
+        </el-select>
+        <el-button @click="loadBlocked">刷新</el-button>
+      </div>
+      <el-table v-loading="bkLoading" :data="blocked" class="ops-table" row-key="id">
+        <el-table-column label="时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="拦截原因" width="170">
+          <template #default="{ row }"><span class="tag" :class="row.result === 'UNDERAGE' || row.result === 'BLACKLISTED' ? 'tag--danger' : 'tag--warn'">{{ label('KycResult', row.result) }}</span></template>
+        </el-table-column>
+        <el-table-column label="账号" min-width="190">
+          <template #default="{ row }">
+            <span v-if="canAttribution" class="link-cell mono" @click="toAttribution(row.userId)">{{ row.userId }}</span>
+            <span v-else class="mono strong">{{ row.userId }}</span>
+            <div class="t-xs mono">{{ row.phoneMasked }} · {{ label('KycStatus', row.kycStatus) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="引流公司" min-width="180"><template #default="{ row }">{{ row.sourceCompanyName ?? '自然注册' }}</template></el-table-column>
+        <el-table-column label="出生日期" width="120"><template #default="{ row }"><span class="mono t-sm">{{ row.birthDate ?? '—' }}</span></template></el-table-column>
+        <el-table-column label="IP" width="140"><template #default="{ row }"><span class="mono t-xs">{{ row.ip ?? '—' }}</span></template></el-table-column>
+        <template #empty>
+          <el-empty v-if="bkError" :image-size="64" :description="bkError"><el-button size="small" @click="loadBlocked">重试</el-button></el-empty>
+          <el-empty v-else :image-size="64" description="暂无拦截记录" />
         </template>
       </el-table>
     </div>

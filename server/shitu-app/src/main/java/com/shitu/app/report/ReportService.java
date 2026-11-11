@@ -105,10 +105,18 @@ public class ReportService {
         // 昨日计费（每日计费任务 00:30 计算前一天）
         Map<String, Object> fee = jdbc.queryForMap("SELECT COALESCE(SUM(service_fee), 0) AS service_fee, COALESCE(SUM(transfer_payable), 0) AS transfer_fee "
                 + "FROM company_fee_daily WHERE biz_date = ?", Date.valueOf(y));
-        Map<String, Object> transfer = jdbc.queryForMap("SELECT COUNT(*) AS transfer_count, COALESCE(SUM(platform_amount), 0) AS platform_take "
-                + "FROM billing_daily WHERE biz_date = ? AND fee_type = 'TRANSFER'", Date.valueOf(y));
+        // D-19：平台从流转费拿到的钱分两种 —— 与来源公司分成后的「抽佣」，和来源为平台 / 来源公司已注销时的「全额收入」
+        String split = "SELECT COUNT(*) AS transfer_count, COALESCE(SUM(platform_amount), 0) AS platform_take, "
+                + "COALESCE(SUM(CASE WHEN supply_amount > 0 THEN platform_amount ELSE 0 END), 0) AS commission, "
+                + "COALESCE(SUM(CASE WHEN supply_amount > 0 THEN 0 ELSE platform_amount END), 0) AS full_income "
+                + "FROM billing_daily WHERE fee_type = 'TRANSFER' AND ";
+        Map<String, Object> transfer = jdbc.queryForMap(split + "biz_date = ?", Date.valueOf(y));
         m.put("yesterday", Map.of("date", y.toString(), "serviceFee", fee.get("service_fee"), "transferFee", fee.get("transfer_fee"),
-                "transferCount", transfer.get("transfer_count"), "platformTake", transfer.get("platform_take")));
+                "transferCount", transfer.get("transfer_count"), "platformTake", transfer.get("platform_take"),
+                "transferCommission", transfer.get("commission"), "transferFullIncome", transfer.get("full_income")));
+        Map<String, Object> monthTransfer = jdbc.queryForMap(split + "biz_date >= ?", Date.valueOf(YearMonth.from(t).atDay(1)));
+        m.put("monthTransferCommission", monthTransfer.get("commission"));
+        m.put("monthTransferFullIncome", monthTransfer.get("full_income"));
         YearMonth month = YearMonth.from(t);
         BigDecimal monthService = jdbc.queryForObject("SELECT COALESCE(SUM(service_fee), 0) FROM company_fee_daily WHERE biz_date >= ?",
                 BigDecimal.class, Date.valueOf(month.atDay(1)));
@@ -116,6 +124,48 @@ public class ReportService {
         m.put("trend", Rows.camel(jdbc.queryForList("SELECT DATE(registered_at) AS d, COUNT(*) AS registrations FROM `user` "
                 + "WHERE registered_at >= ? GROUP BY DATE(registered_at) ORDER BY d", Date.valueOf(t.minusDays(13)))));
         return m;
+    }
+
+    /**
+     * T-102：本月被动释放的私域用户（24 小时未跟进 / 经纪人超时 / 确权超时）与获客损失。
+     * 获客损失 = 其中由本公司自己引流来的人数（释放后其他公司可以免费匹配走）。
+     */
+    public Map<String, Object> timeoutReleases(String companyId) {
+        LocalDate first = today().withDayOfMonth(1);
+        String base = "FROM user_status_log l JOIN `user` u ON u.user_id = l.user_id WHERE l.bound_before = ? AND l.bound_after IS NULL "
+                + "AND l.event IN ('TIMEOUT_24H', 'BROKER_SLA_TIMEOUT', 'CONFIRM_TIMEOUT') AND l.created_at >= ? AND l.created_at < ?";
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("month", YearMonth.from(first).toString());
+        m.put("released", count("SELECT COUNT(*) " + base, companyId, Date.valueOf(first), Date.valueOf(first.plusMonths(1))));
+        m.put("ownLeadsLost", count("SELECT COUNT(*) " + base + " AND u.source_company_id = ?",
+                companyId, Date.valueOf(first), Date.valueOf(first.plusMonths(1)), companyId));
+        m.put("releasedLastMonth", count("SELECT COUNT(*) " + base, companyId, Date.valueOf(first.minusMonths(1)), Date.valueOf(first)));
+        m.put("byReason", Rows.camel(jdbc.queryForList("SELECT l.event, COUNT(*) AS cnt " + base + " GROUP BY l.event ORDER BY cnt DESC",
+                companyId, Date.valueOf(first), Date.valueOf(first.plusMonths(1)))));
+        return m;
+    }
+
+    /** P-12 答题漏斗：最近 N 天，按人去重。 */
+    public Map<String, Object> quizFunnel(int days) {
+        LocalDate from = today().minusDays(days - 1L);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("days", days);
+        m.put("from", from.toString());
+        m.put("opened", count("SELECT COUNT(DISTINCT user_id) FROM quiz_open WHERE biz_date >= ?", Date.valueOf(from)));
+        m.put("submitted", count("SELECT COUNT(DISTINCT user_id) FROM match_session WHERE started_at >= ?", Date.valueOf(from)));
+        m.put("matched", count("SELECT COUNT(DISTINCT user_id) FROM match_session WHERE started_at >= ? AND status = 'MATCHED'", Date.valueOf(from)));
+        m.put("applied", count("SELECT COUNT(DISTINCT a.user_id) FROM application a JOIN match_session s ON s.session_id = a.match_session_id "
+                + "WHERE s.started_at >= ?", Date.valueOf(from)));
+        return m;
+    }
+
+    /** 记录「打开答题页」；失败不影响答题。 */
+    public void quizOpened(String userId) {
+        try {
+            jdbc.update("INSERT IGNORE INTO quiz_open (user_id, biz_date) VALUES (?, ?)", userId, Date.valueOf(today()));
+        } catch (RuntimeException e) {
+            org.slf4j.LoggerFactory.getLogger(ReportService.class).warn("quiz_open record failed: {}", e.getMessage());
+        }
     }
 
     private long count(String sql, Object... args) {

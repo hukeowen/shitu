@@ -143,7 +143,7 @@ async function submitClose() {
     </div>
 
     <el-dialog v-model="form.open" title="上报工伤" width="560px" destroy-on-close :close-on-click-modal="false">
-      <div class="notice notice--danger" style="margin-bottom: 14px">人员安全第一：先拨打 120 / 送医并保护现场，再来这里上报。</div>
+      <div class="note note--danger" style="margin-bottom: 14px">人员安全第一：先拨打 120 / 送医并保护现场，再来这里上报。</div>
       <el-form label-width="90px" @submit.prevent>
         <el-form-item label="项目" required>
           <el-select v-model="form.projectId" placeholder="选择发生工伤的项目" style="width: 100%" @change="form.error = ''">
@@ -165,7 +165,7 @@ async function submitClose() {
           <el-input v-model="form.detail" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="哪里、怎么受的伤、现在人在哪、已经做了什么处置" @input="form.error = ''" />
         </el-form-item>
       </el-form>
-      <div v-if="form.error" class="notice notice--danger">{{ form.error }}</div>
+      <div v-if="form.error" class="note note--danger">{{ form.error }}</div>
       <template #footer>
         <el-button @click="form.open = false">取消</el-button>
         <el-button type="danger" :loading="form.saving" @click="submitReport">立即上报</el-button>

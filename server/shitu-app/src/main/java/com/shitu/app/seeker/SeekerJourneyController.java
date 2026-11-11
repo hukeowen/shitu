@@ -52,6 +52,8 @@ public class SeekerJourneyController {
     }
 
     private final SeekerJourneyFacade journey;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.shitu.app.report.ReportService reports;
     private final QuizService quiz;
     private final DisclaimerService disclaimer;
     private final KycService kyc;
@@ -87,6 +89,7 @@ public class SeekerJourneyController {
     @Operation(summary = "当前生效题库（C-302）")
     @GetMapping("/quiz")
     public ApiResponse<QuizService.QuizView> quiz() {
+        reports.quizOpened(CurrentUser.subjectId());
         return ApiResponse.ok(quiz.active());
     }
 

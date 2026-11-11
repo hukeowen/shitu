@@ -91,6 +91,28 @@ class ReportIT extends FlowItSupport {
         assertThat(p.get("registeredToday").asLong()).isGreaterThanOrEqualTo(2);
         assertThat(p.has("yesterday")).isTrue();
         assertThat(status(get("/api/v1/ops/reports/overview"), c.owner(), null)).isEqualTo(403);
+        assertThat(p.get("yesterday").has("transferCommission")).as("D-19 抽佣与全额收入分开").isTrue();
+        assertThat(p.has("monthTransferFullIncome")).isTrue();
+
+        // ---------------------------------------------------------------- 答题漏斗（P-12）、拦截记录（P-14）
+        String fresh = readySeeker(null);
+        data(call(get("/api/v1/seeker/quiz"), fresh, null));
+        data(call(get("/api/v1/seeker/quiz"), fresh, null));
+        JsonNode funnel = data(call(get("/api/v1/ops/reports/quiz-funnel?days=7"), ops, null));
+        assertThat(funnel.get("opened").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(funnel.get("submitted").asLong()).isGreaterThanOrEqualTo(funnel.get("matched").asLong());
+        assertThat(funnel.get("matched").asLong()).isGreaterThanOrEqualTo(funnel.get("applied").asLong());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM quiz_open WHERE user_id = ?", Long.class, userId(fresh))).as("每人每天记一次").isEqualTo(1);
+        assertThat(status(get("/api/v1/ops/reports/quiz-funnel"), c.owner(), null)).isEqualTo(403);
+        String minor = seekerLogin(phone(), null);
+        String kid = idCard(15);
+        call(post("/api/v1/seeker/kyc"), minor, Map.of("realName", "小明", "idCard", kid, "idCardConfirm", kid));
+        JsonNode blocked = data(call(get("/api/v1/ops/kyc-records?result=UNDERAGE"), ops, null));
+        JsonNode hit = find(blocked, "userId", userId(minor));
+        assertThat(hit.get("phoneMasked").asText()).contains("****");
+        assertThat(blocked.toString()).doesNotContain("idCardHash").doesNotContain("phoneEnc");
+        assertThat(code(call(get("/api/v1/ops/kyc-records?result=NOPE"), ops, null))).isEqualTo("SYS_4000");
+        assertThat(status(get("/api/v1/ops/kyc-records"), c.owner(), null)).isEqualTo(403);
     }
 
     private void employ(Company c, String seeker, String job) throws Exception {

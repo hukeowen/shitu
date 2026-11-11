@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { errorMessage, opsApi, type QuizView } from '@shitu/api-client'
+import { errorMessage, opsApi, type QuizFunnel, type QuizView } from '@shitu/api-client'
 import { confirmAction } from '@/composables/useRemark'
 import { QUIZ_PUBLISH_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -33,6 +33,34 @@ async function load() {
   }
 }
 onMounted(load)
+
+/** 答题漏斗：打开答题页 → 提交答案 → 匹配到岗位 → 报名（按人去重） */
+const funnelDays = ref(7)
+const funnel = ref<QuizFunnel | null>(null)
+async function loadFunnel() {
+  try {
+    funnel.value = await opsApi.quizFunnel(funnelDays.value)
+  } catch {
+    funnel.value = null
+  }
+}
+onMounted(loadFunnel)
+const funnelSteps = computed(() => {
+  const f = funnel.value
+  if (!f) return []
+  const steps = [
+    { label: '打开答题页', n: f.opened },
+    { label: '提交答案', n: f.submitted },
+    { label: '匹配到岗位', n: f.matched },
+    { label: '报名', n: f.applied },
+  ]
+  const top = Math.max(f.opened, f.submitted, 1)
+  return steps.map((s, i) => ({
+    ...s,
+    width: Math.max(4, Math.round((s.n / top) * 100)),
+    rate: i === 0 || steps[i - 1].n === 0 ? '' : Math.min(100, Math.round((s.n / steps[i - 1].n) * 100)) + '%',
+  }))
+})
 
 const active = computed(() => rows.value.find((v) => v.status === 'ACTIVE') ?? null)
 const draft = computed(() => rows.value.find((v) => v.status === 'DRAFT') ?? null)
@@ -117,6 +145,26 @@ async function publish(v: QuizView) {
       </div>
     </div>
 
+    <div class="card" style="margin-bottom: 14px">
+      <div class="card__hd">
+        <h3>答题漏斗</h3>
+        <el-radio-group v-model="funnelDays" size="small" @change="loadFunnel">
+          <el-radio-button :value="7">近 7 天</el-radio-button>
+          <el-radio-button :value="30">近 30 天</el-radio-button>
+        </el-radio-group>
+      </div>
+      <div class="card__bd">
+        <div v-if="!funnel" class="t-xs">漏斗数据加载失败</div>
+        <div v-for="s in funnelSteps" v-else :key="s.label" class="fn-row">
+          <span class="fn-l">{{ s.label }}</span>
+          <div class="fn-bar"><i :style="{ width: s.width + '%' }" /></div>
+          <b class="num fn-n">{{ s.n }}</b>
+          <span class="fn-r t-xs">{{ s.rate ? '上一步的 ' + s.rate : '' }}</span>
+        </div>
+        <div class="t-xs" style="margin-top: 8px">按人去重。「打开答题页」从功能上线之日起才有记录，之前的日期会偏低。</div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card__hd">
         <h3>版本列表</h3>
@@ -198,6 +246,11 @@ async function publish(v: QuizView) {
 </template>
 
 <style scoped>
+.fn-row { display: grid; grid-template-columns: 90px 1fr 60px 110px; align-items: center; gap: 12px; padding: 6px 0; }
+.fn-l { font-size: 13px; color: var(--ink-700); }
+.fn-bar { height: 14px; background: var(--surface-2); border-radius: 7px; overflow: hidden; }
+.fn-bar i { display: block; height: 100%; background: var(--signal); border-radius: 7px; }
+.fn-n { text-align: right; font-size: 15px; }
 .stats { margin-bottom: 14px; }
 .stat-v.sm { font-size: 18px; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .below { margin-top: 14px; }
