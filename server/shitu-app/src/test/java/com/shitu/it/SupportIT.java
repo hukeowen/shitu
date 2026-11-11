@@ -112,4 +112,101 @@ class SupportIT extends FlowItSupport {
         assertThat(code(call(get("/api/v1/tenant/applications/" + appId + "/insight"), other.owner(), null))).isNotEqualTo("0");
         assertThat(status(get("/api/v1/tenant/applications/" + appId + "/insight"), s, null)).isIn(401, 403);
     }
+
+    @Test
+    void seekerArchive() throws Exception {
+        // C-305 经纪人进度 / C-504 我的简历 / C-506 我的台账：只能看到、改到自己的
+        Company c = company();
+        String jobId = job(c, c.projectId(), "档案测试岗位", 5);
+        String s = readySeeker(null);
+        String uid = userId(s);
+
+        assertThat(absent(call(get("/api/v1/seeker/broker-case"), s, null), "data")).isTrue();
+        jdbc.update("INSERT INTO broker_case (user_id, company_id, trigger_type, status, contact_due_at, resolve_due_at) "
+                + "VALUES (?, ?, 'LOW_MATCH', 'OPEN', ?, ?)", uid, c.companyId(), java.time.LocalDateTime.now().plusHours(2),
+                java.time.LocalDateTime.now().plusHours(24));
+        JsonNode bc = data(call(get("/api/v1/seeker/broker-case"), s, null));
+        assertThat(bc.get("status").asText()).isEqualTo("OPEN");
+        assertThat(bc.get("recommendCount").asInt()).isZero();
+        assertThat(absent(bc, "companyName")).isFalse();
+        assertThat(bc.has("brokerId")).isFalse();
+
+        JsonNode r0 = data(call(get("/api/v1/seeker/resume"), s, null));
+        assertThat(r0.get("archive").get("realName").asText()).isNotEqualTo("张浩").startsWith("张");
+        assertThat(r0.get("archive").get("age").asInt()).isBetween(19, 40);
+        assertThat(r0.get("form").get("skillTags").size()).isZero();
+        assertThat(code(call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/seeker/resume"), s, Map.of("emergencyPhone", "123")))).isEqualTo("SYS_4000");
+        assertThat(code(call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/seeker/resume"), s, Map.of("expectJobTypes", java.util.List.of("PILOT"))))).isEqualTo("SYS_4000");
+        data(call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/seeker/resume"), s, Map.of("wechatId", "zhanghao_88", "emergencyName", "张建军",
+                "emergencyPhone", "13800001111", "expectJobTypes", java.util.List.of("ELECTRONICS", "QC"),
+                "expectRegions", java.util.List.of("昆山"), "workYears", 3,
+                "skillTags", java.util.List.of("叉车证", "叉车证", " 焊工 "), "intro", "做过两年贴片")));
+        JsonNode r1 = data(call(get("/api/v1/seeker/resume"), s, null));
+        assertThat(r1.get("form").get("emergencyPhone").asText()).isEqualTo("13800001111");
+        assertThat(r1.get("form").get("skillTags").size()).as("去重去空格").isEqualTo(2);
+        assertThat(r1.get("form").get("expectJobTypes").get(1).asText()).isEqualTo("QC");
+        assertThat(jdbc.queryForObject("SELECT emergency_phone_enc FROM user_resume WHERE user_id = ?", String.class, uid))
+                .as("紧急联系人电话加密存储").doesNotContain("13800001111");
+        // 再保存一次是覆盖，清空也能存
+        data(call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/seeker/resume"), s, Map.of("workYears", 4)));
+        JsonNode r2 = data(call(get("/api/v1/seeker/resume"), s, null));
+        assertThat(r2.get("form").get("workYears").asInt()).isEqualTo(4);
+        assertThat(absent(r2.get("form"), "wechatId")).isTrue();
+
+        String appId = apply(s, jobId);
+        JsonNode lg = data(call(get("/api/v1/seeker/ledger"), s, null));
+        assertThat(find(lg.get("applications"), "applicationId", appId).get("jobTitle").asText()).isEqualTo("档案测试岗位");
+        assertThat(lg.get("employments").size()).isZero();
+        assertThat(lg.get("payslips").size()).isZero();
+        assertThat(data(call(get("/api/v1/seeker/resume"), s, null)).get("archive").get("applicationCount").asInt()).isEqualTo(1);
+
+        String other = readySeeker(null);
+        assertThat(data(call(get("/api/v1/seeker/ledger"), other, null)).get("applications").size()).isZero();
+        assertThat(absent(call(get("/api/v1/seeker/broker-case"), other, null), "data")).isTrue();
+        assertThat(status(get("/api/v1/seeker/resume"), c.owner(), null)).isIn(401, 403);
+    }
+
+    @Test
+    void circulationPeopleLedger() throws Exception {
+        // 流转人员台账：付费方看到来源公司与金额；来源方只看到用户 ID、天数、金额；仅老板可看
+        Company payer = company();
+        Company source = company();
+        String active = "UCP" + RND.nextInt(1_000_000_000);
+        String ended = "UCP" + RND.nextInt(1_000_000_000);
+        java.time.LocalDate d = java.time.LocalDate.now().plusYears(5);
+        String ins = "INSERT INTO billing_daily (biz_date, company_id, user_id, employment_id, fee_type, rule_version, unit_price, "
+                + "payer_amount, supply_company_id, supply_amount, platform_amount) VALUES (?, ?, ?, ?, 'TRANSFER', 1, 10, 10, ?, 8, 2)";
+        jdbc.update(ins, d.minusDays(2), payer.companyId(), ended, "E" + ended, source.companyId());
+        jdbc.update(ins, d.minusDays(1), payer.companyId(), active, "E" + active, source.companyId());
+        jdbc.update(ins, d, payer.companyId(), active, "E" + active, source.companyId());
+
+        JsonNode mine = data(call(get("/api/v1/tenant/ledger/people"), payer.owner(), null));
+        assertThat(mine.size()).isEqualTo(2);
+        JsonNode a = find(mine, "userId", active);
+        assertThat(a.get("direction").asText()).isEqualTo("PAYABLE");
+        assertThat(a.get("counterpartCompanyId").asText()).isEqualTo(source.companyId());
+        assertThat(a.get("days").asInt()).isEqualTo(2);
+        assertThat(a.get("dailyAmount").asDouble()).isEqualTo(10.0);
+        assertThat(a.get("totalAmount").asDouble()).isEqualTo(20.0);
+        assertThat(a.get("active").asBoolean()).isTrue();
+        assertThat(find(mine, "userId", ended).get("active").asBoolean()).isFalse();
+
+        JsonNode theirs = data(call(get("/api/v1/tenant/ledger/people"), source.owner(), null));
+        JsonNode b = find(theirs, "userId", active);
+        assertThat(b.get("direction").asText()).isEqualTo("RECEIVABLE");
+        assertThat(b.get("totalAmount").asDouble()).isEqualTo(16.0);
+        assertThat(absent(b, "counterpartCompanyId")).as("来源方看不到去向公司").isTrue();
+        assertThat(absent(b, "jobTitle")).isTrue();
+        assertThat(theirs.toString()).doesNotContain(payer.companyId());
+
+        assertThat(status(get("/api/v1/tenant/ledger/people"), payer.pm(), null)).isEqualTo(403);
+        assertThat(status(get("/api/v1/tenant/ledger/people"), payer.site(), null)).isEqualTo(403);
+        // 计费日期写在未来，用完清掉，不影响其他用例
+        jdbc.update("DELETE FROM billing_daily WHERE user_id IN (?, ?)", active, ended);
+    }
+
+    /** 空值字段在响应里可能被省略，也可能是 null */
+    private static boolean absent(JsonNode n, String field) {
+        return n.get(field) == null || n.get(field).isNull();
+    }
 }

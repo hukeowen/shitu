@@ -102,6 +102,11 @@ import type {
   KycReviewRow,
   SysParamRow,
   HolidayRow,
+  BrokerProgress,
+  SeekerLedger,
+  SeekerResume,
+  ResumeForm,
+  CirculationPerson,
   AttributionDispute,
   QuizFunnel,
   KycInterception,
@@ -208,6 +213,13 @@ export const seekerApi = {
   debtLog: () => get<DebtLogEntry[]>('/seeker/advance/debt-log'),
   /** 工资条（C-701） */
   payslips: () => get<Payslip[]>('/seeker/payslips'),
+  /** 最近一张经纪人工单进度（C-305），没有返回空 */
+  brokerCase: () => get<BrokerProgress | null>('/seeker/broker-case'),
+  /** 我的台账（C-506） */
+  myLedger: () => get<SeekerLedger>('/seeker/ledger'),
+  /** 我的简历（C-504） */
+  resume: () => get<SeekerResume>('/seeker/resume'),
+  saveResume: (form: ResumeForm) => put<void>('/seeker/resume', form),
   payslip: (payslipId: string) => get<Payslip>(`/seeker/payslips/${payslipId}`),
   /** 工资申诉（C-702）：同一张工资条同时只能有一条处理中的申诉 */
   payslipAppeals: (payslipId: string) => get<MyPayslipAppeal[]>(`/seeker/payslips/${payslipId}/appeals`),
@@ -368,6 +380,7 @@ export const tenantApi = {
   disputeBill: (billId: string, content: string) => post<BillDispute>(`/tenant/bills/${billId}/disputes`, { content }),
   /** month：YYYY-MM */
   ledger: (month: string) => get<LedgerLine[]>('/tenant/ledger', { month }),
+  ledgerPeople: () => get<CirculationPerson[]>('/tenant/ledger/people'),
 
   /** 预支审批（驻场初审 M-11 / 项目经理终审 T-309 / 登记拨款） */
   advances: (status?: AdvanceStatus) => get<AdvanceRow[]>('/tenant/advances', { status }),

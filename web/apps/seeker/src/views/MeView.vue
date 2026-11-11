@@ -69,6 +69,8 @@ const pendingSign = computed(() => contracts.value?.some((c) => c.status === 'PE
 
 const rows = [
   { key: 'reports', title: '我的报备', desc: '报名 / 面试进度', to: '/reports' },
+  { key: 'resume', title: '我的简历', desc: '期望工种、技能、紧急联系人与用工档案', to: '/resume' },
+  { key: 'ledger', title: '我的台账', desc: '报名、面试、入职、工资的全部记录', to: '/ledger' },
   { key: 'messages', title: '消息中心', desc: '面试 / 合同 / 状态变更通知', to: '/messages' },
   { key: 'kyc', title: '实名认证', desc: '报名前需完成，提交后不可修改', to: '/kyc' },
   { key: 'appeals', title: '我的申诉', desc: '身份证被占用 / 账号受限的申诉进度', to: '/kyc/appeals' },

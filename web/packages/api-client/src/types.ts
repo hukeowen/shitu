@@ -1247,6 +1247,98 @@ export interface AttributionDispute {
   resolvedByName?: string
 }
 
+/** 最近一张人才经纪人工单的进度（C-305） */
+export interface BrokerProgress {
+  id: number
+  status: 'OPEN' | 'CONTACTED' | 'RECOMMENDED' | 'APPLIED' | 'RELEASED' | 'CLOSED'
+  triggerType: string
+  companyName?: string
+  createdAt: string
+  contactDueAt: string
+  resolveDueAt: string
+  contactedAt?: string
+  closedAt?: string
+  recommendCount: number
+  firstRecommendedAt?: string
+}
+
+/** 我的台账（C-506） */
+export interface LedgerApplication {
+  applicationId: string
+  jobTitle: string
+  companyName: string
+  status: string
+  createdAt: string
+  acknowledgedAt?: string
+  interviewAt?: string
+  interviewAddress?: string
+  arrivedAt?: string
+  interviewResult?: 'PASS' | 'FAIL'
+  endedAt?: string
+  endReason?: string
+}
+export interface LedgerEmployment {
+  employmentId: string
+  companyName: string
+  projectName?: string
+  jobTitle?: string
+  startDate: string
+  endDate?: string
+  endReason?: string
+  days: number
+}
+export interface SeekerLedger {
+  applications: LedgerApplication[]
+  employments: LedgerEmployment[]
+  payslips: Payslip[]
+}
+
+/** 我的简历（C-504）：form 可编辑，archive 只读 */
+export interface ResumeForm {
+  wechatId?: string
+  emergencyName?: string
+  emergencyPhone?: string
+  expectJobTypes: string[]
+  expectRegions: string[]
+  workYears?: number
+  skillTags: string[]
+  intro?: string
+}
+export interface ResumeArchive {
+  realName?: string
+  gender?: string
+  age?: number
+  kycStatus: string
+  userStatus: string
+  registeredAt: string
+  current?: LedgerEmployment
+  history: LedgerEmployment[]
+  leaveDays: number
+  absentDays: number
+  applicationCount: number
+}
+export interface SeekerResume {
+  form: ResumeForm
+  archive: ResumeArchive
+}
+
+/** 流转人员台账：逐人的计费起止与金额；流出（RECEIVABLE）不含姓名、岗位、去向公司 */
+export interface CirculationPerson {
+  direction: 'PAYABLE' | 'RECEIVABLE'
+  userId: string
+  name?: string
+  counterpartCompanyId?: string
+  counterpartCompanyName?: string
+  jobTitle?: string
+  firstDate: string
+  lastDate: string
+  days: number
+  dailyAmount: number
+  monthAmount: number
+  totalAmount: number
+  active: boolean
+}
+
 export interface HolidayRow {
   holidayDate: string
   /** true = 调休上班日；false = 放假 */

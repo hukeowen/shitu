@@ -15,9 +15,36 @@ import org.springframework.web.bind.annotation.RestController;
 public class SeekerController {
 
     private final SeekerAuthFacade facade;
+    private final SeekerArchiveService archive;
 
-    public SeekerController(SeekerAuthFacade facade) {
+    public SeekerController(SeekerAuthFacade facade, SeekerArchiveService archive) {
         this.facade = facade;
+        this.archive = archive;
+    }
+
+    @Operation(summary = "最近一张人才经纪人工单的进度（C-305；没有返回空）")
+    @GetMapping("/broker-case")
+    public ApiResponse<java.util.Map<String, Object>> brokerCase() {
+        return ApiResponse.ok(archive.brokerProgress(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "我的台账（C-506）：报名与面试记录、任职记录、工资条")
+    @GetMapping("/ledger")
+    public ApiResponse<SeekerArchiveService.Ledger> ledger() {
+        return ApiResponse.ok(archive.ledger(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "我的简历（C-504）：可编辑部分 + 只读用工档案")
+    @GetMapping("/resume")
+    public ApiResponse<SeekerArchiveService.Resume> resume() {
+        return ApiResponse.ok(archive.resume(CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "保存简历的可编辑部分（姓名、性别、年龄取自实名，不可改）")
+    @org.springframework.web.bind.annotation.PutMapping("/resume")
+    public ApiResponse<Void> saveResume(@org.springframework.web.bind.annotation.RequestBody SeekerArchiveService.ResumeForm form) {
+        archive.saveResume(CurrentUser.subjectId(), form);
+        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "当前用户：状态、公私域、匹配范围、24h 截止时间")

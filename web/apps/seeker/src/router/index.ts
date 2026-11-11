@@ -45,6 +45,8 @@ const router = createRouter({
     { path: '/payslips/:id', component: () => import('@/views/payslip/PayslipDetailView.vue'), meta: { auth: true, title: '工资条明细', proto: 'S-42' } },
     // 专属顾问（人才经纪人）推荐（T-203）
     { path: '/recommendations', component: () => import('@/views/RecommendationsView.vue'), meta: { auth: true, title: '专属顾问推荐' } },
+    { path: '/resume', component: () => import('@/views/ResumeView.vue'), meta: { auth: true, title: '我的简历', proto: 'S-29' } },
+    { path: '/ledger', component: () => import('@/views/LedgerView.vue'), meta: { auth: true, title: '我的台账', proto: 'S-32' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, auth: true, title: '我的', proto: 'S-26' } },
     { path: '/feedback', component: () => import('@/views/FeedbackView.vue'), meta: { tabbar: true, auth: true, title: '问题反馈', proto: 'S-39' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },

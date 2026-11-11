@@ -28,6 +28,7 @@ const VIEWS: Record<string, Lazy> = {
   '/pm/roster': () => import('@/views/pm/RosterView.vue'),
   '/owner/bills': () => import('@/views/owner/BillsView.vue'),
   '/circulation/ledger': () => import('@/views/owner/LedgerView.vue'),
+  '/circulation/people': () => import('@/views/owner/CirculationPeopleView.vue'),
   // Sprint 5
   '/pm/board': () => import('@/views/pm/BoardView.vue'),
   '/pm/kb': () => import('@/views/pm/KbView.vue'),

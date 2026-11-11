@@ -83,6 +83,16 @@ public class TenantBillingController {
         return ApiResponse.ok(bills.ledger(CurrentUser.companyId(), YearMonth.parse(month)));
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private CirculationPeopleService circulationPeople;
+
+    @Operation(summary = "流转人员台账：逐人的计费起止、日金额、本月与累计（与流转账本同权限）")
+    @PreAuthorize("hasRole('OWNER')")
+    @GetMapping("/ledger/people")
+    public ApiResponse<List<CirculationPeopleService.PersonLine>> ledgerPeople() {
+        return ApiResponse.ok(circulationPeople.people(CurrentUser.companyId()));
+    }
+
     @Operation(summary = "发起离职（驻场 / 项目经理）")
     @PreAuthorize("hasAnyRole('SITE','PM')")
     @PostMapping("/employments/{employmentId}/resign")

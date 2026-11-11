@@ -69,7 +69,7 @@ export const MENU: MenuGroup[] = [
     en: 'CIRCULATION',
     items: [
       { path: '/circulation/ledger', title: '流转账本', proto: 'A-10', access: { perms: ['BILL_VIEW'] } },
-      { path: '/circulation/people', title: '流转人员台账', proto: 'v-circulation-list', access: { roles: ['BROKER', 'PM', 'OWNER'] } },
+      { path: '/circulation/people', title: '流转人员台账', proto: 'v-circulation-list', access: { perms: ['BILL_VIEW'] } },
     ],
   },
   {

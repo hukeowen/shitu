@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { errorMessage, useDict, type MatchOutcome } from '@shitu/api-client'
+import { errorMessage, seekerApi, useDict, type BrokerProgress, type MatchOutcome } from '@shitu/api-client'
+import { formatRelative, formatServerTime, untilText } from '@/utils/time'
 import AppBar from '@/components/AppBar.vue'
 import JobCard from '@/components/JobCard.vue'
 import { useJourney } from '@/composables/useJourney'
@@ -49,10 +50,53 @@ const journey = useJourney()
 watch(
   () => (outcome.value && !outcome.value.matched && isPrivateScope.value ? outcome.value : null),
   (o) => {
-    if (o) void journey.loadRecs().catch(() => undefined)
+    if (!o) return
+    void journey.loadRecs().catch(() => undefined)
+    void seekerApi.brokerCase().then((c) => (brokerCase.value = c)).catch(() => undefined)
   },
   { immediate: true },
 )
+
+/** C-305：经纪人工单的真实进度；取不到工单时退回到固定的时限说明 */
+const brokerCase = ref<BrokerProgress | null>(null)
+interface Step { text: string; meta: string; state: '' | 'done' | 'now' }
+const brokerSteps = computed<Step[]>(() => {
+  const c = brokerCase.value
+  if (!c) {
+    return [
+      { text: '画像与匹配记录已同步至经纪人', meta: '刚刚', state: 'done' },
+      { text: '经纪人电话联系你，了解需求', meta: '2 小时内', state: 'now' },
+      { text: '人工二次匹配推荐', meta: '24 小时内', state: '' },
+      { text: '仍不满意 → 可改为匹配全平台岗位', meta: '兜底路径', state: '' },
+    ]
+  }
+  const open = c.status === 'OPEN' || c.status === 'CONTACTED' || c.status === 'RECOMMENDED'
+  const recommended = c.recommendCount > 0
+  const left = (due: string, done: string) => (untilText(due) ? `还剩 ${untilText(due)}` : done)
+  return [
+    { text: '画像与匹配记录已同步至经纪人', meta: formatRelative(c.createdAt), state: 'done' },
+    c.contactedAt
+      ? { text: '经纪人已联系你', meta: formatServerTime(c.contactedAt), state: 'done' }
+      : { text: '经纪人电话联系你，了解需求', meta: open ? left(c.contactDueAt, '已超过 2 小时，平台已催办') : '—', state: open ? 'now' : '' },
+    recommended
+      ? { text: `已为你推荐 ${c.recommendCount} 个岗位`, meta: formatServerTime(c.firstRecommendedAt), state: 'done' }
+      : { text: '人工二次匹配推荐', meta: open ? left(c.resolveDueAt, '即将给出结果') : '—', state: open && c.contactedAt ? 'now' : '' },
+    c.status === 'RELEASED'
+      ? { text: '已为你开放全平台岗位匹配', meta: formatServerTime(c.closedAt), state: 'done' }
+      : c.status === 'APPLIED'
+        ? { text: '你已报名推荐的岗位', meta: formatServerTime(c.closedAt), state: 'done' }
+        : { text: '仍不满意 → 可改为匹配全平台岗位', meta: '兜底路径', state: '' },
+  ]
+})
+const BROKER_TAG: Record<BrokerProgress['status'], { text: string; cls: string }> = {
+  OPEN: { text: '待联系', cls: 'tag-info' },
+  CONTACTED: { text: '已联系', cls: 'tag-info' },
+  RECOMMENDED: { text: '已推荐岗位', cls: 'tag-ok' },
+  APPLIED: { text: '已报名', cls: 'tag-ok' },
+  RELEASED: { text: '已开放全平台', cls: 'tag-warn' },
+  CLOSED: { text: '已结束', cls: 'tag-mute' },
+}
+const brokerTag = computed(() => (brokerCase.value ? BROKER_TAG[brokerCase.value.status] : { text: '处理中', cls: 'tag-info' }))
 
 /** S-15 画像摘要：来自本次作答（刷新后从 sessionStorage 恢复；仅后端快照时不展示） */
 const portrait = computed(() => {
@@ -146,20 +190,17 @@ function rematch() {
 
       <template v-if="isPrivateScope">
         <section class="acard">
-          <div class="acard-hd"><h4>已为你安排专属人才经纪人</h4><span class="tag tag-info">处理中</span></div>
+          <div class="acard-hd"><h4>已为你安排专属人才经纪人</h4><span class="tag" :class="brokerTag.cls">{{ brokerTag.text }}</span></div>
           <div class="row" style="gap: 10px; padding: 2px 0 4px">
             <div class="avatar avatar--o avatar--sm">{{ (company || '经').slice(0, 1) }}</div>
             <div class="flex1">
-              <b class="b-t">{{ company || '本公司' }} · 人才经纪人</b>
+              <b class="b-t">{{ brokerCase?.companyName || company || '本公司' }} · 人才经纪人</b>
               <div class="t-xs">将在 2 小时内与你电话沟通，24 小时内给出推荐结果</div>
             </div>
           </div>
           <div class="divider" style="margin: 10px 0"></div>
           <ul class="tl">
-            <li class="done"><div class="tl-t">画像与匹配记录已同步至经纪人</div><div class="tl-m">刚刚</div></li>
-            <li class="now"><div class="tl-t">经纪人电话联系你，了解需求</div><div class="tl-m">2 小时内</div></li>
-            <li><div class="tl-t">人工二次匹配推荐</div><div class="tl-m">24 小时内</div></li>
-            <li><div class="tl-t">仍不满意 → 可改为匹配全平台岗位</div><div class="tl-m">兜底路径</div></li>
+            <li v-for="(st, i) in brokerSteps" :key="i" :class="st.state"><div class="tl-t">{{ st.text }}</div><div class="tl-m">{{ st.meta }}</div></li>
           </ul>
         </section>
         <router-link to="/recommendations" class="acard recl">
