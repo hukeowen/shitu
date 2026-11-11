@@ -7,7 +7,7 @@ import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { fmtDateTime } from '@/utils/format'
 
-/** A-13 离职审核（T-308）：驻场 / 项目经理发起，项目经理确认；有预支欠款时后端拒绝并提示 */
+/** A-13 离职审核（T-308）：驻场 / 项目经理发起，项目经理确认；有预支欠款不拦截，从最后一笔工资抵扣（D-22） */
 type Status = 'PENDING' | 'APPROVED' | 'REJECTED'
 const TABS: { key: Status; label: string }[] = [
   { key: 'PENDING', label: '待审核' },
@@ -172,7 +172,7 @@ async function reject(r: ResignRow) {
             <dl class="kv"><dt>匹配范围</dt><dd>恢复为全平台</dd></dl>
             <dl class="kv"><dt>增长技术服务费</dt><dd>停止计费</dd></dl>
             <dl class="kv"><dt>人才流转费</dt><dd>停止计费</dd></dl>
-            <dl class="kv"><dt>薪酬预支</dt><dd>有欠款须先结清</dd></dl>
+            <dl class="kv"><dt>薪酬预支</dt><dd>欠款从最后一笔工资抵扣，扣不完记平台失信</dd></dl>
             <dl class="kv"><dt>劳动合同</dt><dd>变更为「已终止」</dd></dl>
             <dl class="kv"><dt>来源归属（source）</dt><dd>保持不变</dd></dl>
           </div>

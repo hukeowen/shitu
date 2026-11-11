@@ -46,7 +46,7 @@ const router = createRouter({
     // 专属顾问（人才经纪人）推荐（T-203）
     { path: '/recommendations', component: () => import('@/views/RecommendationsView.vue'), meta: { auth: true, title: '专属顾问推荐' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, auth: true, title: '我的', proto: 'S-26' } },
-    { path: '/feedback', component: () => import('@/views/PlaceholderView.vue'), meta: { tabbar: true, auth: true, title: '问题反馈', proto: 'S-39' } },
+    { path: '/feedback', component: () => import('@/views/FeedbackView.vue'), meta: { tabbar: true, auth: true, title: '问题反馈', proto: 'S-39' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: (_to, _from, saved) => saved ?? { top: 0 },

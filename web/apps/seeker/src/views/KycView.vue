@@ -175,9 +175,6 @@ async function recoverOld() {
   await router.replace({ path: '/login', query: { redirect: jobId.value ? `/jobs/${jobId.value}` : '/me', old: '1' } })
 }
 
-function soon(what: string) {
-  showToast(`${what}功能即将上线，请先通过「问题反馈」联系平台客服`)
-}
 const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value.canApply)
 </script>
 
@@ -204,7 +201,7 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
         </dl>
         <div class="note" style="margin-top: 12px; background: #fff">若身份证信息有误，可联系客服人工核验。</div>
         <div class="row" style="gap: 8px; margin-top: 12px">
-          <van-button class="flex1" @click="soon('人工核验')">联系客服</van-button>
+          <van-button class="flex1" @click="router.push('/feedback')">联系客服</van-button>
           <van-button class="flex1" type="primary" @click="router.replace('/')">回首页</van-button>
         </div>
       </section>

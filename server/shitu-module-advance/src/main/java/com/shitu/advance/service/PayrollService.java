@@ -129,7 +129,42 @@ public class PayrollService {
                 payslipId, companyId, batchId, userId, employmentId, month.toString(), r.grossPay(), social, tax, other, before);
         DebtDeduction.Result d = advances.deductFromPay(companyId, userId, payslipId, before);
         jdbc.update("UPDATE payslip SET advance_deduct = ?, net_pay = ? WHERE payslip_id = ?", d.deducted(), d.netPayAfter(), payslipId);
+        settleOnFinalPay(companyId, employmentId, userId, month, payslipId);
         return new PayRowResult(r.rowNo(), true, null, payslipId, d.deducted(), d.netPayAfter(), mask(r.phone()), r.employeeNo());
+    }
+
+    /**
+     * D-22：任职已在本工资月内结束（最后一笔工资）而欠款仍未扣完 → 打平台失信标记（UNPAID_ADVANCE），新公司不承接旧债。
+     * 欠款已清零时，解除此前由系统自动打上的同类标记。
+     */
+    private void settleOnFinalPay(String companyId, String employmentId, String userId, YearMonth month, String payslipId) {
+        BigDecimal debt = jdbc.queryForObject("SELECT advance_debt FROM `user` WHERE user_id = ?", BigDecimal.class, userId);
+        if (debt == null || debt.signum() == 0) {
+            int lifted = jdbc.update("UPDATE blacklist SET status = 'LIFTED', lifted_at = NOW(3) WHERE user_id = ? AND status = 'ACTIVE' "
+                    + "AND reason_code = 'UNPAID_ADVANCE' AND created_by = 'SYSTEM'", userId);
+            if (lifted > 0) {
+                jdbc.update("UPDATE `user` SET blacklist_flag = 0 WHERE user_id = ? AND NOT EXISTS "
+                        + "(SELECT 1 FROM blacklist b WHERE b.user_id = ? AND b.status = 'ACTIVE')", userId, userId);
+                audit.logAs("SYSTEM", "payroll", companyId, "BLACKLIST_AUTO_LIFT", "USER", userId, Map.of("payslipId", payslipId));
+            }
+            return;
+        }
+        Integer ended = jdbc.queryForObject("SELECT COUNT(*) FROM employment WHERE employment_id = ? AND end_date IS NOT NULL AND end_date <= ?",
+                Integer.class, employmentId, java.sql.Date.valueOf(month.atEndOfMonth()));
+        if (ended == null || ended == 0) {
+            return;
+        }
+        Integer exists = jdbc.queryForObject("SELECT COUNT(*) FROM blacklist WHERE user_id = ? AND status = 'ACTIVE' AND reason_code = 'UNPAID_ADVANCE'",
+                Integer.class, userId);
+        if (exists != null && exists > 0) {
+            return;
+        }
+        jdbc.update("INSERT INTO blacklist (user_id, id_card_hash, reason_code, detail, created_by) "
+                        + "SELECT user_id, id_card_hash, 'UNPAID_ADVANCE', ?, 'SYSTEM' FROM `user` WHERE user_id = ?",
+                "离职后最后一笔工资未能结清预支欠款，剩余 " + debt.toPlainString() + " 元", userId);
+        jdbc.update("UPDATE `user` SET blacklist_flag = 1 WHERE user_id = ?", userId);
+        audit.logAs("SYSTEM", "payroll", companyId, "BLACKLIST_AUTO_ADD", "USER", userId,
+                Map.of("reason", "UNPAID_ADVANCE", "debt", debt.toPlainString(), "payslipId", payslipId));
     }
 
     private static String mask(String phone) {

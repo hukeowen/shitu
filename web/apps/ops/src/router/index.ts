@@ -21,6 +21,7 @@ const VIEWS: Record<string, Lazy> = {
   '/governance/throttle': () => import('@/views/risk/JobWeightsView.vue'),
   '/governance/compliance': () => import('@/views/compliance/ComplianceView.vue'),
   '/governance/complaints': () => import('@/views/risk/ComplaintsView.vue'),
+  '/governance/feedback': () => import('@/views/support/FeedbackView.vue'),
   '/governance/credit': () => import('@/views/risk/CreditView.vue'),
   '/settlement/rules': () => import('@/views/billing/BillingRulesView.vue'),
   '/settlement/bills': () => import('@/views/billing/BillListView.vue'),

@@ -1197,3 +1197,51 @@ export interface CompanyLookup {
   companyStatus: string
   creditScore: number
 }
+
+// ---------------------------------------------------------------- 问题反馈（C-508）/ 工资申诉（C-702）
+export type FeedbackCategory = 'ACCOUNT' | 'JOB' | 'PAY' | 'CONTRACT' | 'SUGGEST' | 'OTHER'
+export type FeedbackStatus = 'OPEN' | 'REPLIED' | 'CLOSED'
+export interface MyFeedback {
+  id: number
+  category: FeedbackCategory
+  content: string
+  status: FeedbackStatus
+  reply?: string
+  createdAt: string
+  handledAt?: string
+}
+export interface FeedbackRow extends MyFeedback {
+  userId: string
+  seekerName: string
+  phoneMasked?: string
+  /** 用户主动留的回访电话 */
+  contact?: string
+  boundCompanyName?: string
+  handledByName?: string
+}
+export type PayslipAppealItem = 'GROSS' | 'SOCIAL' | 'TAX' | 'OTHER_DEDUCT' | 'ADVANCE_DEDUCT' | 'NET' | 'OTHER'
+export type PayslipAppealStatus = 'OPEN' | 'RESOLVED' | 'REJECTED'
+export interface MyPayslipAppeal {
+  id: number
+  payslipId: string
+  itemCode?: PayslipAppealItem
+  content: string
+  status: PayslipAppealStatus
+  reply?: string
+  createdAt: string
+  handledAt?: string
+}
+export interface PayslipAppealRow extends MyPayslipAppeal {
+  seekerName: string
+  phoneMasked?: string
+  employeeNo?: string
+  projectName?: string
+  payMonth: string
+  grossPay: number
+  socialInsurance: number
+  incomeTax: number
+  otherDeduct: number
+  advanceDeduct: number
+  netPay: number
+  handledByName?: string
+}

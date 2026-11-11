@@ -33,6 +33,7 @@ const VIEWS: Record<string, Lazy> = {
   '/pm/kb': () => import('@/views/pm/KbView.vue'),
   '/pm/advance': () => import('@/views/pm/AdvanceView.vue'),
   '/payroll/batches': () => import('@/views/payroll/PayrollImportView.vue'),
+  '/payroll/appeals': () => import('@/views/payroll/PayslipAppealsView.vue'),
   '/owner/overview': () => import('@/views/owner/OverviewView.vue'),
   '/owner/channel-report': () => import('@/views/owner/ChannelReportView.vue'),
 }

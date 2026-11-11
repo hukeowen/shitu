@@ -1,5 +1,13 @@
 import { request } from './http'
 import type {
+  FeedbackCategory,
+  FeedbackRow,
+  FeedbackStatus,
+  MyFeedback,
+  MyPayslipAppeal,
+  PayslipAppealItem,
+  PayslipAppealRow,
+  PayslipAppealStatus,
   AdminView,
   ApplyCompanyRequest,
   AuditLogEntry,
@@ -190,6 +198,12 @@ export const seekerApi = {
   /** 工资条（C-701） */
   payslips: () => get<Payslip[]>('/seeker/payslips'),
   payslip: (payslipId: string) => get<Payslip>(`/seeker/payslips/${payslipId}`),
+  /** 工资申诉（C-702）：同一张工资条同时只能有一条处理中的申诉 */
+  payslipAppeals: (payslipId: string) => get<MyPayslipAppeal[]>(`/seeker/payslips/${payslipId}/appeals`),
+  appealPayslip: (payslipId: string, body: { itemCode?: PayslipAppealItem; content: string }) => post<number>(`/seeker/payslips/${payslipId}/appeals`, body),
+  /** 问题反馈（C-508） */
+  myFeedback: () => get<MyFeedback[]>('/seeker/feedback'),
+  submitFeedback: (body: { category: FeedbackCategory; content: string; contact?: string }) => post<number>('/seeker/feedback', body),
   /** 岗位投诉（C-402）：只能投诉匹配到或报名过的岗位 */
   askJob: (jobId: string, question: string) => post<KbAskResult>(`/seeker/jobs/${jobId}/ask`, { question }),
   complain: (jobId: string, category: ComplaintCategory, content?: string) =>
@@ -351,6 +365,8 @@ export const tenantApi = {
   /** 工资表导入（.xlsx：手机号、工号、应发、社保、个税、其他扣款），month：YYYY-MM */
   importPayroll: (file: File, month: string) => upload<PayrollBatchResult>('/tenant/payroll/import', file, { month }),
   payrollBatches: () => get<PayrollBatch[]>('/tenant/payroll/batches'),
+  payslipAppeals: (params?: { status?: PayslipAppealStatus }) => get<PayslipAppealRow[]>('/tenant/payroll/appeals', params),
+  handlePayslipAppeal: (id: number, body: { accept: boolean; reply: string }) => post<void>(`/tenant/payroll/appeals/${id}/handle`, body),
   /** 工资表模板下载路径（配合 fetchFileUrl / 下载工具使用） */
   payrollTemplatePath: '/tenant/payroll/template',
   advanceDetail: (id: string) => get<AdvanceDetail>(`/tenant/advances/${id}`),
@@ -470,6 +486,8 @@ export const opsApi = {
   enginePublish: (id: number) => post<EngineVersion>(`/ops/engine/versions/${id}/publish`),
 
   kycReviews: (params?: { status?: ReviewStatus; type?: KycReviewType }) => get<KycReviewRow[]>('/ops/kyc-reviews', params),
+  feedbackList: (params?: { status?: FeedbackStatus }) => get<FeedbackRow[]>('/ops/feedback', params),
+  replyFeedback: (id: number, body: { reply?: string; close?: boolean }) => post<void>(`/ops/feedback/${id}/reply`, body),
   kycDecide: (id: number, approve: boolean, remark: string) => post<void>(`/ops/kyc-reviews/${id}/decide`, { approve, remark }),
   blacklist: (status?: 'ACTIVE' | 'LIFTED') => get<BlacklistRow[]>('/ops/blacklist', { status }),
   blacklistAdd: (userId: string, reasonCode: string, detail: string) => post<number>('/ops/blacklist', { userId, reasonCode, detail }),

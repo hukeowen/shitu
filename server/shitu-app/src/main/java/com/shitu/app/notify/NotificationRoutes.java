@@ -43,7 +43,9 @@ public class NotificationRoutes implements OutboxHandler {
     private static final Set<String> EVENTS = Set.of("APPLICATION_CREATED", "INTERVIEW_INFO_PUSHED", "USER_RELEASED",
             "BROKER_CASE_CREATED", "ARRIVAL_CONFIRMED", "CONTRACT_SIGN_REQUIRED", "CONTRACT_SIGNED", "FOLLOW_UP_DUE",
             "BROKER_RECOMMENDED", "BROKER_CONTACT_OVERDUE", "ADVANCE_SUBMITTED", "ADVANCE_SITE_APPROVED", "ADVANCE_RESULT",
-            "JOB_STALE", "COMPANY_PENALIZED", "KB_QUESTION_PENDING", "KB_ANSWERED", "KYC_APPEAL_RESULT");
+            "JOB_STALE", "COMPANY_PENALIZED", "KB_QUESTION_PENDING", "KB_ANSWERED", "KYC_APPEAL_RESULT",
+            "MONTHLY_BILL_ISSUED", "COMPANY_APPROVED", "COMPANY_REJECTED", "JOB_APPROVED", "JOB_REJECTED", "JOB_FORCE_OFFLINE",
+            "REMATCH_LIMIT_REACHED", "FEEDBACK_REPLIED", "PAYSLIP_APPEAL_SUBMITTED", "PAYSLIP_APPEAL_HANDLED");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -94,6 +96,39 @@ public class NotificationRoutes implements OutboxHandler {
                 case "BROKER_CASE_CREATED" -> notifications.send(outboxId, "BROKER_CASE_CREATED",
                         companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.BROKER)),
                         Map.of("seekerName", seekerName(text(p, "userId"))), "/broker/pool");
+                case "MONTHLY_BILL_ISSUED" -> notifications.send(outboxId, "MONTHLY_BILL_ISSUED",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)),
+                        Map.of("month", text(p, "month"), "payable", text(p, "payable"), "disputeDeadline", text(p, "disputeDeadline")),
+                        "/owner/bills");
+                case "COMPANY_APPROVED" -> notifications.send(outboxId, "COMPANY_AUDIT_RESULT",
+                        companyMembers(aggregateId, EnumSet.of(ActorRole.OWNER)),
+                        Map.of("result", "「" + text(p, "name") + "」入驻审核已通过，现在可以登录公司后台添加成员、发布岗位。"), "/settings/org");
+                case "COMPANY_REJECTED" -> notifications.send(outboxId, "COMPANY_AUDIT_RESULT",
+                        companyMembers(aggregateId, EnumSet.of(ActorRole.OWNER)),
+                        Map.of("result", "入驻审核未通过：" + text(p, "remark") + "。请登录公司后台修改资料后重新提交。"), null);
+                case "JOB_APPROVED" -> notifications.send(outboxId, "JOB_AUDIT_RESULT",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.PM)),
+                        Map.of("result", "岗位「" + text(p, "title") + "」审核通过，已开始参与匹配。"), "/pm/jobs");
+                case "JOB_REJECTED" -> notifications.send(outboxId, "JOB_AUDIT_RESULT",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.PM)),
+                        Map.of("result", "有岗位审核未通过：" + text(p, "remark") + "。请修改后重新提交。"), "/pm/jobs");
+                case "JOB_FORCE_OFFLINE" -> notifications.send(outboxId, "JOB_AUDIT_RESULT",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.PM, ActorRole.OWNER)),
+                        Map.of("result", "有岗位被平台强制下架：" + text(p, "remark") + "。"), "/pm/jobs");
+                case "REMATCH_LIMIT_REACHED" -> notifications.send(outboxId, "REMATCH_LIMIT_SITE",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.SITE)),
+                        Map.of("seekerName", seekerName(text(p, "userId")), "count", text(p, "count")), "/reminders");
+                case "FEEDBACK_REPLIED" -> notifications.send(outboxId, "FEEDBACK_REPLIED", List.of(Recipient.seeker(text(p, "userId"))),
+                        Map.of("reply", text(p, "reply")), "/feedback");
+                case "PAYSLIP_APPEAL_SUBMITTED" -> notifications.send(outboxId, "PAYSLIP_APPEAL_NEW",
+                        p.hasNonNull("projectId")
+                                ? projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.PM))
+                                : companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.PM)),
+                        Map.of("seekerName", seekerName(text(p, "userId")), "month", text(p, "month"), "content", text(p, "content")),
+                        "/payroll/appeals");
+                case "PAYSLIP_APPEAL_HANDLED" -> notifications.send(outboxId, "PAYSLIP_APPEAL_RESULT",
+                        List.of(Recipient.seeker(text(p, "userId"))), Map.of("month", text(p, "month"), "reply", text(p, "reply")),
+                        "/payslips/" + aggregateId);
                 case "JOB_STALE" -> notifications.send(outboxId, "JOB_STALE",
                         projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.PM)),
                         Map.of("jobTitle", text(p, "jobTitle"), "message", text(p, "message")), "/pm/jobs");
@@ -101,7 +136,7 @@ public class NotificationRoutes implements OutboxHandler {
                         Map.of("result", text(p, "result")), "/kyc");
                 case "KB_QUESTION_PENDING" ->notifications.send(outboxId, "KB_QUESTION_PENDING",
                         projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.PM)),
-                        Map.of("jobTitle", text(p, "jobTitle"), "question", text(p, "question")), "/pm/knowledge");
+                        Map.of("jobTitle", text(p, "jobTitle"), "question", text(p, "question")), "/pm/kb");
                 case "KB_ANSWERED" -> notifications.send(outboxId, "KB_ANSWERED", List.of(Recipient.seeker(text(p, "userId"))),
                         Map.of("jobTitle", text(p, "jobTitle"), "question", text(p, "question"), "answer", text(p, "answer")),
                         "/jobs/" + text(p, "jobId"));
@@ -110,7 +145,7 @@ public class NotificationRoutes implements OutboxHandler {
                         Map.of("level", text(p, "level"), "reason", text(p, "reason")), null);
                 case "ADVANCE_SUBMITTED" -> notifications.send(outboxId, "ADVANCE_PENDING_APPROVAL",
                         projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.SITE)),
-                        Map.of("seekerName", seekerName(text(p, "userId")), "amount", text(p, "amount")), "/advances");
+                        Map.of("seekerName", seekerName(text(p, "userId")), "amount", text(p, "amount")), "/advance");
                 case "ADVANCE_SITE_APPROVED" -> notifications.send(outboxId, "ADVANCE_PENDING_APPROVAL",
                         projectRoles(text(p, "companyId"), text(p, "projectId"), EnumSet.of(ActorRole.PM)),
                         Map.of("seekerName", seekerName(text(p, "userId")), "amount", text(p, "amount")), "/pm/advance");

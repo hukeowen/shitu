@@ -94,6 +94,7 @@ export const MENU: MenuGroup[] = [
       { path: '/governance/throttle', title: '降权与限流', proto: 'P-05', roles: RISK_ROLES, ready: true },
       { path: '/governance/compliance', title: '实名与合规', proto: 'P-14', roles: RISK_ROLES, ready: true },
       { path: '/governance/complaints', title: '投诉管理', proto: 'P-06', roles: RISK_ROLES, ready: true },
+      { path: '/governance/feedback', title: '问题反馈', proto: 'C-508', roles: ['SUPER', 'OPERATOR'], ready: true },
       { path: '/governance/credit', title: '诚信与处罚', proto: 'P-07', roles: RISK_ROLES, ready: true },
     ],
   },

@@ -285,6 +285,14 @@ public class ApplicationService {
                 .set(Application::getInterviewAt, cmd.interviewAt())
                 .set(Application::getInterviewAddress, cmd.address().trim())
                 .setSql("version = version + 1"));
+        // D-50：驻场已响应并约定面试时间后，窗口截止顺延到「面试时间 + 24h」（留给到厂 / 面试结果的录入），
+        // 否则面试约在 24h 之后的报名会在面试前被超时释放。只延不缩；尚未触发的催办提醒一并取消。
+        LocalDateTime extended = cmd.interviewAt().plusHours(24);
+        jdbc.update("UPDATE follow_up_reminder r JOIN response_window w ON w.id = r.window_id SET r.status = 'CANCELLED' "
+                + "WHERE w.user_id = ? AND w.application_id = ? AND w.status = 'OPEN' AND w.deadline < ? AND r.status = 'PLANNED'",
+                a.getUserId(), applicationId, extended);
+        jdbc.update("UPDATE response_window SET deadline = ? WHERE user_id = ? AND application_id = ? AND status = 'OPEN' AND deadline < ?",
+                extended, a.getUserId(), applicationId, extended);
         Job j = jobs.selectById(a.getJobId());
         outbox.publish("INTERVIEW_INFO_PUSHED", "APPLICATION", applicationId, Map.of(
                 "userId", a.getUserId(), "companyId", a.getCompanyId(), "jobTitle", j == null ? "" : j.getTitle(),

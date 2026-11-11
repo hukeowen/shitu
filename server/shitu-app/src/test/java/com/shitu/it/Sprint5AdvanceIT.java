@@ -129,19 +129,23 @@ class Sprint5AdvanceIT extends FlowItSupport {
         assertThat(dup.get("rows").get(0).get("success").asBoolean()).as("同月重复导入被拦截").isFalse();
         assertThat(debt(uid)).isEqualByComparingTo("100.00");
 
-        // 9. 有欠款不能离职
+        // 9. D-22：有欠款也能离职，欠款留在名下，暂不打失信标记
         long rid = data(call(post("/api/v1/tenant/employments/" + empId + "/resign"), c.site(),
-                Map.of("resignDate", today.plusDays(1).toString()))).asLong();
-        assertThat(code(call(post("/api/v1/tenant/resign-requests/" + rid + "/decide"), c.pm(), Map.of("approve", true)))).isEqualTo("SYS_4090");
-
-        // 10. 下月工资抵扣剩余 100 → 结清 → 可以离职
-        JsonNode b2 = importPayroll(c.pm(), YearMonth.now(), phone, "3000", "300");
-        assertThat(b2.get("rows").get(0).get("advanceDeduct").decimalValue()).isEqualByComparingTo("100.00");
-        assertThat(b2.get("rows").get(0).get("netPay").decimalValue()).isEqualByComparingTo("2600.00");
-        assertThat(debt(uid)).isEqualByComparingTo("0.00");
-        assertThat(jdbc.queryForObject("SELECT status FROM advance_request WHERE advance_id = ?", String.class, a2)).isEqualTo("REPAID");
+                Map.of("resignDate", today.toString()))).asLong();
         data(call(post("/api/v1/tenant/resign-requests/" + rid + "/decide"), c.pm(), Map.of("approve", true)));
         assertThat(user(uid).get("user_status")).isEqualTo("PUBLIC_SEEKING");
+        assertThat(debt(uid)).isEqualByComparingTo("100.00");
+        assertThat(jdbc.queryForObject("SELECT blacklist_flag FROM `user` WHERE user_id = ?", Integer.class, uid)).isZero();
+
+        // 10. 最后一笔工资：应发 330 − 社保 300 = 30 → 只够扣 30，剩余 70 → 打平台失信标记（系统自动）
+        JsonNode b2 = importPayroll(c.pm(), YearMonth.now(), phone, "330", "300");
+        assertThat(b2.get("rows").get(0).get("advanceDeduct").decimalValue()).isEqualByComparingTo("30.00");
+        assertThat(b2.get("rows").get(0).get("netPay").decimalValue()).isEqualByComparingTo("0.00");
+        assertThat(debt(uid)).isEqualByComparingTo("70.00");
+        assertThat(jdbc.queryForObject("SELECT status FROM advance_request WHERE advance_id = ?", String.class, a2)).isEqualTo("PARTIALLY_REPAID");
+        assertThat(jdbc.queryForObject("SELECT blacklist_flag FROM `user` WHERE user_id = ?", Integer.class, uid)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM blacklist WHERE user_id = ? AND status = 'ACTIVE' AND reason_code = 'UNPAID_ADVANCE' "
+                + "AND created_by = 'SYSTEM'", Integer.class, uid)).isEqualTo(1);
 
         JsonNode slips = data(call(get("/api/v1/seeker/payslips"), s, null));
         assertThat(slips.size()).isEqualTo(2);
@@ -158,6 +162,26 @@ class Sprint5AdvanceIT extends FlowItSupport {
         assertThat(code(call(get("/api/v1/seeker/advance/" + a2), readySeeker(null), null))).isEqualTo("SYS_4040");
         String slipId = slips.get(0).get("payslipId").asText();
         assertThat(data(call(get("/api/v1/seeker/payslips/" + slipId), s, null)).get("payslipId").asText()).isEqualTo(slipId);
+
+        // 11. 工资申诉（C-702）：本人提交 → 同一张同时只能一条 → 公司处理 → 结果回到 C 端；别人的工资条不能申诉；跨公司看不到
+        long apl = data(call(post("/api/v1/seeker/payslips/" + slipId + "/appeals"), s,
+                Map.of("itemCode", "GROSS", "content", "本月出勤 26 天，应发少算了加班费"))).asLong();
+        assertThat(code(call(post("/api/v1/seeker/payslips/" + slipId + "/appeals"), s,
+                Map.of("itemCode", "NET", "content", "实发金额也不对，请一并核对")))).isEqualTo("SYS_4090");
+        assertThat(code(call(post("/api/v1/seeker/payslips/" + slipId + "/appeals"), readySeeker(null),
+                Map.of("itemCode", "NET", "content", "不是我的工资条也想申诉")))).isEqualTo("SYS_4040");
+        JsonNode queue = data(call(get("/api/v1/tenant/payroll/appeals?status=OPEN"), c.pm(), null));
+        JsonNode qa = find(queue, "id", String.valueOf(apl));
+        assertThat(qa.get("seekerName").asText()).contains("*");
+        assertThat(qa.toString()).doesNotContain("phoneEnc").doesNotContain("realNameEnc");
+        assertThat(status(get("/api/v1/tenant/payroll/appeals"), c.site(), null)).isEqualTo(403);
+        assertThat(data(call(get("/api/v1/tenant/payroll/appeals"), company().pm(), null)).toString()).doesNotContain(slipId);
+        assertThat(code(call(post("/api/v1/tenant/payroll/appeals/" + apl + "/handle"), company().pm(),
+                Map.of("accept", true, "reply", "跨公司处理")))).isEqualTo("SYS_4040");
+        data(call(post("/api/v1/tenant/payroll/appeals/" + apl + "/handle"), c.pm(), Map.of("accept", true, "reply", "核对属实，下月补发 300 元")));
+        JsonNode myApl = data(call(get("/api/v1/seeker/payslips/" + slipId + "/appeals"), s, null));
+        assertThat(myApl.get(0).get("status").asText()).isEqualTo("RESOLVED");
+        assertThat(myApl.get(0).get("reply").asText()).contains("补发 300");
     }
 
     private java.util.List<String> reasons(String token) throws Exception {

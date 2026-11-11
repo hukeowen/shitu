@@ -54,7 +54,8 @@ function routeOf(link?: string): string | null {
   if (!link) return null
   let p = link
   if (p.startsWith('/applications') || p === '/todo') p = '/site/todo'
-  else if (p.startsWith('/advances')) p = '/pm/advance'
+  else if (p.startsWith('/advance')) p = '/pm/advance'
+  else if (p === '/reminders') p = '/site/follow'
   const item = MENU.flatMap((g) => g.items).find((it) => it.path === p)
   return item && canAccess(meStore.me, item.access) ? p : null
 }

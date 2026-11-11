@@ -67,6 +67,10 @@ public class DictController {
                 "RELEASE_MANUAL", "人工释放", "BROKER_SLA_TIMEOUT", "经纪人超时释放", "RESIGN", "离职", "INTERNAL_TRANSFER", "内部调岗",
                 "COMPANY_CLOSED", "公司注销"));
         s.put("EmploymentEndReason", ordered("RESIGNED", "离职", "COMPANY_CLOSED", "公司注销"));
+        s.put("FeedbackCategory", ordered("ACCOUNT", "账号与登录", "JOB", "岗位与报名", "PAY", "工资与预支", "CONTRACT", "合同与入职", "SUGGEST", "意见建议", "OTHER", "其他"));
+        s.put("FeedbackStatus", ordered("OPEN", "待处理", "REPLIED", "已回复", "CLOSED", "已关闭"));
+        s.put("PayslipAppealItem", ordered("GROSS", "应发工资", "SOCIAL", "社保", "TAX", "个税", "OTHER_DEDUCT", "其他扣款", "ADVANCE_DEDUCT", "预支抵扣", "NET", "实发金额", "OTHER", "其他"));
+        s.put("PayslipAppealStatus", ordered("OPEN", "待处理", "RESOLVED", "已受理", "REJECTED", "未受理"));
         s.put("AdvanceStep", ordered("SITE", "驻场初审", "PM", "项目经理终审", "PAYOUT", "拨款"));
         s.put("AdvanceDecision", ordered("APPROVE", "通过", "REJECT", "驳回"));
         s.put("AdvanceLedgerType", ordered("PAYOUT", "预支拨款", "DEDUCT", "工资抵扣", "WRITE_OFF", "离职结清 / 核销"));

@@ -191,6 +191,9 @@ class Sprint2FlowIT {
         data(call(post("/api/v1/tenant/applications/" + app1 + "/acknowledge"), site, Map.of(
                 "interviewAt", LocalDateTime.now().plusDays(1).withNano(0).toString(), "address", city + "工业园东门",
                 "documents", new String[]{"身份证", "一寸照片"})));
+        // D-50：知悉并约定面试时间后，窗口顺延到面试时间 + 24h，不会在面试前被超时释放
+        assertThat(jdbc.queryForObject("SELECT deadline FROM response_window WHERE user_id = ? AND status = 'OPEN'", LocalDateTime.class, u1))
+                .isAfter(LocalDateTime.now().plusHours(40));
         while (dispatcher.dispatch() > 0) { }
         JsonNode inbox = data(call(get("/api/v1/seeker/messages"), s1, null));
         assertThat(inbox.toString()).contains("面试信息").contains("一寸照片");

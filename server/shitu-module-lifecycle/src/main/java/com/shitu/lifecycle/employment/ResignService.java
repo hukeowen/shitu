@@ -37,7 +37,7 @@ import java.util.Map;
  * 离职（T-308）与公司注销批量解绑（R-11 / P-08）。
  * <ul>
  *   <li>驻场 / 项目经理发起离职 → 项目经理审核通过 → RESIGN：任职结束（离职日不计费）、合同解除、释放至公域；</li>
- *   <li>欠款结清：预支模块（Sprint 5）在离职审核前校验，这里预留 {@code advance_debt} 检查；</li>
+ *   <li>欠款结清（D-22）：离职不拦截；最后一笔工资抵扣，扣不完由工资表导入打平台失信标记；</li>
  *   <li>公司注销 / 倒闭：该公司所有私域与在岗用户 COMPANY_CLOSED → 公域，任职当天结束；来源归属保留仅存证（R-05）。</li>
  * </ul>
  */
@@ -107,9 +107,10 @@ public class ResignService {
         Employment e = active(employmentId);
         scope.checkProject(p, e.getProjectId());
         if (approve) {
-            SeekerUser u = TenantContext.runAsSystem(() -> users.selectById(e.getUserId()));
-            BizException.check(u == null || u.getAdvanceDebt() == null || u.getAdvanceDebt().signum() == 0,
-                    ErrorCode.SYS_CONFLICT, "该员工有未结清的预支欠款，请先在工资中抵扣结清");
+            // D-22：有欠款也放行离职（否则人走了计费还在继续）。欠款留在用户名下，从最后一笔工资里抵扣；
+            // 最后一笔工资扣不完的，工资表导入时打平台失信标记。还没拨款的在途预支申请一并作废。
+            jdbc.update("UPDATE advance_request SET status = 'REJECTED', version = version + 1 WHERE user_id = ? AND company_id = ? "
+                    + "AND status IN ('SUBMITTED','SITE_APPROVED','PM_APPROVED')", e.getUserId(), p.companyId());
             LocalDate resignDate = ((java.sql.Date) rows.get(0).get("resign_date")).toLocalDate();
             end(e, resignDate, "RESIGNED");
             lifecycle.transition(e.getUserId(), LifecycleEvent.RESIGN, TransitionContext.tenant(ActorRole.PM, p.companyId()),

@@ -59,6 +59,7 @@ export const MENU: MenuGroup[] = [
     en: 'PAYROLL',
     items: [
       { path: '/payroll/batches', title: '工资表导入', proto: 'A-08', access: { roles: ['PM', 'OWNER'] } },
+      { path: '/payroll/appeals', title: '工资申诉', proto: 'C-702', access: { roles: ['PM', 'OWNER'] } },
       { path: '/payroll/recon', title: '预支抵扣对账', proto: 'A-09', access: { roles: ['PM', 'OWNER'] } },
     ],
   },
