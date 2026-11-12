@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDict } from '@shitu/api-client'
-import { IconChevronRight, IconCircleCheck, IconLock, IconMapPin } from '@shitu/ui-icons'
+import { errorMessage, useDict } from '@shitu/api-client'
+import { IconChevronRight, IconCircleCheck, IconLock, IconMapPin, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useMatchSession } from '@/composables/useMatchSession'
 
@@ -11,14 +11,23 @@ const router = useRouter()
 const { label } = useDict()
 const { auth, match, profile, locked, appliedLock, lockText } = useMatchSession()
 
-// 进入时静默刷新档案，确保锁定态 / 匹配范围是最新的
-void auth.loadProfile().catch(() => undefined)
-// 预取题库，开场页显示题量
-const total = ref(7)
-void match
-  .loadQuiz()
-  .then((q) => (total.value = q.questions.length || 7))
-  .catch(() => undefined)
+// 进入时刷新档案（锁定态 / 匹配范围要是最新的）并取题库（显示题量）；题库已在本次会话里取过就不再转圈
+const total = ref(match.quiz?.questions.length || 7)
+const loading = ref(!match.quiz)
+const loadError = ref('')
+async function load() {
+  loading.value = !match.quiz
+  loadError.value = ''
+  try {
+    const [, q] = await Promise.all([auth.loadProfile(), match.loadQuiz()])
+    total.value = q.questions.length || 7
+  } catch (e) {
+    loadError.value = errorMessage(e, '加载失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+void load()
 
 const company = computed(() => profile.value?.boundCompanyName ?? '')
 const scope = computed(() => profile.value?.matchScope ?? 'NONE')
@@ -78,6 +87,14 @@ function start() {
         <button type="button" class="link home" @click="router.replace('/')">返回首页<IconChevronRight :size="16" /></button>
       </template>
       <van-button v-else @click="router.replace('/')">返回首页</van-button>
+    </div>
+
+    <div v-else-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+    <div v-else-if="loadError" class="state-block">
+      <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">加载失败</div>
+      <div class="state-block-d">{{ loadError }}</div>
+      <van-button type="primary" @click="load">重新加载</van-button>
     </div>
 
     <template v-else>

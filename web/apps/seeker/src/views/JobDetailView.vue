@@ -213,11 +213,12 @@ function onApply() {
 .top-hd h1 { min-width: 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
 .top-hd .status-tag { flex: none; margin-top: 2px; }
 .top-sub { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--divider); }
+.stats { display: grid; grid-template-columns: 1fr 1fr fit-content(55%); gap: var(--space-3); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--divider); }
 .stats > div { min-width: 0; }
 .stats dt { font-size: var(--font-size-aux); color: var(--text-3); }
-.stats dd { margin-top: 2px; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); overflow-wrap: anywhere; }
+.stats dd { text-wrap: balance; margin-top: 2px; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); overflow-wrap: anywhere; }
 .stats dd.low { color: var(--warning-text); }
+.kv dd { word-break: normal; overflow-wrap: anywhere; text-wrap: balance; }
 .tip { margin-top: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .flat { margin-top: 0; }
 .lines { display: grid; gap: var(--space-2); padding-left: var(--space-5); list-style: disc; font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }

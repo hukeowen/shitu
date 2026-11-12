@@ -110,7 +110,7 @@ async function agree() {
 .body p + p { margin-top: var(--space-2); }
 .body b { font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .body .end { font-size: var(--font-size-aux); color: var(--text-3); text-align: center; }
-.body.center { padding: var(--space-6) var(--space-3); text-align: center; }
+.body.center { --van-loading-spinner-color: var(--primary); padding: var(--space-6) var(--space-3); text-align: center; }
 .reload { margin-top: var(--space-3); }
 .chk { display: flex; align-items: flex-start; gap: var(--space-2); width: 100%; min-height: 44px; margin-top: var(--space-3); padding: 0; border: 0; background: none; font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); text-align: left; }
 .chk.dim { color: var(--text-3); }
@@ -119,5 +119,5 @@ async function agree() {
 .btns { display: flex; gap: var(--space-3); margin-top: var(--space-3); }
 .b1 { flex: 1; }
 .b2 { flex: 2; }
-.foot { margin-top: var(--space-3); font-size: var(--font-size-min); color: var(--text-3); text-align: center; }
+.foot { text-wrap: balance; margin-top: var(--space-3); font-size: var(--font-size-min); color: var(--text-3); text-align: center; }
 </style>

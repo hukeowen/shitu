@@ -44,9 +44,9 @@ const CHECKS = ['同一时段无重复有效报名', '岗位剩余名额充足',
       <section class="acard">
         <div class="acard-hd"><h4>接下来</h4></div>
         <ul class="tl">
-          <li class="done"><div class="tl-t">报名记录已生成</div><div class="tl-m">刚刚</div></li>
+          <li class="done"><div class="tl-t">报名记录已生成<span class="status-tag status-tag--success">已完成</span></div><div class="tl-m">刚刚</div></li>
           <li class="now">
-            <div class="tl-t">系统已通知驻场</div>
+            <div class="tl-t">系统已通知驻场<span class="status-tag status-tag--info">进行中</span></div>
             <div class="tl-m">驻场会在 {{ deadline }} 前联系你，并推送面试确认信息</div>
           </li>
           <li><div class="tl-t">收到面试确认信息</div><div class="tl-m">时间 · 地点 · 路线 · 证件清单</div></li>
@@ -96,6 +96,9 @@ const CHECKS = ['同一时段无重复有效报名', '岗位剩余名额充足',
 .jt { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); line-height: 24px; color: var(--text-1); }
 .jd { margin-top: 2px; font-size: var(--font-size-aux); color: var(--text-3); }
 .jkv { margin-top: var(--space-2); }
+/* 长地址折行时两行尽量等长，不留孤字 */
+.jkv dd { word-break: normal; overflow-wrap: anywhere; text-wrap: balance; }
+.tl-t .status-tag { margin-left: var(--space-2); vertical-align: 1px; }
 .tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .lock-d { margin-top: var(--space-3); font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
 .cks { display: grid; gap: var(--space-3); }

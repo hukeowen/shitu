@@ -153,6 +153,7 @@ function rematch() {
           <h1>为你锁定 {{ results.length }} 个岗位</h1>
           <p>匹配范围：{{ scopeText }} · 从中选 1 个报名</p>
         </div>
+        <span class="status-tag status-tag--info">{{ label('DomainTag', isPrivateScope ? 'PRIVATE' : 'PUBLIC') }}</span>
       </header>
 
       <section v-if="locked" class="tipbar tipbar--warn">
@@ -205,7 +206,10 @@ function rematch() {
             <p class="b-d">将在 2 小时内与你电话沟通，24 小时内给出推荐结果</p>
             <div class="divider"></div>
             <ul class="tl">
-              <li v-for="(st, i) in brokerSteps" :key="i" :class="st.state"><div class="tl-t">{{ st.text }}</div><div class="tl-m">{{ st.meta }}</div></li>
+              <li v-for="(st, i) in brokerSteps" :key="i" :class="st.state">
+                <div class="tl-t">{{ st.text }}<span v-if="st.state" class="status-tag" :class="st.state === 'done' ? 'status-tag--success' : 'status-tag--info'">{{ st.state === 'done' ? '已完成' : '进行中' }}</span></div>
+                <div class="tl-m">{{ st.meta }}</div>
+              </li>
             </ul>
           </section>
           <router-link to="/recommendations" class="acard recl">
@@ -235,6 +239,8 @@ function rematch() {
 .result { min-height: 100vh; }
 .hd { display: flex; align-items: flex-start; gap: var(--space-3); }
 .hd h1 { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
+.hd .status-tag { flex: none; margin-top: 2px; }
+.tl-t .status-tag { margin-left: var(--space-2); vertical-align: 1px; }
 .hd p { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .portrait { margin-top: 0; }
 .none { padding: var(--space-4) 0; }

@@ -206,7 +206,7 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .bottom-bar-gap { height: calc(80px + env(safe-area-inset-bottom)); }
 
 /* 整页状态（加载 / 错误 / 空） */
-.page-state { padding: 60px var(--space-4) var(--space-6); text-align: center; }
+.page-state { padding: 60px var(--space-4) var(--space-6); text-align: center; --van-loading-spinner-color: var(--primary); }
 .big-ic { width: 56px; height: 56px; border-radius: var(--radius-card); display: grid; place-items: center; margin: 0 auto var(--space-3); background: var(--bg-card); }
 
 /* ---------- 预支 / 工资 / 投诉 ---------- */

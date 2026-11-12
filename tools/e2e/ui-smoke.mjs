@@ -4,8 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { openTab, sleep } from './cdp.mjs'
-import { companyCode, tenantSession, readRt, writeRt } from './lib.mjs'
-import { APPS, VIEWPORT } from './routes.mjs'
+import { companyCode, seekerSession, tenantSession, readRt, writeRt } from './lib.mjs'
+import { APPS, ROUTES, VIEWPORT } from './routes.mjs'
 
 const DIR = path.dirname(fileURLToPath(import.meta.url))
 const SHOTS = path.join(DIR, 'shots')
@@ -29,6 +29,21 @@ async function freshSeekerCookie() {
 }
 if (!process.env.SUITE || process.env.SUITE.includes("seeker")) await freshSeekerCookie()
 
+// 新注册的求职者没有匹配结果也没报过名，岗位详情和报名成功页打不开：这两页用截图数据里的人物（跑过 seed.mjs 才有），
+// 地址和进入脚本取 routes.mjs 的登记。没有 baseline-data.json 时跳过并说明。
+const dataFile = path.join(SHOTS, 'baseline-data.json')
+const seeded = fs.existsSync(dataFile) ? JSON.parse(fs.readFileSync(dataFile, 'utf8')) : null
+if (!seeded) console.log('没有 shots/baseline-data.json：岗位详情、报名成功页这次没有覆盖（先跑 node seed.mjs）\n')
+const seededSuites = []
+for (const r of seeded ? ROUTES.filter((x) => x.app === 'seeker' && ['/jobs/:jobId', '/apply/success'].includes(x.route)) : []) {
+  const name = 'seeker-' + r.persona
+  if (process.env.SUITE && !process.env.SUITE.split(',').includes(name)) continue
+  const phone = seeded.personas[r.persona].phone
+  await seekerSession(phone)
+  seededSuites.push({ name, app: 'seeker', cookieFile: `seeker-${phone}.rt`,
+    paths: [{ path: typeof r.to === 'function' ? r.to(seeded.ids) : r.route, enter: r.enter?.(seeded.ids, seeded.personas) }] })
+}
+
 const SUITES = [
   { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: menuPaths('ops') },
   { name: 'console-owner', app: 'console', cookieFile: 'tenant-13800000001.rt', paths: menuPaths('console') },
@@ -36,17 +51,24 @@ const SUITES = [
   { name: 'console-site', app: 'console', cookieFile: 'tenant-13800000003.rt', paths: menuPaths('console') },
   { name: 'staff-site', app: 'staff', cookieFile: 'tenant-13800000003.rt', paths: routePaths('staff') },
   { name: 'seeker-new', app: 'seeker', cookieFile: 'seeker.rt', paths: routePaths('seeker') },
+  ...seededSuites,
 ].map((s) => ({ ...s, ...APPS[s.app] }))
 
 const report = []
 for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.split(",").includes(x.name))) {
   const b = await openTab(s.mobile ? VIEWPORT.mobile : VIEWPORT.desktop, { timezone: process.env.TZ_OVERRIDE })
   await b.send('Network.setCookie', { name: 'shitu_rt', value: readRt(s.cookieFile), url: s.base + s.cookiePath, path: s.cookiePath, httpOnly: true })
-  for (const p of s.paths) {
+  for (const item of s.paths) {
+    // 字符串是直接打开的地址；{ path, enter } 是要先打开 enter.start、在页面里执行 enter.script 才进得去的页面
+    const { path: p, enter } = typeof item === 'string' ? { path: item } : item
     if (p.includes(':')) continue
     b.events.length = 0
-    await b.send('Page.navigate', { url: s.base + p })
+    await b.send('Page.navigate', { url: s.base + (enter?.start ?? p) })
     await sleep(2200)
+    if (enter) {
+      await b.send('Runtime.evaluate', { expression: enter.script, awaitPromise: true })
+      await sleep(2200)
+    }
     const r = await b.send('Runtime.evaluate', {
       returnByValue: true,
       expression: `({ url: location.pathname, chromeError: location.protocol === "chrome-error:", errs: [...document.querySelectorAll('.el-message--error, .el-alert--error, .error, .van-toast')].map(e => e.innerText.trim()).filter(Boolean).slice(0, 3),

@@ -83,6 +83,7 @@ function next() {
 }
 
 function prev() {
+  if (analyzing.value) return
   clearTimeout(advanceTimer)
   if (step.value > 0) {
     match.setStep(step.value - 1)
@@ -99,6 +100,7 @@ function jump(i: number) {
 }
 
 async function exit() {
+  if (analyzing.value) return
   try {
     await showConfirmDialog({ title: '退出问薪', message: '已选的答案会保留，下次可以继续。确定退出吗？', confirmButtonText: '退出', cancelButtonText: '继续答题' })
   } catch {
@@ -264,6 +266,7 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 
     <transition name="fade">
       <div v-if="analyzing" class="analyzing" role="status" aria-live="polite">
+        <div class="acard">
         <van-loading size="32" class="a-spin" />
         <div class="a-t">AI 正在分析你的求职画像</div>
         <p class="a-d">正在从{{ scopeName || '可匹配范围' }}的在招岗位中筛选最匹配的岗位</p>
@@ -274,6 +277,7 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
         </ul>
         <div class="bar a-bar"><i class="sig" :style="{ width: progress + '%' }"></i></div>
         <div class="row-b a-foot"><span>匹配引擎运算中</span><span>{{ progress }}%</span></div>
+        </div>
       </div>
     </transition>
   </div>
@@ -297,12 +301,13 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 .next { flex: 2; }
 .city-tip { padding: var(--space-1) var(--space-4) var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
 
-/* 提交中：整屏白底，逐步显示匹配进度 */
-.analyzing { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; justify-content: center; padding: 0 var(--space-6); background: var(--bg-card); }
+/* 提交中：盖住题目和底部栏（顶栏留着），浅灰底上一张白卡片，逐步显示匹配进度 */
+.analyzing { position: fixed; inset: 0; z-index: 45; max-width: 750px; margin: 0 auto; padding: calc(var(--van-nav-bar-height) + env(safe-area-inset-top) + var(--space-4)) var(--space-page) 0; background: var(--bg-page); }
+.analyzing .acard { display: flex; flex-direction: column; padding: var(--space-6) var(--space-card); }
 .a-spin { align-self: center; --van-loading-spinner-color: var(--primary); }
 .a-t { margin-top: var(--space-4); font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); text-align: center; }
 .a-d { margin-top: var(--space-1); font-size: var(--font-size-aux); color: var(--text-3); text-align: center; }
-.a-steps { display: grid; gap: var(--space-3); margin-top: var(--space-8); }
+.a-steps { display: grid; gap: var(--space-3); margin-top: var(--space-6); }
 .a-steps li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--text-3); transition: color .2s; }
 .a-steps li.done { color: var(--text-2); }
 .a-steps li.now { color: var(--text-1); font-weight: var(--font-weight-medium); }

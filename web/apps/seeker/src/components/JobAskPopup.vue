@@ -147,6 +147,7 @@ function retry(m: AskMsg) {
 .m.me { justify-content: flex-end; }
 .bub { max-width: 82%; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); word-break: break-word; }
 .m.me .bub { border-color: var(--primary-line); background: var(--primary-bg); }
+.bub .van-loading { --van-loading-spinner-color: var(--primary); }
 .bub.fwd { border-color: transparent; background: var(--warning-soft); }
 .bub.fail { border-color: transparent; background: var(--danger-soft); }
 .fwd-tag { margin-bottom: var(--space-2); background: var(--bg-card); }

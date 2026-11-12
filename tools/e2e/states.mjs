@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { openTab } from './cdp.mjs'
-import { seekerSession, readRt, writeRt } from './lib.mjs'
+import { get, seekerSession, readRt, writeRt } from './lib.mjs'
 import { APPS, VIEWPORT, parseArgs } from './routes.mjs'
 
 const DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -28,6 +28,14 @@ const wait = (ms) => `new Promise((r) => setTimeout(r, ${ms}))`
 const JOB = `/jobs/${data.ids.matchedJobId}`
 const JOB_API = `/seeker/jobs/${data.ids.matchedJobId}`
 const refuse = (code, message) => ({ code, message, data: null })
+const reply = (body) => ({ code: '0', message: 'ok', data: body })
+// 岗位详情的真实数据：在它上面改一个字段，截「不能报名」这类靠接口字段决定的状态
+const jobReal = (await get(JOB_API, await seekerSession(data.personas.matched.phone))).data
+// 假的匹配结果：4 张卡，第 2 张匹配度不到 80。页面应当只出 3 张、第 2 张不显示匹配度
+const fakeCard = (rank, title, matchScore) => ({ rank, jobId: 'J-SHOT-' + rank, title, companyName: '仕兔演示劳务', city: '苏州', address: '昆山市锦溪镇长云路 1 号',
+  matchScore, salaryMin: 5000 + rank * 100, salaryMax: 6000 + rank * 100, shiftType: 'DAY', dormProvided: true, dormRoomSize: 4, dormAircon: true, mealProvided: true, quotaRemaining: 10, reason: '' })
+const fakeOutcome = reply({ sessionId: 'MS-SHOT', scope: 'OWN_COMPANY', matched: true, engineVersion: 1, quizVersion: 1,
+  results: [fakeCard(1, '第一张卡', 91), fakeCard(2, '不到线的卡', 76), fakeCard(3, '第三张卡', 80), fakeCard(4, '第四张卡', 88)] })
 const unmatched = (scope) => ({ code: '0', message: 'ok', data: { sessionId: 'MS-SHOT', scope, matched: false, results: [], engineVersion: 1, quizVersion: 1 } })
 // 答题：每题点第一个不用选城市的选项，一直点到最后一题也选好
 const answerAll = `(async () => { for (let i = 0; i < 12; i++) {
@@ -53,11 +61,27 @@ const jobCards = `(() => { const cards = [...document.querySelectorAll('article'
     if (!/\\d{1,3}(,\\d{3})*(–\\d{1,3}(,\\d{3})*)? ?元\\/月（综合）/.test(t)) return '薪资写法不对：' + t.slice(0, 60)
     const m = /匹配度 ?(\\d+)%/.exec(t); if (m && Number(m[1]) < 80) return '显示了不到 80% 的匹配度' }
   return '' })()`
-// 薪资数字：薪资色只给 18px 以上、600 字重的大字
-const salaryBig = `(() => { const els = [...document.querySelectorAll('#app *')].filter((e) => !e.children.length && /^\\d{1,3}(,\\d{3})+(–\\d{1,3}(,\\d{3})+)?$/.test(e.textContent.trim()))
+// 薪资数字：18px 以上、600 字重，颜色是薪资色变量
+const salaryBig = `(() => { const probe = document.body.appendChild(document.createElement('i')); probe.style.color = 'var(--salary)'
+  const want = getComputedStyle(probe).color; probe.remove()
+  const els = [...document.querySelectorAll('#app *')].filter((e) => !e.children.length && /^\\d{1,3}(,\\d{3})+(–\\d{1,3}(,\\d{3})+)?$/.test(e.textContent.trim()))
   if (!els.length) return '没找到薪资大字'
   const bad = els.filter((e) => { const cs = getComputedStyle(e); return parseFloat(cs.fontSize) < 18 || Number(cs.fontWeight) < 600 })
-  return bad.length ? '薪资数字不够大或不够粗：' + bad[0].textContent : '' })()`
+  if (bad.length) return '薪资数字不够大或不够粗：' + bad[0].textContent
+  const off = els.filter((e) => getComputedStyle(e).color !== want)
+  return off.length ? '薪资数字不是薪资色：' + off[0].textContent + ' ' + getComputedStyle(off[0]).color : '' })()`
+// 假数据专用：恰好 3 张卡，不到线的那张不带匹配度，到线的带
+const fakeCards = `(() => { const cards = [...document.querySelectorAll('article')].map((c) => c.innerText)
+  if (cards.length !== 3) return '给了 4 张卡，页面出了 ' + cards.length + ' 张'
+  const low = cards.find((t) => t.includes('不到线的卡'))
+  if (!low || low.includes('匹配度')) return '76% 的卡显示了匹配度（或这张卡没出来）'
+  return cards[0].includes('匹配度 91%') && cards[2].includes('匹配度 80%') ? '' : '到线的卡没显示匹配度' })()`
+// 点击区不小于 44×44（高度；宽度由文字决定的小标签只看高）
+const tapTall = (selector) => `(() => { const hs = [...document.querySelectorAll(${JSON.stringify(selector)})].map((b) => Math.round(b.getBoundingClientRect().height))
+  return hs.length && hs.every((h) => h >= 44) ? '' : '点击区不到 44 高（${selector}）：' + (hs.join('、') || '没找到') })()`
+const notBusy = `document.querySelector('.bottom-bar .van-button--loading') ? '被拒之后底部按钮还在转「提交中」' : ''`
+const applyOff = `(() => { const b = [...document.querySelectorAll('.bottom-bar button')].find((x) => x.innerText.includes('报名面试'))
+  return b && b.disabled && document.querySelector('.bottom-bar').innerText.includes('名额已满') ? '' : '不能报名时按钮没置灰或没写原因' })()`
 // 底部固定通栏：按钮高 48、通栏；滚到底时不挡住正文
 const bottomBar = (text) => `(async () => { const btn = [...document.querySelectorAll('button')].find((b) => b.innerText.includes(${JSON.stringify(text)}))
   if (!btn) return '没有「${text}」按钮'
@@ -107,6 +131,8 @@ const STATES = [
   { app: 'seeker', screen: 'match-intro', state: 'normal', persona: 'registered', path: '/match', width: NARROW },
   { app: 'seeker', screen: 'match-intro', state: 'public', persona: 'public', path: '/match' },
   { app: 'seeker', screen: 'match-intro', state: 'locked', persona: 'acknowledged', path: '/match' },
+  { app: 'seeker', screen: 'match-intro', state: 'loading', persona: 'registered', path: '/match', rules: [{ url: '/seeker/quiz', action: 'hang' }] },
+  { app: 'seeker', screen: 'match-intro', state: 'error', persona: 'registered', path: '/match', rules: [{ url: '/seeker/quiz', action: 'fail' }] },
   // 答题
   { app: 'seeker', screen: 'match-quiz', state: 'normal', persona: 'registered', path: '/match/quiz', checks: [quizProgress, optionsTall, bottomBar('下一题')] },
   { app: 'seeker', screen: 'match-quiz', state: 'normal', persona: 'registered', path: '/match/quiz', width: NARROW, checks: [optionsTall] },
@@ -129,6 +155,8 @@ const STATES = [
   // 匹配结果
   { app: 'seeker', screen: 'match-result', state: 'normal', persona: 'matched', path: '/match/result', checks: [jobCards, salaryBig] },
   { app: 'seeker', screen: 'match-result', state: 'normal', persona: 'matched', path: '/match/result', width: NARROW, checks: [jobCards] },
+  { app: 'seeker', screen: 'match-result', state: 'four-cards', persona: 'matched', path: '/match/result',
+    rules: [{ url: '/seeker/match/latest', action: 'respond', body: fakeOutcome }], checks: [fakeCards, jobCards, salaryBig] },
   { app: 'seeker', screen: 'match-result', state: 'public', persona: 'public', path: '/match/result' },
   { app: 'seeker', screen: 'match-result', state: 'locked', persona: 'acknowledged', path: '/match/result' },
   { app: 'seeker', screen: 'match-result', state: 'empty', persona: 'registered', path: '/match/result' },
@@ -146,15 +174,24 @@ const STATES = [
   { app: 'seeker', screen: 'job-detail', state: 'submitting', persona: 'matched', path: JOB, rules: [{ url: '/seeker/applications', action: 'hang' }],
     steps: [click('报名面试')], quick: true },
   { app: 'seeker', screen: 'job-detail', state: 'rejected', persona: 'matched', path: JOB,
-    rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4011', '未满 18 周岁，暂不能报名') }], steps: [click('报名面试')] },
+    rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4011', '未满 18 周岁，暂不能报名') }], steps: [click('报名面试')], checks: [notBusy] },
+  { app: 'seeker', screen: 'job-detail', state: 'cannot-apply', persona: 'matched', path: JOB,
+    rules: [{ url: JOB_API, action: 'respond', body: reply({ ...jobReal, canApply: false, cannotApplyReason: '该岗位名额已满，请重新匹配' }) }], checks: [applyOff, bottomBar('报名面试')] },
+  { app: 'seeker', screen: 'job-detail', state: 'not-found', persona: 'matched', path: JOB, rules: [{ url: JOB_API, action: 'respond', body: reply(null) }] },
   { app: 'seeker', screen: 'job-disclaimer', state: 'normal', persona: 'matched', path: JOB,
-    rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4012', '请先阅读并同意求职告知书') }], steps: [click('报名面试')] },
+    rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4012', '请先阅读并同意求职告知书') }], steps: [click('报名面试')], checks: [tapTall('[role=checkbox]')] },
+  { app: 'seeker', screen: 'job-disclaimer', state: 'loading', persona: 'matched', path: JOB,
+    rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4012', '请先阅读并同意求职告知书') }, { url: '/seeker/disclaimer', action: 'hang' }],
+    steps: [click('报名面试')], quick: true },
   { app: 'seeker', screen: 'job-disclaimer', state: 'normal', persona: 'matched', path: JOB, width: NARROW,
     rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4012', '请先阅读并同意求职告知书') }], steps: [click('报名面试')] },
   { app: 'seeker', screen: 'job-disclaimer', state: 'error', persona: 'matched', path: JOB,
     rules: [{ url: '/seeker/applications', action: 'respond', body: refuse('APP_4012', '请先阅读并同意求职告知书') }, { url: '/seeker/disclaimer', action: 'fail' }],
     steps: [click('报名面试')] },
-  { app: 'seeker', screen: 'job-ask', state: 'normal', persona: 'matched', path: JOB, steps: [click('问问这个岗位')] },
+  { app: 'seeker', screen: 'job-ask', state: 'normal', persona: 'matched', path: JOB, steps: [click('问问这个岗位')], checks: [tapTall('.van-popup .chip-tap')] },
+  // 问答弹层自己不拉数据，「加载」和「提交中」是同一个画面：等回答时气泡里转圈、发送按钮转圈
+  { app: 'seeker', screen: 'job-ask', state: 'submitting', persona: 'matched', path: JOB, rules: [{ url: '/ask', action: 'hang' }],
+    steps: [click('问问这个岗位'), click('包吃住吗')], quick: true },
   { app: 'seeker', screen: 'job-ask', state: 'normal', persona: 'matched', path: JOB, width: NARROW, steps: [click('问问这个岗位')] },
   { app: 'seeker', screen: 'job-ask', state: 'answered', persona: 'matched', path: JOB,
     rules: [{ url: '/ask', action: 'respond', body: { code: '0', message: 'ok', data: { answered: true, answer: '包吃包住，宿舍 8 人间，有空调。', matchedQuestion: '包吃住吗？' } } }],

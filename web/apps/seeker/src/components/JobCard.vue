@@ -13,12 +13,12 @@ const chips = computed(() => [...dormChips(props.job), label('ShiftType', props.
 </script>
 
 <template>
-  <article class="acard jc" @click="emit('open', job.jobId)">
+  <article class="acard jc" role="button" tabindex="0" @click="emit('open', job.jobId)" @keydown.enter="emit('open', job.jobId)">
     <div class="jc-hd">
       <h3>{{ job.title }}</h3>
       <span v-if="scoreVisible(job.matchScore)" class="status-tag status-tag--info">匹配度 {{ fmtScore(job.matchScore) }}%</span>
     </div>
-    <!-- 岗位薪资录入的就是月综合薪资，所以每张卡都带「（综合）」 -->
+    <!-- 每张卡都带「（综合）」：改版前即如此；后端校验文案把岗位薪资叫「月综合薪资」（JobService） -->
     <p class="salary"><b>{{ fmtSalary(job.salaryMin, job.salaryMax) }}</b><span>元/月（综合）</span></p>
     <ul class="chips">
       <li v-for="c in chips" :key="c" class="chip">{{ c }}</li>
@@ -35,12 +35,14 @@ const chips = computed(() => [...dormChips(props.job), label('ShiftType', props.
       <IconBuildingComplex :size="16" />
       <span>{{ job.address || job.city }}<template v-if="job.companyName"> · {{ job.companyName }}</template></span>
     </p>
-    <van-button block :type="top ? 'primary' : 'default'" :class="{ second: !top }" @click.stop="emit('open', job.jobId)">查看并报名</van-button>
+    <!-- 整张卡已是可聚焦的按钮，里面这颗不再单独占一个键盘焦点 -->
+    <van-button block tabindex="-1" :type="top ? 'primary' : 'default'" :class="{ second: !top }" @click.stop="emit('open', job.jobId)">查看并报名</van-button>
   </article>
 </template>
 
 <style scoped>
 .jc { cursor: pointer; }
+.jc:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .jc-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .jc-hd h3 { min-width: 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
 .jc-hd .status-tag { flex: none; margin-top: 2px; }
