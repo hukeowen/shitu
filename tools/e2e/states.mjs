@@ -113,7 +113,7 @@ const fakeRecs = reply([fakeRec(1, 'PENDING', '离你住的地方近，包吃住
 const fakeLedger = reply({
   applications: [
     { applicationId: 'BM-SHOT-1', jobTitle: '成品仓储分拣员', companyName: '仕兔演示劳务', status: 'PENDING_INTERVIEW', createdAt: '2026-11-12T10:00:00', interviewAt: '2026-12-30T09:30:00', interviewAddress: '昆山市锦溪镇长云路 1 号东门招聘中心' },
-    { applicationId: 'BM-SHOT-2', jobTitle: '电子组装普工', companyName: '仕兔演示劳务', status: 'EMPLOYED', createdAt: '2026-10-01T10:00:00', interviewAt: '2026-10-02T09:30:00', arrivedAt: '2026-10-02T09:10:00', interviewResult: 'PASS', endedAt: '2026-10-03T10:00:00' },
+    { applicationId: 'BM-SHOT-2', jobTitle: '电子组装普工', companyName: '仕兔演示劳务', status: 'EMPLOYED', createdAt: '2026-10-01T10:00:00', interviewAt: '2026-10-02T09:30:00', arrivedAt: '2026-10-02T09:10:00', interviewResult: 'PASS' },
     { applicationId: 'BM-SHOT-3', jobTitle: '质检员', companyName: '仕兔演示劳务', status: 'TIMEOUT', createdAt: '2026-09-01T10:00:00', interviewAt: '2026-09-02T09:30:00', arrivedAt: '2026-09-02T09:20:00', interviewResult: 'FAIL', endedAt: '2026-09-03T10:00:00', endReason: 'CONFIRM_TIMEOUT' },
     { applicationId: 'BM-SHOT-4', jobTitle: '叉车司机', companyName: '仕兔演示劳务', status: 'CANCELLED', createdAt: '2026-08-01T10:00:00', endedAt: '2026-08-02T10:00:00', endReason: 'RELEASE_MANUAL' },
     { applicationId: 'BM-SHOT-5', jobTitle: '包装工', companyName: '仕兔演示劳务', status: 'CANCELLED', createdAt: '2026-07-01T10:00:00', endedAt: '2026-07-02T10:00:00', endReason: 'BROKER_SLA_TIMEOUT' },
@@ -133,7 +133,22 @@ const tabUnderline = `(() => { const on = document.querySelector('.van-tab--acti
   if (getComputedStyle(on).color !== ${tokenColor('--primary-text')}) return '选中的标签不是主色文字：' + getComputedStyle(on).color
   const cs = getComputedStyle(line)
   if (Math.round(parseFloat(cs.height)) !== 2) return '选中下划线不是 2px：' + cs.height
-  return cs.backgroundColor === ${tokenColor('--primary')} ? '' : '选中下划线不是主色：' + cs.backgroundColor })()`
+  if (cs.backgroundColor !== ${tokenColor('--primary')}) return '选中下划线不是主色：' + cs.backgroundColor
+  const text = document.createRange(); text.selectNodeContents(on.querySelector('.van-tab__text') ?? on)
+  const t = text.getBoundingClientRect(), l = line.getBoundingClientRect()
+  if (l.width > t.width + 1) return '下划线（' + Math.round(l.width) + '）比标签文字（' + Math.round(t.width) + '）宽'
+  return l.left < 16 ? '下划线左端越出页边距：' + Math.round(l.left) : '' })()`
+// 文字链的点击区：宽高都不小于 44
+const tapArea = (selector) => `(() => { const rs = [...document.querySelectorAll(${JSON.stringify(selector)})].map((e) => e.getBoundingClientRect())
+  if (!rs.length) return '没找到 ${selector}'
+  const bad = rs.find((r) => Math.round(r.width) < 44 || Math.round(r.height) < 44)
+  return bad ? '点击区不到 44×44（${selector}）：' + Math.round(bad.width) + '×' + Math.round(bad.height) : '' })()`
+// 集合地点：标签在上、地址左对齐在下，不把路名拆到两行的两头
+const addrStacked = `(() => { const row = [...document.querySelectorAll('#app .kv')].find((k) => k.querySelector('dt')?.innerText.trim() === '集合地点')
+  if (!row) return '没有集合地点这一行'
+  const dt = row.querySelector('dt').getBoundingClientRect(), dd = row.querySelector('dd')
+  if (dd.getBoundingClientRect().top < dt.bottom - 1) return '集合地点的地址还和标签挤在同一行'
+  return getComputedStyle(dd).textAlign === 'left' || getComputedStyle(dd).textAlign === 'start' ? '' : '集合地点的地址不是左对齐' })()`
 // 列表卡片：每张都有共享状态标签，页面里没有旧标签类
 const cardTags = `(() => { if (document.querySelector('#app .tag')) return '还在用旧标签类 .tag'
   const cards = [...document.querySelectorAll('#app article')]
@@ -279,7 +294,7 @@ const STATES = [
   { app: 'seeker', screen: 'apply-success', state: 'normal', persona: 'acknowledged', path: '/reports', steps: [enterApplySuccess], width: NARROW },
 
   // 工单 08：我的报备
-  { app: 'seeker', screen: 'reports', state: 'normal', persona: 'acknowledged', path: '/reports', checks: [tabUnderline, cardTags, tapTall('#app article a, #app article button')] },
+  { app: 'seeker', screen: 'reports', state: 'normal', persona: 'acknowledged', path: '/reports', checks: [tabUnderline, cardTags, tapTall('#app article a, #app article button'), tapArea('#app article .nav-link, #app article .cmp-link'), addrStacked] },
   { app: 'seeker', screen: 'reports', state: 'normal', persona: 'acknowledged', path: '/reports', width: NARROW, checks: [tabUnderline, cardTags] },
   { app: 'seeker', screen: 'reports', state: 'all-status', persona: 'acknowledged', path: '/reports', rules: [{ url: APPS_API, action: 'respond', body: fakeApps }],
     checks: [cardCount(7), cardTags, has('待签约入职'), has('取消报名'), tabUnderline] },
@@ -290,6 +305,13 @@ const STATES = [
   { app: 'seeker', screen: 'reports', state: 'loading', persona: 'acknowledged', path: '/reports', rules: [{ url: APPS_API, action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'reports', state: 'error', persona: 'acknowledged', path: '/reports', rules: [{ url: APPS_API, action: 'fail' }], checks: [has('重新加载')] },
   { app: 'seeker', screen: 'reports', state: 'complaint', persona: 'acknowledged', path: '/reports', steps: [click('投诉该岗位')] },
+  { app: 'seeker', screen: 'reports', state: 'complaint-submitting', persona: 'acknowledged', path: '/reports', rules: [{ url: '/seeker/complaints', action: 'hang' }],
+    steps: [click('投诉该岗位'), click('岗位信息不实'), click('提交投诉')], quick: true,
+    checks: [`document.querySelector('.van-popup .van-button--loading') ? '' : '提交中「提交投诉」没有转圈'`] },
+  { app: 'seeker', screen: 'reports', state: 'complaint-rejected', persona: 'acknowledged', path: '/reports',
+    rules: [{ url: '/seeker/complaints', action: 'respond', body: refuse('APP_4004', '只能投诉你匹配到或报名过的岗位') }],
+    steps: [click('投诉该岗位'), click('岗位信息不实'), click('提交投诉')], quick: true,
+    checks: [`document.querySelector('.van-popup .van-button--loading') ? '被拒之后「提交投诉」还在转' : ''`, `document.body.innerText.includes('只能投诉你匹配到或报名过的岗位') ? '' : '被拒之后没有写明原因'`] },
   // 面试详情：真实数据没有路线提示，四块齐全的样子用假数据
   { app: 'seeker', screen: 'interview', state: 'normal', persona: 'acknowledged', path: `/reports/${data.ids.seekerApplicationId}`,
     checks: [blocks('面试时间', '集合地点', '证件清单'), tapTall('#app [role=checkbox], #app a')] },
@@ -315,36 +337,40 @@ const STATES = [
   { app: 'seeker', screen: 'recommendations', state: 'error', persona: 'recommended', path: '/recommendations', rules: [{ url: '/seeker/recommendations', action: 'fail' }], checks: [has('重新加载')] },
   { app: 'seeker', screen: 'recommendations', state: 'submitting', persona: 'recommended', path: '/recommendations', rules: [{ url: DECIDE_API, action: 'hang' }],
     steps: [click('去报名')], quick: true, checks: [spinning('提交中'), disabledBtn('不考虑')] },
+  // 被拒：轻提示在步骤里确认（两秒就消失，会压住下面的字），等它消失后再截按钮置灰和卡片上的原因
   { app: 'seeker', screen: 'recommendations', state: 'rejected', persona: 'recommended', path: '/recommendations',
-    rules: [{ url: DECIDE_API, action: 'respond', body: refuse('LC_4003', '你已报名岗位，面试结果出来前不能报名其他岗位') }], steps: [click('去报名')], quick: true,
-    checks: [idle, `document.querySelector('.van-toast')?.innerText.includes('不能报名其他岗位') ? '' : '被拒之后没有轻提示写明原因'`] },
+    rules: [{ url: DECIDE_API, action: 'respond', body: refuse('LC_4003', '你已报名岗位，面试结果出来前不能报名其他岗位') }],
+    steps: [click('去报名'), `(async () => { await ${wait(400)}; if (!document.querySelector('.van-toast')?.innerText.includes('不能报名其他岗位')) throw new Error('被拒之后没有轻提示写明原因')
+      await ${wait(2600)}; if ([...document.querySelectorAll('.van-toast')].some((t) => t.getClientRects().length)) throw new Error('轻提示还没消失') })()`],
+    checks: [idle, disabledBtn('去报名'), has('暂时不能报名：你已报名岗位，面试结果出来前不能报名其他岗位')] },
   { app: 'seeker', screen: 'recommendations', state: 'decline-confirm', persona: 'recommended', path: '/recommendations', rules: [{ url: DECIDE_API, action: 'hang' }], steps: [click('不考虑')] },
   { app: 'seeker', screen: 'recommendations', state: 'locked', persona: 'acknowledged', path: '/recommendations', rules: [{ url: '/seeker/recommendations', action: 'respond', body: fakeRecs }],
     checks: [disabledBtn('去报名'), has('面试结果出来前不能报名其他岗位')] },
   // 我的台账：四个分段，报名和入职记录带时间线
   { app: 'seeker', screen: 'ledger', state: 'normal', persona: 'veteran', path: '/ledger?tab=work', checks: [tabUnderline, cardTags, nodesLabeled] },
   { app: 'seeker', screen: 'ledger', state: 'normal', persona: 'veteran', path: '/ledger?tab=work', width: NARROW, checks: [tabUnderline, cardTags] },
-  { app: 'seeker', screen: 'ledger', state: 'pay', persona: 'veteran', path: '/ledger?tab=pay', checks: [tabUnderline] },
+  { app: 'seeker', screen: 'ledger', state: 'pay', persona: 'veteran', path: '/ledger?tab=pay', checks: [tabUnderline, has('实发'), has('应发')] },
   { app: 'seeker', screen: 'ledger', state: 'apply', persona: 'veteran', path: '/ledger', rules: [{ url: '/seeker/ledger', action: 'respond', body: fakeLedger }],
-    checks: [cardCount(5), cardTags, nodesLabeled, tabUnderline] },
+    checks: [cardCount(5), cardTags, nodesLabeled, tabUnderline, has('办理入职超时'), hasNot('CONFIRM_TIMEOUT'), hasNot('RELEASE_MANUAL'), hasNot('BROKER_SLA_TIMEOUT')] },
   { app: 'seeker', screen: 'ledger', state: 'interview', persona: 'veteran', path: '/ledger?tab=interview', rules: [{ url: '/seeker/ledger', action: 'respond', body: fakeLedger }],
     checks: [cardCount(3), cardTags] },
   { app: 'seeker', screen: 'ledger', state: 'work', persona: 'veteran', path: '/ledger?tab=work', rules: [{ url: '/seeker/ledger', action: 'respond', body: fakeLedger }],
     checks: [cardCount(2), cardTags, nodesLabeled] },
-  { app: 'seeker', screen: 'ledger', state: 'empty', persona: 'veteran', path: '/ledger', checks: [has('还没有报名记录'), onePrimary] },
+  { app: 'seeker', screen: 'ledger', state: 'empty', persona: 'veteran', path: '/ledger', checks: [has('还没有报名记录'), onePrimary, tabUnderline] },
   { app: 'seeker', screen: 'ledger', state: 'loading', persona: 'veteran', path: '/ledger', rules: [{ url: '/seeker/ledger', action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'ledger', state: 'error', persona: 'veteran', path: '/ledger', rules: [{ url: '/seeker/ledger', action: 'fail' }], checks: [has('重新加载')] },
   // 我的工作：在岗 / 已报名（待面试、待签约入职）/ 还没报名（自由求职、专属服务）/ 已离职
-  { app: 'seeker', screen: 'work', state: 'employed', persona: 'veteran', path: '/work', checks: [has('岗位信息'), tapTall('#app .pad a')] },
+  { app: 'seeker', screen: 'work', state: 'employed', persona: 'veteran', path: '/work', checks: [has('岗位信息'), tapTall('#app .pad a'), tapArea('#app .nav-link')] },
   { app: 'seeker', screen: 'work', state: 'employed', persona: 'veteran', path: '/work', width: NARROW },
-  { app: 'seeker', screen: 'work', state: 'interview', persona: 'acknowledged', path: '/work', checks: [has('等待面试'), tapTall('#app .pad a, #app .pad button')] },
+  { app: 'seeker', screen: 'work', state: 'interview', persona: 'acknowledged', path: '/work', checks: [has('等待面试'), tapTall('#app .pad a, #app .pad button'), tapArea('#app .nav-link'), addrStacked] },
   { app: 'seeker', screen: 'work', state: 'signing', persona: 'confirmed', path: '/work', checks: [bottomBar('去签署劳动合同'), onePrimary] },
   { app: 'seeker', screen: 'work', state: 'seeking', persona: 'public', path: '/work', checks: [nodesLabeled, bottomBar('AI 问薪'), onePrimary] },
   { app: 'seeker', screen: 'work', state: 'seeking-private', persona: 'registered', path: '/work', checks: [nodesLabeled, bottomBar('AI 问薪')] },
   { app: 'seeker', screen: 'work', state: 'seeking-private', persona: 'registered', path: '/work', width: NARROW, checks: [nodesLabeled] },
   { app: 'seeker', screen: 'work', state: 'resigned', persona: 'public', path: '/work', rules: [{ url: '/seeker/work', action: 'respond', body: pastWork }],
     checks: [has('历史任职'), has('已离职'), bottomBar('AI 问薪'), tapTall('#app .pad a')] },
-  { app: 'seeker', screen: 'work', state: 'resigned', persona: 'public', path: '/work', width: NARROW, rules: [{ url: '/seeker/work', action: 'respond', body: pastWork }] },
+  { app: 'seeker', screen: 'work', state: 'resigned', persona: 'public', path: '/work', width: NARROW, rules: [{ url: '/seeker/work', action: 'respond', body: pastWork }],
+    checks: [`(() => { const e = [...document.querySelectorAll('#app span')].find((x) => x.innerText.includes('KS-0077')); return e && e.getClientRects().length === 1 ? '' : '工号被折成两行' })()`] },
   { app: 'seeker', screen: 'work', state: 'loading', persona: 'veteran', path: '/work', rules: [{ url: '/seeker/work', action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'work', state: 'error', persona: 'veteran', path: '/work', rules: [{ url: '/seeker/work', action: 'fail' }], checks: [has('重新加载')] },
 ]

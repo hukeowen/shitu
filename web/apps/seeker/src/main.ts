@@ -15,7 +15,7 @@ setDictOverrides({
   DomainTag: { PUBLIC: '自由求职', PRIVATE: '专属服务', TEMP_PRIVATE: '报名中' },
   UserStatus: { PUBLIC_SEEKING: '求职中', PRIVATE_PENDING: '顾问跟进中', PENDING_CONFIRM: '待签约入职', EMPLOYED: '在岗' },
   ApplicationStatus: { PENDING_CONFIRM: '待签约入职' },
-  // 我的台账里的结束原因
+  // 报名的结束原因（我的报备、我的台账）
   LifecycleEvent: { CONFIRM_TIMEOUT: '办理入职超时', RELEASE_MANUAL: '已开放全平台岗位', BROKER_SLA_TIMEOUT: '顾问超时未跟进，已开放全平台岗位' },
 })
 

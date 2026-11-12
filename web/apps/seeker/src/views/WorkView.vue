@@ -240,7 +240,8 @@ const cta = computed(() => {
           <section v-if="past" class="acard">
             <div class="acard-hd"><h4>历史任职</h4><span class="status-tag">已离职</span></div>
             <p class="h-t">{{ [past.companyName, past.projectName].filter(Boolean).join(' · ') || '—' }}</p>
-            <p class="item-meta">{{ dot(past.startDate) }} – {{ dot(past.endDate) }}<template v-if="past.jobTitle"> · {{ past.jobTitle }}</template><template v-if="past.employeeNo"> · 工号 {{ past.employeeNo }}</template></p>
+            <p class="item-meta">{{ dot(past.startDate) }} – {{ dot(past.endDate) }}</p>
+            <p v-if="past.jobTitle || past.employeeNo" class="item-meta">{{ past.jobTitle || '' }}<template v-if="past.jobTitle && past.employeeNo"> · </template><span v-if="past.employeeNo" class="nowrap">工号 {{ past.employeeNo }}</span></p>
             <dl class="home-meta g3">
               <div><dt>在职天数</dt><dd>{{ spanDays(past) }}</dd></div>
               <div><dt>入职</dt><dd>{{ formatServerTime(past.startDate, false).slice(5) }}</dd></div>
@@ -294,4 +295,5 @@ const cta = computed(() => {
 .more { display: flex; justify-content: center; min-height: 44px; margin: var(--space-2) 0 calc(var(--space-3) * -1); }
 .h-t { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
 .after { margin-top: var(--space-3); }
+.nowrap { white-space: nowrap; }
 </style>

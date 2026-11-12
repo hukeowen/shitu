@@ -2,8 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
-import { errorMessage, seekerApi, type MyRecommendation } from '@shitu/api-client'
-import { IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { errorMessage, isApiError, seekerApi, type MyRecommendation } from '@shitu/api-client'
+import { IconCircleExclamationPoint, IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useJourney } from '@/composables/useJourney'
 import { useAuthStore } from '@/stores/auth'
@@ -22,6 +22,8 @@ const loadError = ref('')
 const refreshing = ref(false)
 /** 正在提交的答复：哪一条、哪个按钮 */
 const busy = ref<{ id: number; act: 'accept' | 'decline' } | null>(null)
+/** 后端拒绝过的报名（如已有进行中的报名）：按钮置灰并把原因写在卡片上；下拉刷新后重新判断 */
+const refused = ref<Record<number, string>>({})
 
 async function load() {
   loadError.value = ''
@@ -40,6 +42,7 @@ function retry() {
 }
 if (!auth.profile) void auth.loadProfile().catch(() => undefined)
 async function onRefresh() {
+  refused.value = {}
   await load()
   refreshing.value = false
 }
@@ -74,7 +77,13 @@ async function accept(r: MyRecommendation) {
   } catch (e) {
     // 先复位再提示：提示出来时按钮不能还在转
     busy.value = null
-    showToast(errorMessage(e, '操作失败，请稍后重试'))
+    const msg = errorMessage(e, '操作失败，请稍后重试')
+    // 业务上被拒（不是网络问题）：再点也一样，置灰并留下原因；档案状态可能已变，顺手刷新
+    if (isApiError(e)) {
+      refused.value[r.id] = msg
+      void auth.loadProfile().catch(() => undefined)
+    }
+    showToast(msg)
   } finally {
     busy.value = null
   }
@@ -145,6 +154,7 @@ async function decline(r: MyRecommendation) {
               :tabindex="canOpen(r) ? 0 : undefined"
               @click="canOpen(r) && openJob(r)"
               @keydown.enter="canOpen(r) && openJob(r)"
+              @keydown.space.prevent="canOpen(r) && openJob(r)"
             >
               <div class="item-hd">
                 <h3>{{ r.jobTitle || '推荐岗位' }}</h3>
@@ -166,7 +176,7 @@ async function decline(r: MyRecommendation) {
                   :class="{ second: r.id !== firstPendingId }"
                   :loading="busy?.id === r.id && busy.act === 'accept'"
                   loading-text="提交中…"
-                  :disabled="appliedLock || (!!busy && !(busy.id === r.id && busy.act === 'accept'))"
+                  :disabled="appliedLock || !!refused[r.id] || (!!busy && !(busy.id === r.id && busy.act === 'accept'))"
                   @click="accept(r)"
                 >
                   去报名
@@ -175,6 +185,7 @@ async function decline(r: MyRecommendation) {
               <!-- 卡片上半部分已经能打开岗位，这颗不再单独占一个键盘焦点 -->
               <van-button v-else-if="r.decision === 'ACCEPTED'" class="act second" tabindex="-1" @click="openJob(r)">查看岗位</van-button>
             </div>
+            <p v-if="refused[r.id] && r.decision === 'PENDING'" class="why"><IconCircleExclamationPoint :size="16" />暂时不能报名：{{ refused[r.id] }}</p>
           </article>
           <p class="list-end">没有更多了</p>
         </template>
@@ -202,5 +213,7 @@ async function decline(r: MyRecommendation) {
 .rec-ft { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
 .rec-ft .item-meta { margin-top: 0; }
 .act { flex: none; }
+.why { display: flex; align-items: flex-start; gap: var(--space-1); margin-top: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--warning-text); }
+.why svg { flex: none; margin-top: 2px; }
 .second { border-color: var(--primary-line); color: var(--primary-text); }
 </style>

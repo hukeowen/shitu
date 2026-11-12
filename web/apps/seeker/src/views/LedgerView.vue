@@ -97,7 +97,7 @@ function openApp(a: LedgerApplication) {
 
       <div v-else class="pad stack">
         <template v-if="tab === 'apply'">
-          <article v-for="a in apps" :key="a.applicationId" class="acard tap" role="button" tabindex="0" @click="openApp(a)" @keydown.enter="openApp(a)">
+          <article v-for="a in apps" :key="a.applicationId" class="acard tap" role="button" tabindex="0" @click="openApp(a)" @keydown.enter="openApp(a)" @keydown.space.prevent="openApp(a)">
             <div class="item-hd">
               <h3>{{ a.jobTitle }}</h3>
               <span class="status-tag" :class="appTone(a)">{{ label('ApplicationStatus', a.status) }}</span>
@@ -125,7 +125,7 @@ function openApp(a: LedgerApplication) {
         </template>
 
         <template v-else-if="tab === 'interview'">
-          <article v-for="a in interviews" :key="a.applicationId" class="acard tap" role="button" tabindex="0" @click="openApp(a)" @keydown.enter="openApp(a)">
+          <article v-for="a in interviews" :key="a.applicationId" class="acard tap" role="button" tabindex="0" @click="openApp(a)" @keydown.enter="openApp(a)" @keydown.space.prevent="openApp(a)">
             <div class="item-hd">
               <h3>{{ a.jobTitle }}</h3>
               <span class="status-tag" :class="interviewTone(a)">{{ interviewText(a) }}</span>
@@ -171,10 +171,10 @@ function openApp(a: LedgerApplication) {
         </template>
 
         <template v-else>
-          <article v-for="p in pays" :key="p.payslipId" class="acard tap" role="button" tabindex="0" @click="router.push(`/payslips/${p.payslipId}`)" @keydown.enter="router.push(`/payslips/${p.payslipId}`)">
+          <article v-for="p in pays" :key="p.payslipId" class="acard tap" role="button" tabindex="0" @click="router.push(`/payslips/${p.payslipId}`)" @keydown.enter="router.push(`/payslips/${p.payslipId}`)" @keydown.space.prevent="router.push(`/payslips/${p.payslipId}`)">
             <div class="item-hd">
               <h3>{{ fmtMonth(p.payMonth) }}工资</h3>
-              <b class="pay">{{ fmtYuan(p.netPay) }}</b>
+              <span class="pay"><span>实发</span><b>{{ fmtYuan(p.netPay) }}</b></span>
             </div>
             <p class="item-sub">{{ p.companyName }}</p>
             <p class="item-meta">应发 {{ fmtYuan(p.grossPay) }}<template v-if="Number(p.advanceDeduct) > 0"> · 抵扣预支 {{ fmtYuan(p.advanceDeduct) }}</template></p>
@@ -202,5 +202,7 @@ function openApp(a: LedgerApplication) {
 .tl { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
 .tl::before { top: calc(var(--space-3) + 6px); }
 .tl-t .status-tag { margin-left: var(--space-2); vertical-align: 1px; }
-.pay { flex: none; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); line-height: 24px; color: var(--text-1); }
+.pay { flex: none; display: flex; align-items: baseline; gap: var(--space-2); line-height: 24px; }
+.pay span { font-size: var(--font-size-aux); color: var(--text-3); }
+.pay b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 </style>

@@ -169,8 +169,8 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .item-meta { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 /* 列表到底的提示 */
 .list-end { padding: var(--space-2) 0; font-size: var(--font-size-aux); color: var(--text-3); text-align: center; }
-/* 分段标签（van-tabs）：选中色和 2px 下划线来自主题变量，这里只管字号和下边线 */
-.seg-tabs { --van-tab-font-size: var(--font-size-body); }
+/* 分段标签（van-tabs）：选中色和 2px 下划线来自主题变量，这里管字号、下边线和下划线宽度（不宽过两个字的标签） */
+.seg-tabs { --van-tab-font-size: var(--font-size-body); --van-tabs-bottom-bar-width: 24px; }
 .seg-tabs .van-tabs__wrap { border-bottom: 1px solid var(--divider); }
 /* 正文段落 */
 .para { font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
