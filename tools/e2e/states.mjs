@@ -2,7 +2,7 @@
 // 用法：node states.mjs <输出目录> [--app seeker] [--only 名字里包含的一段]
 //   node states.mjs ../../.atw/tasks/<任务>/screenshots --app seeker
 // 文件名：<端>_<页面>_<状态>_<宽>x<高>.png。前提同 shots.mjs（后端、dev server、Chrome 9888、跑过 seed.mjs）。
-// 这里只看不写：会落库的接口（发起匹配、报名、投诉、答复顾问推荐、实名、申诉、保存简历）一律用 rules 拦住，不让请求真的发到后端。
+// 这里只看不写：会落库的接口（发起匹配、报名、投诉、答复顾问推荐、实名、申诉、保存简历、发起预支、工资申诉）一律用 rules 拦住，不让请求真的发到后端。
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -243,6 +243,89 @@ const fakeContracts = reply([{ ...pendingContract, signUrl: 'https://esign.examp
   fakeContract(5, 'DISSOLVED', { termStart: '2023-05-01', termEnd: '2024-04-30', createdAt: '2023-05-01T09:00:00', signedAt: '2023-05-01T10:30:00' })])
 const CONTRACT = `/contracts/${data.ids.contractId}`
 const resumePut = (action, body) => ({ url: RESUME_API, method: 'PUT', action, body })
+
+// ---- 工单 10：预支、工资条 ----
+const QUOTA_API = '/seeker/advance/quota'
+const ADV_API = '/seeker/advance'
+const DEBT_API = '/seeker/advance/debt-log'
+const SLIPS_API = '/seeker/payslips'
+const ADV = `/advance/${data.ids.seekerAdvanceId}`
+const SLIP = `/payslips/${data.ids.payslipId}`
+const SLIP_API = `/seeker/payslips/${data.ids.payslipId}`
+const SLIP_APPEALS_API = SLIP_API + '/appeals'
+// 额度：真实数据里的老员工本月机会用完了、还有一笔在审批，「可以发起」和「次数用满」用假数据（字段和后端 AdvancePolicy 返回的一样）
+const fakeQuota = (extra = {}) => reply({ eligible: true, reasons: [], dutyDays: 51, progressInCycle: 2, daysPerChance: 7, grantedThisMonth: 3, usedThisMonth: 1, remainingThisMonth: 2, monthlyLimit: 4, amount: 500, debt: 500, ...extra })
+const fakeAdv = (n, status, extra = {}) => ({ advanceId: 'YZ-SHOT-' + n, userId: 'U-SHOT', projectId: 'P-SHOT', amount: 500, bizMonth: '2026-11', status, repaidAmount: 0,
+  createdAt: `2026-11-0${n}T10:00:00`, allowedActions: [], projectName: '立讯精密昆山二期', ...extra })
+// 同一时间只会有一笔在审批，所以五种状态里审批中的只放一张
+const fakeAdvs = [fakeAdv(5, 'SITE_APPROVED'), fakeAdv(4, 'PAID', { paidAt: '2026-11-04T15:00:00' }),
+  fakeAdv(3, 'PARTIALLY_REPAID', { bizMonth: '2026-10', createdAt: '2026-10-08T10:00:00', paidAt: '2026-10-08T15:00:00', repaidAmount: 200 }),
+  fakeAdv(2, 'REPAID', { bizMonth: '2026-09', createdAt: '2026-09-08T10:00:00', paidAt: '2026-09-08T15:00:00', repaidAmount: 500 }), fakeAdv(1, 'REJECTED', { bizMonth: '2026-09', createdAt: '2026-09-01T10:00:00' })]
+// 欠款流水：拨款带预支单号，工资抵扣带工资条号（后端两张表的写法）
+const fakeDebtLog = reply([{ changeType: 'DEDUCT', amount: 200, balanceAfter: 800, payslipId: 'GZ-SHOT-1', createdAt: '2026-11-10T09:00:00' },
+  { changeType: 'PAYOUT', amount: 500, balanceAfter: 1000, advanceId: 'YZ-SHOT-4', createdAt: '2026-11-04T15:00:00' },
+  { changeType: 'PAYOUT', amount: 500, balanceAfter: 500, advanceId: 'YZ-SHOT-3', createdAt: '2026-10-08T15:00:00' }])
+const advHome = (quota, list = [fakeAdv(4, 'PAID', { paidAt: '2026-11-04T15:00:00' })]) => [{ url: QUOTA_API, action: 'respond', body: quota }, { url: ADV_API, method: 'GET', action: 'respond', body: reply(list) }]
+const advPost = (action, body) => ({ url: ADV_API, method: 'POST', action, body })
+const advRecords = (list, log) => [{ url: QUOTA_API, action: 'respond', body: fakeQuota({ debt: 800 }) }, { url: DEBT_API, action: 'respond', body: log }, { url: ADV_API, method: 'GET', action: 'respond', body: reply(list) }]
+const fakeDetail = (advance, approvals, ledger = []) => [{ url: ADV_API + '/' + advance.advanceId, action: 'respond', body: reply({ advance, approvals, ledger }) }]
+const approve = (step, at, opinion) => ({ step, decision: 'APPROVE', at, ...(opinion ? { opinion } : {}) })
+const partlyRepaid = fakeDetail(fakeAdvs[2], [approve('SITE', '2026-10-08T11:00:00', '出勤正常'), approve('PM', '2026-10-08T14:00:00', '同意'), approve('PAYOUT', '2026-10-08T15:00:00')],
+  [{ changeType: 'PAYOUT', amount: 500, balanceAfter: 500, advanceId: 'YZ-SHOT-3', createdAt: '2026-10-08T15:00:00' },
+    { changeType: 'DEDUCT', amount: 200, balanceAfter: 300, advanceId: 'YZ-SHOT-3', payslipId: 'GZ-SHOT-1', createdAt: '2026-11-10T09:00:00' }])
+const rejectedAdv = fakeDetail(fakeAdvs[4], [{ step: 'SITE', decision: 'REJECT', opinion: '本周有 2 天旷工，考勤核实后再申请', at: '2026-09-01T16:00:00' }])
+const fakeSlip = (n, payMonth, extra = {}) => ({ payslipId: 'GZ-SHOT-' + n, payMonth, companyName: '仕兔演示劳务', grossPay: 6200, socialInsurance: 420, incomeTax: 36.5, otherDeduct: 80, advanceDeduct: 0, netPay: 5663.5, ...extra })
+const fakeSlips = [fakeSlip(1, '2026-10', { advanceDeduct: 500, netPay: 5163.5 }), fakeSlip(2, '2026-09'), fakeSlip(3, '2026-08', { grossPay: 4200, otherDeduct: 0, netPay: 3743.5 })]
+const fakePayAppeal = (id, itemCode, status, extra = {}) => ({ id, payslipId: 'GZ-SHOT-1', itemCode, content: '本月出勤 26 天，应发应为 6200 元，工资条少算了 3 天加班。', status, createdAt: `2026-11-0${id}T10:00:00`, ...extra })
+const fakePayAppeals = reply([fakePayAppeal(2, 'OTHER_DEDUCT', 'REJECTED', { reply: '其他扣款为工衣押金，离职时退还。', handledAt: '2026-11-03T10:00:00' }),
+  fakePayAppeal(1, 'GROSS', 'RESOLVED', { reply: '已核实，少算的 3 天加班费在下月工资补发。', handledAt: '2026-11-02T10:00:00' })])
+// 工资条明细：读工资条、读申诉、提交申诉是三个地址 / 方法。申诉地址更长，排在前面
+const slipRules = (slip, appeals, post) => [...(post ? [{ url: SLIPS_API + '/' + slip.payslipId + '/appeals', method: 'POST', ...post }] : []),
+  { url: SLIPS_API + '/' + slip.payslipId + '/appeals', method: 'GET', action: 'respond', body: appeals }, { url: SLIPS_API + '/' + slip.payslipId, action: 'respond', body: reply(slip) }]
+// 真实工资条上有一条处理中的申诉（按钮置灰）；弹层用「没有申诉」的假回应打开，提交（POST）一律拦住
+const appealOpenRules = (post) => [{ url: SLIP_APPEALS_API, method: 'POST', ...post }, { url: SLIP_APPEALS_API, method: 'GET', action: 'respond', body: reply([]) }]
+const openAppeal = click('对这张工资条提出申诉')
+const fillPayAppeal = (text) => `(() => { const el = document.querySelector('.van-popup textarea'); el.value = ${JSON.stringify(text)}; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
+const sheetSubmit = `${findBtn('提交申诉', '.van-popup')}.click()`
+// 金额：一级文字色、600 字重、数字等宽、靠右贴边；页面上不出现薪资色；零散的金额数字都套了金额样式
+const moneyStyle = `(() => { const ink = ${tokenColor('--text-1')}, salary = ${tokenColor('--salary')}
+  const ms = [...document.querySelectorAll('#app .money, #app .sum-amt')].filter((e) => e.getClientRects().length)
+  if (!ms.length) return '页面上没有金额'
+  for (const e of ms) { const cs = getComputedStyle(e), t = e.textContent.trim()
+    if (cs.color !== ink) return '金额不是一级文字色：' + t + ' ' + cs.color
+    if (Number(cs.fontWeight) < 600) return '金额没有加粗：' + t
+    if (!cs.fontVariantNumeric.includes('tabular-nums')) return '金额数字不等宽：' + t
+    if (!e.matches('.money')) continue
+    const p = e.parentElement, pr = p.getBoundingClientRect().right - parseFloat(getComputedStyle(p).paddingRight)
+    if (!['right', 'end'].includes(cs.textAlign) || pr - e.getBoundingClientRect().right > 1) return '金额没有右对齐：' + t }
+  const loose = [...document.querySelectorAll('#app *')].find((e) => !e.children.length && e.getClientRects().length && /^[+−-]?¥?\\d[\\d,]*\\.\\d{2}$/.test(e.textContent.trim()) && !e.closest('.money, .sum-amt'))
+  if (loose) return '有金额没用金额样式：' + loose.textContent.trim()
+  const hot = [...document.querySelectorAll('#app *')].find((e) => e.getClientRects().length && getComputedStyle(e).color === salary)
+  return hot ? '金额用了薪资色：' + hot.textContent.trim().slice(0, 20) : '' })()`
+// 实发最醒目：实发是汇总卡的大数字，比页面上别的金额都大
+const netLoudest = (net) => `(() => { const big = document.querySelector('#app .sum-amt')
+  if (!big || big.textContent.trim() !== ${JSON.stringify(net)}) return '汇总卡的大数字不是实发 ${net}：' + (big?.textContent.trim() ?? '没有')
+  const size = parseFloat(getComputedStyle(big).fontSize)
+  const rival = [...document.querySelectorAll('#app .money')].find((e) => parseFloat(getComputedStyle(e).fontSize) >= size)
+  return rival ? '有别的金额和实发一样大：' + rival.textContent.trim() : '' })()`
+// 准入条件：n 项，每项都写「已满足 / 未满足」并带图标，其中 unmet 项未满足
+const admission = (n, unmet) => `(() => { const rows = [...document.querySelectorAll('#app .rules li')]
+  if (rows.length !== ${n}) return '准入条件应该有 ${n} 项，页面出了 ' + rows.length + ' 项'
+  const bare = rows.find((r) => !/已满足|未满足/.test(r.innerText) || !r.querySelector('svg'))
+  if (bare) return '准入条件有一项没写是否满足：' + bare.innerText.slice(0, 20)
+  const no = rows.filter((r) => r.innerText.includes('未满足')).length
+  return no === ${unmet} ? '' : '应该有 ${unmet} 项未满足，页面标了 ' + no + ' 项' })()`
+const enabledBtn = (text) => `(() => { const b = ${findBtn(text)}; return b && !b.disabled ? '' : '「${text}」应该能点' })()`
+const noBarWhy = `document.querySelector('#app .bottom-bar .bar-why') ? '能发起时按钮上方不该有原因：' + document.querySelector('#app .bottom-bar .bar-why').innerText : ''`
+// 本月额度四格：每格都有文字状态
+const slotTexts = (...want) => `(() => { const got = [...document.querySelectorAll('#app .slots .slot b')].map((b) => b.innerText.trim()).join('、'); return got === ${JSON.stringify(want.join('、'))} ? '' : '本月额度四格应该是 ${want.join('、')}，页面是 ' + got })()`
+// 审批流转：每个节点都带文字状态
+const advNodes = `(() => { const nodes = [...document.querySelectorAll('#app .tl li')]
+  if (nodes.length < 2) return '审批流转不是时间线'
+  const bad = nodes.find((e) => !/已完成|进行中|已驳回|已结束|未开始/.test(e.innerText))
+  return bad ? '节点只靠颜色区分：' + bad.innerText.slice(0, 20) : '' })()`
+const popupIdle = `document.querySelector('.van-popup .van-button--loading') ? '被拒之后「提交申诉」还在转' : ''`
+const lrowCount = (n) => `(() => { const c = document.querySelectorAll('#app .lrow').length; return c === ${n} ? '' : '应该有 ${n} 行，页面出了 ' + c + ' 行' })()`
 
 // 每项：端、页面、状态、人物、地址；width 不写是 390；rules 是接口拦截（见 cdp.mjs 的 intercept）；
 // lateRules 是页面打开并安静下来之后才生效的拦截（排在 rules 前面），用来截「先正常打开、再点按钮时接口挂住」；
@@ -554,6 +637,98 @@ const STATES = [
     checks: [idle, stays('#app .bottom-bar .why', '个人简介包含不允许的内容'), bottomBar('保存简历')] },
   { app: 'seeker', screen: 'resume', state: 'loading', persona: 'veteran', path: '/resume', rules: [{ url: RESUME_API, action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'resume', state: 'error', persona: 'veteran', path: '/resume', rules: [{ url: RESUME_API, action: 'fail' }], checks: [has('重新加载')] },
+  // 工单 10：预支首页。发起预支（POST）一律拦住，不落库
+  { app: 'seeker', screen: 'advance', state: 'normal', persona: 'veteran', path: '/advance', rules: [advPost('hang')],
+    checks: [admission(5, 1), disabledBtn('申请预支'), stays('#app .bottom-bar .bar-why', '本月暂无可用机会'), bottomBar('申请预支'), onePrimary, moneyStyle, bodyText, noLegacy, has('审批中'), has('累计在岗'), slotTexts('已用', '审批中', '未解锁', '未解锁')] },
+  { app: 'seeker', screen: 'advance', state: 'normal', persona: 'veteran', path: '/advance', width: NARROW, rules: [advPost('hang')], checks: [admission(5, 1), bottomBar('申请预支')] },
+  { app: 'seeker', screen: 'advance', state: 'bottom', persona: 'veteran', path: '/advance', rules: [advPost('hang')], steps: [toBottom] },
+  { app: 'seeker', screen: 'advance', state: 'eligible', persona: 'veteran', path: '/advance', rules: [advPost('hang'), ...advHome(fakeQuota())],
+    checks: [admission(5, 0), enabledBtn('申请预支'), noBarWhy, bottomBar('申请预支'), onePrimary, moneyStyle, slotTexts('已用', '可用', '可用', '未解锁'), has('再在岗 5 天获得下一次')] },
+  { app: 'seeker', screen: 'advance', state: 'eligible', persona: 'veteran', path: '/advance', width: NARROW, rules: [advPost('hang'), ...advHome(fakeQuota())], checks: [bottomBar('申请预支')] },
+  { app: 'seeker', screen: 'advance', state: 'capped', persona: 'veteran', path: '/advance',
+    rules: [advPost('hang'), ...advHome(fakeQuota({ eligible: false, reasons: ['本月已预支 4 次，已达上限'], grantedThisMonth: 4, usedThisMonth: 4, remainingThisMonth: 0 }))],
+    checks: [admission(5, 2), disabledBtn('申请预支'), stays('#app .bottom-bar .bar-why', '本月已预支 4 次，已达上限'), has('本月次数已用完，下月恢复'), slotTexts('已用', '已用', '已用', '已用'), bottomBar('申请预支')] },
+  // 还没入职的人：三项不满足
+  { app: 'seeker', screen: 'advance', state: 'not-employed', persona: 'registered', path: '/advance', rules: [advPost('hang')],
+    checks: [admission(5, 3), disabledBtn('申请预支'), stays('#app .bottom-bar .bar-why', '仅「已入职在岗」状态可以申请预支'), bottomBar('申请预支')] },
+  { app: 'seeker', screen: 'advance', state: 'loading', persona: 'veteran', path: '/advance', rules: [{ url: QUOTA_API, action: 'hang' }], checks: [spinnerPrimary, hasNot('申请预支')] },
+  { app: 'seeker', screen: 'advance', state: 'error', persona: 'veteran', path: '/advance', rules: [{ url: QUOTA_API, action: 'fail' }], checks: [has('重新加载'), hasNot('申请预支')] },
+  { app: 'seeker', screen: 'advance', state: 'confirm', persona: 'veteran', path: '/advance', rules: [advPost('hang'), ...advHome(fakeQuota())], steps: [click('申请预支')],
+    checks: [`document.querySelector('.van-dialog')?.innerText.includes('确认预支 ¥500.00') ? '' : '点「申请预支」没有弹出确认'`] },
+  // 提交中：确认之后再点一次底部按钮，只能发出一条请求
+  { app: 'seeker', screen: 'advance', state: 'submitting', persona: 'veteran', path: '/advance', rules: [advPost('hang'), ...advHome(fakeQuota())],
+    steps: [click('申请预支'), countXhr, `(async () => { ${findBtn('确认申请', '.van-dialog')}.click(); await ${wait(400)}; document.querySelector('#app .bottom-bar .van-button').click() })()`], quick: true,
+    checks: [spinning('提交中'), sentOnce] },
+  { app: 'seeker', screen: 'advance', state: 'rejected', persona: 'veteran', path: '/advance', rules: [advPost('respond', refuse('ADV_4001', '你有一笔预支正在审批中')), ...advHome(fakeQuota())],
+    steps: [click('申请预支'), `(async () => { ${findBtn('确认申请', '.van-dialog')}.click(); await ${toastGone('你有一笔预支正在审批中')} })()`],
+    checks: [idle, stays('#app .bottom-bar .bar-why', '没有提交成功：你有一笔预支正在审批中'), bottomBar('申请预支')] },
+  // 预支记录
+  { app: 'seeker', screen: 'advance-records', state: 'normal', persona: 'veteran', path: '/advance/records', checks: [tabUnderline, cardTags, moneyStyle, bodyText, noLegacy, has('当前欠款'), has('审批中')] },
+  { app: 'seeker', screen: 'advance-records', state: 'normal', persona: 'veteran', path: '/advance/records', width: NARROW, checks: [tabUnderline, cardTags] },
+  { app: 'seeker', screen: 'advance-records', state: 'all-status', persona: 'veteran', path: '/advance/records', rules: advRecords(fakeAdvs, fakeDebtLog),
+    checks: [cardCount(5), cardTags, moneyStyle, has('审批中'), has('已拨款'), has('部分抵扣'), has('已驳回'), has('已还清'), tabUnderline] },
+  { app: 'seeker', screen: 'advance-records', state: 'log', persona: 'veteran', path: '/advance/records', rules: advRecords(fakeAdvs, fakeDebtLog), steps: [clickTab('欠款流水')],
+    checks: [lrowCount(3), moneyStyle, has('+¥500.00'), has('−¥200.00'), has('结余 ¥800.00'), has('工资条 GZ-SHOT-1'), tabUnderline] },
+  { app: 'seeker', screen: 'advance-records', state: 'log', persona: 'veteran', path: '/advance/records', width: NARROW, rules: advRecords(fakeAdvs, fakeDebtLog), steps: [clickTab('欠款流水')] },
+  { app: 'seeker', screen: 'advance-records', state: 'empty', persona: 'registered', path: '/advance/records', checks: [has('还没有预支记录'), onePrimary, tabUnderline] },
+  { app: 'seeker', screen: 'advance-records', state: 'log-empty', persona: 'registered', path: '/advance/records', steps: [clickTab('欠款流水')], checks: [has('暂无欠款流水')] },
+  { app: 'seeker', screen: 'advance-records', state: 'loading', persona: 'veteran', path: '/advance/records', rules: [{ url: ADV_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'advance-records', state: 'error', persona: 'veteran', path: '/advance/records', rules: [{ url: ADV_API, action: 'fail' }], checks: [has('重新加载')] },
+  // 审批进度
+  { app: 'seeker', screen: 'advance-progress', state: 'normal', persona: 'veteran', path: ADV, checks: [blocks('预支金额', '审批流转', '还款计划'), advNodes, moneyStyle, bodyText, noLegacy, has('进行中'), has('未开始')] },
+  { app: 'seeker', screen: 'advance-progress', state: 'normal', persona: 'veteran', path: ADV, width: NARROW, checks: [advNodes] },
+  { app: 'seeker', screen: 'advance-progress', state: 'just-submitted', persona: 'veteran', path: ADV + '?new=1', checks: [has('申请已提交')] },
+  { app: 'seeker', screen: 'advance-progress', state: 'repaying', persona: 'veteran', path: '/advance/YZ-SHOT-3', rules: partlyRepaid,
+    checks: [advNodes, moneyStyle, has('+¥500.00'), has('−¥200.00'), has('已还 40%'), has('审批意见：出勤正常'), has('本笔剩余 ¥300.00'), tapArea('#app .led a'), bodyText] },
+  { app: 'seeker', screen: 'advance-progress', state: 'repaying', persona: 'veteran', path: '/advance/YZ-SHOT-3', width: NARROW, rules: partlyRepaid, steps: [toBottom] },
+  { app: 'seeker', screen: 'advance-progress', state: 'rejected', persona: 'veteran', path: '/advance/YZ-SHOT-1', rules: rejectedAdv,
+    checks: [advNodes, has('驻场初审驳回'), has('已驳回'), has('已结束'), has('驳回意见：本周有 2 天旷工'), hasNot('还款计划'), bottomBar('返回预支首页'), onePrimary] },
+  { app: 'seeker', screen: 'advance-progress', state: 'not-found', persona: 'veteran', path: '/advance/YZ-NONE', checks: [has('预支申请不存在'), has('返回预支首页'), hasNot('重新加载')] },
+  { app: 'seeker', screen: 'advance-progress', state: 'loading', persona: 'veteran', path: ADV, rules: [{ url: ADV_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'advance-progress', state: 'error', persona: 'veteran', path: ADV, rules: [{ url: ADV_API, action: 'fail' }], checks: [has('重新加载'), hasNot('预支申请不存在')] },
+  // 我的工资
+  { app: 'seeker', screen: 'payslips', state: 'normal', persona: 'veteran', path: '/payslips', checks: [netLoudest('¥3,743.50'), moneyStyle, bodyText, noLegacy, has('实发工资'), has('应发'), has('扣款'), lrowCount(1), tapTall('#app .lrow')] },
+  { app: 'seeker', screen: 'payslips', state: 'normal', persona: 'veteran', path: '/payslips', width: NARROW, checks: [moneyStyle] },
+  { app: 'seeker', screen: 'payslips', state: 'months', persona: 'veteran', path: '/payslips', rules: [{ url: SLIPS_API, action: 'respond', body: reply(fakeSlips) }],
+    checks: [netLoudest('¥5,163.50'), lrowCount(3), moneyStyle, has('预支抵扣'), has('−¥500.00'), has('抵扣预支 ¥500.00'), has('−¥1,036.50')] },
+  { app: 'seeker', screen: 'payslips', state: 'months', persona: 'veteran', path: '/payslips', width: NARROW, rules: [{ url: SLIPS_API, action: 'respond', body: reply(fakeSlips) }], steps: [toBottom] },
+  { app: 'seeker', screen: 'payslips', state: 'empty', persona: 'registered', path: '/payslips', checks: [has('还没有工资条'), hasNot('¥')] },
+  { app: 'seeker', screen: 'payslips', state: 'loading', persona: 'veteran', path: '/payslips', rules: [{ url: SLIPS_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'payslips', state: 'error', persona: 'veteran', path: '/payslips', rules: [{ url: SLIPS_API, action: 'fail' }], checks: [has('重新加载')] },
+  // 工资条明细：真实这张有一条处理中的申诉，申诉按钮置灰并写原因
+  { app: 'seeker', screen: 'payslip-detail', state: 'normal', persona: 'veteran', path: SLIP, rules: [{ url: SLIP_APPEALS_API, method: 'POST', action: 'hang' }],
+    checks: [blocks('实发工资', '应发项', '扣款项', '我的申诉'), netLoudest('¥3,743.50'), moneyStyle, bodyText, noLegacy, disabledBtn('申诉处理中'), stays('#app .bottom-bar .bar-why', '已有一条申诉在处理中，请等待公司回复'), bottomBar('申诉处理中'), has('扣款合计'), has('−456.50')] },
+  { app: 'seeker', screen: 'payslip-detail', state: 'normal', persona: 'veteran', path: SLIP, width: NARROW, rules: [{ url: SLIP_APPEALS_API, method: 'POST', action: 'hang' }], checks: [moneyStyle, bottomBar('申诉处理中')] },
+  { app: 'seeker', screen: 'payslip-detail', state: 'advance-deduct', persona: 'veteran', path: '/payslips/GZ-SHOT-1', rules: slipRules(fakeSlips[0], fakePayAppeals, { action: 'hang' }),
+    checks: [blocks('实发工资', '应发项', '扣款项', '我的申诉'), netLoudest('¥5,163.50'), moneyStyle, has('发薪日系统自动抵扣已到账的薪资预支'), has('查看预支记录与欠款'), has('公司回复'), has('未受理'), has('已受理'),
+      enabledBtn('对这张工资条提出申诉'), noBarWhy, bottomBar('对这张工资条提出申诉'), onePrimary] },
+  { app: 'seeker', screen: 'payslip-detail', state: 'advance-deduct', persona: 'veteran', path: '/payslips/GZ-SHOT-1', width: NARROW, rules: slipRules(fakeSlips[0], fakePayAppeals, { action: 'hang' }), steps: [toBottom] },
+  { app: 'seeker', screen: 'payslip-detail', state: 'not-found', persona: 'veteran', path: '/payslips/GZ-NONE', checks: [has('工资条不存在'), has('返回我的工资'), hasNot('重新加载')] },
+  { app: 'seeker', screen: 'payslip-detail', state: 'loading', persona: 'veteran', path: SLIP, rules: [{ url: SLIP_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'payslip-detail', state: 'error', persona: 'veteran', path: SLIP, rules: [{ url: SLIP_APPEALS_API, action: 'respond', body: reply([]) }, { url: SLIP_API, action: 'fail' }], checks: [has('重新加载'), hasNot('工资条不存在')] },
+  // 工资申诉弹层
+  { app: 'seeker', screen: 'payslip-appeal', state: 'normal', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal],
+    checks: [`document.querySelector('.van-popup .van-cell-group .van-field textarea') ? '' : '说明情况不在单元格组里'`, tapArea('.van-popup .sheet-x'), tapTall('.van-popup .chip-tap'), bodyText,
+      `parseFloat(getComputedStyle(document.querySelector('.van-popup textarea')).fontSize) >= 16 ? '' : '输入框的字小于 16px'`, `document.querySelectorAll('.van-popup .chip-tap').length === 7 ? '' : '可选的项目不是 7 个'`] },
+  { app: 'seeker', screen: 'payslip-appeal', state: 'normal', persona: 'veteran', path: SLIP, width: NARROW, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal] },
+  { app: 'seeker', screen: 'payslip-appeal', state: 'selected', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。')],
+    checks: [`document.querySelectorAll('.van-popup .chip-tap[aria-pressed=true]').length === 1 && document.querySelector('.van-popup .chip-tap[aria-pressed=true] svg') && !document.querySelector('.van-popup .chip-tap[aria-pressed=false] svg') ? '' : '选中的项目没有勾（或选中了不止一个）'`] },
+  // 没选项目、说明太短：轻提示之外，原因写在对应字段下方；请求不发出去
+  { app: 'seeker', screen: 'payslip-appeal', state: 'no-item', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal, countXhr, `(async () => { ${sheetSubmit}; await ${toastGone('请选择有疑问的项目')} })()`],
+    checks: [stays('.van-popup .fhint--err', '请选择有疑问的项目'), `window.__sent === 0 ? '' : '没选项目也把请求发出去了'`, popupIdle] },
+  { app: 'seeker', screen: 'payslip-appeal', state: 'too-short', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }),
+    steps: [openAppeal, click('其他扣款'), fillPayAppeal('不对'), countXhr, `(async () => { ${sheetSubmit}; await ${toastGone('请至少用 5 个字说明问题')} })()`],
+    checks: [fieldError('请至少用 5 个字说明问题'), `window.__sent === 0 ? '' : '说明太短也把请求发出去了'`] },
+  { app: 'seeker', screen: 'payslip-appeal', state: 'submitting', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }),
+    steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), countXhr, clickTwice('提交申诉', '.van-popup')], quick: true,
+    checks: [`document.querySelector('.van-popup .van-button--loading') ? '' : '提交中「提交申诉」没有转圈'`, sentOnce] },
+  { app: 'seeker', screen: 'payslip-appeal', state: 'rejected', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'respond', body: refuse('SYS_4000', '请用 5–500 个字说明问题') }),
+    steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), `(async () => { ${sheetSubmit}; await ${toastGone('请用 5–500 个字说明问题')} })()`],
+    checks: [popupIdle, stays('.van-popup .tipbar--danger', '没有提交成功：请用 5–500 个字说明问题'), bodyText] },
+  // 已有一条在处理（SYS_4090）：弹层关掉，回到页面
+  { app: 'seeker', screen: 'payslip-appeal', state: 'conflict', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'respond', body: refuse('SYS_4090', '这张工资条已有处理中的申诉') }),
+    steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), `(async () => { ${sheetSubmit}; await ${toastGone('这张工资条已有处理中的申诉')} })()`],
+    checks: [`[...document.querySelectorAll('.van-popup')].some((p) => p.getClientRects().length) ? '已有申诉在处理时弹层没有关掉' : ''`] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

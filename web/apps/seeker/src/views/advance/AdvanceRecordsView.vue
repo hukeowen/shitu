@@ -2,8 +2,9 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type AdvanceRow, type DebtLogEntry } from '@shitu/api-client'
+import { IconInbox, IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
-import { ADVANCE_TAG_CLASS, OUTSTANDING, inReview, repaidRatio, stageText, unpaid } from '@/utils/advance'
+import { ADVANCE_TONE, OUTSTANDING, inReview, repaidRatio, stageText, unpaid } from '@/utils/advance'
 import { fmtYuan } from '@/utils/format'
 import { formatServerTime } from '@/utils/time'
 
@@ -40,6 +41,10 @@ async function load() {
   }
 }
 void load()
+function retry() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   await load()
   refreshing.value = false
@@ -59,6 +64,7 @@ const LOG_TEXT: Record<DebtLogEntry['changeType'], { t: string; sign: 1 | -1 }> 
   DEDUCT: { t: '发薪日工资抵扣', sign: -1 },
   WRITE_OFF: { t: '离职结清 / 核销', sign: -1 },
 }
+const open = (a: AdvanceRow) => router.push(`/advance/${a.advanceId}`)
 function logRef(e: DebtLogEntry): string {
   if (e.advanceId) return `预支单 ${e.advanceId}`
   if (e.payslipId) return `工资条 ${e.payslipId}`
@@ -70,101 +76,115 @@ function logRef(e: DebtLogEntry): string {
   <div class="advr">
     <AppBar title="预支记录" fallback="/advance" />
 
-    <div class="pad-x" style="padding-top: 12px">
-      <section class="acard sumc">
-        <div><span>累计到账</span><b class="num">{{ fmtYuan(summary.total) }}</b></div>
-        <div><span>已抵扣</span><b class="num">{{ fmtYuan(summary.repaid) }}</b></div>
-        <div><span>当前欠款</span><b class="num owe">{{ fmtYuan(summary.owed) }}</b></div>
-      </section>
-    </div>
-    <div class="atabs tabs2" role="tablist">
-      <button type="button" role="tab" :aria-selected="tab === 'records'" :class="{ on: tab === 'records' }" @click="tab = 'records'">预支记录 <span class="mono">{{ list.length }}</span></button>
-      <button type="button" role="tab" :aria-selected="tab === 'log'" :class="{ on: tab === 'log' }" @click="tab = 'log'">欠款流水 <span class="mono">{{ log.length }}</span></button>
+    <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+    <div v-else-if="loadError" class="state-block">
+      <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">加载失败</div>
+      <div class="state-block-d">{{ loadError }}</div>
+      <van-button type="primary" @click="retry">重新加载</van-button>
     </div>
 
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-      <div class="pad stack body">
-        <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-        <div v-else-if="loadError" class="page-state">
-          <van-empty image="error" :description="loadError">
-            <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-          </van-empty>
-        </div>
-
-        <template v-else-if="tab === 'records'">
-          <template v-if="list.length">
-            <article v-for="a in list" :key="a.advanceId" class="acard rec" :class="{ dim: a.status === 'REPAID' || a.status === 'REJECTED' }" @click="router.push(`/advance/${a.advanceId}`)">
-              <div class="row-b" style="margin-bottom: 8px">
-                <span class="rt"><b class="num">{{ fmtYuan(a.amount) }}</b><span class="mono t-xs">{{ a.advanceId }}</span></span>
-                <span class="tag" :class="ADVANCE_TAG_CLASS[a.status]">{{ inReview(a) ? '审批中' : label('AdvanceStatus', a.status) }}</span>
-              </div>
-              <dl>
-                <div class="kv"><dt>申请时间</dt><dd class="num">{{ formatServerTime(a.createdAt) }}</dd></div>
-                <div v-if="a.paidAt" class="kv"><dt>到账时间</dt><dd class="num">{{ formatServerTime(a.paidAt) }}</dd></div>
-                <div class="kv"><dt>{{ inReview(a) ? '当前节点' : '状态' }}</dt><dd>{{ stageText(a.status) }}</dd></div>
-              </dl>
-              <div v-if="PAID_OUT.includes(a.status)" class="repay">
-                <div class="row-b t-xs">
-                  <span>已抵扣 <b class="num strong">{{ fmtYuan(a.repaidAmount || 0) }}</b> / {{ fmtYuan(a.amount) }}</span>
-                  <span v-if="OUTSTANDING.includes(a.status)" class="owe-t">待抵扣 {{ fmtYuan(unpaid(a)) }}</span>
-                  <span v-else class="ok-t">已还清</span>
-                </div>
-                <div class="bar" style="margin-top: 5px"><i :class="a.status === 'REPAID' ? 'ok' : 'sig'" :style="{ width: `${Math.round(repaidRatio(a) * 100)}%` }"></i></div>
-              </div>
-            </article>
-          </template>
-          <div v-else class="page-state">
-            <van-empty description="还没有预支记录">
-              <van-button round type="primary" size="small" @click="router.replace('/advance')">去看看预支额度</van-button>
-            </van-empty>
-          </div>
-        </template>
-
-        <template v-else>
-          <section v-if="log.length" class="acard list">
-            <div v-for="(e, i) in log" :key="i" class="lrow lg">
-              <div class="lt">
-                <b>{{ LOG_TEXT[e.changeType]?.t ?? e.changeType }}</b>
-                <span>{{ formatServerTime(e.createdAt) }}<template v-if="logRef(e)"> · {{ logRef(e) }}</template></span>
-              </div>
-              <div class="lv">
-                <b class="num" :class="(LOG_TEXT[e.changeType]?.sign ?? -1) > 0 ? 'plus' : 'minus'">{{ fmtYuan(Math.abs(Number(e.amount)) * (LOG_TEXT[e.changeType]?.sign ?? -1), true) }}</b>
-                <span class="t-xs num">结余 {{ fmtYuan(e.balanceAfter) }}</span>
-              </div>
-            </div>
-          </section>
-          <div v-else class="page-state"><van-empty description="暂无欠款流水" /></div>
-        </template>
-
-        <div v-if="!loading && !loadError" class="note note--info">
-          <b>还款说明：</b>预支到账后于发薪日从工资中自动抵扣，无需主动还款；当月工资不足抵扣时先扣一部分，剩余欠款结转下月；<b>离职前须结清</b>，未结清部分从最后一笔工资中扣除。
-        </div>
-        <div class="page-bottom-gap"></div>
+    <template v-else>
+      <div class="pad-x top">
+        <section class="acard">
+          <div class="acard-hd"><h4>当前欠款</h4></div>
+          <div class="sum-amt">{{ fmtYuan(summary.owed) }}</div>
+          <dl class="sum-kv">
+            <div class="kv"><dt>累计到账</dt><dd class="money">{{ fmtYuan(summary.total) }}</dd></div>
+            <div class="kv"><dt>已抵扣</dt><dd class="money">{{ fmtYuan(summary.repaid) }}</dd></div>
+          </dl>
+        </section>
       </div>
-    </van-pull-refresh>
+      <van-tabs v-model:active="tab" sticky offset-top="44" shrink class="seg-tabs">
+        <van-tab name="records" :title="`预支记录 ${list.length}`" />
+        <van-tab name="log" :title="`欠款流水 ${log.length}`" />
+      </van-tabs>
+
+      <van-pull-refresh v-model="refreshing" class="body" @refresh="onRefresh">
+        <div class="pad stack">
+          <template v-if="tab === 'records'">
+            <template v-if="list.length">
+              <article v-for="a in list" :key="a.advanceId" class="acard tap" role="button" tabindex="0" @click="open(a)" @keydown.enter="open(a)" @keydown.space.prevent="open(a)">
+                <div class="item-hd">
+                  <h3>{{ stageText(a.status) }}</h3>
+                  <span class="status-tag" :class="ADVANCE_TONE[a.status]">{{ inReview(a) ? '审批中' : label('AdvanceStatus', a.status) }}</span>
+                </div>
+                <p class="item-meta code">申请单号 {{ a.advanceId }}</p>
+                <dl class="sum-kv">
+                  <div class="kv"><dt>预支金额</dt><dd class="money">{{ fmtYuan(a.amount) }}</dd></div>
+                  <div class="kv"><dt>申请时间</dt><dd>{{ formatServerTime(a.createdAt) }}</dd></div>
+                  <div v-if="a.paidAt" class="kv"><dt>到账时间</dt><dd>{{ formatServerTime(a.paidAt) }}</dd></div>
+                  <template v-if="PAID_OUT.includes(a.status)">
+                    <div class="kv"><dt>已抵扣</dt><dd class="money">{{ fmtYuan(a.repaidAmount || 0) }}</dd></div>
+                    <div v-if="OUTSTANDING.includes(a.status)" class="kv"><dt>待抵扣</dt><dd class="money">{{ fmtYuan(unpaid(a)) }}</dd></div>
+                  </template>
+                </dl>
+                <div v-if="PAID_OUT.includes(a.status)" class="repay">
+                  <div class="bar" role="progressbar" aria-label="已抵扣比例" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(repaidRatio(a) * 100)"><i :class="a.status === 'REPAID' ? 'ok' : 'sig'" :style="{ width: `${Math.round(repaidRatio(a) * 100)}%` }"></i></div>
+                  <p class="aux">{{ a.status === 'REPAID' ? '已还清' : `已抵扣 ${Math.round(repaidRatio(a) * 100)}%，剩余部分在发薪日自动抵扣` }}</p>
+                </div>
+              </article>
+              <p class="list-end">没有更多了</p>
+            </template>
+            <div v-else class="state-block">
+              <IconInbox :size="48" :stroke-width="1.5" />
+              <div class="state-block-t">还没有预支记录</div>
+              <div class="state-block-d">发起预支后，每一笔的审批和还款情况都在这里</div>
+              <van-button type="primary" @click="router.replace('/advance')">去看看预支额度</van-button>
+            </div>
+          </template>
+
+          <template v-else>
+            <template v-if="log.length">
+              <section class="acard list">
+                <div v-for="(e, i) in log" :key="i" class="lrow">
+                  <div class="lt">
+                    <b>{{ LOG_TEXT[e.changeType]?.t ?? e.changeType }}</b>
+                    <span>{{ formatServerTime(e.createdAt) }}</span>
+                    <span v-if="logRef(e)" class="ref">{{ logRef(e) }}</span>
+                  </div>
+                  <div class="lv">
+                    <b class="money">{{ fmtYuan(Math.abs(Number(e.amount)) * (LOG_TEXT[e.changeType]?.sign ?? -1), true) }}</b>
+                    <span>结余 {{ fmtYuan(e.balanceAfter) }}</span>
+                  </div>
+                </div>
+              </section>
+              <p class="list-end">没有更多了</p>
+            </template>
+            <div v-else class="state-block">
+              <IconInbox :size="48" :stroke-width="1.5" />
+              <div class="state-block-t">暂无欠款流水</div>
+              <div class="state-block-d">预支到账和每次工资抵扣都会记在这里</div>
+            </div>
+          </template>
+
+          <section class="tipbar">
+            <IconInfo :size="20" />
+            <div class="flex1"><div class="tipbar-d first"><b class="strong">还款说明：</b>预支到账后于发薪日从工资中自动抵扣，无需主动还款；当月工资不足抵扣时先扣一部分，剩余欠款结转下月；<b class="strong">离职前须结清</b>，未结清部分从最后一笔工资中扣除。</div></div>
+          </section>
+          <div class="page-bottom-gap"></div>
+        </div>
+      </van-pull-refresh>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.advr { min-height: 100vh; background: var(--surface-2); }
-.sumc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: var(--ink-900); border: 0; color: #fff; }
-.sumc span { display: block; font-size: 11px; color: rgba(255, 255, 255, .55); }
-.sumc b { display: block; font-size: 17px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sumc b.owe { color: var(--signal-300); }
-.tabs2 { margin-top: 12px; border-top: 1px solid var(--line); }
-.body { min-height: 50vh; align-content: start; }
-.page-state { padding-top: 30px; }
-.rec.dim { opacity: .82; }
-.rt { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.rt b { font-size: 16px; color: var(--ink-900); flex: none; }
-.rt .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.repay { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
-.owe-t { color: var(--signal); font-weight: 600; }
-.ok-t { color: var(--ok); font-weight: 600; }
+.advr { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
+.top { padding-top: var(--space-gap); padding-bottom: var(--space-gap); }
+.body { min-height: 50vh; }
+.tap { cursor: pointer; }
+.tap:active { background: var(--bg-hover); }
+.tap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.code { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.aux { margin-top: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.repay { margin-top: var(--space-2); }
 .list { padding: 0; overflow: hidden; }
-.lg .lt span { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lrow { align-items: flex-start; }
+.lt span { display: block; line-height: 20px; }
+.lt .ref { font-family: var(--font-mono); overflow-wrap: anywhere; }
 .lv { flex: none; text-align: right; }
-.lv b { display: block; font-size: 15px; }
-.lv .plus { color: var(--signal); }
-.lv .minus { color: var(--ok); }
+.lv b { display: block; font-size: var(--font-size-body); line-height: 22px; }
+.lv span { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tipbar-d.first { margin-top: 0; text-wrap: pretty; }
 </style>

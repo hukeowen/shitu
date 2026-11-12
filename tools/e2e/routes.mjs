@@ -72,9 +72,12 @@ const SEEKER = [
   ['/work', 'confirmed'],
   ['/work', 'public'],
   ['/advance', 'veteran'],
+  ['/advance', 'employedToday'], // 入职第 1 天：准入条件不满足，发起按钮置灰
   ['/advance/records', 'veteran'],
+  ['/advance/records', 'registered'], // 列表页另截空状态
   ['/advance/:id', 'veteran', (ids) => `/advance/${ids.seekerAdvanceId}`],
   ['/payslips', 'veteran'],
+  ['/payslips', 'registered'],
   ['/payslips/:id', 'veteran', (ids) => `/payslips/${ids.payslipId}`],
   ['/recommendations', 'recommended'],
   ['/recommendations', 'registered'],

@@ -37,7 +37,7 @@ ul, ol { list-style: none; }
 .acard-hd { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
 .acard-hd h4 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 24px; }
 
-/* 深色状态头：只剩还没迁移的页面（我的、工资、预支）在用，随那几页的工单删除 */
+/* 深色状态头：只剩还没迁移的「我的」在用，随那一页的工单删除 */
 .hero { padding: calc(12px + env(safe-area-inset-top)) var(--space-page) 20px; color: var(--text-on-primary); background: var(--text-1); }
 
 /* 白色身份头（首页） */
@@ -177,13 +177,6 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 /* 正文段落 */
 .para { font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
 
-/* 胶囊标签页 */
-.atabs { display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2) var(--space-page); background: var(--bg-card); border-bottom: 1px solid var(--divider); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.atabs::-webkit-scrollbar { height: 0; }
-.atabs button { flex: none; padding: 6px var(--space-3); border-radius: 20px; font-size: var(--font-size-aux); color: var(--text-2); background: var(--bg-fill); font-weight: var(--font-weight-medium); border: 0; }
-.atabs button.on { background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-semibold); }
-.atabs button .mono { margin-left: 2px; }
-
 /* 表单 */
 .field { display: block; margin-bottom: var(--space-4); }
 .field > label { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-2); margin-bottom: var(--space-2); }
@@ -243,3 +236,18 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .ta { width: 100%; min-height: 84px; padding: var(--space-2) var(--space-3); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-control); font: inherit; font-size: var(--font-size-body); line-height: 1.55; color: var(--text-1); box-sizing: border-box; outline: none; resize: none; -webkit-appearance: none; appearance: none; }
 .ta:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
 .ta::placeholder { color: var(--text-placeholder); }
+/* 金额：一级文字色加粗、右对齐、不折行；数字等宽。预支、工资条里的金额都用它，不用薪资色 */
+/* .kv dd 自带 500 字重，所以金额在键值行里要再点一次名 */
+.money, .kv dd.money { font-weight: var(--font-weight-semibold); color: var(--text-1); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 汇总卡：金额大数字，下面一组「分项 / 值」 */
+.sum-amt { font-size: 24px; font-weight: var(--font-weight-semibold); line-height: 32px; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.sum-note { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.sum-kv { margin-top: var(--space-3); border-top: 1px solid var(--divider); }
+/* 键值行里的长内容：标签在上、内容左对齐在下 */
+.kv.kv-stack { display: block; }
+.kv.kv-stack dd { margin-top: 2px; text-align: left; word-break: normal; overflow-wrap: anywhere; }
+/* 底部通栏按钮上方的一行原因：置灰的原因用提醒色，被拒的原因加 err 用危险色 */
+.bar-why { display: flex; justify-content: center; gap: var(--space-1); margin-bottom: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--warning-text); text-align: center; text-wrap: balance; }
+.bar-why svg { flex: none; margin-top: 2px; }
+.bar-why.err { color: var(--danger-text); }
+.bottom-bar-gap.with-why { height: calc(128px + env(safe-area-inset-bottom)); }
