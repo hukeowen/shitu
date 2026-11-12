@@ -11,7 +11,6 @@ declare module 'vue' {
     AcknowledgePopup: typeof import('./src/components/AcknowledgePopup.vue')['default']
     AppActions: typeof import('./src/components/AppActions.vue')['default']
     ApplicationCard: typeof import('./src/components/ApplicationCard.vue')['default']
-    BrandMark: typeof import('./src/components/BrandMark.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
     ConfirmOnboardPopup: typeof import('./src/components/ConfirmOnboardPopup.vue')['default']
     QrImage: typeof import('./src/components/QrImage.vue')['default']

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@shitu/api-client": "workspace:*",
+    "@shitu/ui-icons": "workspace:*",
     "@shitu/ui-mobile": "workspace:*",
     "@shitu/ui-tokens": "workspace:*",
     "pinia": "2.3.0",

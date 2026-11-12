@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- 与 ../src/BrandMark.vue 同一造型，四个应用的 vite publicDir 指向本目录；色值对应设计变量 primary、text-on-primary -->
+  <rect x="1" y="1" width="22" height="22" rx="6" fill="#2B6BFF"/>
+  <path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M14 12h3" stroke="#FFFFFF" stroke-opacity=".8" stroke-width="2" stroke-linecap="round"/>
+</svg>

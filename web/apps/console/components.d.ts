@@ -10,7 +10,6 @@ declare module 'vue' {
     AppActionButtons: typeof import('./src/components/site/AppActionButtons.vue')['default']
     AppActionDialogs: typeof import('./src/components/site/AppActionDialogs.vue')['default']
     ApplicantInsightDrawer: typeof import('./src/components/site/ApplicantInsightDrawer.vue')['default']
-    BrandMark: typeof import('./src/components/BrandMark.vue')['default']
     ClientSelect: typeof import('./src/components/ClientSelect.vue')['default']
     CompanyForm: typeof import('./src/components/CompanyForm.vue')['default']
     CountdownTag: typeof import('./src/components/CountdownTag.vue')['default']

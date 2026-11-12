@@ -6,10 +6,10 @@ export const SCOPES = {
   staff: ['web/apps/staff/src', 'web/apps/staff/index.html'],
   console: ['web/apps/console/src', 'web/apps/console/index.html'],
   ops: ['web/apps/ops/src', 'web/apps/ops/index.html'],
-  packages: ['web/packages/ui-tokens', 'web/packages/ui-mobile/src'],
+  packages: ['web/packages/ui-tokens', 'web/packages/ui-mobile/src', 'web/packages/ui-icons/src', 'web/packages/ui-icons/public/favicon.svg'],
 }
 
-export const SOURCE_EXTENSIONS = ['.vue', '.css', '.scss', '.ts', '.html']
+export const SOURCE_EXTENSIONS = ['.vue', '.css', '.scss', '.ts', '.html', '.svg']
 
 export const TOKENS_FILE = 'web/packages/ui-tokens/tokens.css'
 export const ELEMENT_THEME_FILE = 'web/packages/ui-tokens/element-theme.css'
@@ -34,7 +34,11 @@ export const LEGACY_TOKENS = [
  * 写死颜色白名单：确实需要真实色值的地方在这里登记，一行一个文件里的一个色值。
  * 例：{ file: 'web/apps/staff/src/utils/qr.ts', value: '#000000', reason: '二维码码点保持黑白，保证能扫' }
  */
-export const COLOR_ALLOWLIST = []
+const FAVICON = 'web/packages/ui-icons/public/favicon.svg'
+export const COLOR_ALLOWLIST = [
+  { file: FAVICON, value: '#2B6BFF', reason: 'favicon 是独立文件，读不到设计变量；对应 --primary' },
+  { file: FAVICON, value: '#FFFFFF', reason: 'favicon 是独立文件，读不到设计变量；对应 --text-on-primary' },
+]
 
 const TEXT = 4.5 // 正文
 const LARGE = 3 // 18px 及以上的加粗大字、图标和图形

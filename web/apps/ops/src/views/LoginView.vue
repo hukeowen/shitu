@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules, InputInstance } from 'element-plus'
 import { errorMessage, isApiError, logout, opsApi } from '@shitu/api-client'
+import { BrandMark } from '@shitu/ui-icons'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
 import { APP_TITLE, HOME_PATH } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -120,10 +121,7 @@ onMounted(() => {
   <div class="login">
     <section class="hero">
       <div class="brand">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--signal)" />
-          <path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
-        </svg>
+        <BrandMark :size="26" />
         <b>{{ APP_TITLE }}</b>
       </div>
       <div class="glow g1" />

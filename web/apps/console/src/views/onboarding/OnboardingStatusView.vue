@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, logout, tenantApi, useDict, type CompanyStatus, type UploadedFile } from '@shitu/api-client'
-import BrandMark from '@/components/BrandMark.vue'
+import { BrandMark } from '@shitu/ui-icons'
 import CompanyForm from '@/components/CompanyForm.vue'
 import DictTag from '@/components/DictTag.vue'
 import FileLink from '@/components/FileLink.vue'
@@ -96,7 +96,7 @@ async function doLogout() {
 <template>
   <div class="wrap">
     <header class="top">
-      <BrandMark />
+      <BrandMark :size="20" />
       <b class="brand">{{ APP_TITLE }}</b>
       <span class="spacer" />
       <span class="t-sm">{{ meStore.me?.name }}</span>

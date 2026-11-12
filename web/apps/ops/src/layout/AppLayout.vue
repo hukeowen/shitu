@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { logout, useDict } from '@shitu/api-client'
+import { BrandMark } from '@shitu/ui-icons'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
 import DictTags from '@/components/DictTags.vue'
 import { APP_TITLE, MENU, type MenuItem } from '@/router/menu'
@@ -52,10 +53,7 @@ onMounted(() => pending.refresh())
   <div class="shell">
     <aside class="side">
       <div class="brand">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--signal)" />
-          <path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
-        </svg>
+        <BrandMark :size="20" />
         <b>{{ APP_TITLE }}</b>
       </div>
       <nav class="nav">

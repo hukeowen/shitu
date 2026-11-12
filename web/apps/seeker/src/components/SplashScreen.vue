@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import BrandMark from './BrandMark.vue'
+import { BrandMark } from '@shitu/ui-icons'
 import { useChannelStore } from '@/stores/channel'
 
 /** S-01 启动页 · 渠道识别：扫码 / 分享链接进入时展示邀请方 */

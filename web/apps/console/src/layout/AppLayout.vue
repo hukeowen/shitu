@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { logout, useDict } from '@shitu/api-client'
-import BrandMark from '@/components/BrandMark.vue'
+import { BrandMark } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import MessageBell from '@/components/MessageBell.vue'
 import { visibleMenu } from '@/router/access'
@@ -36,7 +36,7 @@ async function doLogout() {
   <div class="shell">
     <aside class="side">
       <div class="brand">
-        <BrandMark />
+        <BrandMark :size="20" />
         <b>{{ APP_TITLE }}</b>
       </div>
       <div v-if="company" class="tenant">

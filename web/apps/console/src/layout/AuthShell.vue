@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import BrandMark from '@/components/BrandMark.vue'
+import { BrandMark } from '@shitu/ui-icons'
 import { APP_TITLE } from '@/router/menu'
 
 /** 登录 / 入驻页外框：左侧品牌区（产品预览）+ 右侧表单区 */
