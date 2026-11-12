@@ -65,6 +65,7 @@ export const CONTRAST_PAIRS = [
   { fg: '--text-1', bg: '--warning-soft', min: TEXT, use: '提示条正文' },
   { fg: '--text-1', bg: '--success-soft', min: TEXT, use: '提示条正文' },
   // 提醒填充色在白底上只有 2.6，不单独承载信息，所以不在这里；提醒图标用提醒文字色
+  { fg: '--text-on-primary', bg: '--text-1', min: TEXT, use: '申诉弹层里截图缩略图的删除角标（ComplaintPopup.vue 的 .shot-x）' },
   { fg: '--danger-solid', bg: '--bg-card', min: LARGE, use: '危险图标、角标' },
   { fg: '--success-solid', bg: '--bg-card', min: LARGE, use: '成功图标' },
   { fg: '--domain-private-text', bg: '--domain-private-bg', min: TEXT, use: '私域标签' },

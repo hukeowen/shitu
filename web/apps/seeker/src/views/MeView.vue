@@ -52,7 +52,10 @@ void journey.loadRecs().catch(() => undefined)
 const displayName = computed(() => (kyc.value?.kycStatus === 'VERIFIED' && kyc.value.realNameMasked ? kyc.value.realNameMasked : profile.value?.phoneMasked ?? ''))
 const avatarText = computed(() => (kyc.value?.kycStatus === 'VERIFIED' && kyc.value.realNameMasked ? kyc.value.realNameMasked.slice(0, 1) : '我'))
 
+// 资料没加载到（加载中、失败）时，和身份有关的几行不下「暂无合同」「尚未入职」这类结论
+const BLANK = '—'
 const contractDesc = computed(() => {
+  if (!profile.value) return BLANK
   const list = contracts.value?.filter((c) => c.status !== 'VOIDED')
   if (!list) return '电子合同永久留存'
   if (!list.length) return '暂无合同'
@@ -61,12 +64,17 @@ const contractDesc = computed(() => {
   return `${list.length} 份${eff ? ` · ${eff} 份生效中` : ''}`
 })
 const workDesc = computed(() => {
+  if (!profile.value) return BLANK
   const w = work.value
   if (w && !w.endDate && profile.value?.status === 'EMPLOYED') return `${w.projectName || w.jobTitle || '在岗'} · 在岗 ${w.dutyDays} 天`
   const s = profile.value?.status
   if (s === 'PENDING_INTERVIEW' || s === 'PENDING_CONFIRM') return `${label('UserStatus', s)} · 查看应聘信息`
   if (w?.endDate) return `已离职 · ${formatServerTime(w.endDate, false)}`
   return '尚未入职 · 所属公司在这里展示'
+})
+const advanceDesc = computed(() => {
+  if (!profile.value) return BLANK
+  return profile.value.status === 'EMPLOYED' ? '预支申请、审批进度与还款' : '历史预支与欠款流水'
 })
 const pendingRecs = computed(() => journey.pendingRecs.length)
 const pendingSign = computed(() => contracts.value?.some((c) => c.status === 'PENDING_SIGN') ?? false)
@@ -146,7 +154,7 @@ async function onLogout() {
         </router-link>
         <router-link to="/advance/records" class="lrow">
           <IconWallet :size="20" class="ic" />
-          <div class="lt"><b>预支记录</b><span>{{ profile?.status === 'EMPLOYED' ? '预支申请、审批进度与还款' : '历史预支与欠款流水' }}</span></div>
+          <div class="lt"><b>预支记录</b><span>{{ advanceDesc }}</span></div>
           <IconChevronRight :size="16" class="chev" />
         </router-link>
         <router-link to="/recommendations" class="lrow">

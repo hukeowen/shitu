@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, seekerApi, type InboxItem } from '@shitu/api-client'
@@ -22,7 +22,15 @@ const firstLoad = ref(true)
 const loadError = ref('')
 const refreshing = ref(false)
 const expanded = ref<Record<number, boolean>>({})
+const marking = ref(false)
+const readAllError = ref('')
 const PAGE_SIZE = 20
+
+const pageLoading = computed(() => firstLoad.value && loading.value)
+const pageFailed = computed(() => error.value && !items.value.length)
+const hasUnread = computed(() => items.value.some((x) => !x.read) || inbox.unread > 0)
+// 列表没出来、为空或没有未读时「全部已读」本来就点不了，直接置灰
+const readAllOff = computed(() => pageLoading.value || pageFailed.value || !items.value.length || !hasUnread.value)
 
 async function loadMore() {
   loading.value = true
@@ -43,8 +51,6 @@ async function loadMore() {
     firstLoad.value = false
   }
 }
-
-void loadMore()
 
 function retry() {
   firstLoad.value = true
@@ -83,14 +89,8 @@ async function open(m: InboxItem) {
   else expanded.value[m.id] = !expanded.value[m.id]
 }
 
-const marking = ref(false)
-const readAllError = ref('')
 async function readAll() {
-  if (marking.value) return
-  if (!items.value.some((x) => !x.read) && inbox.unread === 0) {
-    showToast('没有未读消息')
-    return
-  }
+  if (marking.value || readAllOff.value) return
   marking.value = true
   readAllError.value = ''
   try {
@@ -106,29 +106,31 @@ async function readAll() {
   }
 }
 
+void loadMore()
 </script>
 
 <template>
   <div class="msgs">
     <AppBar title="消息中心" fallback="/">
       <template #right>
-        <button type="button" class="bar-act all" :disabled="marking" @click="readAll"><van-loading v-if="marking" size="16" />全部已读</button>
+        <button type="button" class="bar-act all" :disabled="marking || readAllOff" @click="readAll"><van-loading v-if="marking" size="16" />全部已读</button>
       </template>
     </AppBar>
 
-    <div v-if="firstLoad && loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-    <div v-else-if="error && !items.length" class="state-block">
+    <div v-if="pageLoading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+    <div v-else-if="pageFailed" class="state-block">
       <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
       <div class="state-block-t">加载失败</div>
       <div class="state-block-d">{{ loadError }}</div>
       <van-button type="primary" @click="retry">重新加载</van-button>
     </div>
-    <van-pull-refresh v-show="!(firstLoad && loading) && !(error && !items.length)" v-model="refreshing" class="body" @refresh="onRefresh">
+    <van-pull-refresh v-show="!pageLoading && !pageFailed" v-model="refreshing" class="body" @refresh="onRefresh">
       <div class="pad stack">
         <section v-if="readAllError" class="tipbar tipbar--danger" role="alert">
           <IconTriangleExclamationPoint :size="20" />
           <div class="flex1"><div class="tipbar-d first">没有标记成功：{{ readAllError }}</div></div>
         </section>
+        <p v-if="items.length && !hasUnread" class="read-note">没有未读消息</p>
         <van-list
           v-model:loading="loading"
           v-model:error="error"
@@ -140,16 +142,17 @@ async function readAll() {
           class="acard list"
           @load="loadMore"
         >
-          <button v-for="m in items" :key="m.id" type="button" class="msg" :class="{ unread: !m.read, hi: m.priority >= 2 }" @click="open(m)">
-            <i class="msg-dot" :aria-label="m.read ? undefined : '未读'"></i>
+          <!-- 可点的是标题里的按钮，用伪元素铺满整行；按钮里只放文字，不放标题和段落 -->
+          <article v-for="m in items" :key="m.id" class="msg" :class="{ unread: !m.read, hi: m.priority >= 2 }">
+            <i class="msg-dot" aria-hidden="true"></i>
             <div class="flex1">
               <div class="msg-hd">
-                <h3>{{ m.title }}</h3>
+                <h3><button type="button" class="msg-open" @click="open(m)"><span v-if="!m.read" class="sr-only">未读：</span>{{ m.title }}</button></h3>
                 <time>{{ formatRelative(m.createdAt) }}</time>
               </div>
               <p class="msg-c" :class="{ open: expanded[m.id] }">{{ m.content }}</p>
             </div>
-          </button>
+          </article>
         </van-list>
         <div v-if="!loading && !items.length && !error" class="state-block">
           <IconBell :size="48" :stroke-width="1.5" />
@@ -172,7 +175,13 @@ async function readAll() {
 .all:disabled { color: var(--text-placeholder); }
 .list { padding: 0 var(--space-card); }
 .list :deep(.van-list__finished-text), .list :deep(.van-list__error-text), .list :deep(.van-list__loading) { font-size: var(--font-size-aux); color: var(--text-3); }
-.msg { display: flex; align-items: flex-start; gap: var(--space-2); width: 100%; min-height: 44px; padding: var(--space-3) 0; border: 0; border-bottom: 1px solid var(--divider); background: none; text-align: left; }
+.read-note { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.msg { position: relative; display: flex; align-items: flex-start; gap: var(--space-2); min-height: 44px; padding: var(--space-3) 0; border-bottom: 1px solid var(--divider); }
+.msg-open { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+.msg-open::after { content: ''; position: absolute; inset: 0; }
+.msg-open:focus-visible { outline: none; }
+.msg-open:focus-visible::after { outline: 2px solid var(--primary); outline-offset: -2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* 圆点占位固定，已读未读的标题左边对齐 */
 .msg-dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; }
 .msg.unread .msg-dot { background: var(--primary); }

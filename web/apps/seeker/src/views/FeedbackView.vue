@@ -139,7 +139,7 @@ const TONE: Record<FeedbackStatus, string> = { OPEN: 'status-tag--warning', REPL
               type="tel"
               label="回访电话（选填）"
               label-align="top"
-              placeholder="11 位手机号"
+              placeholder="如 13912345678"
               :formatter="fmtContact"
               data-field="contact"
               :error-message="errs.contact"
@@ -202,7 +202,10 @@ const TONE: Record<FeedbackStatus, string> = { OPEN: 'status-tag--warning', REPL
 .bottom-bar-gap { height: 80px; }
 .bottom-bar-gap.with-why { height: 128px; }
 .lbl { margin-top: var(--space-4); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); line-height: 20px; color: var(--text-2); }
-.opts { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); }
+/* 两列等宽：选中多出的勾在格子里放得下，不会把整片挤得重新折行 */
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-2); }
+.opts .chip-tap { width: 100%; }
+.opts .opt { justify-content: center; width: 100%; }
 /* 可选的小块：外层 44 高的点击区，选中除了变色还带勾 */
 .opt { padding: var(--space-1) var(--space-3); border: 1px solid var(--border); background: var(--bg-card); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
 .chip-tap[aria-pressed="true"] .opt { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
