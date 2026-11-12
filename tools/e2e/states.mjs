@@ -469,6 +469,29 @@ const dialogTwice = (text) => `(async () => { ${dialogBtn(text)}; await ${wait(3
 const staffMe = (status, extra = {}) => ({ url: TME_API, action: 'respond', body: reply({ memberId: 'M-SHOT', name: '王磊', phoneMasked: '138****0003', roles: ['SITE'], permissions: ['SITE_WORKBENCH'], operational: false,
   company: { companyId: 'C10001', name: '昆山仕兔演示劳务派遣有限公司', shortName: '仕兔演示劳务', status, ...extra } }) })
 
+// 驻场的两个全屏弹层（知悉推送 .ack、确权签约 .cf）和原因弹窗（.reason-dlg）都挂在 body 上，检查不限定在 #app 里
+const ACK_BTN = '确认知悉并推送', CF_BTN = '确认入职并发起电子签约'
+const fillAddr = `(() => { const el = document.querySelector('.ack textarea'); if (!el.value.trim()) { el.value = '昆山开发区前进东路 88 号 2 号门'; el.dispatchEvent(new Event('input', { bubbles: true })) } })()`
+const popSpin = (scope, text) => `(() => { const b = [...document.querySelectorAll('${scope} .van-button--loading')]; return b.length === 1 && b[0].innerText.includes(${JSON.stringify(text)}) ? '' : '提交中应当只有「${text}」在转，实际 ' + b.length + ' 个' })()`
+// 被拒之后：原因留在弹层里，提交按钮不转、置灰
+const popRejected = (scope, why, text) => `(() => { const w = document.querySelector('${scope} .bar-why, ${scope} .why'); if (!w?.getClientRects().length || !w.innerText.includes(${JSON.stringify(why)})) return '被拒的原因没有留在弹层里（${scope}）'
+  if (document.querySelector('${scope} .van-button--loading')) return '被拒之后按钮还在转'
+  const b = [...document.querySelectorAll('${scope} button')].find((x) => x.innerText.includes(${JSON.stringify(text)})); return b?.disabled ? '' : '被拒之后「${text}」没有置灰' })()`
+// 弹层底部的主按钮在这一屏里、不被手势条挡住
+const footInView = (scope) => `(() => { const b = document.querySelector('${scope} .foot .van-button'); if (!b) return '弹层没有底部按钮'
+  const r = b.getBoundingClientRect(); return r.bottom <= innerHeight && r.top > innerHeight / 2 ? '' : '弹层底部按钮不在屏幕下方' })()`
+// 弹层正文不小于 15px（说明、提示、键值；字段下的一行说明是辅助文字，不算）；可点的材料标签点击区不小于 44 高
+const popText = (scope) => `(() => { const bad = [...document.querySelectorAll('${scope} .note, ${scope} .tip, ${scope} .msg, ${scope} .kv dt, ${scope} .kv dd, ${scope} .bar-why, ${scope} .why')].find((e) => e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize) < 15)
+  return bad ? '弹层正文小于 15px（' + getComputedStyle(bad).fontSize + '）：' + bad.innerText.slice(0, 20) : '' })()`
+const popTaps = (scope) => `(() => { const small = [...document.querySelectorAll('${scope} button')].filter((b) => b.getClientRects().length && !b.closest('.van-nav-bar') && b.getBoundingClientRect().height < 44)
+  return small.length ? '点击区不到 44 高：' + small[0].innerText.slice(0, 10) : '' })()`
+const popLegacy = (scope) => `document.querySelector('${scope} .mono, ${scope} .num, ${scope} .van-icon:not(.van-nav-bar__arrow):not(.van-icon-arrow):not(.van-icon-arrow-left)') ? '弹层里还在用等宽数字类或 Vant 图标' : ''`
+// 材料标签选中前后宽度不变（点一下量、再点回去）
+const ackChipStable = `(async () => { const t = [...document.querySelectorAll('.ack .chip-tap')].find((x) => x.getAttribute('aria-pressed') === 'false'); if (!t) return '没有没选中的材料标签'
+  const w0 = t.getBoundingClientRect().width; t.click(); await ${wait(200)}; const w1 = t.getBoundingClientRect().width; t.click(); await ${wait(200)}
+  return Math.abs(w1 - w0) < 0.5 ? '' : '材料标签选中后宽度变了：' + w0.toFixed(1) + ' → ' + w1.toFixed(1) })()`
+const openCancel = [click('更多'), click('取消报名'), `${click('用户误操作报名')}`]
+
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
@@ -1015,6 +1038,26 @@ const STATES = [
   { app: 'staff', screen: 'notice', state: 'submitting', persona: 'site', path: '/notice', rules: sr(staffMe('PENDING_AUDIT')), lateRules: [{ url: TME_API, action: 'hang' }], steps: [countXhr, clickTwice('刷新状态')], quick: true, checks: [spinning('刷新中'), sentOnce] },
   { app: 'staff', screen: 'notice', state: 'refresh-failed', persona: 'site', path: '/notice', rules: sr(staffMe('PENDING_AUDIT')), lateRules: [{ url: TME_API, action: 'fail' }], steps: [click('刷新状态')],
     checks: [stays('#app .bar-why', '没有刷新成功'), idle] },
+  // 知悉推送弹层（工作台卡片的「知悉并推送」）
+  { app: 'staff', screen: 'ack-popup', state: 'normal', persona: 'site', path: '/', rules: sr(), steps: [click('知悉并推送')],
+    checks: [footInView('.ack'), popText('.ack'), popTaps('.ack'), popLegacy('.ack'), ackChipStable] },
+  { app: 'staff', screen: 'ack-popup', state: 'normal', persona: 'site', path: '/', width: NARROW, rules: sr(), steps: [click('知悉并推送')], checks: [footInView('.ack')] },
+  { app: 'staff', screen: 'ack-popup', state: 'submitting', persona: 'site', path: '/', rules: sr(), steps: [click('知悉并推送'), fillAddr, countXhr, clickTwice(ACK_BTN, '.ack')], quick: true,
+    checks: [sentOnce, popSpin('.ack', '推送中')] },
+  { app: 'staff', screen: 'ack-popup', state: 'rejected', persona: 'site', path: '/', rules: sr({ url: '/acknowledge', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
+    steps: [click('知悉并推送'), fillAddr, `${findBtn(ACK_BTN, '.ack')}.click()`, toastGone('该报名状态已变化，请刷新后重试')], checks: [popRejected('.ack', '该报名状态已变化，请刷新后重试', ACK_BTN), popText('.ack')] },
+  // 确权签约弹层（待确权分组卡片的「入职确权」）
+  { app: 'staff', screen: 'confirm-popup', state: 'normal', persona: 'site', path: '/todo?tab=confirm', rules: sr(), steps: [click('入职确权')],
+    checks: [footInView('.cf'), popText('.cf'), popTaps('.cf'), popLegacy('.cf')] },
+  { app: 'staff', screen: 'confirm-popup', state: 'normal', persona: 'site', path: '/todo?tab=confirm', width: NARROW, rules: sr(), steps: [click('入职确权')], checks: [footInView('.cf')] },
+  { app: 'staff', screen: 'confirm-popup', state: 'submitting', persona: 'site', path: '/todo?tab=confirm', rules: sr(), steps: [click('入职确权'), countXhr, clickTwice(CF_BTN, '.cf')], quick: true,
+    checks: [sentOnce, popSpin('.cf', '提交中')] },
+  { app: 'staff', screen: 'confirm-popup', state: 'rejected', persona: 'site', path: '/todo?tab=confirm', rules: sr({ url: '/confirm', action: 'respond', body: refuse('APP_4090', '该报名已超过确权时限') }),
+    steps: [click('入职确权'), `${findBtn(CF_BTN, '.cf')}.click()`, toastGone('该报名已超过确权时限')], checks: [popRejected('.cf', '该报名已超过确权时限', CF_BTN), popText('.cf')] },
+  // 原因弹窗（工作台「更多」→「取消报名」）
+  { app: 'staff', screen: 'reason-dialog', state: 'normal', persona: 'site', path: '/', rules: sr(), steps: openCancel, checks: [popText('.reason-dlg'), popTaps('.reason-dlg .rd')] },
+  { app: 'staff', screen: 'reason-dialog', state: 'rejected', persona: 'site', path: '/', rules: sr({ url: '/cancel', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
+    steps: [...openCancel, dialogBtn('确认取消'), toastGone('该报名状态已变化，请刷新后重试')], checks: [popRejected('.reason-dlg', '该报名状态已变化，请刷新后重试', '确认取消'), popText('.reason-dlg')] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
-import { errorMessage, tenantApi, useDict, type LaborContractView, type SiteApplication } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, useDict, type LaborContractView, type SiteApplication } from '@shitu/api-client'
 import QrImage from '@/components/QrImage.vue'
 import { CONTRACT_TONE } from '@/utils/actions'
 import { copyText } from '@/utils/clipboard'
@@ -17,6 +17,8 @@ const show = defineModel<boolean>('show', { required: true })
 const emit = defineEmits<{ done: []; rejected: [e: unknown] }>()
 /** 提交被拒的原因：留在提交按钮上方，轻提示消失后还看得到 */
 const submitError = ref('')
+/** 后端业务拒绝后提交按钮置灰；改了表单内容可以再提交 */
+const rejected = ref(false)
 const { label } = useDict()
 
 type Mode = 'current' | 'form' | 'result'
@@ -24,6 +26,7 @@ const mode = ref<Mode>('form')
 const form = reactive({ startDate: startOfDay(), employeeNo: '', termEnd: null as Date | null })
 const result = ref<LaborContractView | null>(null)
 const submitting = ref(false)
+watch(form, () => (rejected.value = false))
 
 function defaultTermEnd(start: Date): Date {
   return addDays(new Date(start.getFullYear() + 1, start.getMonth(), start.getDate()), -1)
@@ -109,6 +112,8 @@ async function submit() {
     emit('done')
   } catch (e) {
     submitError.value = errorMessage(e, '提交失败，请稍后重试')
+    submitting.value = false
+    rejected.value = isApiError(e)
     showToast(submitError.value)
     emit('rejected', e)
   } finally {
@@ -141,7 +146,7 @@ const full = (v?: string) => {
         <section class="who">
           <div class="avatar" :class="application.fromPublic ? 'avatar--t' : 'avatar--o'">{{ application.seekerName.slice(0, 1) }}</div>
           <div class="flex1">
-            <b>{{ application.seekerName }}<span v-if="application.phone" class="mono ph">{{ fmtPhone(application.phone) }}</span></b>
+            <b>{{ application.seekerName }}<span v-if="application.phone" class="ph">{{ fmtPhone(application.phone) }}</span></b>
             <span>{{ application.jobTitle ?? '—' }}<template v-if="application.projectName"> · {{ application.projectName }}</template></span>
           </div>
         </section>
@@ -155,14 +160,14 @@ const full = (v?: string) => {
             </div>
             <div v-if="current.signUrl" class="qr-wrap">
               <QrImage :url="current.signUrl" :size="180" alt="电子合同签署码" />
-              <p class="t-xs">请求职者用手机扫码签署，或复制链接发送给求职者</p>
-              <div class="mono link">{{ current.signUrl }}</div>
-              <van-button size="small" type="primary" plain class="copy" @click="copy(current.signUrl)">复制签署链接</van-button>
+              <p class="qr-tip">请求职者用手机扫码签署，或复制链接发送给求职者</p>
+              <div class="link">{{ current.signUrl }}</div>
+              <van-button type="primary" plain class="copy" @click="copy(current.signUrl)">复制签署链接</van-button>
             </div>
             <p v-else class="t-sm">签署链接暂不可用，可重发签约生成新的签署链接。</p>
             <dl>
-              <div class="kv"><dt>发起时间</dt><dd class="num">{{ full(current.createdAt) }}</dd></div>
-              <div class="kv"><dt>合同编号</dt><dd class="num">{{ current.contractId }}</dd></div>
+              <div class="kv"><dt>发起时间</dt><dd>{{ full(current.createdAt) }}</dd></div>
+              <div class="kv"><dt>合同编号</dt><dd>{{ current.contractId }}</dd></div>
             </dl>
           </section>
           <p class="note warn-note">求职者签署完成后状态自动变为「已入职在岗」。链接仍有效时无需重发；重发会作废旧流程，旧链接失效。</p>
@@ -176,7 +181,7 @@ const full = (v?: string) => {
           </p>
           <p v-else class="note warn-note">重发将作废尚未签署的旧签约流程，并生成新的签署链接（旧链接失效）。</p>
           <van-cell-group inset class="grp">
-            <van-field label="入职日期" required is-link readonly :model-value="fmtDay(form.startDate)" @click="openPicker('startDate')" />
+            <van-field label="入职日期" class="has-hint" required is-link readonly :model-value="fmtDay(form.startDate)" @click="openPicker('startDate')" />
             <div class="hint">可选近 3 天到未来 30 天</div>
             <van-field v-model="form.employeeNo" label="工号" maxlength="32" placeholder="选填，如 XC-2026-0913" />
             <van-field label="合同截止" is-link readonly :model-value="form.termEnd ? fmtDay(form.termEnd) : ''" placeholder="默认入职起 1 年" @click="openPicker('termEnd')" />
@@ -193,16 +198,16 @@ const full = (v?: string) => {
             </div>
             <div v-if="result.signUrl" class="qr-wrap">
               <QrImage :url="result.signUrl" :size="180" alt="电子合同签署码" />
-              <p class="t-xs">请求职者用手机扫码签署，或复制链接发送给求职者</p>
-              <div class="mono link">{{ result.signUrl }}</div>
-              <van-button size="small" type="primary" plain class="copy" @click="copy(result.signUrl)">复制签署链接</van-button>
+              <p class="qr-tip">请求职者用手机扫码签署，或复制链接发送给求职者</p>
+              <div class="link">{{ result.signUrl }}</div>
+              <van-button type="primary" plain class="copy" @click="copy(result.signUrl)">复制签署链接</van-button>
             </div>
             <dl>
               <div class="kv"><dt>合同名称</dt><dd>{{ result.title }}</dd></div>
-              <div class="kv"><dt>合同编号</dt><dd class="num">{{ result.contractNo }}</dd></div>
+              <div class="kv"><dt>合同编号</dt><dd>{{ result.contractNo }}</dd></div>
               <div v-if="result.companyName" class="kv"><dt>甲方</dt><dd>{{ result.companyName }}</dd></div>
-              <div class="kv"><dt>合同期限</dt><dd class="num">{{ result.termStart }} → {{ result.termEnd ?? '—' }}</dd></div>
-              <div class="kv"><dt>生成时间</dt><dd class="num">{{ full(result.createdAt) }}</dd></div>
+              <div class="kv"><dt>合同期限</dt><dd>{{ result.termStart }} → {{ result.termEnd ?? '—' }}</dd></div>
+              <div class="kv"><dt>生成时间</dt><dd>{{ full(result.createdAt) }}</dd></div>
             </dl>
           </section>
         </template>
@@ -211,12 +216,12 @@ const full = (v?: string) => {
       <div class="foot">
         <p v-if="submitError" class="bar-why err" role="status">没有提交成功：{{ submitError }}</p>
         <template v-if="mode === 'current'">
-          <van-button block class="btn-cta" @click="mode = 'form'">作废并重发签约</van-button>
+          <van-button block size="large" class="btn-cta" @click="mode = 'form'">作废并重发签约</van-button>
         </template>
-        <van-button v-else-if="mode === 'form'" block type="primary" class="btn-cta" :loading="submitting" loading-text="提交中…" :disabled="!application" @click="submit">
+        <van-button v-else-if="mode === 'form'" block type="primary" class="btn-cta" size="large" :loading="submitting" loading-text="提交中…" :disabled="!application || rejected" @click="submit">
           {{ resend ? '重发签约' : '确认入职并发起电子签约' }}
         </van-button>
-        <van-button v-else block type="primary" class="btn-cta" @click="show = false">完成</van-button>
+        <van-button v-else block size="large" type="primary" class="btn-cta" @click="show = false">完成</van-button>
       </div>
     </div>
 
@@ -245,15 +250,19 @@ const full = (v?: string) => {
 .steps .ln { flex: 1; height: 1px; background: var(--border); margin: 0 6px; min-width: 8px; }
 .who { display: flex; align-items: center; gap: 10px; padding: 12px 2px; }
 .who b { display: block; font-size: var(--font-size-body); font-weight: 700; color: var(--text-1); }
-.who .ph { display: inline; font-size: var(--font-size-min); font-weight: 500; color: var(--text-3); margin-left: 8px; }
-.who span { display: block; font-size: var(--font-size-min); color: var(--text-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who .ph { display: inline; font-size: var(--font-size-aux); font-variant-numeric: tabular-nums; font-weight: 500; color: var(--text-3); margin-left: 8px; }
+.who span { display: block; font-size: var(--font-size-aux); color: var(--text-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp { margin: 12px 0 0; }
-.hint { padding: 0 16px 10px; margin-top: -4px; font-size: var(--font-size-min); color: var(--text-3); background: var(--bg-card); }
+.hint { position: relative; padding: 0 16px 12px; margin-top: -6px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); background: var(--bg-card); }
+/* 说明行接在字段下面：分隔线从字段底下挪到说明行底下，说明和它的字段看起来是一格 */
+.hint::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; border-bottom: 1px solid var(--border); transform: scaleY(.5); }
+.grp :deep(.van-cell.has-hint::after) { display: none; }
 .warn-note { border-left-color: var(--warning-text); background: var(--warning-soft); }
 .ok-note { border-left-color: var(--success-text); background: var(--success-soft); }
 .sign { margin-top: 12px; }
 .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0 12px; border-bottom: 1px dashed var(--border); margin-bottom: 4px; }
-.link { font-size: var(--font-size-min); color: var(--text-2); word-break: break-all; text-align: center; padding: 0 6px; }
+.qr-tip { font-size: var(--font-size-aux); color: var(--text-3); }
+.link { font-size: var(--font-size-aux); font-family: var(--font-mono); color: var(--text-2); word-break: break-all; text-align: center; padding: 0 6px; }
 .copy { border-radius: var(--radius-control); }
 .foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 </style>
