@@ -50,7 +50,7 @@ const children: RouteRecordRaw[] = MENU.flatMap((g) =>
 )
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录', public: true } },
     {

@@ -1,0 +1,58 @@
+# 预览环境（SPRING_PROFILES_ACTIVE=preview）：还没有域名、证书和第三方通道时，给内部看效果用的公网演示环境。
+# 与 prod 的区别：走 HTTP（Cookie 不带 Secure）、短信 / 实名 / 电子签是 Mock、短信验证码回显在页面上、带演示数据。
+# 因为验证码回显，任何人都能用任意手机号登录——只能放演示数据，不能录入真实人员信息。正式试点必须换 prod。
+# 启动时 PreviewGuard 检查：密钥不能是仓库里的开发默认值、数据库密码与平台初始密码必须设置。
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:shitu}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:15}
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  health:
+    redis:
+      enabled: true
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  address: 127.0.0.1                    # 只让本机 Nginx 访问
+  forward-headers-strategy: native
+
+shitu:
+  dev:
+    seed-demo: true
+  sms:
+    expose-code-in-mock: true
+    captcha-after-per-ip: 3
+  kv:
+    type: redis
+  auth:
+    cookie-secure: false
+
+logging:
+  level:
+    root: info
+    com.shitu: info
+  file:
+    name: ${SHITU_LOG_DIR:/var/log/shitu}/shitu-server.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 14

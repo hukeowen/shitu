@@ -3,7 +3,7 @@ import { bootstrap } from '@/boot'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', component: () => import('@/views/WorkbenchView.vue'), meta: { tabbar: true, title: '驻场工作台', proto: 'M-01' } },
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录', public: true } },

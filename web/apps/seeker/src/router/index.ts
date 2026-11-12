@@ -5,7 +5,7 @@ import { useChannelStore } from '@/stores/channel'
 import { useGuideStore } from '@/stores/guide'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: () => import('@/views/HomeView.vue'), meta: { tabbar: true, title: '仕兔求职' } },
     {

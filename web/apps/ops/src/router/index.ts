@@ -45,7 +45,7 @@ children.push({
 children.push({ path: '/forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } })
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录', public: true } },
     {
