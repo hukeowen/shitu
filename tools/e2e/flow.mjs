@@ -1,11 +1,10 @@
-// 端到端业务流（本地开发库，演示公司 C10002）：
+// 端到端业务流（本地开发库的演示公司）：
 // 扫码注册 → 私域 → 问薪 → 报名 → 驻场知悉 / 到厂 / 面试通过 → 确权 → 电子签 → 在岗
 // → 岗位问答回流 → 投诉 → 看板 / 报表 → 离职 → 回公域 → 身份证占用申诉 → 归属治理
 import {
-  get, post, put, ok, check, summary, seekerLogin, tenantSession, opsLogin, readySeeker, phone, makeIdCard,
+  get, post, put, ok, check, summary, seekerLogin, tenantSession, opsLogin, readySeeker, phone, makeIdCard, companyCode, quizAnswers,
 } from './lib.mjs'
 
-const CODE = 'qYAtWMU9'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const today = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
 const plusDays = (n) => new Date(Date.now() + 8 * 3600e3 + n * 86400e3).toISOString().slice(0, 10)
@@ -18,25 +17,12 @@ async function waitFor(label, fn, tries = 15) {
   return check(label, false, '超时未满足（发件箱投递？）')
 }
 
-async function answers(t) {
-  const q = await ok('读取题库', get('/seeker/quiz', t))
-  return q.questions.map((qq) => {
-    const pick = (pred) => qq.options.find(pred) ?? qq.options[0]
-    let o
-    if (qq.profileField === 'accept_factory') o = pick((x) => x.value === 'YES')
-    else if (qq.profileField === 'locked_region') o = pick((x) => x.value === 'ANY')
-    else if (qq.profileField === 'expect_job_type') o = pick((x) => x.value === 'ANY')
-    else if (qq.profileField === 'dorm_req') o = pick((x) => x.value === 'NONE')
-    else o = qq.options[0]
-    return { seq: qq.seq, code: o.code }
-  })
-}
-
 async function main() {
   const ops = await opsLogin()
   const owner = await tenantSession('13800000001')
   const pm = await tenantSession('13800000002')
   const site = await tenantSession('13800000003')
+  const CODE = await companyCode(owner)
   const before = await ok('运营总览（前）', get('/ops/reports/overview', ops))
 
   // ------------------------------------------------------------ 1. 扫码注册 → 私域待匹配
@@ -48,7 +34,7 @@ async function main() {
   check('驻场在私域名单看到新用户（完整手机号）', mine && mine.phone === s.phone, JSON.stringify(mine ?? {}).slice(0, 120))
 
   // ------------------------------------------------------------ 2. 问薪 → 报名
-  const m = await ok('问薪匹配', post('/seeker/match', s.token, { answers: await answers(s.token) }))
+  const m = await ok('问薪匹配', post('/seeker/match', s.token, { answers: await quizAnswers(s.token) }))
   check('匹配有结果', m.results?.length > 0, `结果 ${m.results?.length ?? 0} 个`)
   if (!m.results?.length) return
   const jobId = m.results[0].jobId

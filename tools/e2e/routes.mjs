@@ -1,0 +1,210 @@
+// 四个端的截图清单：每个路由页面用谁登录、打开哪个地址。shots.mjs 按它截图，compare.mjs 按它排对照页。
+// route 是路由表里的原样写法（带 :参数）；path 不写就等于 route，带参数的用 baseline-data.json 里的单据编号拼。
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const DIR = path.dirname(fileURLToPath(import.meta.url))
+const WEB = path.join(DIR, '../../web/apps')
+
+export const APPS = {
+  seeker: { base: 'http://127.0.0.1:5183', mobile: true, cookiePath: '/api/v1/seeker/auth' },
+  staff: { base: 'http://127.0.0.1:5184', mobile: true, cookiePath: '/api/v1/tenant/auth' },
+  console: { base: 'http://127.0.0.1:5175', mobile: false, cookiePath: '/api/v1/tenant/auth' },
+  ops: { base: 'http://127.0.0.1:5176', mobile: false, cookiePath: '/api/v1/ops/auth' },
+}
+
+/** 目标视口（PRD）：后台 1440×900，手机 390×844 */
+export const VIEWPORT = {
+  desktop: { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false },
+  mobile: { width: 390, height: 844, deviceScaleFactor: 2, mobile: true },
+}
+
+/** 公司成员人物：手机号固定（演示公司种子数据 + seed.mjs 新增的经纪人）；其余人物的手机号在 baseline-data.json 里 */
+export const MEMBERS = { owner: '13800000001', pm: '13800000002', site: '13800000003', broker: '13800000004' }
+
+// 两个页面靠页面内的状态才能进，直接输地址会被踢走：先打开 start，在页面里执行 script 再截图
+const enterApplySuccess = (ids, personas) => ({
+  start: '/reports',
+  // 报名成功页读的是问薪暂存（sessionStorage）里的报名结果
+  script: `sessionStorage.setItem('shitu.match', ${JSON.stringify(JSON.stringify({
+    owner: personas.acknowledged.userId, quizVersion: null, answers: {}, step: 0, applyResult: ids.applyResult }))}); location.assign('/apply/success')`,
+})
+const enterOnboardingApply = () => ({
+  start: '/login',
+  // 入驻申请页要求内存里有入驻凭证（非成员手机号登录后下发），这里塞一个假的，只为看到表单
+  script: `(() => { const g = document.querySelector('#app').__vue_app__.config.globalProperties
+    g.$pinia._s.get('onboarding').set('screenshot-only', '138****0019'); return g.$router.push('/onboarding/apply') })()`,
+})
+
+const enterGuestHome = () => ({
+  start: '/',
+  // 游客第一次打开先看到启动屏，点「先逛逛」才是游客首页
+  script: `[...document.querySelectorAll('button')].find((b) => b.innerText.includes('先逛逛')).click()`,
+})
+
+// [route, 人物, path（可选，函数时入参是 baseline-data.json 的 ids）, enter（可选，见上）, 文件名（可选）]
+const SEEKER = [
+  ['/', 'guest', null, null, 'splash'],
+  ['/', 'guest', null, enterGuestHome],
+  ['/login', 'guest'],
+  ['/', 'registered'], // 首页按状态各截一张，文件名带人物
+  ['/', 'public'],
+  ['/', 'acknowledged'],
+  ['/', 'veteran'],
+  ['/match', 'registered'],
+  ['/match/quiz', 'registered'],
+  ['/match/result', 'matched'],
+  ['/jobs/:jobId', 'matched', (ids) => `/jobs/${ids.matchedJobId}`],
+  ['/kyc', 'veteran'],
+  ['/kyc/appeals', 'appealing'],
+  ['/apply/success', 'acknowledged', null, enterApplySuccess],
+  ['/reports', 'acknowledged'],
+  ['/reports/:applicationId', 'acknowledged', (ids) => `/reports/${ids.seekerApplicationId}`],
+  ['/messages', 'acknowledged'],
+  ['/contracts/sign', 'confirmed'],
+  ['/contracts', 'veteran'],
+  ['/contracts/:id', 'employedToday', (ids) => `/contracts/${ids.contractId}`],
+  ['/work', 'veteran'],
+  ['/advance', 'veteran'],
+  ['/advance/records', 'veteran'],
+  ['/advance/:id', 'veteran', (ids) => `/advance/${ids.seekerAdvanceId}`],
+  ['/payslips', 'veteran'],
+  ['/payslips/:id', 'veteran', (ids) => `/payslips/${ids.payslipId}`],
+  ['/recommendations', 'recommended'],
+  ['/resume', 'veteran'],
+  ['/ledger', 'veteran'],
+  ['/me', 'veteran'],
+  ['/feedback', 'acknowledged'],
+]
+
+const STAFF = [
+  ['/login', 'guest'],
+  ['/', 'site'],
+  ['/notice', 'pendingOwner'],
+  ['/my-code', 'site'],
+  ['/todo', 'site'],
+  ['/applications/:id', 'site', (ids) => `/applications/${ids.siteApplicationId}`],
+  ['/messages', 'site'],
+  ['/reminders', 'site'],
+  ['/advance', 'site'],
+  ['/advance/:id', 'site', (ids) => `/advance/${ids.staffAdvanceId}`],
+  ['/employees', 'site'],
+  ['/incidents', 'site'],
+  ['/me', 'site'],
+]
+
+const CONSOLE = [
+  ['/login', 'guest'],
+  ['/onboarding/apply', 'guest', null, enterOnboardingApply],
+  ['/onboarding/status', 'pendingOwner'],
+  ['/site/home', 'site'],
+  ['/site/todo', 'site'],
+  ['/site/follow', 'site'],
+  ['/site/onboard', 'site'],
+  ['/broker/pool', 'broker'],
+  ['/broker/report', 'broker'],
+  ['/broker/rematch', 'broker'],
+  ['/payroll/batches', 'pm'],
+  ['/payroll/appeals', 'pm'],
+  ['/payroll/recon', 'pm'],
+  ['/circulation/ledger', 'owner'],
+  ['/circulation/people', 'owner'],
+  ['/pm/board', 'pm'],
+  ['/pm/jobs', 'pm'],
+  ['/pm/jobs/edit', 'pm', (ids) => `/pm/jobs/edit?id=${ids.matchedJobId}`],
+  ['/pm/kb', 'pm'],
+  ['/pm/staff', 'pm'],
+  ['/pm/resign', 'pm'],
+  ['/pm/roster', 'pm'],
+  ['/pm/incidents', 'pm'],
+  ['/pm/advance', 'pm'],
+  ['/owner/overview', 'owner'],
+  ['/owner/channel-report', 'owner'],
+  ['/owner/bills', 'owner'],
+  ['/settings/projects', 'pm'],
+  ['/settings/channels', 'owner'],
+  ['/settings/org', 'owner'],
+]
+
+const OPS = [
+  ['/login', 'guest'],
+  ['/workbench', 'ops'],
+  ['/ops/overview', 'ops'],
+  ['/ops/attribution', 'ops'],
+  ['/engine/quiz', 'ops'],
+  ['/engine/quiz/:versionId', 'ops', (ids) => `/engine/quiz/${ids.quizVersionId}`],
+  ['/engine/match-snapshot', 'ops'],
+  ['/engine/params', 'ops'],
+  ['/companies/list', 'ops'],
+  ['/companies/stock', 'ops'],
+  ['/governance/job-audit', 'ops'],
+  ['/governance/throttle', 'ops'],
+  ['/governance/compliance', 'ops'],
+  ['/governance/complaints', 'ops'],
+  ['/governance/feedback', 'ops'],
+  ['/governance/credit', 'ops'],
+  ['/settlement/rules', 'ops'],
+  ['/settlement/bills', 'ops'],
+  ['/settlement/audit', 'ops'],
+  ['/system/admins', 'ops'],
+  ['/system/templates', 'ops'],
+  ['/system/holidays', 'ops'],
+  ['/system/params', 'ops'],
+  ['/forbidden', 'ops', () => '/forbidden?from=/system/admins'],
+]
+
+const slug = (route) => (route === '/' ? 'home' : route.slice(1).replaceAll('/', '_').replaceAll(':', ''))
+
+/** 全部截图条目。同一路由截多个人物时，除第一个外文件名带上人物。 */
+export const ROUTES = Object.entries({ seeker: SEEKER, staff: STAFF, console: CONSOLE, ops: OPS }).flatMap(([app, list]) => {
+  const seen = new Set()
+  return list.map(([route, persona, to, enter, fixedName]) => {
+    const name = fixedName ?? (seen.has(route) || (route === '/' && app === 'seeker') ? `${slug(route)}@${persona}` : slug(route))
+    seen.add(route)
+    return { app, route, persona, to, enter, name, file: `${app}/${name}.png` }
+  })
+})
+
+/** 按端和路由筛选：apps 是端名数组；routes 里的每一项按前缀匹配路由（'/pm' 命中 /pm/jobs、/pm/kb…），'/' 只匹配首页。 */
+export function selectRoutes({ apps = [], routes = [] } = {}) {
+  return ROUTES.filter((r) => (!apps.length || apps.includes(r.app)) &&
+    (!routes.length || routes.some((p) => (p === '/' ? r.route === '/' : r.route === p || r.route.startsWith(p.replace(/\/$/, '') + '/')))))
+}
+
+/** 解析命令行：--app seeker,staff --route /pm,/owner/bills，其余按顺序放进 _ */
+export function parseArgs(argv) {
+  const out = { _: [], apps: [], routes: [] }
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--app' || argv[i] === '--route') {
+      if (!argv[i + 1]) throw new Error(`${argv[i]} 后面要跟值，多个用逗号隔开`)
+      out[argv[i] === '--app' ? 'apps' : 'routes'] = argv[++i].split(',')
+    } else out._.push(argv[i])
+  }
+  const unknown = out.apps.filter((a) => !APPS[a])
+  if (unknown.length) throw new Error(`没有这个端：${unknown.join('、')}（可选 ${Object.keys(APPS).join(' / ')}）`)
+  return out
+}
+
+// 开发环境专用的模拟签署页不截；/r/:code 是扫码跳转，没有画面
+const SKIP = { seeker: ['/esign/mock/:flowId', '/r/:code'] }
+
+/** 路由表里有、清单里没有的路由（新增页面忘了登记时，shots.mjs 会报出来）。 */
+export function missingRoutes() {
+  const read = (app, file) => fs.readFileSync(path.join(WEB, app, 'src/router', file), 'utf8')
+  const declared = {}
+  for (const app of Object.keys(APPS)) {
+    const src = read(app, 'index.ts') + (fs.existsSync(path.join(WEB, app, 'src/router/menu.ts')) ? read(app, 'menu.ts') : '')
+    declared[app] = [...src.matchAll(/path: '([^']+)'(?![^{}]*redirect)/g)].map((m) => m[1].replace(/\(.*?\)/g, ''))
+      .filter((p) => p.startsWith('/') && !p.includes('pathMatch') && !(SKIP[app] ?? []).includes(p))
+  }
+  declared.ops.push('/workbench') // 菜单里写的是常量 HOME_PATH
+  const out = []
+  for (const [app, list] of Object.entries(declared)) {
+    for (const p of new Set(list)) {
+      if (p === '/' && app !== 'seeker' && app !== 'staff') continue // 后台的 / 只是布局外壳
+      if (!ROUTES.some((r) => r.app === app && r.route === p)) out.push(`${app} ${p}`)
+    }
+  }
+  return out
+}

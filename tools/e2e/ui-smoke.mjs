@@ -3,12 +3,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { openTab, sleep } from './cdp.mjs'
+import { companyCode, tenantSession, readRt, writeRt } from './lib.mjs'
+import { APPS, VIEWPORT } from './routes.mjs'
 
 const DIR = path.dirname(fileURLToPath(import.meta.url))
 const SHOTS = path.join(DIR, 'shots')
 fs.mkdirSync(SHOTS, { recursive: true })
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const PORT = Number(process.env.CDP_PORT ?? 9888)
 
 const menuPaths = (app) => [...fs.readFileSync(path.join(DIR, `../../web/apps/${app}/src/router/menu.ts`), 'utf8')
   .matchAll(/path: '([^']+)'/g)].map((m) => m[1])
@@ -22,62 +23,24 @@ async function freshSeekerCookie() {
   const api = 'http://localhost:8080/api/v1'
   const s = await (await fetch(api + '/seeker/auth/sms-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: ph }) })).json()
   const r = await fetch(api + '/seeker/auth/sms-login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: ph, code: s.data.devCode, channelCode: 'qYAtWMU9' }) })
+    body: JSON.stringify({ phone: ph, code: s.data.devCode, channelCode: await companyCode(await tenantSession('13800000001')) }) })
   const m = (r.headers.get('set-cookie') || '').match(/shitu_rt=([^;]+)/)
   fs.writeFileSync(path.join(DIR, 'seeker.rt'), m[1])
 }
 if (!process.env.SUITE || process.env.SUITE.includes("seeker")) await freshSeekerCookie()
 
 const SUITES = [
-  { name: 'ops-super', base: 'http://127.0.0.1:5176', cookieFile: 'ops.cookies', cookiePath: '/api/v1/ops/auth', paths: menuPaths('ops') },
-  { name: 'console-owner', base: 'http://127.0.0.1:5175', cookieFile: 'tenant-13800000001.rt', cookiePath: '/api/v1/tenant/auth', paths: menuPaths('console') },
-  { name: 'console-pm', base: 'http://127.0.0.1:5175', cookieFile: 'tenant-13800000002.rt', cookiePath: '/api/v1/tenant/auth', paths: menuPaths('console') },
-  { name: 'console-site', base: 'http://127.0.0.1:5175', cookieFile: 'tenant-13800000003.rt', cookiePath: '/api/v1/tenant/auth', paths: menuPaths('console') },
-  { name: 'staff-site', base: 'http://127.0.0.1:5184', cookieFile: 'tenant-13800000003.rt', cookiePath: '/api/v1/tenant/auth', paths: routePaths('staff'), mobile: true },
-  { name: 'seeker-new', base: 'http://127.0.0.1:5183', cookieFile: 'seeker.rt', cookiePath: '/api/v1/seeker/auth', paths: routePaths('seeker'), mobile: true },
-]
-
-function readRt(file) {
-  const t = fs.readFileSync(path.join(DIR, file), 'utf8')
-  const line = t.split('\n').find((l) => l.includes('shitu_rt'))
-  return (line ? line.trim().split('\t').pop() : t).trim()
-}
-function writeRt(file, val) {
-  const p = path.join(DIR, file)
-  const t = fs.readFileSync(p, 'utf8')
-  const line = t.split('\n').find((l) => l.includes('shitu_rt'))
-  fs.writeFileSync(p, line ? line.replace(line.trim().split('\t').pop(), val) + '\n' : val)
-}
-
-async function session(mobile) {
-  const tgt = await (await fetch(`http://127.0.0.1:${PORT}/json/new?about:blank`, { method: 'PUT' })).json()
-  const ws = new WebSocket(tgt.webSocketDebuggerUrl)
-  await new Promise((r) => ws.addEventListener('open', r))
-  let id = 0
-  const pending = new Map()
-  const events = []
-  ws.addEventListener('message', (ev) => {
-    const m = JSON.parse(ev.data)
-    if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return }
-    if (m.method === 'Runtime.exceptionThrown') {
-      events.push('exception: ' + (m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text).split('\n')[0].slice(0, 200))
-    } else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
-      events.push('console.error: ' + m.params.args.map((a) => a.value ?? a.description ?? '').join(' ').split('\n')[0].slice(0, 200))
-    } else if (m.method === 'Network.responseReceived') {
-      const r = m.params.response
-      if (r.url.includes('/api/') && r.status >= 400 && !r.url.includes('/auth/refresh')) events.push(`http ${r.status}: ${r.url.replace(/^https?:\/\/[^/]+/, '')}`)
-    }
-  })
-  const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })) })
-  await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable')
-  await send('Emulation.setDeviceMetricsOverride', mobile ? { width: 375, height: 812, deviceScaleFactor: 2, mobile: true } : { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
-  await send('Emulation.setTimezoneOverride', { timezoneId: process.env.TZ_OVERRIDE ?? 'Asia/Shanghai' })
-  return { ws, send, events, close: () => fetch(`http://127.0.0.1:${PORT}/json/close/${tgt.id}`) }
-}
+  { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: menuPaths('ops') },
+  { name: 'console-owner', app: 'console', cookieFile: 'tenant-13800000001.rt', paths: menuPaths('console') },
+  { name: 'console-pm', app: 'console', cookieFile: 'tenant-13800000002.rt', paths: menuPaths('console') },
+  { name: 'console-site', app: 'console', cookieFile: 'tenant-13800000003.rt', paths: menuPaths('console') },
+  { name: 'staff-site', app: 'staff', cookieFile: 'tenant-13800000003.rt', paths: routePaths('staff') },
+  { name: 'seeker-new', app: 'seeker', cookieFile: 'seeker.rt', paths: routePaths('seeker') },
+].map((s) => ({ ...s, ...APPS[s.app] }))
 
 const report = []
 for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.split(",").includes(x.name))) {
-  const b = await session(s.mobile)
+  const b = await openTab(s.mobile ? VIEWPORT.mobile : VIEWPORT.desktop, { timezone: process.env.TZ_OVERRIDE })
   await b.send('Network.setCookie', { name: 'shitu_rt', value: readRt(s.cookieFile), url: s.base + s.cookiePath, path: s.cookiePath, httpOnly: true })
   for (const p of s.paths) {
     if (p.includes(':')) continue
