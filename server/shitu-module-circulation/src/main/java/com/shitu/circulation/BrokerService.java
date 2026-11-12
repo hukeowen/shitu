@@ -135,6 +135,11 @@ public class BrokerService {
             c.setResolveDueAt(now.plus(Duration.parse(params.getString("broker.resolve_sla", "PT24H"))));
             c.setCreatedAt(now);
             cases.insert(c);
+            // D-57：转交经纪人时，私域响应窗口重新计时到经纪人的出结果时限，否则临近超时才转交的用户会在经纪人处理前被释放。
+            // 只延不缩；同一个窗口只重置一次，避免靠反复转交无限续期。
+            jdbc.update("UPDATE response_window SET deadline = ?, broker_reset = 1 WHERE user_id = ? AND company_id = ? "
+                            + "AND status = 'OPEN' AND stage = 'PRIVATE_PENDING' AND broker_reset = 0 AND deadline < ?",
+                    c.getResolveDueAt(), userId, companyId, c.getResolveDueAt());
             outbox.publish("BROKER_CASE_CREATED", "USER", userId, Map.of("userId", userId, "companyId", companyId,
                     "trigger", trigger, "caseId", c.getId()));
             return c.getId();

@@ -83,7 +83,7 @@ async function doLogout() {
         <el-button size="small" @click="doLogout">退出</el-button>
       </header>
       <div v-if="company?.status === 'THROTTLED'" class="throttle note note--warn">
-        <b>公司当前处于限流状态</b>：岗位曝光与匹配权重受限。{{ company.statusRemark }}
+        <b>公司当前处于平台处罚期</b>。{{ company.statusRemark }} 如有异议请联系平台运营。
       </div>
       <main class="content">
         <router-view />

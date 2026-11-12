@@ -40,7 +40,7 @@ public class DictController {
         s.put("LedgerDirection", ordered("PAYABLE", "流入应付", "RECEIVABLE", "流出应收"));
         s.put("BrokerCaseStatus", ordered("OPEN", "待联系", "CONTACTED", "已联系", "RECOMMENDED", "已推荐", "APPLIED", "已报名", "RELEASED", "已释放", "CLOSED", "已结束"));
         s.put("BrokerTriggerType", ordered("LOW_MATCH", "匹配度不足", "REMATCH_LIMIT", "多次匹配未报名", "SITE_TRANSFER", "驻场流转", "JOB_CHANGE", "在职换岗"));
-        s.put("ResignStatus", ordered("PENDING", "待审核", "APPROVED", "已通过", "REJECTED", "已驳回"));
+        s.put("ResignStatus", ordered("PENDING", "待审核", "SCHEDULED", "待生效", "APPROVED", "已通过", "REJECTED", "已驳回"));
         s.put("StaffSource", ordered("OWN", "本公司", "PLATFORM", "平台", "TRANSFER", "流转"));
         s.put("AbsenceType", ordered("LEAVE", "请假", "ABSENT", "旷工"));
         s.put("EmploymentOrigin", ordered("PLATFORM_ONBOARD", "平台入职", "ROSTER_IMPORT", "花名册导入"));

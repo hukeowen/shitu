@@ -364,7 +364,7 @@ export const tenantApi = {
   /** 离职（T-308）：驻场 / 项目经理发起，项目经理审核 */
   requestResign: (employmentId: string, resignDate: string, reason?: string) =>
     post<number>(`/tenant/employments/${employmentId}/resign`, { resignDate, reason }),
-  resignRequests: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') => get<ResignRow[]>('/tenant/resign-requests', { status }),
+  resignRequests: (status?: 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED') => get<ResignRow[]>('/tenant/resign-requests', { status }),
   decideResign: (id: number, approve: boolean, remark?: string) =>
     post<void>(`/tenant/resign-requests/${id}/decide`, { approve, remark }),
 

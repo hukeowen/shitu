@@ -246,6 +246,32 @@ class SupportIT extends FlowItSupport {
         assertThat(code(call(post(url), c.owner(), Map.of("content", "过期后再提")))).isEqualTo("SYS_4000");
     }
 
+    @Test
+    void brokerTransferResetsWindowOnce() throws Exception {
+        // D-57：转交经纪人时私域响应窗口重新计 24 小时；同一个窗口只重置一次
+        Company c = company();
+        String chan = data(call(post("/api/v1/tenant/channel-codes"), c.owner(), Map.of("name", "窗口重置验收码"))).get("code").asText();
+        String s = seekerLogin(phone(), chan);
+        String uid = userId(s);
+        assertThat(user(uid).get("user_status")).isEqualTo("PRIVATE_PENDING");
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        jdbc.update("UPDATE response_window SET deadline = ? WHERE user_id = ? AND status = 'OPEN'", now.plusHours(4), uid);
+
+        long caseId = data(call(post("/api/v1/tenant/seekers/" + uid + "/transfer-to-broker"), c.site(), null)).asLong();
+        Map<String, Object> w = jdbc.queryForMap("SELECT deadline, broker_reset FROM response_window WHERE user_id = ? AND status = 'OPEN'", uid);
+        assertThat((java.time.LocalDateTime) w.get("deadline")).as("窗口顺延到经纪人出结果时限").isAfter(now.plusHours(23));
+        assertThat(w.get("broker_reset")).isEqualTo(true);
+        assertThat(jdbc.queryForObject("SELECT resolve_due_at FROM broker_case WHERE id = ?", java.time.LocalDateTime.class, caseId))
+                .isEqualTo((java.time.LocalDateTime) w.get("deadline"));
+
+        // 工单结束后再次转交：窗口不再顺延
+        jdbc.update("UPDATE broker_case SET status = 'CLOSED' WHERE id = ?", caseId);
+        jdbc.update("UPDATE response_window SET deadline = ? WHERE user_id = ? AND status = 'OPEN'", now.plusHours(1), uid);
+        data(call(post("/api/v1/tenant/seekers/" + uid + "/transfer-to-broker"), c.site(), null));
+        assertThat(jdbc.queryForObject("SELECT deadline FROM response_window WHERE user_id = ? AND status = 'OPEN'",
+                java.time.LocalDateTime.class, uid)).as("只重置一次").isBefore(now.plusHours(2));
+    }
+
     /** 空值字段在响应里可能被省略，也可能是 null */
     private static boolean absent(JsonNode n, String field) {
         return n.get(field) == null || n.get(field).isNull();

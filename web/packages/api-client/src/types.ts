@@ -834,7 +834,8 @@ export interface ResignRow {
   projectId: string
   resignDate: string
   reason?: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  /** SCHEDULED = 已审核通过、离职日未到，到期自动生效（D-59） */
+  status: 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED'
   requestedBy: string
   approvedBy?: string
   createdAt: string

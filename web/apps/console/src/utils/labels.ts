@@ -8,7 +8,7 @@ const LOCAL: Record<string, Record<string, string>> = {
   BillStatus: { GENERATED: '已生成', ISSUED: '已下发', DISPUTED: '异议中', CONFIRMED: '已确认', SETTLED: '已结算' },
   BrokerCaseStatus: { OPEN: '待联系', CONTACTED: '已联系', RECOMMENDED: '已推荐', APPLIED: '已报名', RELEASED: '已释放', CLOSED: '已结束' },
   BrokerTriggerType: { LOW_MATCH: '匹配度不足', REMATCH_LIMIT: '多次匹配未报名', SITE_TRANSFER: '驻场流转', JOB_CHANGE: '在职换岗' },
-  ResignStatus: { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回' },
+  ResignStatus: { PENDING: '待审核', SCHEDULED: '待生效', APPROVED: '已通过', REJECTED: '已驳回' },
   StaffSource: { OWN: '本公司', PLATFORM: '平台', TRANSFER: '流转' },
   AbsenceType: { LEAVE: '请假', ABSENT: '旷工' },
   DisputeStatus: { OPEN: '处理中', ACCEPTED: '已采纳', REJECTED: '已驳回' },

@@ -6,11 +6,16 @@ import DictTag from '@/components/DictTag.vue'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { fmtDateTime } from '@/utils/format'
+import { shNow, ymd } from '@/utils/time'
 
-/** A-13 离职审核（T-308）：驻场 / 项目经理发起，项目经理确认；有预支欠款不拦截，从最后一笔工资抵扣（D-22） */
-type Status = 'PENDING' | 'APPROVED' | 'REJECTED'
+/**
+ * A-13 离职审核（T-308）：驻场 / 项目经理发起，项目经理确认；有预支欠款不拦截，从最后一笔工资抵扣（D-22）。
+ * 离职日在未来的，确认后进入「待生效」，到离职日当天自动结束任职；生效前项目经理可以撤销（D-59）。
+ */
+type Status = 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED'
 const TABS: { key: Status; label: string }[] = [
   { key: 'PENDING', label: '待审核' },
+  { key: 'SCHEDULED', label: '待生效' },
   { key: 'APPROVED', label: '已通过' },
   { key: 'REJECTED', label: '已驳回' },
 ]
@@ -51,9 +56,12 @@ onMounted(async () => {
 })
 
 async function approve(r: ResignRow) {
+  const future = r.resignDate > ymd(shNow())
   try {
     await ElMessageBox.confirm(
-      `确认 ${r.name} 于 ${r.resignDate} 离职？确认后：归属清空变公域、增长服务费与流转费停止计费、劳动合同终止。此操作不可撤销。`,
+      future
+        ? `${r.name} 的离职日是 ${r.resignDate}，还没到。确认后进入「待生效」：离职日之前仍在岗、照常计费，不能再申请预支；${r.resignDate} 当天自动结束任职、归属清空变公域、合同终止。生效前可以撤销。`
+        : `确认 ${r.name} 于 ${r.resignDate} 离职？确认后：归属清空变公域、增长服务费与流转费停止计费、劳动合同终止。此操作不可撤销。`,
       '确认离职',
       { type: 'warning', confirmButtonText: '确认离职', cancelButtonText: '取消' },
     )
@@ -63,7 +71,7 @@ async function approve(r: ResignRow) {
   busy.value = r.id
   try {
     await tenantApi.decideResign(r.id, true)
-    ElMessage.success('已确认离职')
+    ElMessage.success(future ? `已确认，${r.resignDate} 当天自动生效` : '已确认离职')
     load()
   } catch (e) {
     // 预支欠款等业务拦截：弹窗醒目提示
@@ -76,11 +84,14 @@ async function approve(r: ResignRow) {
 async function reject(r: ResignRow) {
   let remark = ''
   try {
-    const res = await ElMessageBox.prompt(`驳回 ${r.name} 的离职申请，员工保持在岗。`, '驳回离职申请', {
-      confirmButtonText: '驳回',
+    const scheduled = r.status === 'SCHEDULED'
+    const res = await ElMessageBox.prompt(
+      scheduled ? `撤销 ${r.name} 原定 ${r.resignDate} 的离职，员工继续在岗。` : `驳回 ${r.name} 的离职申请，员工保持在岗。`,
+      scheduled ? '撤销离职' : '驳回离职申请', {
+      confirmButtonText: scheduled ? '撤销离职' : '驳回',
       cancelButtonText: '取消',
       inputType: 'textarea',
-      inputPlaceholder: '驳回说明（选填）',
+      inputPlaceholder: '说明（选填）',
       type: 'warning',
     })
     remark = res.value?.trim() ?? ''
@@ -90,7 +101,7 @@ async function reject(r: ResignRow) {
   busy.value = r.id
   try {
     await tenantApi.decideResign(r.id, false, remark || undefined)
-    ElMessage.success('已驳回')
+    ElMessage.success(r.status === 'SCHEDULED' ? '已撤销，员工继续在岗' : '已驳回')
     load()
   } catch (e) {
     ElMessage.error(errorMessage(e))
@@ -105,7 +116,7 @@ async function reject(r: ResignRow) {
     <div class="page-hd">
       <div>
         <h2>离职审核</h2>
-        <p>确认离职 → 归属清空 → 变更公域 → 计费停止 → 合同终止 · 有未还清的薪酬预支须先结清</p>
+        <p>确认离职 → 归属清空 → 变更公域 → 计费停止 → 合同终止 · 离职日未到的先进入待生效，到期自动执行</p>
       </div>
       <span class="spacer" />
       <el-button @click="load">刷新</el-button>
@@ -153,10 +164,13 @@ async function reject(r: ResignRow) {
               <div v-if="row.approvedBy" class="t-xs">{{ memberName(row.approvedBy) }}</div>
             </template>
           </el-table-column>
-          <el-table-column v-if="isPm && status === 'PENDING'" label="操作" width="170" align="right" fixed="right">
+          <el-table-column v-if="isPm && (status === 'PENDING' || status === 'SCHEDULED')" label="操作" width="170" align="right" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" type="danger" plain :disabled="busy === row.id" @click="reject(row)">驳回</el-button>
-              <el-button size="small" type="primary" :loading="busy === row.id" @click="approve(row)">确认离职</el-button>
+              <template v-if="row.status === 'PENDING'">
+                <el-button size="small" type="danger" plain :disabled="busy === row.id" @click="reject(row)">驳回</el-button>
+                <el-button size="small" type="primary" :loading="busy === row.id" @click="approve(row)">确认离职</el-button>
+              </template>
+              <el-button v-else size="small" type="danger" plain :loading="busy === row.id" @click="reject(row)">撤销离职</el-button>
             </template>
           </el-table-column>
           <template #empty><el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无离职申请'" /></template>

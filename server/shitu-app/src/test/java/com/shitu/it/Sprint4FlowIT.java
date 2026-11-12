@@ -38,6 +38,8 @@ class Sprint4FlowIT extends FlowItSupport {
 
     @Autowired
     ESignProvider esign;
+    @Autowired
+    com.shitu.lifecycle.employment.ResignService resign;
 
     @Test
     void resignAndCompanyClosure() throws Exception {
@@ -63,11 +65,33 @@ class Sprint4FlowIT extends FlowItSupport {
                 Map.of("resignDate", LocalDate.now().plusDays(1).toString(), "reason", "回老家"))).asLong();
         assertThat(data(call(get("/api/v1/tenant/resign-requests?status=PENDING"), c.pm(), null)).toString()).contains(empId);
         data(call(post("/api/v1/tenant/resign-requests/" + id + "/decide"), c.pm(), Map.of("approve", true)));
+        // D-59：离职日在明天 → 待生效，人仍在岗、任职未结束；不能重复申请；可以撤销
+        assertThat(jdbc.queryForObject("SELECT status FROM resign_request WHERE id = ?", String.class, id)).isEqualTo("SCHEDULED");
+        assertThat(user(u1).get("user_status")).as("离职日未到仍在岗").isEqualTo("EMPLOYED");
+        assertThat(jdbc.queryForMap("SELECT end_date FROM employment WHERE employment_id = ?", empId).get("end_date")).isNull();
+        assertThat(resign.executeScheduled()).as("离职日未到不执行").isZero();
+        assertThat(data(call(get("/api/v1/seeker/advance/quota"), s1, null)).get("reasons").toString()).contains("离职已审核通过");
+        assertThat(code(call(post("/api/v1/tenant/employments/" + empId + "/resign"), c.site(),
+                Map.of("resignDate", LocalDate.now().plusDays(2).toString())))).as("待生效期间不能再申请").isEqualTo("SYS_4090");
+        assertThat(code(call(post("/api/v1/tenant/resign-requests/" + id + "/decide"), c.pm(), Map.of("approve", true))))
+                .as("待生效的不能再次通过").isEqualTo("SYS_4090");
+        data(call(post("/api/v1/tenant/resign-requests/" + id + "/decide"), c.pm(), Map.of("approve", false, "remark", "本人改主意，撤销")));
+        assertThat(jdbc.queryForObject("SELECT status FROM resign_request WHERE id = ?", String.class, id)).isEqualTo("REJECTED");
+        assertThat(user(u1).get("user_status")).isEqualTo("EMPLOYED");
+
+        // 重新申请并通过；到了离职日由定时任务生效
+        id = data(call(post("/api/v1/tenant/employments/" + empId + "/resign"), c.site(),
+                Map.of("resignDate", LocalDate.now().plusDays(1).toString(), "reason", "回老家"))).asLong();
+        data(call(post("/api/v1/tenant/resign-requests/" + id + "/decide"), c.pm(), Map.of("approve", true)));
+        jdbc.update("UPDATE resign_request SET resign_date = ? WHERE id = ?", LocalDate.now(), id);
+        assertThat(resign.executeScheduled()).isGreaterThanOrEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM resign_request WHERE id = ?", String.class, id)).isEqualTo("APPROVED");
+        assertThat(resign.executeScheduled()).as("不会重复执行").isZero();
         assertThat(user(u1).get("user_status")).isEqualTo("PUBLIC_SEEKING");
         assertThat(user(u1).get("bound_company_id")).isNull();
         assertThat(user(u1).get("last_release_reason")).isEqualTo("RESIGNED");
         Map<String, Object> emp = jdbc.queryForMap("SELECT end_date, end_reason, contract_id FROM employment WHERE employment_id = ?", empId);
-        assertThat(emp.get("end_date").toString()).isEqualTo(LocalDate.now().plusDays(1).toString());
+        assertThat(emp.get("end_date").toString()).isEqualTo(LocalDate.now().toString());
         assertThat(emp.get("end_reason")).isEqualTo("RESIGNED");
         assertThat(jdbc.queryForObject("SELECT status FROM contract WHERE contract_id = ?", String.class, emp.get("contract_id")))
                 .isEqualTo("DISSOLVED");

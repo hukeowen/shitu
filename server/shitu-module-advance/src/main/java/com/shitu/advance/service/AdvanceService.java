@@ -107,7 +107,12 @@ public class AdvanceService {
         boolean pending = pending(userId);
         AdvancePolicy.Applicant a = new AdvancePolicy.Applicant(UserStatus.valueOf((String) u.get("user_status")),
                 (String) u.get("bound_company_id"), now, prev, used, pending, Boolean.TRUE.equals(u.get("blacklist_flag")));
-        List<String> reasons = pol.check(a);
+        List<String> reasons = new java.util.ArrayList<>(pol.check(a));
+        // D-59：离职已审核通过、等待生效的人不能再申请预支
+        Long leaving = jdbc.queryForObject("SELECT COUNT(*) FROM resign_request WHERE user_id = ? AND status = 'SCHEDULED'", Long.class, userId);
+        if (leaving != null && leaving > 0) {
+            reasons.add("你的离职已审核通过，离职前不能再申请预支");
+        }
         int granted = pol.chancesGrantedThisMonth(prev, now);
         return new Quota(reasons.isEmpty(), reasons, now, now % pol.daysPerChance(), pol.daysPerChance(), granted, used,
                 Math.max(0, pol.remainingThisMonth(granted, used)), pol.monthlyLimit(), pol.amount(), (BigDecimal) u.get("advance_debt"));

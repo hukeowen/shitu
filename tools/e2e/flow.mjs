@@ -125,7 +125,7 @@ async function main() {
   const emp = (emps.records ?? emps).find((e) => e.userId === me.userId)
   check('人员管理能按手机号找到', !!emp)
   if (emp) {
-    const rid = await ok('驻场发起离职', post(`/tenant/employments/${emp.employmentId}/resign`, site, { resignDate: plusDays(1), reason: '端到端测试' }))
+    const rid = await ok('驻场发起离职', post(`/tenant/employments/${emp.employmentId}/resign`, site, { resignDate: plusDays(0), reason: '端到端测试' }))
     const rr = await ok('离职申请列表', get('/tenant/resign-requests?status=PENDING', pm))
     const row = rr.find((x) => String(x.id) === String(rid))
     check('离职申请带项目 / 岗位 / 经办人姓名', row && row.projectName && row.requestedByName, JSON.stringify(row ?? {}).slice(0, 160))

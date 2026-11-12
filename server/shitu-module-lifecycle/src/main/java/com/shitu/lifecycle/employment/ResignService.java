@@ -37,6 +37,8 @@ import java.util.Map;
  * 离职（T-308）与公司注销批量解绑（R-11 / P-08）。
  * <ul>
  *   <li>驻场 / 项目经理发起离职 → 项目经理审核通过 → RESIGN：任职结束（离职日不计费）、合同解除、释放至公域；</li>
+ *   <li>离职日在未来的（D-59）：审核通过后先记为 SCHEDULED（待生效），人仍在岗、照常计费；到离职日当天由定时任务执行
+ *       RESIGN。生效前项目经理可以撤销；</li>
  *   <li>欠款结清（D-22）：离职不拦截；最后一笔工资抵扣，扣不完由工资表导入打平台失信标记；</li>
  *   <li>公司注销 / 倒闭：该公司所有私域与在岗用户 COMPANY_CLOSED → 公域，任职当天结束；来源归属保留仅存证（R-05）。</li>
  * </ul>
@@ -59,10 +61,13 @@ public class ResignService {
     private final OutboxWriter outbox;
     private final AuditLogger audit;
     private final Clock clock;
+    private final org.springframework.transaction.support.TransactionTemplate tx;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ResignService.class);
 
     public ResignService(LifecycleService lifecycle, EmploymentMapper employments, LaborContractMapper contracts,
                          SeekerUserMapper users, DataScope scope, FieldCipher cipher, JdbcTemplate jdbc, OutboxWriter outbox,
-                         AuditLogger audit, Clock clock) {
+                         AuditLogger audit, Clock clock, org.springframework.transaction.support.TransactionTemplate tx) {
+        this.tx = tx;
         this.lifecycle = lifecycle;
         this.employments = employments;
         this.contracts = contracts;
@@ -85,9 +90,9 @@ public class ResignService {
         BizException.check(resignDate != null && resignDate.isAfter(e.getStartDate()) && !resignDate.isBefore(today.minusDays(31))
                         && !resignDate.isAfter(today.plusDays(30)),
                 ErrorCode.SYS_BAD_REQUEST, "离职日期须晚于入职日期，且在近 31 天到未来 30 天之间");
-        Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM resign_request WHERE employment_id = ? AND status = 'PENDING'",
+        Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM resign_request WHERE employment_id = ? AND status IN ('PENDING', 'SCHEDULED')",
                 Long.class, employmentId);
-        BizException.check(pending == null || pending == 0, ErrorCode.SYS_CONFLICT, "该员工已有待审核的离职申请");
+        BizException.check(pending == null || pending == 0, ErrorCode.SYS_CONFLICT, "该员工已有待审核或待生效的离职申请");
         jdbc.update("INSERT INTO resign_request (employment_id, user_id, company_id, resign_date, reason, requested_by) VALUES (?, ?, ?, ?, ?, ?)",
                 employmentId, e.getUserId(), e.getCompanyId(), Date.valueOf(resignDate), reason, p.subjectId());
         Long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
@@ -95,17 +100,31 @@ public class ResignService {
         return id == null ? 0 : id;
     }
 
-    /** 离职审核（仅项目经理，T-308）。通过 → RESIGN。 */
+    /**
+     * 离职审核（仅项目经理，T-308）。通过且离职日已到 → 立即 RESIGN；通过但离职日在未来 → SCHEDULED，到期由 {@link #executeScheduled()} 执行。
+     * 对 SCHEDULED 的申请传 approve = false 表示撤销。
+     */
     @Transactional
     public void decide(AuthPrincipal p, long requestId, boolean approve, String remark) {
         BizException.check(p.hasRole(ActorRole.PM.name()), ErrorCode.LC_ACTOR_NOT_ALLOWED, "离职审核由项目经理处理");
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT employment_id, resign_date, reason, status FROM resign_request "
                 + "WHERE id = ? AND company_id = ? FOR UPDATE", requestId, p.companyId());
         BizException.check(!rows.isEmpty(), ErrorCode.SYS_NOT_FOUND);
-        BizException.check("PENDING".equals(rows.get(0).get("status")), ErrorCode.SYS_CONFLICT, "该申请已处理");
+        String current = (String) rows.get(0).get("status");
+        BizException.check("PENDING".equals(current) || ("SCHEDULED".equals(current) && !approve), ErrorCode.SYS_CONFLICT, "该申请已处理");
         String employmentId = (String) rows.get(0).get("employment_id");
         Employment e = active(employmentId);
         scope.checkProject(p, e.getProjectId());
+        LocalDate today = LocalDate.now(clock.withZone(Constants.ZONE));
+        if (approve && ((java.sql.Date) rows.get(0).get("resign_date")).toLocalDate().isAfter(today)) {
+            // D-59：离职日在未来，先不结束任职、不释放，人仍在岗照常计费；在途预支现在就作废，之后也不能再申请
+            jdbc.update("UPDATE advance_request SET status = 'REJECTED', version = version + 1 WHERE user_id = ? AND company_id = ? "
+                    + "AND status IN ('SUBMITTED','SITE_APPROVED','PM_APPROVED')", e.getUserId(), p.companyId());
+            jdbc.update("UPDATE resign_request SET status = 'SCHEDULED', approved_by = ?, approved_at = ? WHERE id = ?",
+                    p.subjectId(), LocalDateTime.now(clock), requestId);
+            audit.log("RESIGN_SCHEDULE", "EMPLOYMENT", employmentId, Map.of("resignDate", rows.get(0).get("resign_date").toString()));
+            return;
+        }
         if (approve) {
             // D-22：有欠款也放行离职（否则人走了计费还在继续）。欠款留在用户名下，从最后一笔工资里抵扣；
             // 最后一笔工资扣不完的，工资表导入时打平台失信标记。还没拨款的在途预支申请一并作废。
@@ -118,8 +137,62 @@ public class ResignService {
         }
         jdbc.update("UPDATE resign_request SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?",
                 approve ? "APPROVED" : "REJECTED", p.subjectId(), LocalDateTime.now(clock), requestId);
-        audit.log(approve ? "RESIGN_APPROVE" : "RESIGN_REJECT", "EMPLOYMENT", employmentId,
+        audit.log(approve ? "RESIGN_APPROVE" : "SCHEDULED".equals(current) ? "RESIGN_CANCEL" : "RESIGN_REJECT", "EMPLOYMENT", employmentId,
                 remark == null ? null : Map.of("remark", remark));
+    }
+
+    /**
+     * 执行到期的待生效离职（D-59，定时任务调用）：离职日已到的 SCHEDULED 申请逐条结束任职、解除合同、释放至公域。
+     * 每条单独一个事务，一条失败不影响其他。
+     *
+     * @return 本次生效的条数
+     */
+    public int executeScheduled() {
+        LocalDate today = LocalDate.now(clock.withZone(Constants.ZONE));
+        List<Long> due = jdbc.queryForList("SELECT id FROM resign_request WHERE status = 'SCHEDULED' AND resign_date <= ? ORDER BY id",
+                Long.class, Date.valueOf(today));
+        int done = 0;
+        for (Long id : due) {
+            try {
+                Boolean ok = tx.execute(st -> TenantContext.runAsSystem(() -> executeOne(id)));
+                if (Boolean.TRUE.equals(ok)) {
+                    done++;
+                }
+            } catch (RuntimeException ex) {
+                log.error("scheduled resign {} failed", id, ex);
+            }
+        }
+        return done;
+    }
+
+    private boolean executeOne(long requestId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT employment_id, company_id, resign_date, reason, approved_by, status "
+                + "FROM resign_request WHERE id = ? FOR UPDATE", requestId);
+        if (rows.isEmpty() || !"SCHEDULED".equals(rows.get(0).get("status"))) {
+            return false;
+        }
+        Map<String, Object> r = rows.get(0);
+        String companyId = (String) r.get("company_id");
+        Employment e = employments.selectById((String) r.get("employment_id"));
+        if (e == null || e.getEndDate() != null) {
+            // 生效前任职已经因别的原因结束（如公司注销批量解绑），申请直接关闭
+            jdbc.update("UPDATE resign_request SET status = 'APPROVED' WHERE id = ?", requestId);
+            return false;
+        }
+        jdbc.update("UPDATE advance_request SET status = 'REJECTED', version = version + 1 WHERE user_id = ? AND company_id = ? "
+                + "AND status IN ('SUBMITTED','SITE_APPROVED','PM_APPROVED')", e.getUserId(), companyId);
+        end(e, ((java.sql.Date) r.get("resign_date")).toLocalDate(), "RESIGNED");
+        lifecycle.transition(e.getUserId(), LifecycleEvent.RESIGN, TransitionContext.tenant(ActorRole.PM, companyId),
+                (String) r.get("approved_by"), (String) r.get("reason"));
+        jdbc.update("UPDATE resign_request SET status = 'APPROVED' WHERE id = ?", requestId);
+        audit.logForCompany(companyId, "RESIGN_EFFECTIVE", "EMPLOYMENT", e.getEmploymentId(), Map.of("requestId", requestId));
+        return true;
+    }
+
+    /** 这个人是否有已通过、待生效的离职（预支准入用）。 */
+    public boolean hasScheduled(String userId) {
+        Long n = jdbc.queryForObject("SELECT COUNT(*) FROM resign_request WHERE user_id = ? AND status = 'SCHEDULED'", Long.class, userId);
+        return n != null && n > 0;
     }
 
     public List<ResignRow> list(AuthPrincipal p, String status) {

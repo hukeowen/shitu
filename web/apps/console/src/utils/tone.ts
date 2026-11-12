@@ -36,7 +36,7 @@ const TONES: Record<string, Record<string, Tone>> = {
   BillStatus: { GENERATED: 'muted', ISSUED: 'info', DISPUTED: 'warn', CONFIRMED: 'ok', SETTLED: 'ok' },
   BrokerCaseStatus: { OPEN: 'warn', CONTACTED: 'info', RECOMMENDED: 'signal', APPLIED: 'ok', RELEASED: 'muted', CLOSED: 'muted' },
   BrokerTriggerType: { LOW_MATCH: 'warn', REMATCH_LIMIT: 'temp', SITE_TRANSFER: 'signal', JOB_CHANGE: 'info' },
-  ResignStatus: { PENDING: 'warn', APPROVED: 'ok', REJECTED: 'danger' },
+  ResignStatus: { PENDING: 'warn', SCHEDULED: 'info', APPROVED: 'ok', REJECTED: 'danger' },
   StaffSource: { OWN: 'ok', PLATFORM: 'info', TRANSFER: 'signal' },
   AbsenceType: { LEAVE: 'info', ABSENT: 'danger' },
   DisputeStatus: { OPEN: 'warn', ACCEPTED: 'ok', REJECTED: 'danger' },

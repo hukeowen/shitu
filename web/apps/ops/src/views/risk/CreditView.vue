@@ -327,7 +327,7 @@ async function submitPenalty() {
           </div>
         </div>
         <el-form-item label="处罚原因（必填，将通知企业）" required>
-          <el-input v-model="pen.reason" type="textarea" :rows="3" maxlength="500" show-word-limit @input="pen.error = ''" />
+          <el-input v-model="pen.reason" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="写违规事实。原文会发给企业，不要写限流、降权、权重等平台内部措施" @input="pen.error = ''" />
         </el-form-item>
       </el-form>
       <div v-if="pen.error" class="notice notice--danger">{{ pen.error }}</div>
