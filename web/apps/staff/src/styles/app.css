@@ -99,9 +99,9 @@ ul, ol { list-style: none; }
 .state-block { display: flex; flex-direction: column; align-items: center; padding: var(--space-8) var(--space-4); text-align: center; }
 .state-block > svg { color: var(--text-3); }
 .state-block-t { margin-top: var(--space-3); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
-.state-block-d { margin-top: var(--space-1); font-size: var(--font-size-body); line-height: 22px; color: var(--text-3); }
+.state-block-d { margin-top: var(--space-1); font-size: var(--font-size-body); line-height: 22px; color: var(--text-3); text-wrap: balance; }
 .state-block .van-button { margin-top: var(--space-4); min-width: 132px; }
-.state-block--sm { padding: var(--space-4) 0 var(--space-2); }
+.state-block--sm { padding: var(--space-5) var(--space-4); }
 .state-block--sm .state-block-t { margin-top: var(--space-2); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-2); }
 
 /* 整页居中的加载图标：转圈用主色 */

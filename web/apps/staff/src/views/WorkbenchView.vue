@@ -59,13 +59,20 @@ const todayList = shallowRef<SiteApplication[]>([])
 const todayLoaded = ref(false)
 const todayError = ref('')
 const refreshing = ref(false)
-/** 24h 窗口的截止时间（待知悉、待确权、私域待匹配各取最早的），算「最短还剩」 */
+/** 24h 窗口的截止时间（待面试、待确权、私域待匹配三个阶段各取最早一条还没到期的），算「最短还剩」 */
 const deadlines = shallowRef<number[]>([])
 
 /** 待我初审的预支（按 allowedActions） */
 const advTodo = ref<number | null>(null)
 
 const ts = (v?: string) => parseLocal(v)?.getTime() ?? null
+/**
+ * 三个来源都按截止时间升序（报名列表 sort=DEADLINE 按用户最早的打开窗口排；私域待匹配接口 ORDER BY deadline），
+ * 所以每个来源里第一条还没到期的就是这一阶段最近的截止时间。已到期但还没被扫描任务关掉的窗口最多滞留 1 分钟，
+ * 多取几条（DEADLINE_PEEK）跳过它们。
+ */
+const DEADLINE_PEEK = 5
+const firstAhead = (list: (number | null)[]) => list.find((d): d is number => d != null && d > now.value) ?? null
 
 async function loadData() {
   void inbox.refresh()
@@ -86,26 +93,29 @@ async function loadData() {
       }),
     tenantApi
       .privatePending()
-      .then((r) => found.push(...r.map((p) => ts(p.deadline))))
+      .then((r) => found.push(firstAhead(r.map((p) => ts(p.deadline)))))
       .catch(() => undefined),
   ]
   if (canApps.value) {
     todayError.value = ''
+    // 重试期间先回到加载中，不闪一下空状态
+    if (!todayList.value.length) todayLoaded.value = false
     tasks.push(
       tenantApi
         .applications({ status: 'PENDING_INTERVIEW', unacknowledged: true, page: 1, pageSize: 3, sort: 'DEADLINE' })
-        .then((r) => {
-          todayList.value = r.records
-          found.push(...r.records.map((a) => ts(a.responseDeadline)))
-        })
+        .then((r) => (todayList.value = r.records))
         .catch((e: unknown) => {
           todayList.value = []
           todayError.value = errorMessage(e, '待知悉报名加载失败')
         })
         .finally(() => (todayLoaded.value = true)),
       tenantApi
-        .applications({ status: 'PENDING_CONFIRM', page: 1, pageSize: 1, sort: 'DEADLINE' })
-        .then((r) => found.push(...r.records.map((a) => ts(a.responseDeadline))))
+        .applications({ status: 'PENDING_INTERVIEW', page: 1, pageSize: DEADLINE_PEEK, sort: 'DEADLINE' })
+        .then((r) => found.push(firstAhead(r.records.map((a) => ts(a.responseDeadline)))))
+        .catch(() => undefined),
+      tenantApi
+        .applications({ status: 'PENDING_CONFIRM', page: 1, pageSize: DEADLINE_PEEK, sort: 'DEADLINE' })
+        .then((r) => found.push(firstAhead(r.records.map((a) => ts(a.responseDeadline)))))
         .catch(() => undefined),
     )
   }
@@ -151,7 +161,7 @@ function go(to: string, open?: boolean) {
 }
 
 const due = computed(() => wb.value?.windowsDueIn4h ?? 0)
-/** 还没超时的窗口里最短的剩余时间（时:分）；都已超时或拿不到截止时间时不写 */
+/** 还没超时的窗口里最短的剩余时间；都已超时或拿不到截止时间时不写 */
 const shortest = computed(() => {
   const left = deadlines.value.map((d) => d - now.value).filter((ms) => ms > 0)
   return left.length ? fmtRemain(Math.min(...left)) : null
@@ -219,7 +229,7 @@ async function onPull() {
           </div>
         </section>
 
-        <p v-if="wbError" class="tipbar tipbar--danger" role="alert">
+        <p v-if="wbError && !todayError" class="tipbar tipbar--danger" role="alert">
           <IconCircleExclamationPoint :size="18" />
           <span class="flex1 tipbar-d wb-err">{{ wbError }}，下拉可重试</span>
         </p>
@@ -231,8 +241,8 @@ async function onPull() {
               {{ due }} 人即将超时<template v-if="shortest">，最短还剩 <b class="alarm-left">{{ shortest }}</b></template>
             </p>
             <p class="tipbar-d">24 小时响应窗口剩余不足 4 小时，超时后系统将被动释放至公域。</p>
+            <router-link to="/reminders" class="tipbar-act alarm-act">立即跟进<IconChevronRight :size="16" /></router-link>
           </div>
-          <router-link to="/reminders" class="tipbar-act">立即跟进<IconChevronRight :size="16" /></router-link>
         </section>
         <section v-else-if="wb" class="tipbar">
           <IconBell :size="18" />
@@ -308,6 +318,7 @@ async function onPull() {
 <style scoped>
 .bell { display: grid; place-items: center; width: 44px; height: 44px; flex: none; margin-right: calc(var(--space-2) * -1); color: var(--text-1); }
 .metrics-card { padding: var(--space-3) var(--space-2); }
+.alarm-act { margin: var(--space-1) 0 calc(var(--space-3) * -1); }
 .alarm-left { color: var(--danger-text); font-weight: var(--font-weight-semibold); }
 .wb-err { margin-top: 0; }
 .todo-sec { display: grid; gap: var(--space-1); }

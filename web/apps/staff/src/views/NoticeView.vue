@@ -29,6 +29,23 @@ const copy = computed(() => {
       return { icon: IconInfo, tone: 'info', title: '公司暂不可使用业务功能', desc: '如有疑问请联系公司管理员。' }
   }
 })
+/** 进页面时还没拿到成员信息（启动时加载失败）：先加载，失败给「重新加载」 */
+const loading = ref(false)
+const loadError = ref('')
+async function init() {
+  if (auth.me) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    if ((await auth.loadMe()).operational) await router.replace('/')
+  } catch (e) {
+    loadError.value = errorMessage(e, '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+void init()
+
 const remark = computed(() => company.value?.auditRemark || company.value?.statusRemark || '')
 
 async function refresh() {
@@ -43,8 +60,8 @@ async function refresh() {
       showToast('状态暂未变化')
     }
   } catch (e) {
+    // 失败原因写在按钮上方，不再弹轻提示盖住它
     refreshError.value = errorMessage(e)
-    showToast(refreshError.value)
   } finally {
     refreshing.value = false
   }
@@ -61,7 +78,14 @@ async function logout() {
 </script>
 
 <template>
-  <div class="notice">
+  <div v-if="!auth.me && (loading || !loadError)" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+  <div v-else-if="!auth.me" class="state-block page-err">
+    <IconCircleExclamationPoint :size="48" />
+    <p class="state-block-t">{{ loadError }}</p>
+    <p class="state-block-d">请检查网络后重新加载</p>
+    <van-button type="primary" @click="init">重新加载</van-button>
+  </div>
+  <div v-else class="notice">
     <div class="state-block head" :class="copy.tone">
       <component :is="copy.icon" :size="48" />
       <h1 class="state-block-t">{{ copy.title }}</h1>
@@ -87,6 +111,7 @@ async function logout() {
 
 <style scoped>
 .notice { min-height: 100vh; padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-page) calc(var(--space-6) + env(safe-area-inset-bottom)); }
+.page-err { padding-top: calc(80px + env(safe-area-inset-top)); }
 .head { padding: var(--space-8) var(--space-2) var(--space-6); }
 .head.warn > svg { color: var(--warning-text); }
 .head.danger > svg { color: var(--danger-text); }

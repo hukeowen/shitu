@@ -13,14 +13,6 @@ export const ACTION_TEXT: Record<SiteApplicationAction, string> = {
   RESEND_CONTRACT: '查看签署码 / 重发',
 }
 
-/** 卡片主按钮上的短文案（和原型一致；「拨打」「更多」同排时 360 宽也放得下一行），弹窗和「更多」里仍用完整文案 */
-const MAIN_TEXT: Partial<Record<SiteApplicationAction, string>> = {
-  ACKNOWLEDGE: '知悉并推送',
-  FAIL: '未通过',
-  CONFIRM: '入职确权',
-  RESEND_CONTRACT: '查看签署码',
-}
-
 const DANGER: SiteApplicationAction[] = ['FAIL', 'NO_SHOW', 'CANCEL']
 
 export function has(app: SiteApplication, a: SiteApplicationAction): boolean {
@@ -50,7 +42,7 @@ export function splitActions(app: SiteApplication): { main: ActionBtn[]; more: A
   else if (has(app, 'RESEND_CONTRACT')) main = ['RESEND_CONTRACT']
   const btn = (k: SiteApplicationAction, inMain: boolean): ActionBtn => ({
     key: k,
-    text: (inMain && MAIN_TEXT[k]) || ACTION_TEXT[k],
+    text: ACTION_TEXT[k],
     type: inMain ? (k === 'FAIL' ? 'default' : 'primary') : DANGER.includes(k) ? 'danger' : 'default',
   })
   return {

@@ -8,7 +8,8 @@ import { fmtPhone, fmtRemain, fmtTime, parseLocal } from '@/utils/time'
 
 /**
  * M-02 / M-03 待办卡片，从上到下：姓名、归属标签、剩余时间 → 岗位和面试时间 → 手机号（仅驻场可见完整号码）→ 「拨打」和当前阶段的主按钮。
- * 操作按钮完全由后端 allowedActions 决定（主按钮 + 「更多」）；blocked 是后端拒绝过的那个操作和原因，按钮置灰、原因留在卡片上。
+ * 操作按钮完全由后端 allowedActions 决定（主按钮 + 「更多」）；blocked 是后端拒绝过的那个操作和原因：报名状态已经变了，
+ * 除「拨打」外的操作都置灰、原因留在卡片上，刷新后重新判断。按钮放不下一行时主按钮单独占一行，文案不截断。
  */
 const props = defineProps<{
   app: SiteApplication
@@ -91,12 +92,12 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
 
     <div v-if="!noActions && (app.phone || acts.main.length || acts.more.length)" class="acts">
       <van-button v-if="app.phone" class="act act--call" :url="`tel:${app.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
-      <van-button v-if="acts.more.length" class="act" @click="emit('more', app)">更多</van-button>
+      <van-button v-if="acts.more.length" class="act" :disabled="!!blocked" @click="emit('more', app)">更多</van-button>
       <van-button
         v-for="b in acts.main"
         :key="b.key"
         :type="b.type === 'primary' ? 'primary' : 'default'"
-        :disabled="blocked?.action === b.key"
+        :disabled="!!blocked"
         class="act act--main"
         @click="emit('action', app, b.key)"
       >
@@ -122,10 +123,9 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
 .facts li > span { min-width: 0; overflow-wrap: anywhere; }
 .facts small { font-size: var(--font-size-aux); color: var(--text-3); }
 .item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
-.acts { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.acts { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
 .act { flex: 1 1 auto; min-width: 0; padding: 0 var(--space-2); font-weight: var(--font-weight-medium); }
 .act--call { flex: 0 0 auto; padding: 0 var(--space-3); }
-.act--main { flex: 1.8; white-space: nowrap; }
-.act--main :deep(.van-button__text) { overflow: hidden; text-overflow: ellipsis; }
+.act--main { flex: 1 0 auto; white-space: nowrap; }
 .why { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); }
 </style>

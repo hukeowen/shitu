@@ -26,7 +26,7 @@ const { label } = useDict()
 const actions = ref<InstanceType<typeof AppActions> | null>(null)
 
 const id = computed(() => String(route.params.id ?? ''))
-/** 后端拒绝过的操作：按钮置灰、原因留在通栏上方，重新加载后重新判断 */
+/** 后端拒绝过的操作：报名状态已变，除「拨打」外的操作置灰、原因留在通栏上方，下拉刷新后重新判断 */
 const blocked = ref<{ action: SiteApplicationAction; reason: string } | null>(null)
 /** 无权查看 / 不存在：给「返回」；其他失败给「重新加载」 */
 const notFound = ref(false)
@@ -72,6 +72,15 @@ function onDone(_action: SiteApplicationAction, updated: SiteApplication | null)
 function onRejected(_a: SiteApplication, action: SiteApplicationAction, reason: string) {
   blocked.value = { action, reason }
 }
+/** 下拉刷新：被拒置灰后不用离开页面，刷新即按最新状态重新判断 */
+const refreshing = ref(false)
+async function onPull() {
+  try {
+    await Promise.all([load(true), loadInsight()])
+  } finally {
+    refreshing.value = false
+  }
+}
 const hasBar = computed(() => !!app.value && (!!app.value.phone || acts.value.main.length > 0 || acts.value.more.length > 0))
 
 const contract = computed(() => app.value?.contract)
@@ -106,7 +115,8 @@ function back() {
         <van-button type="primary" @click="load()">重新加载</van-button>
       </template>
     </div>
-    <div v-else class="pad stack">
+    <van-pull-refresh v-else v-model="refreshing" @refresh="onPull">
+    <div class="pad stack">
       <ApplicationCard :app="app" :now="now" no-actions />
       <section v-if="contract" class="acard">
         <div class="acard-hd">
@@ -168,17 +178,18 @@ function back() {
       </section>
       <div :class="hasBar ? (blocked ? 'bottom-bar-gap with-why' : 'bottom-bar-gap') : 'page-bottom-gap'" />
     </div>
+    </van-pull-refresh>
     <div v-if="hasBar && app" class="bottom-bar">
       <p v-if="blocked" class="bar-why" role="status">暂时不能{{ ACTION_TEXT[blocked.action] }}：{{ blocked.reason }}</p>
       <div class="bar-acts">
         <van-button v-if="app.phone" size="large" class="b-call" :url="`tel:${app.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
-        <van-button v-if="acts.more.length" size="large" class="b-more" @click="actions?.more(app)">更多</van-button>
+        <van-button v-if="acts.more.length" size="large" class="b-more" :disabled="!!blocked" @click="actions?.more(app)">更多</van-button>
         <van-button
           v-for="b in acts.main"
           :key="b.key"
           size="large"
           :type="b.type === 'primary' ? 'primary' : 'default'"
-          :disabled="blocked?.action === b.key"
+          :disabled="!!blocked"
           class="b-main"
           @click="onAction(b.key)"
         >

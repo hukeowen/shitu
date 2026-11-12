@@ -422,8 +422,9 @@ const confirmLogout = `${findBtn('退出', '.van-dialog')}.click()`
 // steps 是打开后依次在页面里执行的脚本；quick = 最后一步之后不等页面安静，马上截（轻提示两秒就消失）；
 // checks 是截图前的检查（见上）
 // ---- 工单 12：驻场外壳、登录、工作台、待办、提醒、报名详情 ----
-// 驻场端的写操作（知悉推送、到厂、面试结果、爽约、取消、确权、流转经纪人、标记已读、登录、退出）一律拦住；refresh 放行，否则进不了页面
-const STAFF_SAFE = [{ url: '/tenant/auth/refresh', action: 'continue' }, { url: '/tenant/', method: 'POST', action: 'hang' }]
+// 驻场端的写操作（知悉推送、到厂、面试结果、爽约、取消、确权、流转经纪人、标记已读、登录、退出，以及工单 13 的请假 / 旷工等 PUT、PATCH、DELETE）
+// 一律拦住：除 GET 以外的方法都挂住；refresh 放行，否则进不了页面
+const STAFF_SAFE = [{ url: '/tenant/auth/refresh', action: 'continue' }, { url: '/tenant/', method: '!GET', action: 'hang' }]
 const sr = (...rules) => [...rules, ...STAFF_SAFE]
 const WB_API = '/tenant/site/workbench', PP_API = '/tenant/site/private-pending', TAPPS_API = '/tenant/applications', TME_API = '/tenant/me'
 const DETAIL = `/applications/${data.ids.siteApplicationId}`
@@ -443,6 +444,10 @@ const todoCards = (min = 1) => `(() => { const cards = [...document.querySelecto
     const btns = [...acts.querySelectorAll('button, a.van-button')]
     if (!btns[0]?.innerText.includes('拨打')) return '第一个按钮不是「拨打」'
     if (!acts.querySelector('.van-button--primary')) return '没有当前阶段的主按钮'
+    const cut = btns.find((b) => { const t = b.querySelector('.van-button__text'); return t && t.scrollWidth > t.clientWidth + 1 })
+    if (cut) return '按钮文字被截断：' + cut.innerText
+    const short = btns.map((b) => b.innerText.trim()).find((t) => ['知悉并推送', '入职确权', '查看签署码', '未通过'].includes(t))
+    if (short) return '主按钮用了缩写「' + short + '」'
     const y = (e) => e.getBoundingClientRect().top
     if (left && Math.abs(y(left) - y(name)) > 24) return '剩余时间不在姓名那一行'
     if (!(y(name) < y(li[0]) && (!phone || y(li[1]) < y(phone)) && y(phone ?? li[1]) < y(acts))) return '卡片各行的顺序不对'
@@ -459,8 +464,39 @@ const staffLegacy = `document.querySelector('#app .tag, #app .num, #app .mono, #
 const staffText = `(() => { const bad = [...document.querySelectorAll('#app .facts li, #app .tipbar-t, #app .tipbar-d, #app .note, #app .kv dt, #app .kv dd, #app .why, #app .bar-why, #app .state-block-d')].find((e) => e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize) < 15)
   return bad ? '正文小于 15px：' + bad.innerText.slice(0, 20) : '' })()`
 const alarm = `(() => { const a = document.querySelector('#app .alarm'); if (!a) return '没有超时提示条'
-  if (!/\\d+ 人即将超时，最短还剩 \\d{2}:\\d{2}/.test(a.innerText)) return '提示条没写几人即将超时、最短还剩多久：' + a.innerText.slice(0, 40)
-  return a.querySelector('a')?.innerText.includes('立即跟进') ? '' : '提示条没有「立即跟进」' })()`
+  if (!/\\d+ 人即将超时，最短还剩 (\\d+ 小时 \\d+ 分|\\d+ 分钟)/.test(a.innerText)) return '提示条没写几人即将超时、最短还剩多久（带单位）：' + a.innerText.slice(0, 40)
+  const go = a.querySelector('a'); if (!go?.innerText.includes('立即跟进')) return '提示条没有「立即跟进」'
+  const t = a.querySelector('.tipbar-t'), d = a.querySelector('.tipbar-d')
+  if (t.getClientRects().length > 1 || t.getBoundingClientRect().height > 30) return '提示条标题被挤成了两行'
+  return go.getBoundingClientRect().top >= d.getBoundingClientRect().bottom - 1 ? '' : '「立即跟进」没放在提示条底部' })()`
+
+// 元素整个在可视区内（顶栏 44 下、标签栏 / 底部栏上）
+const onScreen = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return '没找到 ${sel}'
+  const r = e.getBoundingClientRect(), bar = document.querySelector('.van-tabbar, .bottom-bar')?.getBoundingClientRect().top ?? innerHeight
+  return r.top >= 44 && r.bottom <= bar ? '' : '${sel} 不在这一屏里' })()`
+const scrollTo = (sel) => `document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'center' })`
+// 区块里的空状态说明不贴卡片边，末行不只剩一个字
+const emptyPadded = `(() => { const d = document.querySelector('#app .todo-sec .state-block-d'), c = d?.closest('.acard'); if (!d) return '没有空状态说明'
+  const range = document.createRange(); range.selectNodeContents(d); const lines = [...range.getClientRects()]
+  const gap = Math.min(lines[0].left - c.getBoundingClientRect().left, c.getBoundingClientRect().right - Math.max(...lines.map((l) => l.right)))
+  if (gap < 12) return '空状态说明离卡片边只有 ' + gap.toFixed(0) + 'px'
+  const last = lines.at(-1); return lines.length > 1 && last.width < 20 ? '空状态说明末行只剩一个字' : '' })()`
+// 登录页手机号：标签在上一行，下面「+86 | 输入框」是一个带四边边框的控件，在同一行
+const loginPhone = `(() => { const lbl = document.querySelector('#app .fld-lbl'), box = document.querySelector('#app .fld--cc'); if (!lbl || !box) return '手机号没有单独的标签或合成控件'
+  const cc = box.querySelector('.cc').getBoundingClientRect(), inp = box.querySelector('input').getBoundingClientRect(), b = box.getBoundingClientRect()
+  if (lbl.getBoundingClientRect().bottom > b.top) return '手机号标签没在控件上面一行'
+  if (Math.abs((cc.top + cc.bottom) / 2 - (inp.top + inp.bottom) / 2) > 4) return '「+86」和输入框不在同一行'
+  const st = getComputedStyle(box); return ['Top', 'Right', 'Bottom', 'Left'].every((k) => parseFloat(st['border' + k + 'Width']) >= 1) ? '' : '手机号控件缺边框' })()`
+// 弹层：选好的面试时间整段显示（不截成「09:」）；底部通栏在内容区下面，不盖住内容
+const ackTimeWhole = `(() => { const v = document.querySelector('.ack .pick-val'); if (!v) return '面试时间不是文字显示'
+  const cell = v.closest('.van-cell'), arrow = cell.querySelector('.van-cell__right-icon'), limit = arrow ? arrow.getBoundingClientRect().left : cell.getBoundingClientRect().right
+  return /\\d{2}:\\d{2}$/.test(v.innerText) && v.scrollWidth <= v.clientWidth + 1 && v.getBoundingClientRect().right <= limit + 1 ? '' : '面试时间被截断：' + v.innerText })()`
+const footClear = (scope) => `(() => { const body = document.querySelector('${scope} .body'), foot = document.querySelector('${scope} .foot')
+  return body.getBoundingClientRect().bottom <= foot.getBoundingClientRect().top + 1 ? '' : '底部通栏盖住了内容' })()`
+// 弹层内容左右边距 16
+const popInset = (scope, sel) => `(() => { const e = document.querySelector('${scope} ${sel}'); if (!e) return '没找到 ${sel}'
+  const r = e.getBoundingClientRect(); return Math.round(r.left) === 16 && Math.round(innerWidth - r.right) === 16 ? '' : '${sel} 左右边距是 ' + Math.round(r.left) + ' / ' + Math.round(innerWidth - r.right) })()`
+const noToast = `[...document.querySelectorAll('.van-toast')].some((t) => t.getClientRects().length) ? '轻提示盖住了页面上的原因' : ''`
 const fakeWb = (extra = {}) => reply({ pendingAck: 2, pendingInterview: 4, pendingConfirm: 2, windowsDueIn4h: 0, privatePending: 18, arrivedToday: 0, ...extra })
 const dialogBtn = (text) => `[...document.querySelectorAll('.van-dialog button')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`
 // 弹窗确认按钮连点两次：第二次点的是正在转圈的那个按钮（转圈时文字不显示），没在转就再点一次确认
@@ -983,17 +1019,25 @@ const STATES = [
   { app: 'staff', screen: 'workbench', state: 'long', persona: 'site', path: '/', rules: sr(), steps: [toBottom], checks: [tabbarIcons] },
   { app: 'staff', screen: 'workbench', state: 'alarm', persona: 'site', path: '/', rules: sr({ url: WB_API, action: 'respond', body: fakeWb({ windowsDueIn4h: 3 }) }), checks: [alarm, todoCards(1)] },
   { app: 'staff', screen: 'workbench', state: 'alarm', persona: 'site', path: '/', width: NARROW, rules: sr({ url: WB_API, action: 'respond', body: fakeWb({ windowsDueIn4h: 3 }) }), checks: [alarm] },
-  { app: 'staff', screen: 'workbench', state: 'empty', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, method: 'GET', action: 'respond', body: emptyPage }), checks: [has('暂无待知悉的报名'), staffText] },
+  { app: 'staff', screen: 'workbench', state: 'empty', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, method: 'GET', action: 'respond', body: emptyPage }), checks: [has('暂无待知悉的报名'), staffText, emptyPadded] },
   { app: 'staff', screen: 'workbench', state: 'loading', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, action: 'hang' }, { url: WB_API, action: 'hang' }), quick: true, checks: [spinnerPrimary, hasNot('暂无待知悉的报名')] },
   { app: 'staff', screen: 'workbench', state: 'error', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, action: 'fail' }, { url: WB_API, action: 'fail' }),
-    checks: [has('重新加载'), has('下拉可重试'), hasNot('暂无待知悉的报名')] },
+    checks: [has('重新加载'), hasNot('下拉可重试'), hasNot('暂无待知悉的报名')] },
+  // 拦截自检：发一条不存在的 PUT（不会落库），1.5 秒内有回应就说明非 GET 的写请求没被拦住
+  { app: 'staff', screen: 'workbench', state: 'write-guard', persona: 'site', path: '/', rules: sr(),
+    checks: [`new Promise((ok) => { const x = new XMLHttpRequest(); x.open('PUT', '/api/v1/tenant/employments/E-NONE/absences'); x.onloadend = () => ok('PUT 写请求没被拦住（状态 ' + x.status + '）'); x.send('{}'); setTimeout(() => ok(''), 1500) })`] },
+  // 只有待办数字没取到：顶部提示条说一次
+  { app: 'staff', screen: 'workbench', state: 'metrics-error', persona: 'site', path: '/', rules: sr({ url: WB_API, action: 'fail' }), checks: [has('下拉可重试'), hasNot('重新加载')] },
+  // 待知悉区块点「重新加载」：重试期间是加载中，不闪空状态
+  { app: 'staff', screen: 'workbench', state: 'retry', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, action: 'fail' }), lateRules: [{ url: TAPPS_API, action: 'hang' }],
+    steps: [click('重新加载')], quick: true, checks: [hasNot('暂无待知悉的报名'), hasNot('待知悉报名加载失败'), `document.querySelector('#app .todo-sec .van-loading') ? '' : '重试期间没有回到加载中'`] },
   { app: 'staff', screen: 'workbench', state: 'page-error', persona: 'site', path: '/', rules: sr({ url: TME_API, action: 'fail' }), checks: [has('重新加载')] },
   // 工作台的卡片都是待知悉，主按钮是「知悉并推送」（全屏表单）；到厂确认在「更多」里
   { app: 'staff', screen: 'workbench', state: 'submitting', persona: 'site', path: '/', rules: sr(), steps: [click('更多'), countXhr, click('到厂确认'), dialogTwice('确认到厂')], quick: true,
     checks: [sentOnce, `document.querySelector('.van-dialog .van-button--loading') ? '' : '提交中确认按钮没有转圈'`] },
   { app: 'staff', screen: 'workbench', state: 'rejected', persona: 'site', path: '/', rules: sr({ url: '/arrive', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
     steps: [click('更多'), click('到厂确认'), dialogBtn('确认到厂'), toastGone('该报名状态已变化，请刷新后重试'), dialogBtn('取消')],
-    checks: [stays('#app .why', '暂时不能到厂确认：该报名状态已变化，请刷新后重试'), staffText] },
+    checks: [stays('#app .why', '暂时不能到厂确认：该报名状态已变化，请刷新后重试'), disabledBtn('知悉并推送'), disabledBtn('更多'), staffText] },
   { app: 'staff', screen: 'todo', state: 'normal', persona: 'site', path: '/todo', rules: sr(), checks: [todoCards(1), tabUnderline, tabbarIcons, staffText, staffLegacy, has('没有更多了')] },
   { app: 'staff', screen: 'todo', state: 'normal', persona: 'site', path: '/todo', width: NARROW, rules: sr(), checks: [todoCards(1)] },
   { app: 'staff', screen: 'todo', state: 'interview', persona: 'site', path: '/todo?tab=interview', rules: sr(), checks: [todoCards(1)] },
@@ -1005,8 +1049,8 @@ const STATES = [
   { app: 'staff', screen: 'todo', state: 'submitting', persona: 'site', path: '/todo?tab=interview', rules: sr(), steps: [countXhr, click('到厂确认'), dialogTwice('确认到厂')], quick: true,
     checks: [sentOnce, `document.querySelector('.van-dialog .van-button--loading') ? '' : '提交中确认按钮没有转圈'`] },
   { app: 'staff', screen: 'todo', state: 'rejected', persona: 'site', path: '/todo?tab=interview', rules: sr({ url: '/arrive', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
-    steps: [click('到厂确认'), dialogBtn('确认到厂'), toastGone('该报名状态已变化，请刷新后重试'), dialogBtn('取消')],
-    checks: [stays('#app .why', '暂时不能到厂确认：该报名状态已变化，请刷新后重试'), disabledBtn('到厂确认'), staffText] },
+    steps: [click('到厂确认'), dialogBtn('确认到厂'), toastGone('该报名状态已变化，请刷新后重试'), dialogBtn('取消'), scrollTo('#app .why')],
+    checks: [stays('#app .why', '暂时不能到厂确认：该报名状态已变化，请刷新后重试'), onScreen('#app .why'), disabledBtn('到厂确认'), staffText] },
   { app: 'staff', screen: 'reminders', state: 'normal', persona: 'site', path: '/reminders', rules: sr(), checks: [tabUnderline, tabbarIcons, staffText, staffLegacy, has('24 小时窗口内待跟进')] },
   { app: 'staff', screen: 'reminders', state: 'normal', persona: 'site', path: '/reminders', width: NARROW, rules: sr() },
   { app: 'staff', screen: 'reminders', state: 'private', persona: 'site', path: '/reminders?f=private', rules: sr(), checks: [has('一键流转经纪人'), has('私域待匹配')] },
@@ -1023,9 +1067,14 @@ const STATES = [
   { app: 'staff', screen: 'application', state: 'bottom', persona: 'site', path: DETAIL, rules: sr(), steps: [toBottom] },
   { app: 'staff', screen: 'application', state: 'loading', persona: 'site', path: DETAIL, rules: sr({ url: TAPPS_API + '/', action: 'hang' }), quick: true, checks: [spinnerPrimary] },
   { app: 'staff', screen: 'application', state: 'error', persona: 'site', path: DETAIL, rules: sr({ url: TAPPS_API + '/', action: 'fail' }), checks: [has('重新加载')] },
+  { app: 'staff', screen: 'application', state: 'submitting', persona: 'site', path: DETAIL, rules: sr(), steps: [countXhr, `${findBtn('到厂确认')}.click()`, dialogTwice('确认到厂')], quick: true,
+    checks: [sentOnce, `document.querySelector('.van-dialog .van-button--loading') ? '' : '提交中确认按钮没有转圈'`] },
+  { app: 'staff', screen: 'application', state: 'rejected', persona: 'site', path: DETAIL, rules: sr({ url: '/arrive', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
+    steps: [`${findBtn('到厂确认')}.click()`, dialogBtn('确认到厂'), toastGone('该报名状态已变化，请刷新后重试'), dialogBtn('取消')],
+    checks: [stays('#app .bar-why', '暂时不能到厂确认：该报名状态已变化，请刷新后重试'), disabledBtn('到厂确认'), disabledBtn('更多'), `document.querySelector('#app .van-pull-refresh') ? '' : '没有下拉刷新入口'`] },
   { app: 'staff', screen: 'application', state: 'forbidden', persona: 'site', path: '/applications/BM-NONE', rules: sr(), checks: [has('返回'), hasNot('重新加载')] },
-  { app: 'staff', screen: 'login', state: 'normal', persona: 'guest', path: '/login', rules: sr(), checks: [whiteBg('.login'), staffLegacy] },
-  { app: 'staff', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: NARROW, rules: sr() },
+  { app: 'staff', screen: 'login', state: 'normal', persona: 'guest', path: '/login', rules: sr(), checks: [whiteBg('.login'), staffLegacy, loginPhone] },
+  { app: 'staff', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: NARROW, rules: sr(), checks: [loginPhone] },
   { app: 'staff', screen: 'login', state: 'invalid', persona: 'guest', path: '/login', rules: sr(), steps: [click('登录'), toastGone('请输入正确的 11 位手机号')], checks: [stays('#app .form-err', '请输入正确的 11 位手机号')] },
   { app: 'staff', screen: 'login', state: 'submitting', persona: 'guest', path: '/login', rules: sr(), steps: [fill('成员手机号', '13800000003'), fill('6 位验证码', '123456'), countXhr, clickTwice('登录')], quick: true, checks: [spinning('登录中'), sentOnce] },
   { app: 'staff', screen: 'login', state: 'rejected', persona: 'guest', path: '/login', rules: sr({ url: '/tenant/auth/sms-login', action: 'respond', body: refuse('AUTH_4001', '验证码错误或已过期') }),
@@ -1037,18 +1086,20 @@ const STATES = [
   { app: 'staff', screen: 'notice', state: 'banned', persona: 'site', path: '/notice', rules: sr(staffMe('BANNED', { statusRemark: '多次发布虚假岗位，已限制使用' })), checks: [has('公司账号已被限制使用'), has('多次发布虚假岗位')] },
   { app: 'staff', screen: 'notice', state: 'submitting', persona: 'site', path: '/notice', rules: sr(staffMe('PENDING_AUDIT')), lateRules: [{ url: TME_API, action: 'hang' }], steps: [countXhr, clickTwice('刷新状态')], quick: true, checks: [spinning('刷新中'), sentOnce] },
   { app: 'staff', screen: 'notice', state: 'refresh-failed', persona: 'site', path: '/notice', rules: sr(staffMe('PENDING_AUDIT')), lateRules: [{ url: TME_API, action: 'fail' }], steps: [click('刷新状态')],
-    checks: [stays('#app .bar-why', '没有刷新成功'), idle] },
+    checks: [stays('#app .bar-why', '没有刷新成功'), idle, noToast] },
+  { app: 'staff', screen: 'notice', state: 'loading', persona: 'site', path: '/notice', rules: sr({ url: TME_API, action: 'hang' }), quick: true, checks: [spinnerPrimary, hasNot('公司暂不可使用')] },
+  { app: 'staff', screen: 'notice', state: 'error', persona: 'site', path: '/notice', rules: sr({ url: TME_API, action: 'fail' }), checks: [has('重新加载'), hasNot('公司暂不可使用')] },
   // 知悉推送弹层（工作台卡片的「知悉并推送」）
   { app: 'staff', screen: 'ack-popup', state: 'normal', persona: 'site', path: '/', rules: sr(), steps: [click('知悉并推送')],
     checks: [footInView('.ack'), popText('.ack'), popTaps('.ack'), popLegacy('.ack'), ackChipStable] },
-  { app: 'staff', screen: 'ack-popup', state: 'normal', persona: 'site', path: '/', width: NARROW, rules: sr(), steps: [click('知悉并推送')], checks: [footInView('.ack')] },
+  { app: 'staff', screen: 'ack-popup', state: 'normal', persona: 'site', path: '/', width: NARROW, rules: sr(), steps: [click('知悉并推送')], checks: [footInView('.ack'), ackTimeWhole, footClear('.ack')] },
   { app: 'staff', screen: 'ack-popup', state: 'submitting', persona: 'site', path: '/', rules: sr(), steps: [click('知悉并推送'), fillAddr, countXhr, clickTwice(ACK_BTN, '.ack')], quick: true,
     checks: [sentOnce, popSpin('.ack', '推送中')] },
   { app: 'staff', screen: 'ack-popup', state: 'rejected', persona: 'site', path: '/', rules: sr({ url: '/acknowledge', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
     steps: [click('知悉并推送'), fillAddr, `${findBtn(ACK_BTN, '.ack')}.click()`, toastGone('该报名状态已变化，请刷新后重试')], checks: [popRejected('.ack', '该报名状态已变化，请刷新后重试', ACK_BTN), popText('.ack')] },
   // 确权签约弹层（待确权分组卡片的「入职确权」）
   { app: 'staff', screen: 'confirm-popup', state: 'normal', persona: 'site', path: '/todo?tab=confirm', rules: sr(), steps: [click('入职确权')],
-    checks: [footInView('.cf'), popText('.cf'), popTaps('.cf'), popLegacy('.cf')] },
+    checks: [footInView('.cf'), popText('.cf'), popTaps('.cf'), popLegacy('.cf'), popInset('.cf', '.note'), popInset('.cf', '.grp'), popInset('.cf', '.foot .van-button')] },
   { app: 'staff', screen: 'confirm-popup', state: 'normal', persona: 'site', path: '/todo?tab=confirm', width: NARROW, rules: sr(), steps: [click('入职确权')], checks: [footInView('.cf')] },
   { app: 'staff', screen: 'confirm-popup', state: 'submitting', persona: 'site', path: '/todo?tab=confirm', rules: sr(), steps: [click('入职确权'), countXhr, clickTwice(CF_BTN, '.cf')], quick: true,
     checks: [sentOnce, popSpin('.cf', '提交中')] },

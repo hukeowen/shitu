@@ -144,7 +144,7 @@ const full = (v?: string) => {
         </div>
 
         <section class="who">
-          <div class="avatar" :class="application.fromPublic ? 'avatar--t' : 'avatar--o'">{{ application.seekerName.slice(0, 1) }}</div>
+          <div class="avatar">{{ application.seekerName.slice(0, 1) }}</div>
           <div class="flex1">
             <b>{{ application.seekerName }}<span v-if="application.phone" class="ph">{{ fmtPhone(application.phone) }}</span></b>
             <span>{{ application.jobTitle ?? '—' }}<template v-if="application.projectName"> · {{ application.projectName }}</template></span>
@@ -240,7 +240,7 @@ const full = (v?: string) => {
 
 <style scoped>
 .cf { height: 100%; display: flex; flex-direction: column; background: var(--bg-page); }
-.body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 14px 16px; }
+.body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 var(--space-4) var(--space-4); }
 .steps { display: flex; align-items: center; padding: 14px 2px 4px; }
 .steps .st { display: flex; align-items: center; gap: 5px; font-size: var(--font-size-min); color: var(--text-3); white-space: nowrap; }
 .steps .st i { width: 18px; height: 18px; border-radius: 50%; background: var(--bg-fill); color: var(--text-3); display: grid; place-items: center; font-style: normal; font-size: var(--font-size-min); font-weight: 700; }
@@ -264,5 +264,5 @@ const full = (v?: string) => {
 .qr-tip { font-size: var(--font-size-aux); color: var(--text-3); }
 .link { font-size: var(--font-size-aux); font-family: var(--font-mono); color: var(--text-2); word-break: break-all; text-align: center; padding: 0 6px; }
 .copy { border-radius: var(--radius-control); }
-.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
+.foot { flex: none; padding: 10px var(--space-4) calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 </style>

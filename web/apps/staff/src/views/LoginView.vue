@@ -83,11 +83,13 @@ async function submit() {
       <h1>成员登录</h1>
       <p class="sub">使用公司为你开通的手机号登录</p>
 
+      <!-- 标签单独一行，下面「+86 | 输入框」合成一个带边框的控件 -->
+      <label for="login-phone" class="fld-lbl">手机号码</label>
       <van-field
+        id="login-phone"
         v-model="phone"
-        class="fld"
-        label="手机号码"
-        label-align="top"
+        class="fld fld--cc"
+        aria-label="手机号码"
         type="tel"
         inputmode="numeric"
         maxlength="11"
@@ -153,8 +155,11 @@ h1 { margin-top: var(--space-8); font-size: var(--font-size-title); font-weight:
 .fld :deep(.van-field__body:focus-within) { border-color: var(--primary); }
 /* 输入框不小于 16px，否则 iOS 聚焦时会放大页面 */
 .fld :deep(.van-field__control) { font-size: var(--font-size-section); }
-.fld :deep(.van-field__left-icon) { display: flex; align-items: center; height: var(--control-height); margin-right: 0; padding-left: var(--space-3); border: 1px solid var(--border); border-right: 0; border-radius: var(--radius-control) 0 0 var(--radius-control); }
-.fld :deep(.van-field__left-icon + .van-field__value .van-field__body) { border-left: 0; border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+.fld-lbl { display: block; margin-top: var(--space-4); margin-bottom: var(--space-2); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-1); }
+.fld--cc { margin-top: 0; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-control); transition: border-color .15s; }
+.fld--cc:focus-within { border-color: var(--primary); }
+.fld--cc :deep(.van-field__left-icon) { display: flex; align-items: center; height: 42px; margin-right: 0; padding-left: var(--space-3); }
+.fld--cc :deep(.van-field__body) { height: 42px; border: 0; }
 .cc { padding-right: var(--space-3); border-right: 1px solid var(--divider); font-size: var(--font-size-section); color: var(--text-2); }
 .send { min-width: 104px; height: calc(var(--control-height) - 2px); padding: 0 var(--space-3); border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
 .send:disabled { color: var(--text-placeholder); }

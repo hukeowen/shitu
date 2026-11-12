@@ -20,7 +20,7 @@ export async function openTab(viewport, { timezone = 'Asia/Shanghai' } = {}) {
     if (m.method === 'Network.requestWillBeSent') { inflight.add(m.params.requestId); lastActivity = Date.now() }
     else if (m.method === 'Network.loadingFinished' || m.method === 'Network.loadingFailed') { inflight.delete(m.params.requestId); lastActivity = Date.now() }
     else if (m.method === 'Fetch.requestPaused') {
-      const rule = rules.find((r) => m.params.request.url.includes(r.url) && (!r.method || r.method === m.params.request.method))
+      const rule = rules.find((r) => m.params.request.url.includes(r.url) && (!r.method || r.method === m.params.request.method || (r.method.startsWith('!') && r.method.slice(1) !== m.params.request.method)))
       const requestId = m.params.requestId
       if (!rule || rule.action === 'continue') send('Fetch.continueRequest', { requestId })
       else if (rule.action === 'fail') send('Fetch.failRequest', { requestId, errorReason: 'Failed' })
@@ -49,7 +49,7 @@ export async function openTab(viewport, { timezone = 'Asia/Shanghai' } = {}) {
     await sleep(400) // 留给过渡动画
   }
   /**
-   * 拦截接口，用来截加载中、失败、被拒这些状态。rules: [{ url: 地址里包含的一段, method?: 只拦这种请求方法, action: 'fail' | 'hang' | 'respond' | 'continue', body? }]（continue 放行，用来给后面更宽的规则开例外），按顺序取第一条对得上的。
+   * 拦截接口，用来截加载中、失败、被拒这些状态。rules: [{ url: 地址里包含的一段, method?: 只拦这种请求方法（'!GET' = 除 GET 以外的方法）, action: 'fail' | 'hang' | 'respond' | 'continue', body? }]（continue 放行，用来给后面更宽的规则开例外），按顺序取第一条对得上的。
    * 传空数组取消拦截。hang 的请求一直挂着，settle 会等满 10 秒。
    */
   const intercept = async (list) => {

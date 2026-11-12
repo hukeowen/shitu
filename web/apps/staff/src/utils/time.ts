@@ -35,11 +35,13 @@ export function fmtFull(d: Date): string {
   return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}（周${w}）${p2(d.getHours())}:${p2(d.getMinutes())}`
 }
 
-/** 剩余时间 → 「03:42」（时:分）；已过返回 null */
+/** 剩余时间 → 「3 小时 42 分」「42 分钟」；已过返回 null */
 export function fmtRemain(ms: number): string | null {
   if (ms <= 0) return null
+  // 带单位写：「15:42」分不清是时:分还是分:秒
   const totalMin = Math.floor(ms / 60000)
-  return `${p2(Math.floor(totalMin / 60))}:${p2(totalMin % 60)}`
+  const h = Math.floor(totalMin / 60)
+  return h ? `${h} 小时 ${totalMin % 60} 分` : `${totalMin} 分钟`
 }
 
 /** 下一个工作日（周一至周五）09:00 */

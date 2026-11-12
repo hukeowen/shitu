@@ -207,7 +207,7 @@ async function submit() {
       <van-nav-bar :title="title" left-arrow safe-area-inset-top @click-left="show = false" />
       <div v-if="application" class="body">
         <section class="who">
-          <div class="avatar" :class="application.fromPublic ? 'avatar--t' : 'avatar--o'">{{ application.seekerName.slice(0, 1) }}</div>
+          <div class="avatar">{{ application.seekerName.slice(0, 1) }}</div>
           <div class="flex1">
             <b>{{ application.seekerName }}</b>
             <span>{{ application.jobTitle ?? '—' }}<template v-if="application.projectName"> · {{ application.projectName }}</template></span>
@@ -220,11 +220,12 @@ async function submit() {
             required
             is-link
             readonly
-            :model-value="fmtFull(form.interviewAt)"
-            :placeholder="'请选择'"
             :class="{ 'has-hint': timeHint }"
             @click="openPicker"
-          />
+          >
+            <!-- 用文字而不是输入框显示：360 宽下能折行，不会截成「09:」 -->
+            <template #input><span class="pick-val">{{ fmtFull(form.interviewAt) }}</span></template>
+          </van-field>
           <div v-if="timeHint" class="hint">{{ timeHint }}</div>
           <van-field
             v-model="form.address"
@@ -293,6 +294,7 @@ async function submit() {
 .who b { display: block; font-size: var(--font-size-body); font-weight: 700; color: var(--text-1); }
 .who span { display: block; font-size: var(--font-size-aux); color: var(--text-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp { margin-top: 12px; }
+.pick-val { color: var(--text-1); overflow-wrap: anywhere; }
 .hint { position: relative; padding: 0 16px 12px; margin-top: -6px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); background: var(--bg-card); }
 /* 说明行接在字段下面：分隔线从字段底下挪到说明行底下，说明和它的字段看起来是一格 */
 .hint::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; border-bottom: 1px solid var(--border); transform: scaleY(.5); }
@@ -312,5 +314,5 @@ async function submit() {
 .custom-in:focus { border-color: var(--primary); background: var(--bg-card); }
 .tip { padding: 12px 18px 0; font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
 .tip b { color: var(--text-2); }
-.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
+.foot { flex: none; padding: 10px var(--space-4) calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 </style>
