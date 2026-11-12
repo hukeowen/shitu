@@ -75,6 +75,12 @@ export function fmtYuan(n: number | string | null | undefined, sign = false): st
   return `${v < 0 ? '−' : v > 0 ? '+' : ''}¥${s}`
 }
 
+/** 扣款金额：前面带 −，零不带（不显示成 −0.00）。yuan=true 时带 ¥ */
+export function fmtDeduct(n: number | string | null | undefined, yuan = false): string {
+  const s = yuan ? fmtYuan(n) : fmtAmount(n)
+  return Number(n) ? `−${s}` : s
+}
+
 /** 2026-07 → 2026 年 7 月 */
 export function fmtMonth(m: string | null | undefined): string {
   const r = /^(\d{4})-(\d{1,2})/.exec(m ?? '')

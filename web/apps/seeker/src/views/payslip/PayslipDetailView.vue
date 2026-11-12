@@ -6,7 +6,7 @@ import { errorMessage, isApiError, seekerApi, useDict, type MyPayslipAppeal, typ
 import { IconCheck, IconFileText, IconInfo, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
 import { formatServerTime } from '@/utils/time'
 import AppBar from '@/components/AppBar.vue'
-import { fmtAmount, fmtMonth, fmtYuan } from '@/utils/format'
+import { fmtAmount, fmtDeduct, fmtMonth, fmtYuan } from '@/utils/format'
 import { totalDeduct } from '@/utils/payslip'
 
 /** S-42 工资条明细（C-701）：应发、社保、个税、其他扣款、预支抵扣（高亮单列）、实发；S-43 工资申诉（C-702）发给发薪公司 */
@@ -29,7 +29,7 @@ async function load() {
   } catch (e) {
     slip.value = null
     missing.value = isApiError(e, 'SYS_4040')
-    loadError.value = missing.value ? '未找到该工资条' : errorMessage(e, '加载失败，请稍后重试')
+    if (!missing.value) loadError.value = errorMessage(e, '加载失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -57,6 +57,7 @@ const sending = ref(false)
 /** 校验没过的提示写在对应字段下方；提交被拒的原因留在按钮上方（轻提示两秒就没了） */
 const errs = ref({ item: '', reason: '' })
 const rejected = ref('')
+const conflict = ref('')
 const hasOpenAppeal = computed(() => appeals.value.some((a) => a.status === 'OPEN'))
 
 async function loadAppeals() {
@@ -69,11 +70,11 @@ async function loadAppeals() {
 void loadAppeals()
 
 function openAppeal() {
-  if (hasOpenAppeal.value) return void showToast('已有一条申诉在处理中，请等待公司回复')
   item.value = ''
   reason.value = ''
   errs.value = { item: '', reason: '' }
   rejected.value = ''
+  conflict.value = ''
   appealOpen.value = true
 }
 function pick(v: PayslipAppealItem) {
@@ -102,6 +103,8 @@ async function submitAppeal() {
     const msg = errorMessage(e, '提交失败，请稍后重试')
     showToast(msg)
     if (isApiError(e, 'SYS_4090')) {
+      // 已有一条在处理：弹层关掉，原因留在底部按钮上方（重新拉到那条申诉后按钮置灰，换成置灰的原因）
+      conflict.value = msg
       appealOpen.value = false
       await loadAppeals()
     } else {
@@ -125,7 +128,7 @@ const hasAdvance = computed(() => Number(slip.value?.advanceDeduct ?? 0) > 0)
     <div v-else-if="missing" class="state-block">
       <IconFileText :size="48" :stroke-width="1.5" />
       <div class="state-block-t">工资条不存在</div>
-      <div class="state-block-d">可能已被撤回，或不是你名下的工资条</div>
+      <div class="state-block-d">未找到该工资条</div>
       <van-button type="primary" @click="router.replace('/payslips')">返回我的工资</van-button>
     </div>
     <div v-else-if="loadError || !slip" class="state-block">
@@ -141,7 +144,7 @@ const hasAdvance = computed(() => Number(slip.value?.advanceDeduct ?? 0) > 0)
         <section class="acard">
           <div class="acard-hd"><h4>实发工资</h4><span class="status-tag status-tag--success">已出工资条</span></div>
           <div class="sum-amt">{{ fmtYuan(slip.netPay) }}</div>
-          <p class="sum-note">应发 {{ fmtAmount(slip.grossPay) }} − 扣款 {{ fmtAmount(deduct) }}</p>
+          <p class="sum-note">应发 <b class="money-in">{{ fmtAmount(slip.grossPay) }}</b> − 扣款 <b class="money-in">{{ fmtAmount(deduct) }}</b></p>
           <dl class="sum-kv">
             <div class="kv"><dt>计薪月份</dt><dd>{{ fmtMonth(slip.payMonth) }}</dd></div>
             <div class="kv"><dt>发薪主体</dt><dd>{{ slip.companyName || '—' }}</dd></div>
@@ -160,14 +163,14 @@ const hasAdvance = computed(() => Number(slip.value?.advanceDeduct ?? 0) > 0)
         <section class="acard">
           <div class="acard-hd"><h4>扣款项</h4></div>
           <dl>
-            <div class="kv"><dt>社会保险（个人部分）</dt><dd class="money">−{{ fmtAmount(slip.socialInsurance) }}</dd></div>
-            <div class="kv"><dt>个人所得税</dt><dd class="money">−{{ fmtAmount(slip.incomeTax) }}</dd></div>
-            <div class="kv"><dt>其他扣款</dt><dd class="money">−{{ fmtAmount(slip.otherDeduct) }}</dd></div>
+            <div class="kv"><dt>社会保险（个人部分）</dt><dd class="money">{{ fmtDeduct(slip.socialInsurance) }}</dd></div>
+            <div class="kv"><dt>个人所得税</dt><dd class="money">{{ fmtDeduct(slip.incomeTax) }}</dd></div>
+            <div class="kv"><dt>其他扣款</dt><dd class="money">{{ fmtDeduct(slip.otherDeduct) }}</dd></div>
             <div class="kv adv">
               <dt>薪资预支抵扣<span class="sub">{{ hasAdvance ? '发薪日系统自动抵扣已到账的薪资预支，不足部分结转下月' : '本月无预支抵扣' }}</span></dt>
-              <dd class="money">−{{ fmtAmount(slip.advanceDeduct) }}</dd>
+              <dd class="money">{{ fmtDeduct(slip.advanceDeduct) }}</dd>
             </div>
-            <div class="kv total"><dt>扣款合计</dt><dd class="money">−{{ fmtAmount(deduct) }}</dd></div>
+            <div class="kv total"><dt>扣款合计</dt><dd class="money">{{ fmtDeduct(deduct) }}</dd></div>
           </dl>
         </section>
 
@@ -190,11 +193,12 @@ const hasAdvance = computed(() => Number(slip.value?.advanceDeduct ?? 0) > 0)
           <IconInfo :size="20" />
           <div class="flex1"><div class="tipbar-d first">申诉会发给发薪公司的项目经理处理，结果通过消息中心通知你。</div></div>
         </section>
-        <div class="bottom-bar-gap" :class="{ 'with-why': hasOpenAppeal }"></div>
+        <div class="bottom-bar-gap" :class="{ 'with-why': hasOpenAppeal || conflict }"></div>
       </div>
 
       <div class="bottom-bar">
         <p v-if="hasOpenAppeal" class="bar-why">已有一条申诉在处理中，请等待公司回复</p>
+        <p v-else-if="conflict" class="bar-why err" role="alert"><IconTriangleExclamationPoint :size="16" />没有提交成功：{{ conflict }}</p>
         <van-button type="primary" size="large" block :disabled="hasOpenAppeal" @click="openAppeal">{{ hasOpenAppeal ? '申诉处理中' : '对这张工资条提出申诉' }}</van-button>
       </div>
     </template>
@@ -252,7 +256,7 @@ const hasAdvance = computed(() => Number(slip.value?.advanceDeduct ?? 0) > 0)
 .kv.adv { align-items: flex-start; }
 .sub { display: block; margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-wrap: pretty; }
 .apl { padding: var(--space-3) 0; border-top: 1px solid var(--divider); }
-.apl:first-of-type { border-top: 0; padding-top: 0; }
+.acard-hd + .apl { border-top: 0; padding-top: 0; }
 .apl:last-of-type { padding-bottom: 0; }
 .apl-q { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); white-space: pre-wrap; overflow-wrap: anywhere; }
 .apl-r { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--success-soft); }

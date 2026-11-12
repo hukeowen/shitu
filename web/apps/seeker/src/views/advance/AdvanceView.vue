@@ -212,11 +212,11 @@ async function onApply() {
         <section class="acard">
           <div class="acard-hd"><h4>规则说明</h4></div>
           <dl>
-            <div class="kv"><dt>单次金额</dt><dd>固定 {{ fmtAmount(quota.amount) }} 元 / 次</dd></div>
+            <div class="kv"><dt>单次金额</dt><dd>固定 <b class="money-in">{{ fmtAmount(quota.amount) }}</b> 元 / 次</dd></div>
             <div class="kv"><dt>月度上限</dt><dd>每月最多 {{ quota.monthlyLimit }} 次</dd></div>
-            <div class="kv"><dt>抵扣不足</dt><dd>剩余欠款结转下月</dd></div>
             <div class="kv kv-stack"><dt>审批流程</dt><dd>驻场初审 → 项目经理终审 → 拨款</dd></div>
             <div class="kv kv-stack"><dt>还款方式</dt><dd>发薪日自动抵扣，无需主动还款</dd></div>
+            <div class="kv"><dt>抵扣不足</dt><dd>剩余欠款结转下月</dd></div>
             <div class="kv kv-stack"><dt>离职处理</dt><dd>离职前须结清，从最后一笔工资扣除</dd></div>
           </dl>
         </section>

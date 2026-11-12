@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, type Payslip } from '@shitu/api-client'
 import { IconChevronRight, IconInfo, IconReceipt, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
-import { fmtMonth, fmtYuan } from '@/utils/format'
+import { fmtDeduct, fmtMonth, fmtYuan } from '@/utils/format'
 import { totalDeduct } from '@/utils/payslip'
 
 /** S-41 我的工资（C-701）：按月展示实发；最新一月置顶展示应发 / 扣款 / 实发，预支抵扣单独提醒 */
@@ -54,6 +54,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
       <div v-else-if="!latest" class="state-block">
         <IconReceipt :size="48" :stroke-width="1.5" />
         <div class="state-block-t">还没有工资条</div>
+        <div class="state-block-d">劳务公司导入工资表后，每月工资条会在这里展示</div>
         <div class="state-block-d">工资由所属劳务公司核算发放，发薪后可在这里查看明细</div>
       </div>
 
@@ -63,8 +64,8 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
           <div class="sum-amt">{{ fmtYuan(latest.netPay) }}</div>
           <dl class="sum-kv">
             <div class="kv"><dt>应发</dt><dd class="money">{{ fmtYuan(latest.grossPay) }}</dd></div>
-            <div class="kv"><dt>扣款</dt><dd class="money">−{{ fmtYuan(totalDeduct(latest)) }}</dd></div>
-            <div class="kv"><dt>其中预支抵扣</dt><dd class="money">−{{ fmtYuan(latest.advanceDeduct) }}</dd></div>
+            <div class="kv"><dt>扣款</dt><dd class="money">{{ fmtDeduct(totalDeduct(latest), true) }}</dd></div>
+            <div class="kv"><dt>其中预支抵扣</dt><dd class="money">{{ fmtDeduct(latest.advanceDeduct, true) }}</dd></div>
           </dl>
         </section>
 
@@ -75,7 +76,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
           </div>
           <p class="item-sub">本月工资已自动抵扣薪资预支，无需主动还款，不产生任何利息或手续费</p>
           <dl class="sum-kv">
-            <div class="kv"><dt>抵扣金额</dt><dd class="money">−{{ fmtYuan(latest.advanceDeduct) }}</dd></div>
+            <div class="kv"><dt>抵扣金额</dt><dd class="money">{{ fmtDeduct(latest.advanceDeduct, true) }}</dd></div>
           </dl>
           <div class="more"><span class="link">查看明细<IconChevronRight :size="16" /></span></div>
         </article>
@@ -85,8 +86,8 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
           <button v-for="p in list" :key="p.payslipId" type="button" class="lrow" @click="open(p)">
             <span class="lt">
               <b>{{ fmtMonth(p.payMonth) }}</b>
-              <span>应发 {{ fmtYuan(p.grossPay) }}</span>
-              <span v-if="Number(p.advanceDeduct) > 0">抵扣预支 {{ fmtYuan(p.advanceDeduct) }}</span>
+              <span>应发 <b class="money-in">{{ fmtYuan(p.grossPay) }}</b></span>
+              <span v-if="Number(p.advanceDeduct) > 0">抵扣预支 <b class="money-in">{{ fmtYuan(p.advanceDeduct) }}</b></span>
             </span>
             <span class="rv">
               <b class="money">{{ fmtYuan(p.netPay) }}</b>
@@ -121,7 +122,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
 .list .lrow:active { background: var(--bg-hover); }
 .lt span { display: block; line-height: 20px; font-variant-numeric: tabular-nums; }
 .rv { flex: none; text-align: right; }
-.rv b { display: block; font-size: var(--font-size-body); line-height: 22px; }
+.rv > b { display: block; font-size: var(--font-size-body); line-height: 22px; }
 .rv span { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .tipbar-d.first { margin-top: 0; text-wrap: pretty; }
 </style>

@@ -145,7 +145,7 @@ function logRef(e: DebtLogEntry): string {
                   </div>
                   <div class="lv">
                     <b class="money">{{ fmtYuan(Math.abs(Number(e.amount)) * (LOG_TEXT[e.changeType]?.sign ?? -1), true) }}</b>
-                    <span>结余 {{ fmtYuan(e.balanceAfter) }}</span>
+                    <span>结余 <b class="money-in">{{ fmtYuan(e.balanceAfter) }}</b></span>
                   </div>
                 </div>
               </section>
@@ -171,7 +171,7 @@ function logRef(e: DebtLogEntry): string {
 
 <style scoped>
 .advr { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
-.top { padding-top: var(--space-gap); padding-bottom: var(--space-gap); }
+.top { padding-top: var(--space-page); padding-bottom: var(--space-gap); }
 .body { min-height: 50vh; }
 .tap { cursor: pointer; }
 .tap:active { background: var(--bg-hover); }
@@ -184,7 +184,7 @@ function logRef(e: DebtLogEntry): string {
 .lt span { display: block; line-height: 20px; }
 .lt .ref { font-family: var(--font-mono); overflow-wrap: anywhere; }
 .lv { flex: none; text-align: right; }
-.lv b { display: block; font-size: var(--font-size-body); line-height: 22px; }
+.lv > b { display: block; font-size: var(--font-size-body); line-height: 22px; }
 .lv span { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .tipbar-d.first { margin-top: 0; text-wrap: pretty; }
 </style>

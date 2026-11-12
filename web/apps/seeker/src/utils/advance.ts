@@ -6,7 +6,7 @@ export const ADVANCE_TONE: Record<AdvanceStatus, string> = {
   SITE_APPROVED: 'status-tag--warning',
   PM_APPROVED: 'status-tag--warning',
   PAID: 'status-tag--success',
-  PARTIALLY_REPAID: 'status-tag--info',
+  PARTIALLY_REPAID: 'status-tag--pending',
   REPAID: 'status-tag--neutral',
   REJECTED: 'status-tag--danger',
 }

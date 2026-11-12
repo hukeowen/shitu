@@ -34,7 +34,7 @@ async function load() {
   } catch (e) {
     detail.value = null
     missing.value = isApiError(e, 'SYS_4040')
-    loadError.value = missing.value ? '未找到该预支申请' : errorMessage(e, '加载失败，请稍后重试')
+    if (!missing.value) loadError.value = errorMessage(e, '加载失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -72,7 +72,7 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
       <div v-else-if="missing" class="state-block">
         <IconFileText :size="48" :stroke-width="1.5" />
         <div class="state-block-t">预支申请不存在</div>
-        <div class="state-block-d">可能已被撤销，或不是你名下的申请</div>
+        <div class="state-block-d">未找到该预支申请</div>
         <van-button type="primary" @click="router.replace('/advance')">返回预支首页</van-button>
       </div>
       <div v-else-if="loadError || !row" class="state-block">
@@ -141,7 +141,7 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
               </div>
               <div class="r">
                 <b class="money">{{ LEDGER_NAME[l.changeType]?.sign === 1 ? '+' : '−' }}{{ fmtYuan(l.amount) }}</b>
-                <span>本笔剩余 {{ fmtYuan(l.balanceAfter) }}</span>
+                <span>本笔剩余 <b class="money-in">{{ fmtYuan(l.balanceAfter) }}</b></span>
               </div>
             </div>
           </template>
@@ -184,7 +184,7 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
 .sub-t { margin: var(--space-4) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); line-height: 20px; color: var(--text-2); }
 .led { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--divider); }
 .led:last-of-type { border-bottom: 0; }
-.led b { display: block; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
+.led b:not(.money-in) { display: block; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
 .led b.money { font-weight: var(--font-weight-semibold); }
 .led span { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .led .r { flex: none; text-align: right; }

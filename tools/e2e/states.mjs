@@ -204,7 +204,7 @@ const formGroups = `(() => { const fs = [...document.querySelectorAll('#app .van
   const small = fs.map((f) => f.querySelector('.van-field__control')).find((c) => parseFloat(getComputedStyle(c).fontSize) < 16)
   return small ? '输入框的字小于 16px' : '' })()`
 // 正文不小于 15px：段落、键值、列表行、提示条和说明条（弹层挂在 body 上，所以不限定在 #app 里）
-const bodyText = `(() => { const bad = [...document.querySelectorAll('.para, .kv dt, .kv dd, .item-sub, .tl-t, .tipbar-t, .tipbar-d, .note, .tips li')].find((e) => e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize) < 15)
+const bodyText = `(() => { const bad = [...document.querySelectorAll('.para, .kv dt, .kv dd, .item-sub, .tl-t, .tipbar-t, .tipbar-d, .note, .tips li, .bar-why')].find((e) => e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize) < 15)
   return bad ? '正文小于 15px（' + getComputedStyle(bad).fontSize + '）：' + bad.innerText.slice(0, 20) : '' })()`
 // 提交中不能重复点：先数 XHR 发了几条（countXhr 放在点提交之前），点两次提交，只能发出一条，按钮处于加载中
 const countXhr = `(() => { window.__sent = 0; const send = XMLHttpRequest.prototype.send; XMLHttpRequest.prototype.send = function (...a) { window.__sent++; return send.apply(this, a) } })()`
@@ -295,11 +295,16 @@ const moneyStyle = `(() => { const ink = ${tokenColor('--text-1')}, salary = ${t
     if (cs.color !== ink) return '金额不是一级文字色：' + t + ' ' + cs.color
     if (Number(cs.fontWeight) < 600) return '金额没有加粗：' + t
     if (!cs.fontVariantNumeric.includes('tabular-nums')) return '金额数字不等宽：' + t
-    if (!e.matches('.money')) continue
     const p = e.parentElement, pr = p.getBoundingClientRect().right - parseFloat(getComputedStyle(p).paddingRight)
     if (!['right', 'end'].includes(cs.textAlign) || pr - e.getBoundingClientRect().right > 1) return '金额没有右对齐：' + t }
-  const loose = [...document.querySelectorAll('#app *')].find((e) => !e.children.length && e.getClientRects().length && /^[+−-]?¥?\\d[\\d,]*\\.\\d{2}$/.test(e.textContent.trim()) && !e.closest('.money, .sum-amt'))
-  if (loose) return '有金额没用金额样式：' + loose.textContent.trim()
+  // 句子里的金额（「结余 ¥800.00」「应发 6,200.00」）：逐个文字节点找两位小数的数，所在元素得是金额类；按钮上的字不算
+  const walker = document.createTreeWalker(document.querySelector('#app'), NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) { const el = n.parentElement
+    if (!/\\d[\\d,]*\\.\\d{2}/.test(n.textContent) || !el.getClientRects().length || el.closest('button, .van-button')) continue
+    if (!el.closest('.money, .sum-amt, .money-in')) return '有金额没用金额样式：' + n.textContent.trim().slice(0, 24) }
+  for (const e of document.querySelectorAll('#app .money-in')) { const cs = getComputedStyle(e)
+    if (cs.color !== ink || Number(cs.fontWeight) < 600 || !cs.fontVariantNumeric.includes('tabular-nums')) return '句中金额不是一级文字色加粗等宽：' + e.textContent.trim() }
+  if (/[−-]¥?0\\.00/.test(document.querySelector('#app').innerText)) return '零显示成了负零'
   const hot = [...document.querySelectorAll('#app *')].find((e) => e.getClientRects().length && getComputedStyle(e).color === salary)
   return hot ? '金额用了薪资色：' + hot.textContent.trim().slice(0, 20) : '' })()`
 // 实发最醒目：实发是汇总卡的大数字，比页面上别的金额都大
@@ -655,9 +660,10 @@ const STATES = [
   { app: 'seeker', screen: 'advance', state: 'error', persona: 'veteran', path: '/advance', rules: [{ url: QUOTA_API, action: 'fail' }], checks: [has('重新加载'), hasNot('申请预支')] },
   { app: 'seeker', screen: 'advance', state: 'confirm', persona: 'veteran', path: '/advance', rules: [advPost('hang'), ...advHome(fakeQuota())], steps: [click('申请预支')],
     checks: [`document.querySelector('.van-dialog')?.innerText.includes('确认预支 ¥500.00') ? '' : '点「申请预支」没有弹出确认'`] },
-  // 提交中：确认之后再点一次底部按钮，只能发出一条请求
+  // 提交中：确认之后再点一次底部按钮；要是又弹出确认框就再确认一次。只能发出一条请求
   { app: 'seeker', screen: 'advance', state: 'submitting', persona: 'veteran', path: '/advance', rules: [advPost('hang'), ...advHome(fakeQuota())],
-    steps: [click('申请预支'), countXhr, `(async () => { ${findBtn('确认申请', '.van-dialog')}.click(); await ${wait(400)}; document.querySelector('#app .bottom-bar .van-button').click() })()`], quick: true,
+    steps: [click('申请预支'), countXhr, `(async () => { ${findBtn('确认申请', '.van-dialog')}.click(); await ${wait(500)}; document.querySelector('#app .bottom-bar .van-button').click(); await ${wait(500)}
+      const again = [...document.querySelectorAll('.van-dialog')].find((d) => d.getClientRects().length); if (again) [...again.querySelectorAll('button')].find((b) => b.innerText.includes('确认申请')).click() })()`], quick: true,
     checks: [spinning('提交中'), sentOnce] },
   { app: 'seeker', screen: 'advance', state: 'rejected', persona: 'veteran', path: '/advance', rules: [advPost('respond', refuse('ADV_4001', '你有一笔预支正在审批中')), ...advHome(fakeQuota())],
     steps: [click('申请预支'), `(async () => { ${findBtn('确认申请', '.van-dialog')}.click(); await ${toastGone('你有一笔预支正在审批中')} })()`],
@@ -708,7 +714,7 @@ const STATES = [
   { app: 'seeker', screen: 'payslip-detail', state: 'error', persona: 'veteran', path: SLIP, rules: [{ url: SLIP_APPEALS_API, action: 'respond', body: reply([]) }, { url: SLIP_API, action: 'fail' }], checks: [has('重新加载'), hasNot('工资条不存在')] },
   // 工资申诉弹层
   { app: 'seeker', screen: 'payslip-appeal', state: 'normal', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal],
-    checks: [`document.querySelector('.van-popup .van-cell-group .van-field textarea') ? '' : '说明情况不在单元格组里'`, tapArea('.van-popup .sheet-x'), tapTall('.van-popup .chip-tap'), bodyText,
+    checks: [`document.querySelector('.van-popup .van-cell-group .van-field textarea') ? '' : '说明情况不在单元格组里'`, tapArea('.van-popup .sheet-x'), tapArea('.van-popup .chip-tap'), bodyText,
       `parseFloat(getComputedStyle(document.querySelector('.van-popup textarea')).fontSize) >= 16 ? '' : '输入框的字小于 16px'`, `document.querySelectorAll('.van-popup .chip-tap').length === 7 ? '' : '可选的项目不是 7 个'`] },
   { app: 'seeker', screen: 'payslip-appeal', state: 'normal', persona: 'veteran', path: SLIP, width: NARROW, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal] },
   { app: 'seeker', screen: 'payslip-appeal', state: 'selected', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'hang' }), steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。')],
@@ -725,10 +731,16 @@ const STATES = [
   { app: 'seeker', screen: 'payslip-appeal', state: 'rejected', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'respond', body: refuse('SYS_4000', '请用 5–500 个字说明问题') }),
     steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), `(async () => { ${sheetSubmit}; await ${toastGone('请用 5–500 个字说明问题')} })()`],
     checks: [popupIdle, stays('.van-popup .tipbar--danger', '没有提交成功：请用 5–500 个字说明问题'), bodyText] },
-  // 已有一条在处理（SYS_4090）：弹层关掉，回到页面
+  // 已有一条在处理（SYS_4090）：弹层关掉，页面重新拉申诉（真实后端这时会返回那条处理中的），按钮置灰、原因留在按钮上方
   { app: 'seeker', screen: 'payslip-appeal', state: 'conflict', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'respond', body: refuse('SYS_4090', '这张工资条已有处理中的申诉') }),
+    lateRules: [{ url: SLIP_APPEALS_API, method: 'GET', action: 'respond', body: reply([fakePayAppeal(3, 'OTHER_DEDUCT', 'OPEN', { payslipId: data.ids.payslipId, content: '上个月没有请假，其他扣款不清楚扣的是什么。' })]) }],
+    steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), `(async () => { ${sheetSubmit}; await ${toastGone('这张工资条已有处理中的申诉')} })()`, toBottom],
+    checks: [`[...document.querySelectorAll('.van-popup')].some((p) => p.getClientRects().length) ? '已有申诉在处理时弹层没有关掉' : ''`,
+      disabledBtn('申诉处理中'), stays('#app .bottom-bar .bar-why', '已有一条申诉在处理中，请等待公司回复'), has('我的申诉'), has('待处理'), bodyText] },
+  // 冲突之后重新拉申诉没拉到（接口还是空的）：后端给的原因留在按钮上方
+  { app: 'seeker', screen: 'payslip-appeal', state: 'conflict-stale', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'respond', body: refuse('SYS_4090', '这张工资条已有处理中的申诉') }),
     steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), `(async () => { ${sheetSubmit}; await ${toastGone('这张工资条已有处理中的申诉')} })()`],
-    checks: [`[...document.querySelectorAll('.van-popup')].some((p) => p.getClientRects().length) ? '已有申诉在处理时弹层没有关掉' : ''`] },
+    checks: [stays('#app .bottom-bar .bar-why', '没有提交成功：这张工资条已有处理中的申诉'), bodyText, bottomBar('对这张工资条提出申诉')] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

@@ -240,14 +240,17 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 /* .kv dd 自带 500 字重，所以金额在键值行里要再点一次名 */
 .money, .kv dd.money { font-weight: var(--font-weight-semibold); color: var(--text-1); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* 汇总卡：金额大数字，下面一组「分项 / 值」 */
-.sum-amt { font-size: 24px; font-weight: var(--font-weight-semibold); line-height: 32px; color: var(--text-1); font-variant-numeric: tabular-nums; }
-.sum-note { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.sum-amt { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); text-align: right; font-variant-numeric: tabular-nums; }
+/* 夹在文字里的金额：一级文字色加粗、数字等宽，跟着所在那行的字号 */
+/* .lrow .lt b 是整行的标题样式，句中金额在列表行里要再点一次名 */
+.money-in, .lrow .lt .money-in { display: inline; font-size: inherit; font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sum-note { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: right; }
 .sum-kv { margin-top: var(--space-3); border-top: 1px solid var(--divider); }
 /* 键值行里的长内容：标签在上、内容左对齐在下 */
 .kv.kv-stack { display: block; }
 .kv.kv-stack dd { margin-top: 2px; text-align: left; word-break: normal; overflow-wrap: anywhere; }
 /* 底部通栏按钮上方的一行原因：置灰的原因用提醒色，被拒的原因加 err 用危险色 */
-.bar-why { display: flex; justify-content: center; gap: var(--space-1); margin-bottom: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--warning-text); text-align: center; text-wrap: balance; }
-.bar-why svg { flex: none; margin-top: 2px; }
+.bar-why { display: flex; justify-content: center; gap: var(--space-1); margin-bottom: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); text-align: center; text-wrap: balance; }
+.bar-why svg { flex: none; margin-top: 3px; }
 .bar-why.err { color: var(--danger-text); }
 .bottom-bar-gap.with-why { height: calc(128px + env(safe-area-inset-bottom)); }
