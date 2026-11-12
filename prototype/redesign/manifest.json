@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "project": "仕兔 · 驻场工作台改版",
+  "brief": "驻场人员打开工作台：先看清谁快超时，再逐个处理（知悉推送、到厂确认、入职确权、流转经纪人）。三个候选使用同一份演示数据。",
+  "round": "03",
+  "candidates": [
+    {
+      "id": "current",
+      "name": "现状 · 原型 A-01",
+      "concept": "暖灰纸面、深色侧栏、仕兔橙；宽表格 + 漏斗 + 快捷操作。",
+      "typography": "PingFang SC 正文 13px；Bahnschrift 大数字；等宽字体用于手机号与倒计时",
+      "palette": ["#F1EFE9", "#12171E", "#E8590C", "#FFFFFF"],
+      "traits": ["深色侧栏", "表格在 1440 宽下状态列折行", "漏斗用大色块"],
+      "kind": "image",
+      "source": "current-a01@2x.png",
+      "baseline": true
+    },
+    {
+      "id": "a2",
+      "name": "A2 · 列表 + 详情（钴蓝）",
+      "concept": "左边按剩余时间排队，右边直接处理选中的人，处理不用跳页。",
+      "typography": "PingFang SC 14px 正文；标题 20px/600；数字等宽对齐",
+      "palette": ["#F7F8FA", "#FFFFFF", "#2B59E8", "#111827"],
+      "traits": ["白色侧栏", "5 张数字卡片", "列表 400px + 详情", "进度条与超时提醒在详情顶部"],
+      "kind": "html",
+      "source": "a2-list-detail.html",
+      "interactive": true
+    },
+    {
+      "id": "e",
+      "name": "E · 今日任务 + 日程（靛蓝）",
+      "concept": "开门见山告诉你今天要做什么：待办按紧急程度分组，每条一个主按钮，右边看今天谁来厂。",
+      "typography": "PingFang SC 14px 正文；问候语 24px/600；数字等宽对齐",
+      "palette": ["#F5F6F8", "#FFFFFF", "#4F5BD5", "#1C1F26"],
+      "traits": ["侧栏与画布同色", "统计压成一行", "分组待办 + 已处理可撤销", "今日到厂时间轴"],
+      "kind": "html",
+      "source": "e-tasks-schedule.html",
+      "interactive": true
+    }
+  ]
+}

@@ -1,0 +1,349 @@
+<!doctype html>
+<!-- PROTOTYPE — 可删除。驻场人员手机端 · 工作台，第 04 轮定风格用的一次性原型；三个风格文件只有 <style> 不同。数据为演示数据。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>工作台 · 仕兔驻场</title>
+<style>
+  /* 方向 D3 安心绿：平整、克制、偏工具感 */
+  :root {
+    --primary: #0E9F6E; --primary-hover: #0B8A5F; --primary-text: #0B7A55; --primary-weak: #E8F7F0; --primary-weak-line: #C5EBDA;
+    --bg: #F4F6F5; --line: #E3E8E5; --divider: #EEF1EF; --track: #E8EDEA; --head-bg: #FFFFFF;
+    --text-1: #1A1D23; --text-2: #4B5260; --text-3: #8A909C;
+    --danger: #E5484D; --warn: #E8890C; --ok: #18A058;
+    --pub-bg: #EAF1FF; --pub-fg: #2453C7;
+    --r-card: 10px; --r-btn: 6px; --r-tag: 3px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    color: var(--text-1); background: var(--bg); -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, p { margin: 0; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; -webkit-tap-highlight-color: transparent; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+  .page { max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(56px + 24px + env(safe-area-inset-bottom)); }
+
+  /* 顶部 */
+  .head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px; }
+  .avatar { width: 44px; height: 44px; flex: none; display: grid; place-items: center; font-size: 18px; font-weight: 600; }
+  .who { flex: 1; min-width: 0; }
+  .who h1 { font-size: 18px; font-weight: 600; line-height: 26px; }
+  .who p { font-size: 13px; color: var(--text-2); line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { position: relative; width: 44px; height: 44px; display: grid; place-items: center; color: var(--text-1); margin-right: -8px; }
+  .icon-btn svg.i { width: 24px; height: 24px; }
+  .icon-btn .dot { position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); border: 2px solid var(--head-bg); }
+
+  .main { padding: 4px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: #fff; border-radius: var(--r-card); }
+
+  /* 数字概览 */
+  .stats { padding: 16px 0 14px; }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat b { font-size: 26px; line-height: 32px; font-weight: 600; }
+  .stat span { font-size: 13px; color: var(--text-2); }
+  .goal { margin: 14px 16px 0; padding-top: 12px; border-top: 1px solid var(--divider); }
+  .goal-text { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+  .goal-text b { color: var(--text-1); font-weight: 600; font-size: 15px; }
+  .bar { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+
+  /* 超时提醒 */
+  .alert { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 12px; min-height: 48px; color: var(--danger); }
+  .alert p { flex: 1; min-width: 0; color: var(--text-1); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert p b { font-weight: 600; color: var(--danger); font-size: 16px; }
+  .link { display: inline-flex; align-items: center; gap: 0; height: 44px; padding: 0 6px 0 4px; flex: none; color: var(--primary-text); font-weight: 500; font-size: 15px; white-space: nowrap; }
+  .link svg.i, .more svg.i { width: 16px; height: 16px; }
+
+  /* 区块标题 */
+  .sec-head { display: flex; align-items: baseline; gap: 8px; padding: 8px 0 0; }
+  .sec-head h2 { font-size: 16px; font-weight: 600; }
+  .sec-sub { font-size: 13px; color: var(--text-2); }
+  .sec-sub b { font-weight: 600; color: var(--text-1); }
+  .more { margin-left: auto; display: inline-flex; align-items: center; font-size: 13px; color: var(--text-2); align-self: center; }
+  .list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+
+  /* 待办卡片 */
+  .item { padding: 16px; scroll-margin: 80px; }
+  .item-top { display: flex; align-items: flex-start; gap: 12px; }
+  .item-who { flex: 1; min-width: 0; }
+  .name-line { display: flex; align-items: center; gap: 8px; }
+  .name-line h3 { font-size: 17px; font-weight: 600; line-height: 24px; }
+  .tag { display: inline-flex; align-items: center; height: 22px; padding: 0 6px; font-size: 12px; font-weight: 500; border-radius: var(--r-tag); }
+  .tag.pri { background: #FFF3E0; color: #B45309; }
+  .tag.pub { background: var(--pub-bg); color: var(--pub-fg); }
+  .phone { margin-top: 2px; font-size: 15px; color: var(--text-2); letter-spacing: .2px; }
+  .left { text-align: right; flex: none; }
+  .left small { display: block; font-size: 12px; color: var(--text-2); line-height: 16px; }
+  .left b { display: block; font-size: 20px; line-height: 28px; font-weight: 600; color: var(--text-1); }
+  .left.orange b { color: #B86200; }
+  .left.red b { color: var(--danger); }
+  .done-tag { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; font-size: 13px; font-weight: 500; color: var(--ok); background: #E8F6EE; border-radius: var(--r-tag); flex: none; }
+  .done-tag svg.i { width: 14px; height: 14px; stroke-width: 2.25; }
+
+  .facts { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .facts li { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text-1); line-height: 22px; }
+  .facts li svg.i { width: 18px; height: 18px; color: var(--text-3); }
+  .facts .muted { color: var(--text-2); }
+
+  .actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--divider); }
+  .btn { height: 44px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 15px; font-weight: 500; border-radius: var(--r-btn); white-space: nowrap; }
+  .btn svg.i { width: 18px; height: 18px; }
+  .btn.call, .btn.ghost { flex: none; min-width: 92px; }
+  .btn.primary { flex: 1; background: var(--primary); color: #fff; font-weight: 600; }
+  .btn.primary:active { background: var(--primary-hover); }
+  .done-line { display: flex; align-items: center; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--divider); color: var(--text-2); font-size: 14px; }
+  .done-line svg.i { width: 18px; height: 18px; color: var(--ok); }
+  .item.done .name-line h3, .item.done .facts li { color: var(--text-2); }
+  .item.flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { 0%, 40% { box-shadow: 0 0 0 2px var(--primary); } 100% { box-shadow: 0 0 0 2px transparent; } }
+
+  /* 更多事项 */
+  .entries { padding: 4px 16px 16px; }
+  .sec-head.in-card { padding-top: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+  .entry { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; }
+  .entry .ico { display: grid; place-items: center; height: 40px; }
+  .entry .ico svg.i { width: 24px; height: 24px; }
+  .entry b { font-size: 14px; font-weight: 500; line-height: 20px; }
+  .entry small { font-size: 13px; color: var(--text-2); line-height: 18px; }
+
+  /* 底部标签栏 */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr);
+    background: #fff; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 10; }
+  .tab { position: relative; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-2); font-size: 12px; }
+  .tab svg.i { width: 24px; height: 24px; }
+  .tab.on { color: var(--primary-text); font-weight: 500; }
+
+  /* 轻提示 */
+  .toast { position: fixed; left: 50%; bottom: calc(56px + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20;
+    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 48px); width: max-content; padding: 12px 16px; background: #1A1D23; color: #fff;
+    font-size: 15px; border-radius: var(--r-btn); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+  .toast svg.i { width: 18px; height: 18px; color: #5BD69A; stroke-width: 2.25; }
+  .toast.show { animation: toast-in .2s ease-out; }
+  @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .head { background: #fff; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 8px; }
+  .avatar { border-radius: 6px; background: #fff; border: 1px solid var(--line); color: var(--text-1); }
+  .card { border: 1px solid var(--line); }
+  .stat + .stat { border-left: 1px solid var(--divider); }
+  .bar, .bar i { border-radius: 0; }
+  .alert { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--danger); border-radius: 6px; padding-left: 10px; }
+  .btn.call, .btn.ghost { background: #fff; border: 1px solid var(--line); color: var(--text-1); }
+  .entry .ico { color: var(--text-2); }
+  .tab.on::before { content: ""; position: absolute; top: -1px; left: 28%; right: 28%; height: 2px; background: var(--primary); }
+  .toast { border-radius: 6px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 15h2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-brief" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect x="2" y="6" width="20" height="14" rx="2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2v.3"/></symbol>
+</svg>
+
+<div class="page">
+  <header class="head">
+    <div class="avatar" aria-hidden="true">王</div>
+    <div class="who">
+      <h1>王磊 · 驻场老师</h1>
+      <p>鑫诚劳务 · 立讯精密昆山二期</p>
+    </div>
+    <button class="icon-btn" type="button" aria-label="通知"><svg class="i"><use href="#i-bell"/></svg><i class="dot"></i></button>
+  </header>
+
+  <main class="main">
+    <section class="card stats" aria-label="今日概览">
+      <div class="stat-row">
+        <div class="stat"><b class="num">7</b><span>今日到厂</span></div>
+        <div class="stat"><b class="num">9</b><span>待面试</span></div>
+        <div class="stat"><b class="num">4</b><span>待确权</span></div>
+        <div class="stat"><b class="num">62</b><span>本月入职</span></div>
+      </div>
+      <div class="goal">
+        <div class="goal-text"><span>本月入职确权目标</span><span>完成 <b class="num">82%</b></span></div>
+        <div class="bar"><i style="width:82%"></i></div>
+      </div>
+    </section>
+
+    <section class="alert" role="status">
+      <svg class="i"><use href="#i-alert"/></svg>
+      <p><b class="num">3</b> 人即将超时，最短还剩 <b class="num" id="alertLeft">00:42</b></p>
+      <button class="link" type="button" id="followBtn">立即跟进<svg class="i"><use href="#i-right"/></svg></button>
+    </section>
+
+    <section class="todo">
+      <div class="sec-head">
+        <h2>今日待办</h2>
+        <span class="sec-sub">待处理 <b class="num" id="pendingCount">5</b> 人 · 按剩余时间</span>
+        <a class="more" href="#">全部<svg class="i"><use href="#i-right"/></svg></a>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+
+    <section class="card entries" aria-label="更多事项">
+      <div class="sec-head in-card"><h2>更多事项</h2></div>
+      <div class="grid">
+        <a class="entry" href="#"><span class="ico"><svg class="i"><use href="#i-file"/></svg></span><b>待入职</b><small class="num">13 人</small></a>
+        <a class="entry" href="#"><span class="ico"><svg class="i"><use href="#i-wallet"/></svg></span><b>预支初审</b><small class="num">2 条</small></a>
+        <a class="entry" href="#"><span class="ico"><svg class="i"><use href="#i-users"/></svg></span><b>在岗名单</b><small class="num">318 人</small></a>
+        <a class="entry" href="#"><span class="ico"><svg class="i"><use href="#i-chart"/></svg></span><b>本月转化</b><small class="num">48.4%</small></a>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="主导航">
+    <a class="tab on" href="#" aria-current="page"><svg class="i"><use href="#i-grid"/></svg><span>工作台</span></a>
+    <a class="tab" href="#"><svg class="i"><use href="#i-list"/></svg><span>待办</span></a>
+    <a class="tab" href="#"><svg class="i"><use href="#i-bell"/></svg><span>提醒</span></a>
+    <a class="tab" href="#"><svg class="i"><use href="#i-user"/></svg><span>我的</span></a>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden><svg class="i"><use href="#i-check"/></svg><span id="toastText"></span></div>
+</div>
+
+<script>
+  // 剩余时间以页面打开时刻为基准倒数（演示数据）
+  const now0 = Date.now();
+  const M = 60 * 1000;
+  const people = [
+    { id: 'liu',  name: '刘*', phone: '138****4471', own: 'pri', left: 42 * M,
+      job: '未匹配岗位', when: '需转人才经纪人二次推荐', whenIcon: 'i-repeat',
+      extra: null, primary: '流转经纪人', done: '已流转给人才经纪人', tip: '刘* 已流转给人才经纪人' },
+    { id: 'zhang', name: '张*', phone: '138****8656', own: 'pri', left: (3 * 60 + 42) * M,
+      job: 'SMT 贴片操作工', when: '今天 09:00 面试',
+      extra: null, primary: '知悉并推送', done: '已推送面试信息', tip: '已向张* 推送面试信息' },
+    { id: 'li',   name: '李*', phone: '159****0817', own: 'pub', left: (18 * 60 + 6) * M,
+      job: '电子组装普工', when: '今天 09:00 面试',
+      extra: null, primary: '知悉并推送', done: '已推送面试信息', tip: '已向李* 推送面试信息' },
+    { id: 'zhou', name: '周*', phone: '137****4409', own: 'pub', left: (18 * 60 + 22) * M,
+      job: '仓储分拣员', when: '07:32 已到厂 · 面试通过',
+      extra: null, primary: '入职确权', done: '已完成入职确权', tip: '周* 入职确权完成' },
+    { id: 'chen', name: '陈*', phone: '137****8821', own: 'pri', left: (21 * 60 + 5) * M,
+      job: '仓储分拣员', when: '今天 14:00 面试 · 已推送',
+      extra: { label: '标记爽约', done: '已标记爽约', tip: '陈* 已标记爽约' }, primary: '到厂确认', done: '已确认到厂', tip: '陈* 已确认到厂' },
+  ];
+  people.forEach(p => { p.deadline = now0 + p.left; });
+
+  const ownLabel = { pri: '私域', pub: '公域' };
+  const list = document.getElementById('list');
+
+  function remain(p) { return Math.max(0, p.deadline - Date.now()); }
+  function fmt(ms) {
+    const s = Math.floor(ms / 1000);
+    const h = String(Math.floor(s / 3600)).padStart(2, '0');
+    const m = String(Math.floor(s % 3600 / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return `${h}:${m}:${ss}`;
+  }
+  function level(ms) { return ms < 60 * M ? 'red' : ms < 6 * 60 * M ? 'orange' : ''; }
+
+  list.innerHTML = people.map(p => `
+    <article class="card item" id="card-${p.id}" data-id="${p.id}">
+      <div class="item-top">
+        <div class="item-who">
+          <div class="name-line"><h3>${p.name}</h3><span class="tag ${p.own}">${ownLabel[p.own]}</span></div>
+          <div class="phone num">${p.phone}</div>
+        </div>
+        <div class="left" data-left>
+          <small>剩余</small><b class="num" data-time>${fmt(remain(p))}</b>
+        </div>
+        <span class="done-tag" hidden><svg class="i"><use href="#i-check"/></svg>已处理</span>
+      </div>
+      <ul class="facts">
+        <li><svg class="i"><use href="#i-brief"/></svg><span class="${p.job === '未匹配岗位' ? 'muted' : ''}">${p.job}</span></li>
+        <li><svg class="i"><use href="#${p.whenIcon || 'i-clock'}"/></svg><span>${p.when}</span></li>
+      </ul>
+      <div class="actions">
+        <button class="btn call" type="button" data-act="call"><svg class="i"><use href="#i-phone"/></svg>拨打</button>
+        ${p.extra ? `<button class="btn ghost" type="button" data-act="extra">${p.extra.label}</button>` : ''}
+        <button class="btn primary" type="button" data-act="main">${p.primary}</button>
+      </div>
+      <div class="done-line" hidden><svg class="i"><use href="#i-check"/></svg><span></span></div>
+    </article>`).join('');
+
+  function tick() {
+    people.forEach(p => {
+      if (p.handled) return;
+      const card = document.getElementById('card-' + p.id);
+      const ms = remain(p);
+      card.querySelector('[data-time]').textContent = fmt(ms);
+      card.querySelector('[data-left]').className = 'left ' + level(ms);
+    });
+    // 超时提醒显示待办里最短的剩余时间（时:分）
+    const open = people.filter(p => !p.handled).map(remain);
+    const min = open.length ? Math.min(...open) : 0;
+    const s = Math.floor(min / 1000);
+    document.getElementById('alertLeft').textContent =
+      String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0');
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  let toastTimer;
+  function toast(text) {
+    const el = document.getElementById('toast');
+    document.getElementById('toastText').textContent = text;
+    el.hidden = false;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.classList.remove('show'); el.hidden = true; }, 2400);
+  }
+
+  function markDone(p, doneText, tipText) {
+    p.handled = true;
+    const card = document.getElementById('card-' + p.id);
+    card.classList.add('done');
+    card.querySelector('[data-left]').hidden = true;
+    card.querySelector('.done-tag').hidden = false;
+    card.querySelector('.actions').hidden = true;
+    const line = card.querySelector('.done-line');
+    line.querySelector('span').textContent = doneText + ' · 刚刚';
+    line.hidden = false;
+    document.getElementById('pendingCount').textContent = people.filter(x => !x.handled).length;
+    tick();
+    toast(tipText);
+  }
+
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const p = people.find(x => x.id === btn.closest('.item').dataset.id);
+    const act = btn.dataset.act;
+    if (act === 'call') toast(`正在呼叫 ${p.name} ${p.phone}`);
+    else if (act === 'extra') markDone(p, p.extra.done, p.extra.tip);
+    else markDone(p, p.done, p.tip);
+  });
+
+  document.getElementById('followBtn').addEventListener('click', () => {
+    const first = people.filter(p => !p.handled).sort((a, b) => remain(a) - remain(b))[0];
+    if (!first) { toast('即将超时的待办都已处理'); return; }
+    const card = document.getElementById('card-' + first.id);
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+  });
+</script>
+</body>
+</html>

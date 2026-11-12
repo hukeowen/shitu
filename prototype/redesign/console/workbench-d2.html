@@ -1,0 +1,370 @@
+<!doctype html>
+<!-- PROTOTYPE — 可删除。仕兔改版第 04 轮 · 公司后台 · 驻场工作台，三个风格方向结构与文字相同、只换样式（方向说明见 style 首行）。演示数据。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>驻场工作台 · 仕兔</title>
+<style>
+  /* 方向 D2 仕兔橙：柔和、亲切、有温度。暖底色、大圆角；侧栏与列表选中 = 浅底 + 主色字 + 左侧 3px 色条；数字卡图标放 40×40 浅底方块 */
+  /* ---- 共用结构（三个方向相同） ---- */
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased;
+    min-width: 1200px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+
+  .app { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
+
+  .side { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-size: 17px; font-weight: 600; }
+  .brand .mk { fill: var(--primary); }
+  .org { display: flex; align-items: center; justify-content: space-between; padding: 8px; margin-bottom: 4px; border-radius: var(--r-btn); border: 1px solid var(--border); }
+  .org:hover { background: var(--bg); }
+  .org b { display: block; font-weight: 500; }
+  .org small { color: var(--text-3); font-size: 12px; }
+  .org svg.i { width: 16px; height: 16px; color: var(--text-3); }
+  .grp { font-size: 12px; color: var(--text-3); padding: 14px 10px 4px; }
+  .nav a { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--r-btn); color: var(--text-2); position: relative; }
+  .nav a:hover { background: var(--hover); }
+  .nav a .cnt { margin-left: auto; font-size: 12px; color: var(--text-2); background: var(--chip-bg); border-radius: 10px; padding: 0 7px; line-height: 18px; }
+  .nav a .cnt.red { color: var(--danger-text); background: var(--danger-50); }
+  .me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 4px; border-top: 1px solid var(--line); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: #fff; font-size: 13px; font-weight: 500; flex: none; }
+  .me b { display: block; font-weight: 500; }
+  .me small { color: var(--text-3); font-size: 12px; }
+
+  .main { display: flex; flex-direction: column; min-width: 0; padding: 0 24px 24px; overflow: hidden; }
+  .top { display: flex; align-items: center; gap: 16px; height: 64px; flex: none; }
+  .top h1 { font-size: 20px; font-weight: 600; margin: 0; white-space: nowrap; }
+  .top .sub { color: var(--text-2); padding-left: 16px; border-left: 1px solid var(--border); white-space: nowrap; }
+  .top .sub b { font-weight: 600; color: var(--text); }
+  .search { margin-left: auto; display: flex; align-items: center; gap: 8px; width: 300px; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-btn); background: var(--surface); color: var(--text-3); }
+  .search svg.i { width: 16px; height: 16px; }
+  .icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; border-radius: var(--r-btn); color: var(--text-2); position: relative; }
+  .icon-btn:hover { background: var(--surface); }
+  .icon-btn .dot { position: absolute; top: 8px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); border: 1.5px solid var(--bg); }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; flex: none; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow); position: relative; min-width: 0; }
+  .kpi .l { color: var(--text-2); font-size: 13px; }
+  .kpi .v { font-size: 26px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+  .kpi .d { color: var(--text-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi.alert .v, .kpi.alert .d b { color: var(--danger-text); }
+  .kpi .ki { display: grid; place-items: center; flex: none; }
+
+  .work { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 16px; margin-top: 16px; flex: 1; min-height: 0; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+  .q-hd { padding: 16px 16px 0; }
+  .q-hd .row { display: flex; align-items: baseline; gap: 8px; }
+  .q-hd h2 { font-size: 16px; font-weight: 600; margin: 0; }
+  .q-hd .total { color: var(--text-3); font-size: 13px; }
+  .tabs { display: flex; margin-top: 12px; white-space: nowrap; }
+  .tabs button { border: 0; background: none; color: var(--text-2); white-space: nowrap; }
+  .tabs button em { font-style: normal; font-size: 12px; margin-left: 3px; color: var(--text-3); }
+  .tabs button.on, .tabs button.on em { color: var(--primary-text); }
+  .tabs button.on { font-weight: 500; }
+  .q-list { overflow-y: auto; flex: 1; }
+  .q-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; width: 100%; text-align: left; border: 0; background: none; padding: 14px 16px; border-bottom: 1px solid var(--line); position: relative; }
+  .q-item:hover { background: var(--hover); }
+  .q-item .who { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; }
+  .q-item .who .phone { font-weight: 400; color: var(--text-2); font-size: 13px; }
+  .q-item .meta { color: var(--text-2); font-size: 13px; grid-column: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-item .time { grid-row: 1 / span 2; grid-column: 2; text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 6px; }
+  .q-item .time b { font-size: 17px; font-weight: 600; color: var(--text); }
+  .bar { width: 64px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--text-3); border-radius: 2px; }
+  .lvl-danger .time b { color: var(--danger-text); } .lvl-danger .bar i { background: var(--danger); }
+  .lvl-warn .time b { color: var(--warn-text); } .lvl-warn .bar i { background: var(--warn); }
+  .q-ft { padding: 12px 16px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 13px; display: flex; justify-content: space-between; margin-top: auto; }
+  .q-ft a { color: var(--primary-text); font-weight: 500; }
+
+  .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: var(--r-tag); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .tag.private { background: #FFF3E0; color: #B45309; }
+  .tag.public { background: var(--pub-bg); color: var(--pub-fg); }
+  .tag.stage { background: var(--chip-bg); color: var(--text-2); }
+
+  .d-scroll { overflow-y: auto; flex: 1; padding: 20px 24px 24px; }
+  .d-hd { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+  .d-hd h2 { margin: 0; font-size: 20px; font-weight: 600; }
+  .d-hd .phone { color: var(--text-2); font-size: 15px; }
+  .actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn { height: var(--btn-h); padding: 0 14px; border-radius: var(--r-btn); border: 1px solid var(--border); background: var(--surface); color: var(--text); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { background: var(--hover); }
+  .btn svg.i { width: 16px; height: 16px; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 500; padding: 0 16px; }
+  .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+  .steps { display: flex; margin: 24px 0 20px; }
+  .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; color: var(--text-3); font-size: 13px; }
+  .step::before { content: ""; position: absolute; top: 9px; left: calc(-50% + 14px); right: calc(50% + 14px); height: 2px; background: var(--border); }
+  .step:first-child::before { display: none; }
+  .step .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: grid; place-items: center; }
+  .step.done { color: var(--text-2); } .step.done::before, .step.cur::before { background: var(--primary); }
+  .step.done .dot { background: var(--primary); border-color: var(--primary); }
+  .step.done .dot svg { width: 12px; height: 12px; stroke: #fff; stroke-width: 3; }
+  .step.cur { color: var(--primary-text); font-weight: 500; }
+  .step.cur .dot { border-color: var(--primary); }
+  .step.cur .dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+
+  .notice { display: block; padding: 10px 14px; border-radius: var(--r-btn); background: #FFF7E8; border: 1px solid #F8DDB0; color: #8A4B00; }
+  .notice.danger { background: #FEF0F0; border-color: #F9D0D1; color: #B4232A; }
+  .notice svg.i { vertical-align: -4px; margin-right: 8px; }
+  .notice.gap { margin-top: 20px; }
+  .notice b { font-weight: 600; }
+
+  .sec { margin-top: 24px; }
+  .sec h3 { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+  .kv { display: grid; grid-template-columns: 80px 1fr; row-gap: 10px; margin: 0; }
+  .kv dt { color: var(--text-3); }
+  .kv dd { margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 2px 10px; border-radius: var(--r-tag); background: var(--chip-bg); color: var(--text-2); font-size: 13px; }
+  .split { display: grid; grid-template-columns: 1.25fr 1fr; gap: 32px; }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.mini td { padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--text-2); }
+  table.mini td:last-child { text-align: right; color: var(--text-3); white-space: nowrap; }
+  .log { list-style: none; margin: 0; padding: 0; }
+  .log li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 6px 0 6px 16px; position: relative; color: var(--text-2); }
+  .log li::before { content: ""; position: absolute; left: 0; top: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary-50); border: 1.5px solid var(--primary); }
+  .log li time { color: var(--text-3); }
+
+  @media (max-width: 1360px) {
+    .search { width: 240px; }
+    .sec { margin-top: 20px; }
+    .steps { margin: 20px 0 16px; }
+  }
+
+  :root {
+    --bg: #F7F6F3; --surface: #FFFFFF; --border: #ECEAE5; --line: #F2F0EC; --hover: #FAF8F5; --chip-bg: #F4F2EE;
+    --text: #1A1D23; --text-2: #4B5260; --text-3: #8A909C;
+    --primary: #F0600F; --primary-hover: #D4520A; --primary-text: #C2470A; --primary-50: #FFF2EA; --primary-100: #FFD9C2;
+    --danger: #E5484D; --danger-text: #D93036; --danger-50: #FDECEC; --warn: #E8890C; --warn-text: #A85F00; --ok: #18A058;
+    --pub-bg: #E6F7F5; --pub-fg: #0F766E;
+    --r: 12px; --r-btn: 8px; --r-tag: 6px; --btn-h: 36px;
+    --shadow: none;
+  }
+  .side { padding: 16px 14px; }
+  .nav a { height: 38px; }
+  .nav a.on { background: var(--primary-50); color: var(--primary-text); font-weight: 500; }
+  .nav a.on::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 2px 2px 0; background: var(--primary); }
+  .nav a .cnt { border-radius: 999px; }
+  .avatar { background: var(--primary-50); color: var(--primary-text); font-weight: 600; }
+  .kpi { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+  .kpi .kb { min-width: 0; }
+  .kpi .ki { width: 40px; height: 40px; border-radius: 10px; background: var(--primary-50); color: var(--primary); }
+  .kpi .ki svg.i { width: 20px; height: 20px; }
+  .kpi.alert .ki { background: var(--danger-50); color: var(--danger); }
+  .tabs { gap: 2px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .tabs button { height: 30px; padding: 0 8px; border-radius: var(--r-btn); border: 1px solid transparent; }
+  .tabs button:hover { background: var(--hover); }
+  .tabs button.on { background: var(--primary-50); border-color: var(--primary-100); }
+  .q-item.on { background: #FFF7F2; }
+  .q-item.on::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--primary); }
+  .btn.primary { font-size: 15px; font-weight: 600; }
+  .notice { border-radius: 10px; }
+  .chip { padding: 3px 12px; }
+  .step.cur .dot { box-shadow: 0 0 0 4px var(--primary-50); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 15h2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-brief" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect x="2" y="6" width="20" height="14" rx="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 8 3 4 3-4"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M12 12v5"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect class="mk" x="1" y="1" width="22" height="22" rx="6"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/></svg>
+      仕兔
+    </div>
+    <a class="org" href="#"><span><b>鑫诚劳务派遣</b><small>C10023 · 诚信分 92</small></span><svg class="i"><use href="#i-down"/></svg></a>
+    <nav class="nav">
+      <div class="grp">驻场</div>
+      <a class="on" href="#"><svg class="i"><use href="#i-grid"/></svg>驻场工作台</a>
+      <a href="#"><svg class="i"><use href="#i-list"/></svg>待办清单<span class="cnt">13</span></a>
+      <a href="#"><svg class="i"><use href="#i-clock"/></svg>24 小时响应监控<span class="cnt red">3</span></a>
+      <a href="#"><svg class="i"><use href="#i-shield"/></svg>确权与签约</a>
+      <div class="grp">人才经纪人</div>
+      <a href="#"><svg class="i"><use href="#i-users"/></svg>流转池<span class="cnt">5</span></a>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg>AI 分析报告</a>
+      <a href="#"><svg class="i"><use href="#i-repeat"/></svg>二次匹配 / 释放</a>
+      <div class="grp">薪资发放</div>
+      <a href="#"><svg class="i"><use href="#i-coin"/></svg>预支初审<span class="cnt">2</span></a>
+      <a href="#"><svg class="i"><use href="#i-wallet"/></svg>薪资核算与发放</a>
+      <a href="#"><svg class="i"><use href="#i-file"/></svg>预支抵扣对账</a>
+      <div class="grp">项目经理</div>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg>数据看板</a>
+      <a href="#"><svg class="i"><use href="#i-brief"/></svg>岗位管理</a>
+    </nav>
+    <div class="me"><span class="avatar">王</span><span><b>王磊</b><small>驻场 · 昆山二期</small></span></div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <h1>驻场工作台</h1>
+      <span class="sub">立讯精密（昆山）二期 · 在岗 <b class="num">318</b> 人</span>
+      <label class="search"><svg class="i"><use href="#i-search"/></svg>搜索求职者 / 岗位 / 工号</label>
+      <button class="icon-btn" aria-label="消息"><svg class="i"><use href="#i-bell"/></svg><i class="dot"></i></button>
+    </header>
+
+    <section class="kpis">
+      <div class="kpi"><span class="ki"><svg class="i"><use href="#i-pin"/></svg></span><div class="kb"><div class="l">今日到厂</div><div class="v num">7</div><div class="d">待入职 13 人</div></div></div>
+      <div class="kpi"><span class="ki"><svg class="i"><use href="#i-cal"/></svg></span><div class="kb"><div class="l">待面试</div><div class="v num">9</div><div class="d">今天 09:00 首场</div></div></div>
+      <div class="kpi"><span class="ki"><svg class="i"><use href="#i-shield"/></svg></span><div class="kb"><div class="l">待确权</div><div class="v num">4</div><div class="d">确权后发起签约</div></div></div>
+      <div class="kpi"><span class="ki"><svg class="i"><use href="#i-trend"/></svg></span><div class="kb"><div class="l">本月入职确权</div><div class="v num">62</div><div class="d">目标完成 82%</div></div></div>
+      <div class="kpi alert"><span class="ki"><svg class="i"><use href="#i-alert"/></svg></span><div class="kb"><div class="l">即将超时</div><div class="v num">3</div><div class="d">最短剩余 <b class="num" id="kpi-min">00:42</b></div></div></div>
+    </section>
+
+    <section class="work">
+      <div class="panel">
+        <div class="q-hd">
+          <div class="row"><h2>今日待办</h2><span class="total">按响应剩余时间排序</span></div>
+          <div class="tabs" role="tablist">
+            <button class="on" data-f="all">全部<em>5</em></button>
+            <button data-f="待匹配">待匹配<em>1</em></button>
+            <button data-f="待面试">待面试<em>2</em></button>
+            <button data-f="待确权">待确权<em>1</em></button>
+            <button data-f="已推送">已推送<em>1</em></button>
+          </div>
+        </div>
+        <div class="q-list" id="list">
+          <button class="q-item lvl-danger" data-id="liu"><span class="who">刘*<span class="tag private">私域</span><span class="phone num">138****4471</span></span><span class="meta">未匹配岗位 · 匹配度未达 80%</span><span class="time"><b class="num">00:42</b><span class="bar"><i style="width:3%"></i></span></span></button>
+          <button class="q-item lvl-warn on" data-id="zhang"><span class="who">张*<span class="tag private">私域</span><span class="phone num">138****8656</span></span><span class="meta">SMT 贴片操作工 · 今天 09:00 面试</span><span class="time"><b class="num">03:42</b><span class="bar"><i style="width:15%"></i></span></span></button>
+          <button class="q-item" data-id="li"><span class="who">李*<span class="tag public">公域</span><span class="phone num">159****0817</span></span><span class="meta">电子组装普工 · 今天 09:00 面试</span><span class="time"><b class="num">18:06</b><span class="bar"><i style="width:75%"></i></span></span></button>
+          <button class="q-item" data-id="zhou"><span class="who">周*<span class="tag public">公域</span><span class="phone num">137****4409</span></span><span class="meta">仓储分拣员 · 07:32 已到厂 · 面试通过</span><span class="time"><b class="num">18:22</b><span class="bar"><i style="width:76%"></i></span></span></button>
+          <button class="q-item" data-id="chen"><span class="who">陈*<span class="tag private">私域</span><span class="phone num">137****8821</span></span><span class="meta">仓储分拣员 · 今天 14:00 面试 · 已推送</span><span class="time"><b class="num">21:05</b><span class="bar"><i style="width:88%"></i></span></span></button>
+        </div>
+        <div class="q-ft"><span>今日共 13 条，显示最紧急的 5 条</span><a href="#">查看全部</a></div>
+      </div>
+
+      <div class="panel">
+        <div class="d-scroll" id="detail">
+          <div class="d-hd">
+            <h2>张*</h2><span class="phone num">138****8656</span><span class="tag private">私域</span><span class="tag stage">待面试</span>
+            <div class="actions"><button class="btn"><svg class="i"><use href="#i-phone"/></svg>拨打</button><button class="btn">取消报名</button><button class="btn" aria-label="更多"><svg class="i"><use href="#i-more"/></svg></button><button class="btn primary">知悉并推送面试信息</button></div>
+          </div>
+          <div class="steps"><div class="step done"><span class="dot"><svg class="i"><use href="#i-check"/></svg></span>报名</div><div class="step cur"><span class="dot"></span>知悉</div><div class="step"><span class="dot"></span>到厂确认</div><div class="step"><span class="dot"></span>入职确权</div><div class="step"><span class="dot"></span>电子签约</div></div>
+          <div class="notice"><svg class="i"><use href="#i-clock"/></svg>还剩 <b class="num">3 小时 42 分</b>，超时未处理将自动释放到公域</div>
+          <div class="sec split">
+            <div><h3>报名信息</h3><dl class="kv"><dt>应聘岗位</dt><dd>SMT 贴片操作工</dd><dt>预约面试</dt><dd>今天 09:00</dd><dt>面试地点</dt><dd>昆山开发区前进东路 88 号 立讯二期南门</dd><dt>来源渠道</dt><dd>鑫诚劳务渠道码</dd></dl></div>
+            <div><h3>匹配记录</h3><table class="mini"><tr><td>画像 v3 · 匹配度 92%</td><td>昨天 20:14</td></tr><tr><td>画像 v2 · 匹配度 87%</td><td>昨天 19:40</td></tr><tr><td>画像 v1 · 匹配度 84%</td><td>昨天 19:22</td></tr></table></div>
+          </div>
+          <div class="sec"><h3>求职画像</h3><div class="chips"><span class="chip">愿意进厂</span><span class="chip">长白班</span><span class="chip">需要住宿</span><span class="chip">期望 5,000–6,000 元/月</span><span class="chip">3 年 SMT 经验</span></div></div>
+          <div class="sec"><h3>处理记录</h3><ul class="log"><li><time>昨天 20:16</time>报名成功，等待驻场知悉</li><li><time>昨天 20:14</time>完成 AI 问薪（第 3 次匹配）</li><li><time>昨天 19:05</time>扫描鑫诚劳务渠道码注册</li></ul></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  const STEPS = ['报名', '知悉', '到厂确认', '入职确权', '电子签约'];
+  const P = {
+    liu:   { name: '刘*', phone: '138****4471', domain: 'private', stage: '待匹配', remain: 42 * 60,
+             step: -1, primary: '流转经纪人', extra: ['拨打'], noticeText: '匹配度未达 80%，还剩', noticeTail: '未处理将自动释放到公域',
+             info: [['应聘岗位', '暂无（最近一次匹配度 76%）'], ['预约面试', '—'], ['来源渠道', '鑫诚劳务渠道码']],
+             match: [['画像 v2 · 匹配度 76%', '今天 06:58'], ['画像 v1 · 匹配度 71%', '昨天 21:30']],
+             tags: ['愿意进厂', '两班倒', '需要住宿', '期望 6,000 元/月以上'],
+             log: [['今天 06:58', '第 2 次匹配，无 80% 以上岗位'], ['昨天 21:30', '扫描鑫诚劳务渠道码注册']] },
+    li:    { name: '李*', phone: '159****0817', domain: 'public', stage: '待面试', remain: 18 * 3600 + 6 * 60,
+             step: 1, primary: '知悉并推送面试信息', extra: ['拨打', '取消报名'],
+             info: [['应聘岗位', '电子组装普工'], ['预约面试', '今天 09:00'], ['面试地点', '昆山开发区前进东路 88 号 立讯二期南门'], ['来源渠道', '平台（公域）']],
+             match: [['画像 v1 · 匹配度 88%', '今天 06:10']], tags: ['愿意进厂', '长白班', '不需住宿', '期望 5,000–6,000 元/月'],
+             log: [['今天 06:12', '报名成功，等待驻场知悉'], ['今天 06:10', '完成 AI 问薪（第 1 次匹配）']] },
+    zhou:  { name: '周*', phone: '137****4409', domain: 'public', stage: '待确权', remain: 18 * 3600 + 22 * 60,
+             step: 3, primary: '入职确权', extra: ['拨打'],
+             info: [['应聘岗位', '仓储分拣员'], ['到厂时间', '今天 07:32'], ['面试结果', '通过'], ['来源渠道', '平台（公域）']],
+             match: [['画像 v2 · 匹配度 90%', '前天 18:40']], tags: ['愿意进厂', '夜班可以', '不需住宿', '2 年仓储经验'],
+             log: [['今天 09:30', '面试通过，进入待确权'], ['今天 07:32', '到厂确认'], ['昨天 08:05', '驻场知悉并推送面试信息']] },
+    chen:  { name: '陈*', phone: '137****8821', domain: 'private', stage: '已推送', remain: 21 * 3600 + 5 * 60,
+             step: 2, primary: '到厂确认', extra: ['拨打', '标记爽约'],
+             info: [['应聘岗位', '仓储分拣员'], ['预约面试', '今天 14:00'], ['面试地点', '昆山开发区前进东路 88 号 立讯二期南门'], ['来源渠道', '鑫诚劳务渠道码']],
+             match: [['画像 v1 · 匹配度 86%', '昨天 10:02']], tags: ['愿意进厂', '夜班可以', '需要住宿'],
+             log: [['昨天 11:20', '驻场知悉并推送面试信息'], ['昨天 10:05', '报名成功']] },
+  };
+  const detail = document.getElementById('detail');
+  const zhangHTML = detail.innerHTML;
+  const t0 = Date.now();
+  const base = { liu: 42 * 60, zhang: 3 * 3600 + 42 * 60, li: P.li.remain, zhou: P.zhou.remain, chen: P.chen.remain };
+  const left = id => Math.max(0, base[id] - Math.floor((Date.now() - t0) / 1000));
+  const hhmm = s => String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0');
+  const human = s => (s >= 3600 ? Math.floor(s / 3600) + ' 小时 ' : '') + Math.floor(s % 3600 / 60) + ' 分';
+  let current = 'zhang';
+
+  function render(id) {
+    current = id;
+    if (id === 'zhang') { detail.innerHTML = zhangHTML; tick(); return; }
+    const p = P[id];
+    const steps = p.step < 0 ? '' : '<div class="steps">' + STEPS.map((s, i) =>
+      `<div class="step ${i < p.step ? 'done' : i === p.step ? 'cur' : ''}"><span class="dot">${i < p.step ? '<svg class="i"><use href="#i-check"/></svg>' : ''}</span>${s}</div>`).join('') + '</div>';
+    const lvl = left(id) < 3600 ? ' danger' : '';
+    detail.innerHTML = `
+      <div class="d-hd"><h2>${p.name}</h2><span class="phone num">${p.phone}</span>
+        <span class="tag ${p.domain}">${p.domain === 'private' ? '私域' : '公域'}</span><span class="tag stage">${p.stage}</span>
+        <div class="actions">${p.extra.map(e => `<button class="btn">${e === '拨打' ? '<svg class="i"><use href="#i-phone"/></svg>' : ''}${e}</button>`).join('')}
+          <button class="btn" aria-label="更多"><svg class="i"><use href="#i-more"/></svg></button><button class="btn primary">${p.primary}</button></div></div>
+      ${steps}
+      <div class="notice${lvl}${p.step < 0 ? ' gap' : ''}"><svg class="i"><use href="#i-clock"/></svg>${p.noticeText || '还剩'} <b class="num" data-human>${human(left(id))}</b>，${p.noticeTail || '超时未处理将自动释放到公域'}</div>
+      <div class="sec split"><div><h3>${p.step < 0 ? '求职者信息' : '报名信息'}</h3><dl class="kv">${p.info.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
+        <div><h3>匹配记录</h3><table class="mini">${p.match.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table></div></div>
+      <div class="sec"><h3>求职画像</h3><div class="chips">${p.tags.map(t => `<span class="chip">${t}</span>`).join('')}</div></div>
+      <div class="sec"><h3>处理记录</h3><ul class="log">${p.log.map(([a, b]) => `<li><time>${a}</time>${b}</li>`).join('')}</ul></div>`;
+  }
+
+  document.getElementById('list').addEventListener('click', e => {
+    const it = e.target.closest('.q-item'); if (!it) return;
+    document.querySelectorAll('.q-item').forEach(x => x.classList.toggle('on', x === it));
+    render(it.dataset.id);
+  });
+  const stageOf = { liu: '待匹配', zhang: '待面试', li: '待面试', zhou: '待确权', chen: '已推送' };
+  document.querySelector('.tabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.q-item').forEach(x => { x.hidden = b.dataset.f !== 'all' && stageOf[x.dataset.id] !== b.dataset.f; });
+  });
+
+  function tick() {
+    document.querySelectorAll('.q-item').forEach(x => {
+      const s = left(x.dataset.id);
+      x.querySelector('.time b').textContent = hhmm(s);
+      x.querySelector('.bar i').style.width = Math.max(2, s / 864) + '%';
+    });
+    document.getElementById('kpi-min').textContent = hhmm(left('liu'));
+    const h = detail.querySelector('[data-human]') || detail.querySelector('.notice b');
+    if (h) h.textContent = human(left(current));
+  }
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
