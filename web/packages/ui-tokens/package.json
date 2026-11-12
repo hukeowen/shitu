@@ -6,7 +6,8 @@
   "exports": {
     "./tokens.css": "./tokens.css",
     "./vant-theme.css": "./vant-theme.css",
-    "./element-theme.css": "./element-theme.css"
+    "./element-theme.css": "./element-theme.css",
+    "./desktop.css": "./desktop.css"
   },
   "scripts": {
     "typecheck": "echo \"ui-tokens: no ts\""

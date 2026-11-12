@@ -1,0 +1,186 @@
+/*
+ * PC 端主题层（公司后台 + 运营中台共用）。在各自的 console.css / ops.css 之后引入，
+ * 覆盖移动端共用的 Token 和通用组件外观；不影响求职端、驻场端 H5。
+ * 方向：冷灰底 + 白卡片、常规无衬线标题、14px 正文、圆角 8–12、弱边框轻阴影、浅色侧栏。
+ */
+html:root {
+  --paper:      #F3F5F9;
+  --surface:    #FFFFFF;
+  --surface-2:  #F8F9FB;
+  --surface-3:  #EEF1F5;
+
+  --ink-900: #101828;
+  --ink-800: #1D2939;
+  --ink-700: #344054;
+  --ink-600: #475467;
+  --ink-500: #667085;
+  --ink-400: #98A2B3;
+  --ink-300: #D0D5DD;
+  --ink-200: #E4E7EC;
+
+  --line:   #EAECF0;
+  --line-2: #D9DEE6;
+
+  --signal:     #F0600F;
+  --signal-700: #C4470A;
+  --signal-300: #FFC59E;
+  --signal-50:  #FFF4EC;
+
+  --private: #C4470A; --private-bg: #FFF4EC; --private-line: #FFD9BF;
+  --public:  #0E7490; --public-bg:  #ECFBFD; --public-line:  #BEEAF0;
+  --temp:    #6941C6; --temp-bg:    #F4F1FE; --temp-line:    #DDD3FB;
+
+  --ok:     #067647; --ok-bg:     #ECFDF3; --ok-line:     #ABEFC6;
+  --warn:   #B54708; --warn-bg:   #FFFAEB; --warn-line:   #FEDF89;
+  --danger: #D92D20; --danger-bg: #FEF3F2; --danger-line: #FECDCA;
+  --info:   #175CD3; --info-bg:   #EFF6FF; --info-line:   #C5DCFB;
+  --muted-bg: #F2F4F7;
+
+  /* 标题与数字不再用窄体 DIN，统一常规无衬线；等宽只留给编号 */
+  --f-dis: var(--f-cn);
+  --f-mono: "SF Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --sh-1: 0 1px 2px rgba(16, 24, 40, .05);
+  --sh-2: 0 4px 16px -4px rgba(16, 24, 40, .10), 0 1px 2px rgba(16, 24, 40, .04);
+  --sh-3: 0 24px 48px -12px rgba(16, 24, 40, .22);
+
+  --r-xs: 4px; --r-sm: 6px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px;
+
+  /* Element Plus */
+  --el-color-primary: #F0600F;
+  --el-color-primary-light-3: #F58F57;
+  --el-color-primary-light-5: #F8B08A;
+  --el-color-primary-light-7: #FBCFB7;
+  --el-color-primary-light-8: #FDDFCF;
+  --el-color-primary-light-9: #FFF4EC;
+  --el-color-primary-dark-2: #C4470A;
+  --el-color-success: #067647;
+  --el-color-warning: #B54708;
+  --el-color-danger: #D92D20;
+  --el-color-error: #D92D20;
+  --el-color-info: #667085;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-font-size-base: 14px;
+  --el-component-size: 34px;
+  --el-fill-color-light: #F8F9FB;
+  --el-fill-color-lighter: #FAFBFC;
+  --el-fill-color-blank: #FFFFFF;
+  --el-mask-color: rgba(16, 24, 40, .45);
+  --el-box-shadow: var(--sh-3);
+  --el-box-shadow-light: var(--sh-2);
+}
+
+html, body { font-size: 14px; line-height: 1.55; color: var(--ink-700); background: var(--paper); }
+::selection { background: var(--signal-50); color: var(--signal-700); }
+* { scrollbar-width: thin; scrollbar-color: var(--ink-300) transparent; }
+
+/* ---------- 文字 ---------- */
+.t-sm { font-size: 13px; color: var(--ink-500); }
+.t-xs { font-size: 12px; color: var(--ink-400); }
+.dim { color: var(--ink-500); }
+.num { font-family: var(--f-cn); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: 0; }
+.mono { font-family: var(--f-mono); font-size: .93em; letter-spacing: 0; }
+.eyebrow { font-family: var(--f-cn); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-500); }
+
+/* ---------- 页头 ---------- */
+.page-hd { align-items: center; gap: 10px; margin-bottom: 20px; }
+.page-hd h2 { font-size: 22px; font-weight: 650; letter-spacing: -.01em; line-height: 1.3; color: var(--ink-900); }
+.page-hd p { font-size: 13.5px; color: var(--ink-500); margin-top: 4px; }
+.ref { display: none; }
+
+/* ---------- 栅格 ---------- */
+.grid { gap: 16px; }
+
+/* ---------- 卡片 ---------- */
+.card { border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--sh-1); overflow: hidden; }
+.card__hd { padding: 16px 20px; border-bottom: 1px solid var(--line); min-height: 56px; }
+.card__hd h3 { font-size: 15px; font-weight: 600; color: var(--ink-900); }
+.card__bd { padding: 20px; }
+.card__ft { padding: 12px 20px; background: var(--surface-2); border-top: 1px solid var(--line); }
+
+/* ---------- 数据卡 ---------- */
+.stat { padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--sh-1); }
+.stat-l { font-size: 13px; color: var(--ink-500); }
+.stat-v { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.2; margin-top: 8px; color: var(--ink-900); }
+.stat-v small { font-size: 13px; font-weight: 500; }
+.stat-d { font-family: var(--f-cn); font-size: 12.5px; color: var(--ink-400); margin-top: 6px; }
+.stat--link:hover { box-shadow: var(--sh-2); border-color: var(--signal-300); transform: translateY(-1px); }
+.stat--link { transition: box-shadow .16s, border-color .16s, transform .16s; }
+
+/* ---------- 标签 ---------- */
+.tag { height: 22px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 0; background: var(--muted-bg); color: var(--ink-600); }
+.tag--ok, .tag--warn, .tag--danger, .tag--info, .tag--signal, .tag--temp, .tag--private, .tag--public, .tag--muted { border: 0; }
+.tag--ink { background: var(--ink-800); color: #fff; }
+.tag--lg { height: 26px; padding: 0 10px; font-size: 13px; }
+.st-pill { font-size: 13px; font-weight: 500; }
+
+/* ---------- 提示条 ---------- */
+.note { border: 1px solid var(--private-line); border-radius: 10px; padding: 12px 16px; font-size: 13.5px; line-height: 1.7; color: var(--ink-700); background: var(--signal-50); }
+.note--info { border-color: var(--info-line); }
+.note--warn { border-color: var(--warn-line); }
+.note--ok { border-color: var(--ok-line); }
+.note--danger { border-color: var(--danger-line); }
+.notice { border: 0; border-radius: 10px; padding: 11px 14px; font-size: 13.5px; line-height: 1.65; }
+
+/* ---------- 工具栏与筛选页签 ---------- */
+.toolbar { gap: 10px; padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--line); border-radius: 0; }
+.filter-tabs { gap: 2px; padding: 3px; border-radius: 9px; background: var(--muted-bg); }
+.filter-tabs button { padding: 5px 14px; font-size: 13.5px; font-weight: 500; color: var(--ink-600); border-radius: 7px; transition: .14s; }
+.filter-tabs button:hover { color: var(--ink-900); background: transparent; }
+.filter-tabs button.on { background: var(--surface); color: var(--ink-900); font-weight: 600; box-shadow: 0 1px 2px rgba(16, 24, 40, .10); }
+.filter-tabs .n, .filter-tabs button .n { font-family: var(--f-cn); font-size: 12px; opacity: 1; margin-left: 6px; padding: 0 6px; border-radius: 8px; background: var(--ink-200); color: var(--ink-600); }
+.filter-tabs button.on .n { background: var(--signal-50); color: var(--signal-700); }
+.pager { padding: 14px 20px; }
+
+/* ---------- 键值、分节、时间线 ---------- */
+.kv { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.kv dd { font-weight: 500; }
+.form-sec, .sec-title { font-size: 14px; font-weight: 600; }
+.tl-t { font-size: 13.5px; }
+.tl-m { font-family: var(--f-cn); font-size: 12.5px; }
+.codeblk { background: #101828; border-radius: 10px; }
+.bar { height: 8px; border-radius: 4px; }
+.bar > i { border-radius: 4px; background: var(--ink-400); }
+.person .av { width: 30px; height: 30px; font-size: 12.5px; }
+
+/* ---------- Element Plus ---------- */
+.el-button { font-weight: 500; }
+.el-button--small { --el-button-size: 28px; padding: 5px 11px; border-radius: 7px; font-size: 13px; }
+.el-input__wrapper, .el-select__wrapper, .el-textarea__inner { box-shadow: 0 0 0 1px var(--line-2) inset; }
+.el-input__wrapper:hover, .el-select__wrapper:hover, .el-textarea__inner:hover { box-shadow: 0 0 0 1px var(--ink-300) inset; }
+.el-input__wrapper.is-focus, .el-select__wrapper.is-focused, .el-textarea__inner:focus { box-shadow: 0 0 0 1px var(--signal) inset, 0 0 0 3px var(--signal-50); }
+.el-form-item__label { font-weight: 500; color: var(--ink-700); }
+.el-radio-button__inner { font-weight: 500; }
+
+.el-table { --el-table-border-color: var(--line); --el-table-header-bg-color: var(--surface-2); --el-table-header-text-color: var(--ink-500);
+  --el-table-row-hover-bg-color: #FAFBFC; --el-table-text-color: var(--ink-700); font-size: 13.5px; }
+.card .el-table, .ops-table.el-table { font-size: 13.5px; }
+.el-table th.el-table__cell, .card .el-table th.el-table__cell, .ops-table.el-table th.el-table__cell { font-size: 12.5px; font-weight: 500; color: var(--ink-500); background: var(--surface-2); }
+.el-table .el-table__cell { padding: 11px 0; }
+.el-table--small .el-table__cell { padding: 8px 0; }
+.el-table .cell { padding: 0 12px; line-height: 1.5; }
+.el-table__inner-wrapper::before { display: none; }
+.el-table__empty-block { min-height: 140px; }
+
+.el-dialog { --el-dialog-border-radius: 14px; --el-dialog-padding-primary: 24px; box-shadow: var(--sh-3); }
+.el-dialog__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
+.el-drawer { --el-drawer-padding-primary: 24px; }
+.el-drawer__header { margin-bottom: 0; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.el-drawer__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
+.el-message-box { --el-messagebox-border-radius: 14px; padding: 22px 24px; }
+.el-message-box__title { font-weight: 600; }
+.el-message { --el-message-padding: 11px 16px; border-radius: 10px; border: 0; box-shadow: var(--sh-2); }
+.el-alert { border-radius: 10px; }
+.el-pagination { --el-pagination-button-bg-color: transparent; font-weight: 500; }
+.el-empty__description p { color: var(--ink-400); font-size: 13.5px; }
+.el-tabs__item { font-size: 14px; font-weight: 500; }
+.el-tabs__item.is-active { font-weight: 600; }
+.el-tabs__nav-wrap::after { height: 1px; background: var(--line); }
+.el-dropdown-menu__item { font-size: 13.5px; padding: 8px 16px; }
+.el-breadcrumb { font-size: 13.5px; }
+.el-breadcrumb__inner { color: var(--ink-500); font-weight: 400; }
+.el-breadcrumb__item:last-child .el-breadcrumb__inner { color: var(--ink-900); font-weight: 600; }
+
+/* ---------- 通用外壳（两个后台的 AppLayout 共用） ---------- */
+.shell { background: var(--paper) !important; }
