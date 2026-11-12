@@ -33,10 +33,10 @@ if (!process.env.SUITE || process.env.SUITE.includes("seeker")) await freshSeeke
 // 用截图数据里的人物（跑过 seed.mjs 才有）再开一遍，地址和进入脚本取 routes.mjs 的登记。没有 baseline-data.json 时跳过并说明。
 const SEEDED_ROUTES = ['/jobs/:jobId', '/apply/success', '/reports', '/reports/:applicationId', '/recommendations', '/ledger', '/work',
   '/kyc', '/kyc/appeals', '/contracts/sign', '/contracts', '/contracts/:id', '/resume',
-  '/advance', '/advance/records', '/advance/:id', '/payslips', '/payslips/:id']
+  '/advance', '/advance/records', '/advance/:id', '/payslips', '/payslips/:id', '/messages', '/feedback', '/me']
 const dataFile = path.join(SHOTS, 'baseline-data.json')
 const seeded = fs.existsSync(dataFile) ? JSON.parse(fs.readFileSync(dataFile, 'utf8')) : null
-if (!seeded) console.log('没有 shots/baseline-data.json：岗位详情、报名成功、面试详情、合同详情和有数据的报备 / 推荐 / 台账 / 我的工作 / 实名 / 申诉 / 合同 / 简历 / 预支 / 工资条这次没有覆盖（先跑 node seed.mjs）\n')
+if (!seeded) console.log('没有 shots/baseline-data.json：岗位详情、报名成功、面试详情、合同详情和有数据的报备 / 推荐 / 台账 / 我的工作 / 实名 / 申诉 / 合同 / 简历 / 预支 / 工资条 / 消息 / 反馈 / 我的这次没有覆盖（先跑 node seed.mjs）\n')
 const seededSuites = []
 // 同一个人物的页面放进同一组，只用一次会话
 const byPersona = Map.groupBy(seeded ? ROUTES.filter((x) => x.app === 'seeker' && SEEDED_ROUTES.includes(x.route)) : [], (r) => r.persona)

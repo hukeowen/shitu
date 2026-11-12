@@ -64,6 +64,7 @@ const SEEKER = [
   ['/reports', 'registered'], // 列表页另截空状态
   ['/reports/:applicationId', 'acknowledged', (ids) => `/reports/${ids.seekerApplicationId}`],
   ['/messages', 'acknowledged'],
+  ['/messages', 'registered'], // 列表页另截空状态
   ['/contracts/sign', 'confirmed'],
   ['/contracts', 'veteran'],
   ['/contracts/:id', 'employedToday', (ids) => `/contracts/${ids.contractId}`],

@@ -2,7 +2,7 @@
 // 用法：node states.mjs <输出目录> [--app seeker] [--only 名字里包含的一段]
 //   node states.mjs ../../.atw/tasks/<任务>/screenshots --app seeker
 // 文件名：<端>_<页面>_<状态>_<宽>x<高>.png。前提同 shots.mjs（后端、dev server、Chrome 9888、跑过 seed.mjs）。
-// 这里只看不写：会落库的接口（发起匹配、报名、投诉、答复顾问推荐、实名、申诉、保存简历、发起预支、工资申诉）一律用 rules 拦住，不让请求真的发到后端。
+// 这里只看不写：会落库的接口（发起匹配、报名、投诉、答复顾问推荐、实名、申诉、保存简历、发起预支、工资申诉、标记消息已读、提交反馈、退出登录）一律用 rules 拦住，不让请求真的发到后端。
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -91,7 +91,7 @@ const bottomBar = (text) => `(async () => { const btn = [...document.querySelect
   if (Math.round(r.height) < 48) return '通栏按钮高 ' + r.height
   window.scrollTo(0, document.documentElement.scrollHeight); await ${wait(200)}
   const top = bar.getBoundingClientRect().top
-  const texts = [...document.querySelectorAll('#app *')].filter((e) => !bar.contains(e) && e.getClientRects().length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+  const texts = [...document.querySelectorAll('#app *')].filter((e) => !bar.contains(e) && !e.closest('.van-tabbar') && e.getClientRects().length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
   const low = Math.max(...texts.map((e) => e.getBoundingClientRect().bottom))
   window.scrollTo(0, 0); await ${wait(200)}
   return low > top + 1 ? '滚到底时正文被底部栏挡住 ' + Math.round(low - top) + 'px' : '' })()`
@@ -331,6 +331,72 @@ const advNodes = `(() => { const nodes = [...document.querySelectorAll('#app .tl
   return bad ? '节点只靠颜色区分：' + bad.innerText.slice(0, 20) : '' })()`
 const popupIdle = `document.querySelector('.van-popup .van-button--loading') ? '被拒之后「提交申诉」还在转' : ''`
 const lrowCount = (n) => `(() => { const c = document.querySelectorAll('#app .lrow').length; return c === ${n} ? '' : '应该有 ${n} 行，页面出了 ' + c + ' 行' })()`
+
+// ---- 工单 11：消息、反馈、我的 ----
+const MSG_API = '/seeker/messages'
+const MSG_READ_API = '/seeker/messages/read'
+const MSG_UNREAD_API = '/seeker/messages/unread-count'
+const FB_API = '/seeker/feedback'
+const LOGOUT_API = '/seeker/auth/logout'
+const fakeMsg = (id, templateCode, title, content, extra = {}) => ({ id, templateCode, title, content, priority: 0, read: false, createdAt: `2026-11-${String(id).padStart(2, '0')}T09:30:00`, ...extra })
+// 未读带链接、未读不带链接（点了就地展开）、已读、最高优先级各一条；模板码和文案取后端真实发的那几种
+const fakeMsgs = [fakeMsg(12, 'INJURY_ALERT', '工伤上报提醒', '驻场已为你登记工伤，请保留好就医票据，项目经理会在 1 个工作日内联系你。', { priority: 2 }),
+  fakeMsg(11, 'INTERVIEW_INFO_PUSHED', '面试信息', '你报名的「成品仓储分拣员」面试时间 11月13日 09:30，地点 昆山市锦溪镇长云路 1 号东门招聘中心。请带好：身份证、一寸照片 2 张。', { link: '/reports' }),
+  fakeMsg(10, 'ADVANCE_RESULT', '预支审批结果', '你的 500.00 元预支申请已拨款，将在发薪时从工资中抵扣。发薪日系统会自动抵扣，抵扣明细可以在「我的工资」对应月份的工资条里看到，有疑问可以在工资条页面提出申诉。'),
+  fakeMsg(9, 'FEEDBACK_REPLIED', '问题反馈已回复', '你的反馈已回复：已请驻场老师把定位发到你的消息里，也可以直接拨打面试通知里的电话。', { link: '/feedback', read: true })]
+// 标记已读（POST）一律拦住；地址更长的排前面
+const msgRules = (post, list) => [{ url: MSG_READ_API, method: 'POST', ...post }, ...(list ? [{ url: MSG_UNREAD_API, action: 'respond', body: reply(list.filter((m) => !m.read).length) },
+  { url: MSG_API, method: 'GET', action: 'respond', body: reply({ records: list, total: list.length, page: 1, pageSize: 20 }) }] : [])]
+const msgRow = (title) => `[...document.querySelectorAll('#app .msg')].find((r) => r.querySelector('h3')?.innerText.trim() === ${JSON.stringify(title)})`
+// 未读：左边主色圆点、标题 500 字重；已读：没有圆点、标题 400
+const unreadMarks = (unread, read) => `(() => { const primary = ${tokenColor('--primary')}
+  for (const t of ${JSON.stringify(unread)}) { const r = ${msgRow('__T__').replace('"__T__"', 't')}; if (!r) return '没有「' + t + '」这条消息'
+    const dot = r.querySelector('.msg-dot'), h = r.querySelector('h3')
+    if (!dot || getComputedStyle(dot).backgroundColor !== primary) return '未读的「' + t + '」没有主色圆点'
+    if (dot.getBoundingClientRect().right > h.getBoundingClientRect().left) return '圆点不在标题左边'
+    if (getComputedStyle(h).fontWeight !== '500') return '未读的「' + t + '」标题不是 500 字重：' + getComputedStyle(h).fontWeight }
+  for (const t of ${JSON.stringify(read)}) { const r = ${msgRow('__T__').replace('"__T__"', 't')}; if (!r) return '没有「' + t + '」这条消息'
+    const dot = r.querySelector('.msg-dot')
+    if (dot && getComputedStyle(dot).backgroundColor === primary) return '已读的「' + t + '」还带着圆点'
+    if (getComputedStyle(r.querySelector('h3')).fontWeight !== '400') return '已读的「' + t + '」标题不是 400 字重' }
+  return '' })()`
+// 每条消息：标题、时间、最多两行的摘要，摘要不小于 15px
+const msgRows = (n) => `(() => { const rows = [...document.querySelectorAll('#app .msg')]
+  if (rows.length !== ${n}) return '应该有 ${n} 条消息，页面出了 ' + rows.length + ' 条'
+  for (const r of rows) { const c = r.querySelector('.msg-c'), cs = c && getComputedStyle(c)
+    if (!r.querySelector('h3') || !r.querySelector('time') || !c) return '消息缺标题、时间或摘要：' + r.innerText.slice(0, 20)
+    if (parseFloat(cs.fontSize) < 15) return '摘要小于 15px'
+    if (!c.classList.contains('open') && c.getBoundingClientRect().height > parseFloat(cs.lineHeight) * 2 + 1) return '摘要超过两行：' + c.innerText.slice(0, 20) }
+  return document.querySelector('#app .msgs svg:not([class*="lucide"])') ? '还有手写的内联图标' : '' })()`
+const readAllBtn = `(() => { const b = document.querySelector('#app .van-nav-bar__right button'); return b && b.innerText.includes('全部已读') ? '' : '顶栏右边没有「全部已读」' })()`
+const fillArea = (value, scope = '#app') => `(() => { const el = document.querySelector(${JSON.stringify(scope + ' textarea')}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
+const fbPost = (action, body) => ({ url: FB_API, method: 'POST', action, body })
+const fbList = (action, body) => ({ url: FB_API, method: 'GET', action, body })
+const fakeFb = (id, category, status, extra = {}) => ({ id, category, content: '面试地址在地图上搜不到，能不能发个定位？', status, createdAt: `2026-11-0${id}T10:00:00`, ...extra })
+const fakeFbs = reply([fakeFb(3, 'SUGGEST', 'OPEN', { content: '希望能在首页直接看到面试倒计时。' }),
+  fakeFb(2, 'JOB', 'REPLIED', { reply: '已请驻场老师把定位发到你的消息里，也可以直接拨打面试通知里的电话。', handledAt: '2026-11-02T15:00:00' }),
+  fakeFb(1, 'PAY', 'CLOSED', { content: '工资条里的其他扣款是什么？', handledAt: '2026-11-01T15:00:00' })])
+const FB_TEXT = '面试地址在地图上搜不到，能不能发个定位？'
+const pickCat = `[...document.querySelectorAll('#app .chip-tap')].find((b) => b.innerText.includes('岗位与报名')).click()`
+// 个人中心：顶部资料卡（头像、姓名、打码的手机号、身份标签），下面是带图标和右箭头的分组单元格
+const profileCard = `(() => { const c = document.querySelector('#app .me-card'); if (!c) return '没有顶部资料卡'
+  if (getComputedStyle(c).backgroundColor !== ${tokenColor('--bg-card')}) return '资料卡不是白卡片'
+  if (!c.querySelector('.avatar')) return '资料卡没有头像'
+  if (!/\\d{3}\\*{4}\\d{4}/.test(c.innerText)) return '资料卡没有打码的手机号'
+  if (!c.querySelector('.status-tag')) return '资料卡没有身份标签'
+  return document.querySelector('#app .hero, #app .tag') ? '还在用深色状态头或旧标签' : '' })()`
+const cellGroups = (n) => `(() => { const rows = [...document.querySelectorAll('#app .me-group .lrow')]
+  if (rows.length !== ${n}) return '入口应该有 ${n} 行，页面出了 ' + rows.length + ' 行'
+  if (document.querySelectorAll('#app .me-group').length < 2) return '入口没有分组'
+  const bare = rows.find((r) => r.querySelectorAll('svg').length < 2 || !r.querySelector('.chev'))
+  return bare ? '有入口缺图标或右箭头：' + bare.innerText.slice(0, 10) : '' })()`
+// 「退出登录」是描边按钮：白底、有边框、不是主色实心
+const logoutOutlined = `(() => { const b = ${findBtn('退出登录')}; if (!b) return '没有「退出登录」'
+  const cs = getComputedStyle(b)
+  if (cs.backgroundColor !== ${tokenColor('--bg-card')}) return '「退出登录」不是白底：' + cs.backgroundColor
+  if (parseFloat(cs.borderTopWidth) < 1 || cs.borderTopColor === cs.backgroundColor) return '「退出登录」没有描边'
+  return Math.round(b.getBoundingClientRect().height) >= 44 ? '' : '「退出登录」不到 44 高' })()`
+const confirmLogout = `${findBtn('退出', '.van-dialog')}.click()`
 
 // 每项：端、页面、状态、人物、地址；width 不写是 390；rules 是接口拦截（见 cdp.mjs 的 intercept）；
 // lateRules 是页面打开并安静下来之后才生效的拦截（排在 rules 前面），用来截「先正常打开、再点按钮时接口挂住」；
@@ -741,6 +807,81 @@ const STATES = [
   { app: 'seeker', screen: 'payslip-appeal', state: 'conflict-stale', persona: 'veteran', path: SLIP, rules: appealOpenRules({ action: 'respond', body: refuse('SYS_4090', '这张工资条已有处理中的申诉') }),
     steps: [openAppeal, click('其他扣款'), fillPayAppeal('上个月没有请假，其他扣款不清楚扣的是什么。'), `(async () => { ${sheetSubmit}; await ${toastGone('这张工资条已有处理中的申诉')} })()`],
     checks: [stays('#app .bottom-bar .bar-why', '没有提交成功：这张工资条已有处理中的申诉'), bodyText, bottomBar('对这张工资条提出申诉')] },
+  // 工单 11：消息中心。标记已读（POST）一律拦住，不落库
+  { app: 'seeker', screen: 'messages', state: 'normal', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'hang' }),
+    checks: [readAllBtn, tapArea('#app .van-nav-bar__right button'), msgRows(2), unreadMarks(['问题反馈已回复', '面试信息'], []), tapTall('#app .msg'), bodyText, noLegacy, has('系统消息覆盖')] },
+  { app: 'seeker', screen: 'messages', state: 'normal', persona: 'acknowledged', path: '/messages', width: NARROW, rules: msgRules({ action: 'hang' }), checks: [readAllBtn, msgRows(2)] },
+  { app: 'seeker', screen: 'messages', state: 'mixed', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'hang' }, fakeMsgs),
+    checks: [msgRows(4), unreadMarks(['工伤上报提醒', '面试信息', '预支审批结果'], ['问题反馈已回复']), has('没有更多了'),
+      `getComputedStyle(${msgRow('工伤上报提醒')}.querySelector('h3')).color === ${tokenColor('--danger-text')} ? '' : '最高优先级的标题不是危险文字色'`] },
+  { app: 'seeker', screen: 'messages', state: 'mixed', persona: 'acknowledged', path: '/messages', width: NARROW, rules: msgRules({ action: 'hang' }, fakeMsgs), checks: [msgRows(4)] },
+  // 不带链接的消息：点了就地展开全文，并变成已读
+  { app: 'seeker', screen: 'messages', state: 'expanded', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'hang' }, fakeMsgs), steps: [`${msgRow('预支审批结果')}.click()`],
+    checks: [unreadMarks(['工伤上报提醒', '面试信息'], ['预支审批结果', '问题反馈已回复']), `${msgRow('预支审批结果')}.querySelector('.msg-c').classList.contains('open') ? '' : '点了不带链接的消息没有展开'`,
+      has('有疑问可以在工资条页面提出申诉'), `location.pathname === '/messages' ? '' : '不带链接的消息不该跳走'`] },
+  { app: 'seeker', screen: 'messages', state: 'empty', persona: 'registered', path: '/messages', rules: msgRules({ action: 'hang' }), checks: [has('暂无消息'), readAllBtn, hasNot('没有更多了')] },
+  { app: 'seeker', screen: 'messages', state: 'loading', persona: 'acknowledged', path: '/messages', rules: [{ url: MSG_API, action: 'hang' }], checks: [spinnerPrimary, hasNot('暂无消息')] },
+  { app: 'seeker', screen: 'messages', state: 'error', persona: 'acknowledged', path: '/messages', rules: [{ url: MSG_API, action: 'fail' }], checks: [has('重新加载'), hasNot('暂无消息')] },
+  { app: 'seeker', screen: 'messages', state: 'submitting', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'hang' }, fakeMsgs), steps: [countXhr, clickTwice('全部已读')], quick: true,
+    checks: [sentOnce, disabledBtn('全部已读'), `document.querySelector('#app .van-nav-bar__right .van-loading') ? '' : '标记中「全部已读」没有转圈'`] },
+  { app: 'seeker', screen: 'messages', state: 'rejected', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'respond', body: refuse('SYS_4290', '操作太频繁，请稍后再试') }, fakeMsgs),
+    steps: [click('全部已读'), toastGone('操作太频繁，请稍后再试')],
+    checks: [stays('#app .tipbar--danger', '没有标记成功：操作太频繁，请稍后再试'), unreadMarks(['工伤上报提醒', '面试信息', '预支审批结果'], ['问题反馈已回复']), enabledBtn('全部已读'), bodyText] },
+  { app: 'seeker', screen: 'messages', state: 'all-read', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'respond', body: reply(3) }, fakeMsgs), steps: [click('全部已读')], quick: true,
+    checks: [unreadMarks([], ['工伤上报提醒', '面试信息', '预支审批结果', '问题反馈已回复']), `document.querySelector('.van-toast')?.innerText.includes('已全部标为已读') ? '' : '标记成功后没有轻提示'`] },
+  { app: 'seeker', screen: 'messages', state: 'none-unread', persona: 'acknowledged', path: '/messages', rules: msgRules({ action: 'hang' }, [fakeMsgs[3]]), steps: [countXhr, click('全部已读')], quick: true,
+    checks: [`document.querySelector('.van-toast')?.innerText.includes('没有未读消息') ? '' : '没有未读时点「全部已读」没有提示'`, `window.__sent === 0 ? '' : '没有未读也把请求发出去了'`] },
+  // 问题反馈：提交（POST）一律拦住，不落库
+  { app: 'seeker', screen: 'feedback', state: 'normal', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')],
+    checks: [formGroups, bottomBar('提交反馈'), onePrimary, tapTall('#app .chip-tap'), bodyText, noLegacy, has('遇到问题、想投诉或有建议'), has('不填则用注册手机号联系你'),
+      `document.querySelectorAll('#app .chip-tap').length === 6 ? '' : '问题类型不是 6 个'`] },
+  { app: 'seeker', screen: 'feedback', state: 'normal', persona: 'acknowledged', path: '/feedback', width: NARROW, rules: [fbPost('hang')], checks: [formGroups, bottomBar('提交反馈')] },
+  { app: 'seeker', screen: 'feedback', state: 'list', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')], steps: [toBottom],
+    checks: [has('我的反馈'), has('2 条'), has('平台回复'), has('已回复'), `document.querySelectorAll('#app .fb-item').length === 2 && [...document.querySelectorAll('#app .fb-item')].every((i) => i.querySelector('.status-tag')) ? '' : '反馈记录不是 2 条，或有记录没有状态标签'`] },
+  { app: 'seeker', screen: 'feedback', state: 'list', persona: 'acknowledged', path: '/feedback', width: NARROW, rules: [fbPost('hang')], steps: [toBottom] },
+  { app: 'seeker', screen: 'feedback', state: 'all-status', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang'), fbList('respond', fakeFbs)], steps: [toBottom],
+    checks: [has('待处理'), has('已回复'), has('已关闭'), has('3 条'), `document.querySelectorAll('#app .fb-item').length === 3 ? '' : '反馈记录不是 3 条'`] },
+  { app: 'seeker', screen: 'feedback', state: 'selected', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')], steps: [pickCat, fillArea(FB_TEXT), fill('11 位手机号', '13800001234')],
+    checks: [`document.querySelectorAll('#app .chip-tap[aria-pressed=true]').length === 1 && document.querySelector('#app .chip-tap[aria-pressed=true] svg') && !document.querySelector('#app .chip-tap[aria-pressed=false] svg') ? '' : '选中的问题类型没有勾（或选中了不止一个）'`, has('20/1000')] },
+  // 没选类型、描述太短、电话不对：轻提示之外原因写在字段下方，请求不发出去
+  { app: 'seeker', screen: 'feedback', state: 'no-category', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')], steps: [fillArea(FB_TEXT), countXhr, click('提交反馈'), toastGone('请选择问题类型')],
+    checks: [stays('#app .fhint--err', '请选择问题类型'), `window.__sent === 0 ? '' : '没选类型也把请求发出去了'`, idle, inView('#app [data-field="category"]')] },
+  { app: 'seeker', screen: 'feedback', state: 'too-short', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')], steps: [pickCat, fillArea('不对'), countXhr, click('提交反馈'), toastGone('请至少用 5 个字描述问题')],
+    checks: [fieldError('请至少用 5 个字描述问题'), `window.__sent === 0 ? '' : '描述太短也把请求发出去了'`] },
+  { app: 'seeker', screen: 'feedback', state: 'bad-contact', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')], steps: [pickCat, fillArea(FB_TEXT), fill('11 位手机号', '12345'), countXhr, click('提交反馈'), toastGone('回访电话格式不正确')],
+    checks: [fieldError('回访电话格式不正确'), `window.__sent === 0 ? '' : '电话不对也把请求发出去了'`] },
+  { app: 'seeker', screen: 'feedback', state: 'submitting', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang')], steps: [pickCat, fillArea(FB_TEXT), countXhr, clickTwice('提交反馈')], quick: true, checks: [spinning('提交中'), sentOnce] },
+  { app: 'seeker', screen: 'feedback', state: 'rejected', persona: 'acknowledged', path: '/feedback', rules: [fbPost('respond', refuse('SYS_4290', '提交太频繁，请稍后再试'))], steps: [pickCat, fillArea(FB_TEXT), click('提交反馈'), toastGone('提交太频繁，请稍后再试')],
+    checks: [idle, stays('#app .bottom-bar .bar-why', '没有提交成功：提交太频繁，请稍后再试'), bottomBar('提交反馈'), bodyText,
+      `document.querySelector('#app textarea').value === ${JSON.stringify(FB_TEXT)} ? '' : '被拒之后填的内容被清掉了'`] },
+  { app: 'seeker', screen: 'feedback', state: 'empty', persona: 'veteran', path: '/feedback', rules: [fbPost('hang')], steps: [toBottom], checks: [has('还没有提交过反馈'), bottomBar('提交反馈')] },
+  { app: 'seeker', screen: 'feedback', state: 'loading', persona: 'acknowledged', path: '/feedback', rules: [{ url: FB_API, action: 'hang' }], steps: [toBottom], quick: true, checks: [spinnerPrimary, has('提交反馈')] },
+  { app: 'seeker', screen: 'feedback', state: 'error', persona: 'acknowledged', path: '/feedback', rules: [fbPost('hang'), fbList('fail')], steps: [toBottom], checks: [has('重新加载'), hasNot('还没有提交过反馈')] },
+  // 我的：退出登录（POST）一律拦住
+  { app: 'seeker', screen: 'me', state: 'normal', persona: 'veteran', path: '/me', rules: [{ url: LOGOUT_API, action: 'hang' }],
+    checks: [profileCard, cellGroups(12), logoutOutlined, tapTall('#app .me-group .lrow'), bodyText, noLegacy, has('进入我的工作'), has('身份档案'), has('已完成实名认证'),
+      `document.querySelectorAll('#app .van-button--primary:not(.van-button--plain)').length === 0 ? '' : '个人中心不该有主色实心按钮'`] },
+  { app: 'seeker', screen: 'me', state: 'normal', persona: 'veteran', path: '/me', width: NARROW, rules: [{ url: LOGOUT_API, action: 'hang' }], checks: [profileCard, cellGroups(12)] },
+  { app: 'seeker', screen: 'me', state: 'bottom', persona: 'veteran', path: '/me', rules: [{ url: LOGOUT_API, action: 'hang' }], steps: [toBottom], checks: [logoutOutlined] },
+  { app: 'seeker', screen: 'me', state: 'bottom', persona: 'veteran', path: '/me', width: NARROW, rules: [{ url: LOGOUT_API, action: 'hang' }], steps: [toBottom] },
+  // 刚注册、什么都还没有的人：入口摘要是「暂无合同」「尚未入职」
+  { app: 'seeker', screen: 'me', state: 'empty', persona: 'registered', path: '/me', rules: [{ url: LOGOUT_API, action: 'hang' }], checks: [profileCard, cellGroups(12), has('暂无合同'), has('尚未入职')] },
+  // 角标：待签署的合同、99 条以上的未读
+  { app: 'seeker', screen: 'me', state: 'badges', persona: 'veteran', path: '/me',
+    rules: [{ url: LOGOUT_API, action: 'hang' }, { url: MSG_UNREAD_API, action: 'respond', body: reply(120) }, { url: CONTRACTS_API, action: 'respond', body: fakeContracts }],
+    checks: [has('有 1 份合同待你签署'), has('待签署'), has('99+'), cellGroups(12),
+      `(() => { const b = document.querySelector('#app .me-group .cnt'); return b && parseFloat(getComputedStyle(b).fontSize) >= 12 ? '' : '未读角标没出来或字号小于 12px' })()`] },
+  // 档案接口一开始就挂住的话停在应用的启动加载上，进不到这一页：先让它失败，再点「重新加载」时挂住
+  { app: 'seeker', screen: 'me', state: 'loading', persona: 'veteran', path: '/me', rules: [{ url: ME, action: 'fail' }], lateRules: [{ url: ME, action: 'hang' }], steps: [click('重新加载')], quick: true,
+    checks: [spinnerPrimary, cellGroups(12), hasNot('重新加载')] },
+  { app: 'seeker', screen: 'me', state: 'error', persona: 'veteran', path: '/me', rules: [{ url: ME, action: 'fail' }], checks: [has('重新加载'), cellGroups(12)] },
+  { app: 'seeker', screen: 'me', state: 'logout-confirm', persona: 'veteran', path: '/me', rules: [{ url: LOGOUT_API, action: 'hang' }], steps: [click('退出登录')],
+    checks: [`document.querySelector('.van-dialog')?.innerText.includes('确定退出当前账号吗？') ? '' : '点「退出登录」没有弹出确认'`] },
+  // 退出中：确认之后再点一次；要是又弹出确认框就再确认一次。只能发出一条请求
+  { app: 'seeker', screen: 'me', state: 'submitting', persona: 'veteran', path: '/me', rules: [{ url: LOGOUT_API, action: 'hang' }],
+    steps: [click('退出登录'), countXhr, `(async () => { ${confirmLogout}; await ${wait(500)}; ${findBtn('退出登录')}.click(); await ${wait(500)}
+      const again = [...document.querySelectorAll('.van-dialog')].find((d) => d.getClientRects().length); if (again) [...again.querySelectorAll('button')].find((b) => b.innerText.trim() === '退出').click() })()`], quick: true,
+    checks: [spinning('退出登录'), sentOnce] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
