@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDict } from '@shitu/api-client'
+import { IconChevronRight, IconCircleCheck, IconLock, IconMapPin } from '@shitu/ui-icons'
+import AppBar from '@/components/AppBar.vue'
 import { useMatchSession } from '@/composables/useMatchSession'
 
 /** S-11 问薪开场（C-301）：展示匹配范围；报名锁定期不可进入；可选授权定位 */
@@ -64,94 +66,84 @@ function start() {
 
 <template>
   <div class="intro">
-    <van-nav-bar title="AI 问薪" left-arrow fixed placeholder safe-area-inset-top :border="false" class="dark-bar" @click-left="router.replace('/')" />
-    <div class="top">
-      <div class="big">{{ total }} 道题<br />给你 <span>3 个岗位</span></div>
-      <p>不用打字，全程点选。<br />回答完成后，系统生成你的求职画像并进行岗位匹配。</p>
+    <AppBar title="AI 问薪" :on-back="() => router.replace('/')" />
+
+    <div v-if="locked" class="state-block">
+      <IconLock :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">暂不能重新匹配</div>
+      <div class="state-block-d">{{ lockText }}。</div>
+      <div v-if="appliedLock" class="state-block-d">如需更换岗位，请联系驻场老师在后台取消报名 —— 你不能自行取消。</div>
+      <template v-if="appliedLock">
+        <van-button type="primary" @click="router.push('/reports')">查看我的报备</van-button>
+        <button type="button" class="link home" @click="router.replace('/')">返回首页<IconChevronRight :size="16" /></button>
+      </template>
+      <van-button v-else @click="router.replace('/')">返回首页</van-button>
     </div>
 
-    <div class="pad-x stack body">
-      <template v-if="locked">
-        <section class="acard lock">
-          <div class="big-ic lock-ic">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="2" /></svg>
-          </div>
-          <h3>暂不能重新匹配</h3>
-          <p class="t-sm">{{ lockText }}。</p>
-          <p v-if="appliedLock" class="t-xs" style="margin-top: 6px">如需更换岗位，请联系驻场老师在后台取消报名 —— 你不能自行取消。</p>
-          <van-button v-if="appliedLock" type="primary" block class="btn-cta" style="margin-top: 14px" @click="router.push('/reports')">查看我的报备</van-button>
-          <van-button block class="btn-cta" style="margin-top: 10px" @click="router.replace('/')">返回首页</van-button>
+    <template v-else>
+      <div class="pad stack">
+        <section class="acard lead">
+          <h2>{{ total }} 道题，给你 3 个岗位</h2>
+          <p class="lead-sub">不用打字，全程点选。回答完成后，系统生成你的求职画像并进行岗位匹配。</p>
         </section>
-      </template>
 
-      <template v-else>
         <section class="acard">
-          <div class="acard-hd"><h4>本次匹配范围</h4></div>
-          <div class="row" style="gap: 10px">
-            <div class="avatar avatar--sm" :class="isOwn ? 'avatar--o' : 'avatar--t'">{{ isOwn ? (company || '本').slice(0, 1) : '全' }}</div>
-            <div class="flex1">
-              <div class="sc-t">{{ scopeTitle }}</div>
-              <div class="t-xs">{{ scopeDesc }}</div>
-            </div>
-            <span class="tag" :class="isOwn ? 'tag-private' : 'tag-public'">{{ label('DomainTag', isOwn ? 'PRIVATE' : 'PUBLIC') }}</span>
+          <div class="acard-hd">
+            <h4>本次匹配范围</h4>
+            <span class="status-tag status-tag--info">{{ label('DomainTag', isOwn ? 'PRIVATE' : 'PUBLIC') }}</span>
           </div>
+          <div class="sc-t">{{ scopeTitle }}</div>
+          <p v-if="scopeDesc" class="sc-d">{{ scopeDesc }}</p>
         </section>
 
         <section class="acard">
           <div class="acard-hd"><h4>会问你什么</h4></div>
-          <div class="stack-sm">
-            <div class="row"><span class="tag tag-ink">判断题</span><span class="t-sm">是否接受进厂 · 是否锁定地域</span></div>
-            <div class="row" style="align-items: flex-start"><span class="tag">选择题</span><span class="t-sm">期望工种 · 薪资 · 班次 · 住宿 · 从业经验</span></div>
-          </div>
-          <div class="note note--info" style="margin-top: 11px">报名前可无限次重新匹配；<b>报名后不可再匹配、不可再报名</b>，直到面试结果产生。</div>
+          <dl>
+            <div class="ask"><dt class="status-tag">判断题</dt><dd>是否接受进厂 · 是否锁定地域</dd></div>
+            <div class="ask"><dt class="status-tag">选择题</dt><dd>期望工种 · 薪资 · 班次 · 住宿 · 从业经验</dd></div>
+          </dl>
+          <div class="note rule">报名前可无限次重新匹配；<b>报名后不可再匹配、不可再报名</b>，直到面试结果产生。</div>
         </section>
 
         <section class="acard geo">
-          <div class="row" style="gap: 10px">
-            <div class="geo-ic">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /><circle cx="12" cy="10" r="2.6" fill="currentColor" /></svg>
-            </div>
-            <div class="flex1">
-              <b class="geo-t">使用当前位置（可选）</b>
-              <div class="t-xs">
-                <template v-if="geo === 'ok'">已获取位置，将优先推荐离你近的岗位</template>
-                <template v-else-if="geo === 'denied'">未获取到位置，不影响匹配</template>
-                <template v-else-if="geo === 'unsupported'">当前浏览器不支持定位，不影响匹配</template>
-                <template v-else>用于优先推荐离你近的岗位，不授权也能匹配</template>
-              </div>
-            </div>
-            <van-button v-if="geo === 'idle' || geo === 'denied'" size="small" round @click="locate">{{ geo === 'denied' ? '重试' : '允许定位' }}</van-button>
-            <van-loading v-else-if="geo === 'locating'" size="18" />
-            <van-icon v-else-if="geo === 'ok'" name="success" class="geo-ok" />
+          <IconMapPin :size="24" class="geo-ic" />
+          <div class="flex1">
+            <div class="sc-t">使用当前位置（可选）</div>
+            <p class="sc-d">
+              <template v-if="geo === 'ok'">已获取位置，将优先推荐离你近的岗位</template>
+              <template v-else-if="geo === 'denied'">未获取到位置，不影响匹配</template>
+              <template v-else-if="geo === 'unsupported'">当前浏览器不支持定位，不影响匹配</template>
+              <template v-else>用于优先推荐离你近的岗位，不授权也能匹配</template>
+            </p>
           </div>
+          <van-button v-if="geo === 'idle' || geo === 'denied'" class="geo-btn" @click="locate">{{ geo === 'denied' ? '重试' : '允许定位' }}</van-button>
+          <van-loading v-else-if="geo === 'locating'" size="20" />
+          <IconCircleCheck v-else-if="geo === 'ok'" :size="24" class="geo-ok" />
         </section>
+        <div class="bottom-bar-gap"></div>
+      </div>
 
-        <van-button type="primary" block class="btn-cta start" @click="start">
+      <div class="bottom-bar">
+        <van-button type="primary" size="large" block @click="start">
           {{ hasAnswers ? '开始回答（可沿用上次答案）' : `开始回答（第 1 / ${total} 题）` }}
         </van-button>
-      </template>
-      <div class="page-bottom-gap"></div>
-    </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.intro { min-height: 100vh; background: linear-gradient(180deg, #0d1117 0, #0d1117 300px, var(--surface-2) 300px); }
-.dark-bar :deep(.van-nav-bar) { background: #0d1117; }
-.dark-bar :deep(.van-nav-bar__title) { color: #fff; font-weight: 700; }
-.dark-bar :deep(.van-nav-bar__left .van-icon) { color: #fff; }
-.top { padding: 8px 18px 0; color: #fff; }
-.big { font-family: var(--f-dis); font-size: 30px; font-weight: 700; line-height: 1.15; }
-.big span { color: var(--signal-300); }
-.top p { font-size: 13px; color: rgba(255, 255, 255, .6); margin-top: 10px; line-height: 1.7; }
-.body { margin-top: 18px; }
-.sc-t { font-size: 13.5px; font-weight: 700; color: var(--ink-900); }
-.tag-ink { background: var(--ink-900); color: #fff; }
-.geo-ic { width: 34px; height: 34px; border-radius: 10px; background: var(--info-bg); color: var(--info); display: grid; place-items: center; flex: none; }
-.geo-t { font-size: 13.5px; color: var(--ink-900); display: block; }
-.geo-ok { color: var(--ok); font-size: 20px; }
-.start { height: 48px !important; }
-.lock { text-align: center; padding: 22px 16px; }
-.lock-ic { background: var(--temp-bg); color: var(--temp); }
-.lock h3 { font-size: 17px; font-weight: 700; color: var(--ink-900); margin-bottom: 6px; }
+.intro { min-height: 100vh; }
+.home { margin-top: var(--space-2); min-height: 44px; }
+.sc-t { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
+.sc-d { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.ask { display: flex; align-items: flex-start; gap: var(--space-3); }
+.ask + .ask { margin-top: var(--space-2); }
+.ask dt { flex: none; }
+.ask dd { min-width: 0; font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
+.rule { margin-top: var(--space-3); }
+.geo { display: flex; align-items: center; gap: var(--space-3); }
+.geo-ic { flex: none; color: var(--primary); }
+.geo-btn { flex: none; }
+.geo-ok { flex: none; color: var(--success-text); }
 </style>

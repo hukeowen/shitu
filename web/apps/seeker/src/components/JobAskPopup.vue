@@ -22,6 +22,7 @@ let seq = 0
 <script setup lang="ts">
 import { computed, nextTick, reactive as reactiveObj, ref, watch } from 'vue'
 import { errorMessage, seekerApi } from '@shitu/api-client'
+import { IconX } from '@shitu/ui-icons'
 
 /**
  * C-409 岗位 AI 问答（S-44）：基于岗位知识库回答；未命中 → 转岗位负责人，回复后站内信通知，并回流知识库待补充。
@@ -91,14 +92,13 @@ function retry(m: AskMsg) {
 </script>
 
 <template>
-  <van-popup v-model:show="show" position="bottom" round teleport="body" safe-area-inset-bottom :close-on-popstate="true" class="ask">
-    <div class="sheet-h" aria-hidden="true"></div>
-    <div class="row-b hd">
+  <van-popup v-model:show="show" position="bottom" round teleport="body" safe-area-inset-bottom :close-on-popstate="true" class="ask-sheet">
+    <div class="sheet-head">
       <div class="flex1">
-        <h3 class="ttl">问问这个岗位</h3>
-        <p v-if="jobTitle" class="t-xs sub">{{ jobTitle }}</p>
+        <h3>问问这个岗位</h3>
+        <p v-if="jobTitle" class="sheet-sub">{{ jobTitle }}</p>
       </div>
-      <button type="button" class="x" aria-label="关闭" @click="show = false"><van-icon name="cross" size="18" /></button>
+      <button type="button" class="sheet-x" aria-label="关闭" @click="show = false"><IconX :size="20" /></button>
     </div>
 
     <div ref="listEl" class="msgs" aria-live="polite">
@@ -109,9 +109,9 @@ function retry(m: AskMsg) {
         <div class="bub" :class="{ fwd: m.role === 'bot' && m.answered === false, fail: m.failed }">
           <van-loading v-if="m.pending" size="16" type="spinner" />
           <template v-else>
-            <span v-if="m.role === 'bot' && m.answered === false" class="tag tag-warn fwd-tag">已转岗位负责人</span>
+            <span v-if="m.role === 'bot' && m.answered === false" class="status-tag status-tag--warning fwd-tag">已转岗位负责人</span>
             <span class="txt">{{ m.text }}</span>
-            <span v-if="m.role === 'bot' && m.answered && m.matchedQuestion && m.matchedQuestion !== m.asked" class="t-xs ref">参考问题：{{ m.matchedQuestion }}</span>
+            <span v-if="m.role === 'bot' && m.answered && m.matchedQuestion && m.matchedQuestion !== m.asked" class="ref">参考问题：{{ m.matchedQuestion }}</span>
             <button v-if="m.failed" type="button" class="retry" @click="retry(m)">重试</button>
           </template>
         </div>
@@ -119,7 +119,7 @@ function retry(m: AskMsg) {
     </div>
 
     <div v-if="!msgs.length" class="sugs">
-      <button v-for="s in SUGGEST" :key="s" type="button" class="chip-btn" :disabled="sending" @click="ask(s)">{{ s }}</button>
+      <button v-for="s in SUGGEST" :key="s" type="button" class="chip-tap" :disabled="sending" @click="ask(s)"><span class="chip sug">{{ s }}</span></button>
     </div>
 
     <div class="composer">
@@ -128,41 +128,36 @@ function retry(m: AskMsg) {
         class="inp"
         :maxlength="MAX"
         placeholder="输入你的问题（2–100 字）"
+        aria-label="你的问题"
         enterkeyhint="send"
         @keyup.enter="ask()"
       />
       <van-button type="primary" class="send" :disabled="!canSend" :loading="sending" @click="ask()">发送</van-button>
     </div>
-    <div class="t-xs cnt" :class="{ over: len > MAX }">
-      <span>答案仅供参考，以面试时劳务公司说明为准</span><span class="num">{{ len }} / {{ MAX }}</span>
+    <div class="cnt" :class="{ over: len > MAX }">
+      <span>答案仅供参考，以面试时劳务公司说明为准</span><span>{{ len }} / {{ MAX }}</span>
     </div>
   </van-popup>
 </template>
 
 <style scoped>
-.ask { padding: 8px 14px 10px; height: 78vh; display: flex; flex-direction: column; box-sizing: border-box; background: var(--surface-2); }
-.sheet-h { width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 10px; flex: none; }
-.hd { flex: none; margin-bottom: 8px; }
-.ttl { font-size: 17px; font-weight: 700; color: var(--ink-900); }
-.sub { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.x { width: 32px; height: 32px; display: grid; place-items: center; background: none; border: 0; color: var(--ink-500); padding: 0; margin-right: -6px; }
-.msgs { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 10px; }
+.ask-sheet { display: flex; flex-direction: column; height: 78vh; padding: var(--space-4) var(--space-page) var(--space-3); box-sizing: border-box; background: var(--bg-page); }
+.msgs { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); padding: var(--space-1) 0 var(--space-3); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .m { display: flex; }
 .m.me { justify-content: flex-end; }
-.bub { max-width: 82%; padding: 10px 12px; font-size: 14px; line-height: 1.6; color: var(--ink-900); background: var(--surface); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; word-break: break-word; }
-.m.me .bub { background: var(--signal); border-color: var(--signal); color: #fff; border-radius: 14px 4px 14px 14px; }
-.bub.fwd { background: var(--warn-bg); border-color: var(--warn-line); }
-.bub.fail { background: var(--danger-bg); border-color: var(--danger-line); color: var(--danger); }
-.fwd-tag { margin-bottom: 6px; }
+.bub { max-width: 82%; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); word-break: break-word; }
+.m.me .bub { border-color: var(--primary-line); background: var(--primary-bg); }
+.bub.fwd { border-color: transparent; background: var(--warning-soft); }
+.bub.fail { border-color: transparent; background: var(--danger-soft); }
+.fwd-tag { margin-bottom: var(--space-2); background: var(--bg-card); }
 .txt { display: block; white-space: pre-wrap; }
-.ref { display: block; margin-top: 6px; }
-.retry { margin-top: 6px; border: 0; background: none; padding: 0; color: var(--danger); font-weight: 700; font-size: 12.5px; text-decoration: underline; }
-.sugs { flex: none; display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; }
-.chip-btn { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--line-2); background: var(--surface); font-size: 12.5px; color: var(--ink-700); }
-.chip-btn:active { background: var(--surface-3); }
-.composer { flex: none; display: flex; gap: 8px; align-items: center; }
-.composer .inp { flex: 1; min-width: 0; height: 42px; }
-.send { flex: none; height: 42px; border-radius: 10px; padding: 0 16px; font-weight: 600; }
-.cnt { flex: none; display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; }
-.cnt.over { color: var(--warn); }
+.ref { display: block; margin-top: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+.retry { display: block; min-height: 44px; margin-bottom: calc(var(--space-3) * -1); padding: 0; border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--danger-text); }
+.sugs { flex: none; display: flex; flex-wrap: wrap; gap: 0 var(--space-2); padding-bottom: var(--space-2); }
+.sug { padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-aux); line-height: 30px; }
+.composer { flex: none; display: flex; align-items: center; gap: var(--space-2); }
+.composer .inp { flex: 1; min-width: 0; }
+.send { flex: none; }
+.cnt { flex: none; display: flex; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--font-size-min); color: var(--text-3); }
+.cnt.over { color: var(--danger-text); }
 </style>

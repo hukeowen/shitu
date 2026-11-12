@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showDialog, showToast } from 'vant'
 import { errorMessage, isApiError, useDict, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
+import { IconCheck, IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useMatchSession } from '@/composables/useMatchSession'
 import { CITY_COLUMNS, provinceOf } from '@/utils/cities'
@@ -184,39 +185,35 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 
 <template>
   <div class="quiz">
-    <AppBar :title="total ? `AI 问薪 · ${step + 1} / ${total}` : 'AI 问薪'" :on-back="prev">
-      <template #right><span class="exit" @click="exit">退出</span></template>
+    <AppBar title="AI 问薪" :on-back="prev">
+      <template #right><button type="button" class="bar-act" @click="exit">退出</button></template>
     </AppBar>
 
-    <div v-if="locked" class="page-state">
-      <van-empty image="error" :description="lockText">
-        <van-button v-if="appliedLock" round type="primary" size="small" @click="router.replace('/reports')">查看我的报备</van-button>
-      </van-empty>
+    <div v-if="locked" class="state-block">
+      <IconLock :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">暂不能重新匹配</div>
+      <div class="state-block-d">{{ lockText }}</div>
+      <van-button v-if="appliedLock" type="primary" @click="router.replace('/reports')">查看我的报备</van-button>
     </div>
     <div v-else-if="loading" class="page-state"><van-loading size="28" vertical>题目加载中…</van-loading></div>
-    <div v-else-if="loadError" class="page-state">
-      <van-empty image="error" :description="loadError">
-        <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-      </van-empty>
+    <div v-else-if="loadError" class="state-block">
+      <component :is="quiz ? IconInbox : IconTriangleExclamationPoint" :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">{{ quiz ? '暂时没有题目' : '加载失败' }}</div>
+      <div class="state-block-d">{{ loadError }}</div>
+      <van-button type="primary" @click="load">重新加载</van-button>
     </div>
 
     <template v-else-if="q">
-      <div class="pad-x" style="padding-top: 12px">
-        <div class="qprog"><i v-for="(x, i) in questions" :key="x.seq" :class="{ on: i <= step }"></i></div>
-      </div>
       <div class="pad">
-        <div class="row ask">
-          <div class="ai">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="#E8590C" stroke-width="2" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3" stroke="#fff" stroke-width="2" stroke-linecap="round" /></svg>
-          </div>
-          <div class="qbubble flex1">
-            <div class="kind">{{ kindText }}</div>
-            <div class="stem">{{ q.stem }}</div>
-            <div v-if="q.hint" class="t-xs" style="margin-top: 3px">{{ q.hint }}</div>
-          </div>
+        <div class="prog-t"><b>第 {{ step + 1 }} / {{ total }} 题</b><span>{{ kindText }}</span></div>
+        <div class="bar prog" role="progressbar" aria-valuemin="0" :aria-valuemax="total" :aria-valuenow="step + 1">
+          <i class="sig" :style="{ width: ((step + 1) / total) * 100 + '%' }"></i>
         </div>
 
-        <div class="stack-sm" role="radiogroup" :aria-label="q.stem">
+        <h1 class="stem">{{ q.stem }}</h1>
+        <p v-if="q.hint" class="stem-d">{{ q.hint }}</p>
+
+        <div class="opts" role="radiogroup" :aria-label="q.stem">
           <button
             v-for="o in q.options"
             :key="o.code"
@@ -227,27 +224,30 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
             :class="{ sel: picked?.code === o.code }"
             @click="choose(o)"
           >
-            <span class="k">{{ o.code }}</span>
             <span class="flex1">
               {{ o.label }}
               <span v-if="o.sub" class="sub">{{ o.sub }}</span>
-              <span v-if="o.needRegion && picked?.code === o.code && picked.region" class="sub region">已选：{{ picked.region }} · 点击修改</span>
+              <span v-if="o.needRegion && picked?.code === o.code && picked.region" class="sub">已选：{{ picked.region }} · 点击修改</span>
               <span v-else-if="o.needRegion" class="sub">选择后需选择城市</span>
             </span>
+            <IconCheck v-if="picked?.code === o.code" :size="20" :stroke-width="2.25" />
           </button>
         </div>
 
         <section v-if="answeredChips.length" class="acard answered">
           <div class="acard-hd"><h4>已回答</h4><span class="t-xs">点击可返回修改</span></div>
-          <div class="chips">
-            <button v-for="c in answeredChips" :key="c.i" type="button" class="chip" @click="jump(c.i)">✓ {{ c.text }}</button>
+          <div class="ans">
+            <button v-for="c in answeredChips" :key="c.i" type="button" class="chip-tap" @click="jump(c.i)">
+              <span class="chip"><IconCheck :size="12" :stroke-width="2.5" />{{ c.text }}</span>
+            </button>
           </div>
         </section>
-        <div class="sticky-gap"></div>
+        <div class="bottom-bar-gap"></div>
       </div>
 
-      <div class="sticky-ft">
-        <van-button type="primary" block class="btn-cta" :disabled="!picked" @click="next">
+      <div class="bottom-bar row">
+        <van-button size="large" class="prev" :disabled="step === 0" @click="prev">上一题</van-button>
+        <van-button type="primary" size="large" class="next" :disabled="!picked" @click="next">
           {{ isLast ? '生成我的求职画像' : '下一题' }}
         </van-button>
       </div>
@@ -256,7 +256,7 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
     <van-popup v-model:show="cityShow" round position="bottom" teleport="body" :close-on-popstate="true">
       <van-picker v-model="cityValues" title="选择你想去的城市" :columns="CITY_COLUMNS" @confirm="onCityConfirm" @cancel="cityShow = false">
         <template #columns-top>
-          <p class="t-xs city-tip">昆山、太仓、常熟、张家港等县级市请选「苏州」，仅匹配所选城市的岗位</p>
+          <p class="city-tip">昆山、太仓、常熟、张家港等县级市请选「苏州」，仅匹配所选城市的岗位</p>
         </template>
       </van-picker>
       <div class="page-bottom-gap"></div>
@@ -264,59 +264,53 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 
     <transition name="fade">
       <div v-if="analyzing" class="analyzing" role="status" aria-live="polite">
-        <div class="center">
-          <div class="spin-ic">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </div>
-          <div class="a-t">AI 正在分析你的求职画像</div>
-          <p class="a-d">正在从{{ scopeName || '可匹配范围' }}的在招岗位中筛选最匹配的岗位</p>
-        </div>
+        <van-loading size="32" class="a-spin" />
+        <div class="a-t">AI 正在分析你的求职画像</div>
+        <p class="a-d">正在从{{ scopeName || '可匹配范围' }}的在招岗位中筛选最匹配的岗位</p>
         <ul class="a-steps">
           <li v-for="(t, i) in phases" :key="i" :class="{ done: i < phase, now: i === phase }">
-            <span class="mk">{{ i < phase ? '✓' : i === phase ? '◔' : '○' }}</span>{{ t }}
+            <span class="mk"><IconCheck v-if="i < phase" :size="16" :stroke-width="2.25" /><i v-else></i></span>{{ t }}
           </li>
         </ul>
-        <div class="a-bar"><i :style="{ width: progress + '%' }"></i></div>
-        <div class="row-b a-foot"><span>匹配引擎运算中</span><span class="mono">{{ progress }}%</span></div>
+        <div class="bar a-bar"><i class="sig" :style="{ width: progress + '%' }"></i></div>
+        <div class="row-b a-foot"><span>匹配引擎运算中</span><span>{{ progress }}%</span></div>
       </div>
     </transition>
   </div>
 </template>
 
 <style scoped>
-.quiz { min-height: 100vh; background: var(--surface-2); }
-.exit { font-size: 12.5px; color: var(--ink-400); padding: 4px 0 4px 8px; }
-.ask { align-items: flex-start; gap: 10px; margin-bottom: 16px; }
-.ai { width: 30px; height: 30px; border-radius: 9px; background: var(--ink-900); display: grid; place-items: center; flex: none; }
-.kind { font-family: var(--f-mono); font-size: 11px; color: var(--signal); margin-bottom: 5px; }
-.stem { font-weight: 700; }
-.sub { display: block; font-size: 11.5px; font-weight: 500; color: var(--ink-400); margin-top: 2px; }
-.qopt.sel .sub { color: var(--signal-700); opacity: .8; }
-.sub.region { color: var(--signal); opacity: 1; font-weight: 600; }
-.answered { margin-top: 16px; }
-.answered .chip { border: 1px solid var(--line); cursor: pointer; }
-.sticky-gap { height: 70px; }
-.sticky-ft { position: fixed; left: 0; right: 0; bottom: 0; max-width: 750px; margin: 0 auto; padding: 22px 14px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--surface-2) 30%); z-index: 30; }
-.city-tip { padding: 4px 16px 6px; text-align: center; line-height: 1.5; }
+.quiz { min-height: 100vh; }
+.prog-t { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+.prog-t b { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
+.prog { height: 4px; margin-top: var(--space-2); background: var(--border); }
+.stem { margin-top: var(--space-6); font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
+.stem-d { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.opts { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.sub { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); line-height: 20px; color: var(--text-3); }
+.qopt.sel .sub { color: var(--primary-text); }
+.answered { margin-top: var(--space-4); }
+.answered .acard-hd { margin-bottom: 0; }
+.ans { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); }
+.bottom-bar { gap: var(--space-3); }
+.prev { flex: 1; }
+.next { flex: 2; }
+.city-tip { padding: var(--space-1) var(--space-4) var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
 
-.analyzing { position: fixed; inset: 0; z-index: 2000; background: linear-gradient(165deg, #1d2733, #0d1117); color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 0 28px; }
-.center { text-align: center; }
-.spin-ic { width: 78px; height: 78px; border-radius: 24px; background: rgba(232, 89, 12, .16); border: 1px solid rgba(232, 89, 12, .4); display: grid; place-items: center; margin: 0 auto 22px; color: var(--signal-300); }
-.spin-ic svg { animation: spin 2.4s linear infinite; }
-.a-t { font-family: var(--f-dis); font-size: 21px; font-weight: 700; }
-.a-d { font-size: 12.5px; color: rgba(255, 255, 255, .5); margin-top: 8px; }
-.a-steps { margin-top: 30px; display: grid; gap: 9px; }
-.a-steps li { font-size: 12.5px; color: rgba(255, 255, 255, .35); display: flex; gap: 9px; transition: color .2s; }
-.a-steps li.done { color: rgba(255, 255, 255, .85); }
-.a-steps li.done .mk { color: var(--ok); }
-.a-steps li.now { color: #fff; }
-.a-steps li.now .mk { color: var(--signal-300); }
-.mk { width: 14px; flex: none; text-align: center; }
-.a-bar { margin-top: 26px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden; }
-.a-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--signal-300), var(--signal)); border-radius: 3px; transition: width .45s ease; }
-.a-foot { margin-top: 7px; font-size: 11.5px; color: rgba(255, 255, 255, .45); }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* 提交中：整屏白底，逐步显示匹配进度 */
+.analyzing { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; justify-content: center; padding: 0 var(--space-6); background: var(--bg-card); }
+.a-spin { align-self: center; --van-loading-spinner-color: var(--primary); }
+.a-t { margin-top: var(--space-4); font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); text-align: center; }
+.a-d { margin-top: var(--space-1); font-size: var(--font-size-aux); color: var(--text-3); text-align: center; }
+.a-steps { display: grid; gap: var(--space-3); margin-top: var(--space-8); }
+.a-steps li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--text-3); transition: color .2s; }
+.a-steps li.done { color: var(--text-2); }
+.a-steps li.now { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.mk { flex: none; display: grid; place-items: center; width: 16px; height: 16px; color: var(--success-text); }
+.mk i { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+.now .mk i { background: var(--primary); }
+.a-bar { margin-top: var(--space-6); }
+.a-foot { margin-top: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
 .fade-enter-active, .fade-leave-active { transition: opacity .25s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .spin-ic svg { animation: none; } }
 </style>

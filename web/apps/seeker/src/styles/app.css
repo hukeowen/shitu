@@ -124,8 +124,11 @@ ul, ol { list-style: none; }
 
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .chip { font-size: var(--font-size-min); line-height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-tag); background: var(--bg-fill); color: var(--text-2); border: 0; }
-.chip.chip-ok { background: var(--success-soft); color: var(--success-text); }
+.chip.chip-ok { display: inline-flex; align-items: center; gap: var(--space-1); background: var(--success-soft); color: var(--success-text); }
 button.chip { font: inherit; font-size: var(--font-size-min); }
+/* 可点的小标签：外层撑到 44 高的点击区，里面放 .chip */
+.chip-tap { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; }
+.chip-tap .chip { display: inline-flex; align-items: center; gap: var(--space-1); }
 
 .note--info { background: var(--primary-bg); }
 .note--warn { background: var(--warning-soft); }
@@ -152,29 +155,21 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .steps .st.now { color: var(--text-1); font-weight: var(--font-weight-semibold); }
 .steps .ln { flex: 1; min-width: 8px; height: 1px; background: var(--border); margin: 0 var(--space-1); }
 
-/* 问答 */
-.qbubble { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); padding: var(--space-3) var(--space-4); font-size: var(--font-size-body); color: var(--text-1); line-height: 1.55; }
-.qopt { width: 100%; text-align: left; padding: var(--space-3) var(--space-4); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); display: flex; align-items: center; gap: var(--space-3); transition: border-color .15s, background .15s; }
-.qopt:active { border-color: var(--primary-line); }
+/* 单选大卡片（答题选项、投诉类型）：高度不低于 52；选中 = 主色描边 + 主色浅底 + 右侧的勾（勾由页面放 IconCheck） */
+.qopt { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 52px; padding: var(--space-3) var(--space-4); text-align: left; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); font-size: var(--font-size-section); font-weight: var(--font-weight-medium); line-height: 24px; color: var(--text-1); transition: border-color .15s, background .15s; }
+.qopt:active { background: var(--bg-hover); }
 .qopt.sel { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
-.qopt .k { font-size: var(--font-size-min); width: 22px; height: 22px; border-radius: var(--radius-tag); background: var(--bg-fill); display: grid; place-items: center; color: var(--text-2); flex: none; }
-.qopt.sel .k { background: var(--primary); color: var(--text-on-primary); }
-.qprog { display: flex; gap: 3px; }
-.qprog i { flex: 1; height: 3px; border-radius: 2px; background: var(--border); }
-.qprog i.on { background: var(--primary); }
+.qopt > svg { flex: none; color: var(--primary); }
 
 /* 岗位卡 */
 .job { background: var(--bg-card); border-radius: var(--radius-card); box-shadow: var(--shadow-card); overflow: hidden; }
 .job-top { padding: var(--space-card) var(--space-card) var(--space-3); }
 .job-title { display: flex; align-items: flex-start; gap: var(--space-2); }
 .job-title b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); flex: 1; line-height: 1.35; min-width: 0; }
-.match { flex: none; text-align: center; padding: var(--space-1) var(--space-2); border-radius: var(--radius-tag); background: var(--success-soft); }
-.match .mv { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--success-text); line-height: 1; }
-.match .ml { font-size: var(--font-size-min); color: var(--success-text); }
-.match.mid { background: var(--warning-soft); }
-.match.mid .mv, .match.mid .ml { color: var(--warning-text); }
-.job-sal { font-size: 20px; font-weight: var(--font-weight-semibold); color: var(--salary); margin-top: var(--space-2); }
-.job-sal small { font-size: var(--font-size-min); color: var(--text-3); font-weight: var(--font-weight-medium); margin-left: var(--space-1); }
+/* 薪资：薪资色只给大数字，单位用二级文字 */
+.salary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--space-1); margin-top: var(--space-1); }
+.salary b { font-size: 24px; font-weight: var(--font-weight-semibold); line-height: 32px; color: var(--salary); }
+.salary span { font-size: var(--font-size-aux); color: var(--text-2); }
 .job-ft { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-card); border-top: 1px solid var(--divider); }
 .job-ft .co { flex: 1; font-size: var(--font-size-min); color: var(--text-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -196,6 +191,15 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .hint { font-size: var(--font-size-min); color: var(--text-3); margin-top: var(--space-1); display: flex; align-items: center; gap: var(--space-1); }
 .hint.ok { color: var(--success-text); }
 .hint.err { color: var(--danger-text); font-weight: var(--font-weight-medium); }
+
+/* 顶栏右侧的文字操作（退出、重新匹配） */
+.bar-act { min-height: 44px; padding: 0 0 0 var(--space-2); border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); white-space: nowrap; }
+
+/* 底部弹层的标题行：标题、一行说明、关闭 */
+.sheet-head { display: flex; align-items: flex-start; gap: var(--space-2); flex: none; }
+.sheet-head h3 { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
+.sheet-sub { margin-top: 2px; font-size: var(--font-size-aux); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-x { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: calc(var(--space-2) * -1) calc(var(--space-3) * -1) 0 0; padding: 0; border: 0; background: none; color: var(--text-2); }
 
 /* 底部操作栏（岗位详情等） */
 .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-width: 750px; margin: 0 auto; padding: var(--space-2) var(--space-page) calc(var(--space-2) + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
