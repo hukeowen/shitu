@@ -1,4 +1,4 @@
-// 通过 Chrome 调试端口开一个标签页：发指令、收集页面问题、等页面安静。shot.mjs / shots.mjs / ui-smoke.mjs 共用。
+// 通过 Chrome 调试端口开一个标签页：发指令、收集页面问题、等页面安静。shot.mjs / shots.mjs / states.mjs / ui-smoke.mjs 共用。
 // 需要 Chrome 以 --remote-debugging-port=9888 启动（端口可用环境变量 CDP_PORT 改）。
 const PORT = Number(process.env.CDP_PORT ?? 9888)
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -13,11 +13,21 @@ export async function openTab(viewport, { timezone = 'Asia/Shanghai' } = {}) {
   const events = []
   const inflight = new Set()
   let lastActivity = Date.now()
+  let rules = []
   ws.addEventListener('message', (ev) => {
     const m = JSON.parse(ev.data)
     if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return }
     if (m.method === 'Network.requestWillBeSent') { inflight.add(m.params.requestId); lastActivity = Date.now() }
     else if (m.method === 'Network.loadingFinished' || m.method === 'Network.loadingFailed') { inflight.delete(m.params.requestId); lastActivity = Date.now() }
+    else if (m.method === 'Fetch.requestPaused') {
+      const rule = rules.find((r) => m.params.request.url.includes(r.url))
+      const requestId = m.params.requestId
+      if (!rule) send('Fetch.continueRequest', { requestId })
+      else if (rule.action === 'fail') send('Fetch.failRequest', { requestId, errorReason: 'Failed' })
+      else if (rule.action === 'respond') send('Fetch.fulfillRequest', { requestId, responseCode: 200,
+        responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify(rule.body)).toString('base64') })
+      // action === 'hang'：一直不放行，页面停在加载中
+    }
     else if (m.method === 'Runtime.exceptionThrown') {
       events.push('exception: ' + (m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text).split('\n')[0].slice(0, 200))
     } else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
@@ -38,6 +48,14 @@ export async function openTab(viewport, { timezone = 'Asia/Shanghai' } = {}) {
     while (Date.now() - start < 10000 && (inflight.size > 0 || Date.now() - lastActivity < 600)) await sleep(100)
     await sleep(400) // 留给过渡动画
   }
+  /**
+   * 拦截接口，用来截加载中、失败、被拒这些状态。rules: [{ url: 地址里包含的一段, action: 'fail' | 'hang' | 'respond', body? }]。
+   * 传空数组取消拦截。hang 的请求一直挂着，settle 会等满 10 秒。
+   */
+  const intercept = async (list) => {
+    rules = list
+    await send(list.length ? 'Fetch.enable' : 'Fetch.disable', list.length ? { patterns: [{ urlPattern: '*/api/*' }] } : {})
+  }
   const close = async () => { await fetch(`http://127.0.0.1:${PORT}/json/close/${tgt.id}`); ws.close() }
-  return { send, events, settle, close }
+  return { send, events, settle, intercept, close }
 }

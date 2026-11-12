@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { IconClipboardList, IconHouse, IconMessageSquare, IconUser } from '@shitu/ui-icons'
 import SplashScreen from '@/components/SplashScreen.vue'
 import GuidePopup from '@/components/GuidePopup.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -56,10 +57,10 @@ function splashStart() {
   </router-view>
   <div v-if="!ready && !splash" class="boot-loading"><van-loading size="28" vertical>加载中…</van-loading></div>
   <van-tabbar v-if="ready && showTabbar" route placeholder safe-area-inset-bottom>
-    <van-tabbar-item to="/" icon="home-o">首页</van-tabbar-item>
-    <van-tabbar-item to="/reports" icon="todo-list-o">我的报备</van-tabbar-item>
-    <van-tabbar-item to="/me" icon="user-o">我的</van-tabbar-item>
-    <van-tabbar-item to="/feedback" icon="chat-o">问题反馈</van-tabbar-item>
+    <van-tabbar-item to="/"><template #icon><IconHouse :size="22" /></template>首页</van-tabbar-item>
+    <van-tabbar-item to="/reports"><template #icon><IconClipboardList :size="22" /></template>我的报备</van-tabbar-item>
+    <van-tabbar-item to="/me"><template #icon><IconUser :size="22" /></template>我的</van-tabbar-item>
+    <van-tabbar-item to="/feedback"><template #icon><IconMessageSquare :size="22" /></template>问题反馈</van-tabbar-item>
   </van-tabbar>
   <GuidePopup />
   <transition name="splash-fade">
@@ -68,7 +69,7 @@ function splashStart() {
 </template>
 
 <style>
-.boot-loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--surface-2); }
+.boot-loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg-page); }
 .splash-fade-leave-active { transition: opacity .3s ease; }
 .splash-fade-leave-to { opacity: 0; }
 </style>

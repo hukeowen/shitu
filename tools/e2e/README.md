@@ -52,6 +52,7 @@ node shot.mjs login-ops http://127.0.0.1:5176/login        # 单页截图（加�
 | `routes.mjs` | 截图清单：四个端每个路由页面用谁登录、打开哪个地址。新增页面要在这里登记，漏了 `shots.mjs` 会提示 |
 | `shots.mjs` | 批量截图，可以只截某个端或某组路由 |
 | `compare.mjs` | 生成对照页：左边基线，右边当前截图，按路由排列 |
+| `states.mjs` | 状态截图：加载中、失败、弹层、被拒提示和 360 宽。每个状态在脚本里登记一项（人物、地址、要拦截的接口、打开后点什么）；有横向溢出、求职者端出现内部术语时退出码为 1 |
 
 ### 运行前提
 
@@ -77,10 +78,12 @@ node shots.mjs current --app seeker         # 改完之后：只截求职者端 
 node shots.mjs current --route /pm,/owner/bills   # 只截某组路由（按前缀匹配，'/' 只匹配首页）
 node compare.mjs --app seeker               # → shots/compare-seeker.html，用浏览器打开
 node compare.mjs --route /pm                # → shots/compare-pm.html
+node states.mjs <任务目录>/screenshots --app seeker   # 状态截图，文件名 <端>_<页面>_<状态>_<宽>x<高>.png；--only login 只截名字里带 login 的
 ```
 
 - 视口：后台 1440×900，手机 390×844（2 倍图）。每页存一张首屏；页面比一屏长时另存 `.full.png` 整页图（整页图里固定在底部的按钮栏会停在第一屏的位置，属正常）。
 - `shots.mjs` 逐页报告：有没有落到别的页面、是否空白、有没有脚本异常和 ≥ 400 的接口，明细在 `shots/<目录>/report.json`，对照页里也会标出来。
+- `shots.mjs` 开头还会对着路由表查页面里写死的站内跳转地址（`router.push('/x')`、`to="/x"`），有找不到的就列出来，退出码为 1。
 - `compare.mjs` 默认拿 `baseline` 对 `current`，可用 `--base`、`--cur` 换目录，`--out` 指定文件名。
 - 一个路由在不同状态下长得不一样时，在 `routes.mjs` 里登记多个人物（求职者首页就截了游客、自由求职、专属服务、待面试、在岗几种）。
 - 报名成功页、入驻申请页、游客首页不能直接输地址进，`routes.mjs` 里给它们配了进入脚本。

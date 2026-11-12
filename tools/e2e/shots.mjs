@@ -9,7 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { openTab } from './cdp.mjs'
 import { seekerSession, tenantSession, opsLogin, readRt, writeRt } from './lib.mjs'
-import { APPS, MEMBERS, VIEWPORT, missingRoutes, parseArgs, selectRoutes } from './routes.mjs'
+import { APPS, MEMBERS, VIEWPORT, deadLinks, missingRoutes, parseArgs, selectRoutes } from './routes.mjs'
 
 const DIR = path.dirname(fileURLToPath(import.meta.url))
 
@@ -40,6 +40,8 @@ async function ensureSession(app, persona) {
   await tenantSession(phone)
   return `tenant-${phone}.rt`
 }
+const dead = deadLinks()
+if (dead.length) console.log('页面里写死的跳转地址在路由表里找不到（会跳到不存在的页面）：\n  ' + dead.join('\n  ') + '\n')
 const todo = selectRoutes(args)
 if (!todo.length) { console.log('没有匹配的页面'); process.exit(1) }
 const report = []
@@ -105,5 +107,5 @@ const bad = report.filter((r) => r.issues.length)
 const reportFile = path.join(OUT, 'report.json')
 const kept = fs.existsSync(reportFile) ? JSON.parse(fs.readFileSync(reportFile, 'utf8')).filter((o) => !report.some((r) => r.file === o.file)) : []
 fs.writeFileSync(reportFile, JSON.stringify([...kept, ...report], null, 2))
-console.log(`\n== ${outName}: 截了 ${report.length} 页，${bad.length} 页有问题，图在 shots/${outName}/，明细见 shots/${outName}/report.json`)
-process.exit(bad.length ? 1 : 0)
+console.log(`\n== ${outName}: 截了 ${report.length} 页，${bad.length} 页有问题，${dead.length} 个跳转地址找不到，图在 shots/${outName}/，明细见 shots/${outName}/report.json`)
+process.exit(bad.length || dead.length ? 1 : 0)

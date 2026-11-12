@@ -10,6 +10,16 @@ export const STATUS_TAG_CLASS: Record<UserStatus, string> = {
   EMPLOYED: 'tag-ok',
 }
 
+/** 状态标签色调（tokens.css 的 .status-tag--*）。求职者端不用私域 / 公域的专属色 */
+export const STATUS_TONE: Record<UserStatus, string> = {
+  GUEST: 'status-tag--neutral',
+  PUBLIC_SEEKING: 'status-tag--info',
+  PRIVATE_PENDING: 'status-tag--info',
+  PENDING_INTERVIEW: 'status-tag--pending',
+  PENDING_CONFIRM: 'status-tag--pending',
+  EMPLOYED: 'status-tag--success',
+}
+
 /** 首页状态头配色：私域 / 临时私域用橙棕，公域用青色 */
 export function heroClass(domain: DomainTag | undefined): string {
   if (domain === 'PUBLIC') return 'pub'

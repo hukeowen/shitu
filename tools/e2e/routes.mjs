@@ -51,6 +51,7 @@ const SEEKER = [
   ['/', 'registered'], // 首页按状态各截一张，文件名带人物
   ['/', 'public'],
   ['/', 'acknowledged'],
+  ['/', 'confirmed'],
   ['/', 'veteran'],
   ['/match', 'registered'],
   ['/match/quiz', 'registered'],
@@ -204,6 +205,38 @@ export function missingRoutes() {
     for (const p of new Set(list)) {
       if (p === '/' && app !== 'seeker' && app !== 'staff') continue // 后台的 / 只是布局外壳
       if (!ROUTES.some((r) => r.app === app && r.route === p)) out.push(`${app} ${p}`)
+    }
+  }
+  return out
+}
+
+/** 递归列出目录下的 .vue / .ts 源码文件。 */
+function sourceFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name)
+    return e.isDirectory() ? sourceFiles(p) : /\.(vue|ts)$/.test(e.name) ? [p] : []
+  })
+}
+
+/**
+ * 页面里写死的站内跳转地址（router.push / replace 的字符串、to="…"、{ path: '…' }）在路由表里找不到的。
+ * 批量改名把 '/match/result' 误改成别的地址时，类型检查和冒烟都发现不了（冒烟不点按钮），这里能查出来。
+ * 带 ${…} 的地址按「这一段是参数」比对；拼接出来的地址查不到。
+ */
+export function deadLinks() {
+  const out = []
+  for (const app of Object.keys(APPS)) {
+    const routerDir = path.join(WEB, app, 'src/router')
+    const declared = sourceFiles(routerDir).flatMap((f) => [...fs.readFileSync(f, 'utf8').matchAll(/path: '(\/[^']*)'/g)].map((m) => m[1].replace(/\(.*?\)/g, '')))
+    const patterns = declared.filter((p) => !p.includes('pathMatch')).map((p) => new RegExp('^' + p.split('/').map((seg) => (seg.startsWith(':') ? '[^/]+' : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('/') + '/?$'))
+    for (const file of sourceFiles(path.join(WEB, app, 'src'))) {
+      if (file.startsWith(routerDir)) continue
+      const src = fs.readFileSync(file, 'utf8')
+      const links = [...src.matchAll(/\b(?:push|replace)\(\s*['"`](\/[^'"`]*)['"`]/g), ...src.matchAll(/\bto="(\/[^"]*)"/g), ...src.matchAll(/\bpath: ['"`](\/[^'"`]*)['"`]/g)].map((m) => m[1])
+      for (const link of new Set(links)) {
+        const target = link.split(/[?#]/)[0].replace(/\$\{[^}]*\}/g, 'x')
+        if (!patterns.some((re) => re.test(target))) out.push(`${app} ${path.relative(path.join(WEB, app), file)}  ${link}`)
+      }
     }
   }
   return out
