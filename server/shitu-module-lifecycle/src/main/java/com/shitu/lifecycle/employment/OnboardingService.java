@@ -50,7 +50,7 @@ import java.util.Optional;
  * <pre>
  * 待面试 ──到厂确认──→ 录入面试结果 ──通过──→ 待确权（重置 24h）──确权（发起电子签）──→ 签署完成回调 ──→ 在岗（唯一统计节点，计费起点）
  *    │                         └─未通过─→ 回到报名前归属（D-31），名额 +1
- *    ├─爽约（驻场）─→ 当日释放至公域，名额 +1
+ *    ├─爽约（驻场 / 项目经理）─→ 当日释放至公域，名额 +1
  *    └─后台取消（必填原因）─→ 回到报名前归属，名额 +1
  * </pre>
  * 签约回调以服务端为准、幂等：同一流程重复推送只入职一次（合同行加锁 + 任职唯一索引）。
@@ -139,12 +139,12 @@ public class OnboardingService {
                 remark == null ? null : Map.of("remark", remark));
     }
 
-    /** 爽约（M-08，仅驻场）：当日释放至全平台公域，名额 +1。 */
+    /** 爽约（M-08，驻场 / 项目经理，D-60）：当日释放至全平台公域，名额 +1。 */
     @Transactional
     public void markNoShow(AuthPrincipal p, String applicationId, String remark) {
-        BizException.check(p.hasRole(ActorRole.SITE.name()), ErrorCode.LC_ACTOR_NOT_ALLOWED, "只有驻场可以标记爽约");
+        BizException.check(p.hasAnyRole(ActorRole.SITE.name(), ActorRole.PM.name()), ErrorCode.LC_ACTOR_NOT_ALLOWED, "只有驻场或项目经理可以标记爽约");
         Application a = activeApplication(p, applicationId, ApplicationStatus.PENDING_INTERVIEW);
-        lifecycle.transition(a.getUserId(), LifecycleEvent.MARK_NO_SHOW, ctx(p, ActorRole.SITE), p.subjectId(), remark);
+        lifecycle.transition(a.getUserId(), LifecycleEvent.MARK_NO_SHOW, ctx(p, ActorRole.SITE, ActorRole.PM), p.subjectId(), remark);
         audit.log("NO_SHOW_MARK", "APPLICATION", applicationId, null);
     }
 

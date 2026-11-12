@@ -64,7 +64,7 @@ public enum LifecycleEvent {
             BoundEffect.RESTORE_PRE_APPLY, ReleaseReason.CANCELLED, false),
 
     /** 爽约：当日释放至全平台公域（文档 7.4）；名额 +1。 */
-    MARK_NO_SHOW(EnumSet.of(PENDING_INTERVIEW), PUBLIC_SEEKING, EnumSet.of(SITE),
+    MARK_NO_SHOW(EnumSet.of(PENDING_INTERVIEW), PUBLIC_SEEKING, EnumSet.of(SITE, PM),
             BoundEffect.CLEAR, ReleaseReason.NO_SHOW, false),
 
     /** 待匹配 / 待面试阶段 24h 无跟进，系统被动释放（D-06）。 */

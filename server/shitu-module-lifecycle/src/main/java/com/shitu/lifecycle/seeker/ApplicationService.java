@@ -332,9 +332,7 @@ public class ApplicationService {
             }
             out.add("PASS");
             out.add("FAIL");
-            if (site) {
-                out.add("NO_SHOW");
-            }
+            out.add("NO_SHOW");
             out.add("CANCEL");
         } else if (a.getStatus() == ApplicationStatus.PENDING_CONFIRM) {
             Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM contract WHERE application_id = ? AND status = 'PENDING_SIGN'",

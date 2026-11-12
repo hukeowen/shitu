@@ -194,8 +194,10 @@ class Sprint3FlowIT extends FlowItSupport {
         data(call(post("/api/v1/seeker/match"), sC, matchReq()));
         String appC2 = apply(sC, jobA);
         q = quota(jobA);
-        assertThat(status(post("/api/v1/tenant/applications/" + appC2 + "/no-show"), c.pm(), Map.of())).isEqualTo(403);
-        data(call(post("/api/v1/tenant/applications/" + appC2 + "/no-show"), c.site(), Map.of()));
+        assertThat(status(post("/api/v1/tenant/applications/" + appC2 + "/no-show"), c.owner(), Map.of())).as("老板不能标记爽约").isEqualTo(403);
+        // D-60：项目经理也能标记爽约
+        data(call(post("/api/v1/tenant/applications/" + appC2 + "/no-show"), c.pm(), Map.of()));
+        assertThat(code(call(post("/api/v1/tenant/applications/" + appC2 + "/no-show"), c.site(), Map.of()))).as("已处置的不能再标").isNotEqualTo("0");
         assertThat(user(uC).get("user_status")).isEqualTo("PUBLIC_SEEKING");
         assertThat(user(uC).get("bound_company_id")).isNull();
         assertThat(user(uC).get("last_release_reason")).isEqualTo("NO_SHOW");

@@ -78,8 +78,8 @@ public class TenantOnboardingController {
         return ApiResponse.ok(null);
     }
 
-    @Operation(summary = "标记爽约（仅驻场；当日释放至公域，名额 +1）")
-    @PreAuthorize("hasRole('SITE')")
+    @Operation(summary = "标记爽约（驻场 / 项目经理；当日释放至公域，名额 +1）")
+    @PreAuthorize("hasAnyRole('SITE','PM')")
     @PostMapping("/applications/{id}/no-show")
     public ApiResponse<Void> noShow(@PathVariable String id, @RequestBody(required = false) RemarkRequest req) {
         onboarding.markNoShow(CurrentUser.get(), id, req == null ? null : req.remark());
