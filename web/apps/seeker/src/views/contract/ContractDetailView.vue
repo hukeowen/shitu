@@ -108,7 +108,7 @@ const partyB = computed(() => (kyc.value?.kycStatus === 'VERIFIED' ? kyc.value.r
           <div class="kv top"><dt>甲方（用人单位）</dt><dd>{{ c.companyName || '—' }}</dd></div>
           <div class="kv top">
             <dt>乙方（劳动者）</dt>
-            <dd>{{ partyB }}<span v-if="kyc?.idCardMasked" class="sub code">{{ kyc.idCardMasked }}</span></dd>
+            <dd>{{ partyB }}<span v-if="kyc?.idCardMasked" class="sub">{{ kyc.idCardMasked }}</span></dd>
           </div>
         </dl>
       </section>

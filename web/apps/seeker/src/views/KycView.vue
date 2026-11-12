@@ -64,7 +64,7 @@ const realName = ref('')
 const idCard = ref('')
 const idCard2 = ref('')
 const submitting = ref(false)
-const serverErr = ref<{ field: 'name' | 'id' | 'id2' | 'form'; msg: string } | null>(null)
+const serverErr = ref<{ field: 'id' | 'id2' | 'form'; msg: string } | null>(null)
 const MISMATCH = '两次输入的身份证号码不一致，请重新输入'
 
 const fmtName = (v: string) => v.replace(/\s/g, '').slice(0, 20)
@@ -248,7 +248,7 @@ const STEPS = [
         <p class="para">{{ blockMsg }}。</p>
         <dl class="facts">
           <div class="kv"><dt>受限类型</dt><dd>平台级失信标记</dd></div>
-          <div class="kv top"><dt>申诉通道</dt><dd>如有异议可提交申诉，5 个工作日内复核</dd></div>
+          <div class="kv col"><dt>申诉通道</dt><dd>如有异议可提交申诉，5 个工作日内复核</dd></div>
         </dl>
         <van-button type="primary" block class="mt" @click="openAppeal('BLACKLIST_APPEAL')">我有异议，提交申诉</van-button>
         <van-button block class="mt-sm" @click="router.replace('/')">回首页</van-button>
@@ -302,6 +302,7 @@ const STEPS = [
               :class="{ bad: nameErr }"
               label="真实姓名"
               label-align="top"
+              required
               placeholder="与身份证上的姓名一致"
               maxlength="20"
               autocomplete="name"
@@ -316,6 +317,7 @@ const STEPS = [
               :class="{ bad: idMsg }"
               label="身份证号码"
               label-align="top"
+              required
               placeholder="18 位身份证号码"
               maxlength="18"
               autocomplete="off"
@@ -385,7 +387,9 @@ const STEPS = [
 .para + .para, .facts + .para { margin-top: var(--space-2); }
 .facts { margin-top: var(--space-2); }
 .facts dd { word-break: normal; overflow-wrap: anywhere; }
-.kv.top { align-items: flex-start; }
+/* 长内容：标签在上、内容左对齐在下 */
+.kv.col { display: block; }
+.kv.col dd { margin-top: 2px; text-align: left; }
 .mt { margin-top: var(--space-4); }
 .mt-sm { margin-top: var(--space-2); }
 .cases { margin-top: var(--space-2); }

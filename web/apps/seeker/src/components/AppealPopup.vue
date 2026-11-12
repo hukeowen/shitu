@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, useDict } from '@shitu/api-client'
-import { IconX } from '@shitu/ui-icons'
+import { IconInfo, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
 
 /**
  * 实名申诉（C-406）：身份证已被其他账号占用（APP_4007）→ 申诉换绑；平台级失信（APP_4008）→ 失信申诉。
@@ -17,9 +17,14 @@ const { label } = useDict()
 const MAX = 500
 const remark = ref('')
 const submitting = ref(false)
+/** 提交被拒的原因：轻提示两秒就没了，这里留在按钮上方，改了理由再清掉 */
+const rejected = ref('')
 
 watch(show, (v) => {
-  if (v) remark.value = ''
+  if (v) {
+    remark.value = ''
+    rejected.value = ''
+  }
 })
 
 const tips = computed(() =>
@@ -39,6 +44,7 @@ async function submit() {
   if (!text) return void showToast('请写明申诉理由')
   if (text.length > MAX) return void showToast(`申诉理由不超过 ${MAX} 字`)
   submitting.value = true
+  rejected.value = ''
   try {
     await seekerApi.appeal(props.type, text)
     show.value = false
@@ -51,7 +57,8 @@ async function submit() {
       emit('pending')
     } else {
       // SYS_4000：理由为空 / 超长、或没有对应的拦截记录（后端 message 直接展示）
-      showToast(errorMessage(e, '提交失败，请稍后重试'))
+      rejected.value = errorMessage(e, '提交失败，请稍后重试')
+      showToast(rejected.value)
     }
   } finally {
     submitting.value = false
@@ -85,10 +92,18 @@ async function submit() {
         show-word-limit
         :placeholder="placeholder"
         :border="false"
+        @update:model-value="rejected = ''"
       />
     </van-cell-group>
 
-    <div class="note">平台风控将在 <b>5 个工作日</b>内人工复核，结果会通过消息中心通知你，也可在「我的申诉」查看进度。</div>
+    <div class="tipbar tip">
+      <IconInfo :size="20" />
+      <div class="flex1"><div class="tipbar-d first">平台风控将在 <b class="strong">5 个工作日</b>内人工复核，结果会通过消息中心通知你，也可在「我的申诉」查看进度。</div></div>
+    </div>
+    <div v-if="rejected" class="tipbar tipbar--danger tip" role="alert">
+      <IconTriangleExclamationPoint :size="20" />
+      <div class="flex1"><div class="tipbar-d first">没有提交成功：{{ rejected }}</div></div>
+    </div>
     <van-button block type="primary" size="large" class="submit" :loading="submitting" loading-text="提交中…" :disabled="!remark.trim()" @click="submit">提交申诉</van-button>
   </van-popup>
 </template>
@@ -96,6 +111,8 @@ async function submit() {
 <style scoped>
 .apl { max-height: 88vh; padding: var(--space-4) var(--space-page) var(--space-3); overflow-y: auto; box-sizing: border-box; }
 .tips { margin: var(--space-3) 0 var(--space-4); padding-left: var(--space-5); list-style: disc; font-size: var(--font-size-body); line-height: 24px; color: var(--text-2); }
-.note { margin-top: var(--space-4); }
+.tip { margin-top: var(--space-4); }
+.tip + .tip { margin-top: var(--space-2); }
+.tipbar-d.first { margin-top: 0; }
 .submit { margin-top: var(--space-4); }
 </style>

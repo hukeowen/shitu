@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, useDict } from '@shitu/api-client'
-import { IconChevronRight, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useJourney } from '@/composables/useJourney'
 import { useAuthStore } from '@/stores/auth'
@@ -22,6 +22,8 @@ const { label } = useDict()
 const loading = ref(!journey.pendingLoaded)
 const loadError = ref('')
 const checking = ref(false)
+/** 点了「刷新状态」但还没签完：原因留在按钮下方，轻提示两秒就没了 */
+const notYet = ref('')
 const c = computed(() => journey.pending)
 
 async function load(silent = false) {
@@ -58,20 +60,20 @@ function retry() {
 async function recheck() {
   if (checking.value) return
   checking.value = true
+  notYet.value = ''
   try {
     await load(true)
-    if (journey.pending) showToast('还未检测到签署结果，签署完成后可能需要几秒钟同步')
+    if (journey.pending) notYet.value = '还未检测到签署结果，签署完成后可能需要几秒钟同步'
   } finally {
     checking.value = false
   }
+  if (notYet.value) showToast(notYet.value)
 }
 
 function openSign() {
+  // 没有链接时按钮是置灰的，点不到这里
   const url = c.value?.signUrl
-  if (!url) {
-    showToast('签署链接暂不可用，请联系驻场老师重新发送')
-    return
-  }
+  if (!url) return
   const t = signTarget(url)
   if ('internal' in t) void router.push(t.internal)
   else window.location.href = t.external
@@ -106,7 +108,7 @@ const months = computed(() => (c.value ? termMonths(c.value) : null))
       <div class="state-block-t">当前没有待签署的合同</div>
       <div class="state-block-d">面试通过、驻场办理入职后，合同会出现在这里</div>
       <van-button type="primary" @click="router.replace('/work')">我的工作</van-button>
-      <router-link to="/contracts" replace class="link more">我的合同<IconChevronRight :size="16" /></router-link>
+      <van-button class="second" @click="router.replace('/contracts')">我的合同</van-button>
     </div>
 
     <template v-else>
@@ -143,6 +145,7 @@ const months = computed(() => (c.value ? termMonths(c.value) : null))
         <section class="acard">
           <p class="para">已经在电子签平台签完？结果同步可能需要几秒钟。</p>
           <van-button block class="mt" :loading="checking" loading-text="正在查询…" @click="recheck">我已完成签署，刷新状态</van-button>
+          <p v-if="notYet" class="miss" role="status"><IconTriangleExclamationPoint :size="16" />{{ notYet }}</p>
         </section>
         <div class="bottom-bar-gap" :class="{ tall: !c.signUrl }"></div>
       </div>
@@ -165,7 +168,9 @@ const months = computed(() => (c.value ? termMonths(c.value) : null))
 /* 折行时不留孤字 */
 .para, .tipbar-d { text-wrap: pretty; }
 .mt { margin-top: var(--space-3); }
-.more { justify-content: center; min-height: 44px; margin-top: var(--space-2); }
+.state-block .second { margin-top: var(--space-2); }
+.miss { display: flex; align-items: flex-start; gap: var(--space-1); margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); }
+.miss svg { flex: none; margin-top: 3px; }
 .why { margin-bottom: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--warning-text); text-align: center; }
 .bottom-bar-gap.tall { height: calc(108px + env(safe-area-inset-bottom)); }
 </style>

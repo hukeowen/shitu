@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type LaborContractView } from '@shitu/api-client'
-import { IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { IconInbox, IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { CONTRACT_TONE, sortContracts, termText } from '@/utils/contract'
 import { formatServerTime } from '@/utils/time'
@@ -86,13 +86,16 @@ function open(c: LaborContractView) {
             <div class="kv"><dt>合同期限</dt><dd>{{ termText(c) }}</dd></div>
             <div class="kv"><dt>派遣岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
           </dl>
-          <van-button v-if="c.status === 'PENDING_SIGN'" type="primary" block tabindex="-1" class="act" @click.stop="open(c)">去签署</van-button>
-          <van-button v-else block tabindex="-1" class="act" @click.stop="open(c)">查看详情</van-button>
+          <div class="acts">
+            <van-button v-if="c.status === 'PENDING_SIGN'" type="primary" tabindex="-1" @click.stop="open(c)">去签署</van-button>
+            <van-button v-else tabindex="-1" @click.stop="open(c)">查看详情</van-button>
+          </div>
         </article>
 
-        <p class="note">
-          <b>状态联动：</b>入职签约 → 新合同「{{ label('ContractStatus', 'EFFECTIVE') }}」；离职 → 「{{ label('ContractStatus', 'TERMINATED') }}」；跨公司流转后<b>历史合同全部保留</b>，不因归属变更而删除。
-        </p>
+        <section class="tipbar">
+          <IconInfo :size="20" />
+          <div class="flex1"><div class="tipbar-d first"><b class="strong">状态联动：</b>入职签约 → 新合同「{{ label('ContractStatus', 'EFFECTIVE') }}」；离职 → 「{{ label('ContractStatus', 'TERMINATED') }}」；跨公司流转后<b class="strong">历史合同全部保留</b>，不因归属变更而删除。</div></div>
+        </section>
         <p class="list-end">没有更多了</p>
         <div class="page-bottom-gap"></div>
       </div>
@@ -103,12 +106,16 @@ function open(c: LaborContractView) {
 <style scoped>
 .cts { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
 .body { min-height: 60vh; }
-.sum { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.sum { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-wrap: balance; }
 .tap { cursor: pointer; }
 .tap:active { background: var(--bg-hover); }
 .tap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .code { font-family: var(--font-mono); overflow-wrap: anywhere; }
 .facts { margin-top: var(--space-3); border-top: 1px solid var(--divider); }
 .facts dd { word-break: normal; overflow-wrap: anywhere; }
-.act { margin-top: var(--space-3); }
+/* 卡片底部的操作靠右 */
+.acts { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+.acts .van-button { min-width: 104px; }
+/* 折行时不留孤字 */
+.tipbar-d.first { margin-top: 0; text-wrap: pretty; }
 </style>

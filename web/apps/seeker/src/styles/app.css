@@ -198,7 +198,7 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 
 /* 表单字段（加在 van-field 上，配 label-align="top"）：标签在上、带边框的输入框，错误提示在字段下方 */
 .ffield.van-cell { padding: 0; background: none; }
-.ffield + .ffield { margin-top: var(--space-4); }
+.ffield + .ffield, .fhint + .ffield { margin-top: var(--space-4); }
 .ffield .van-field__label { margin-bottom: var(--space-2); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); line-height: 20px; }
 .ffield .van-field__body { min-height: var(--control-height); padding: 0 var(--space-3); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-control); transition: border-color .15s; }
 .ffield .van-field__body:focus-within { border-color: var(--primary); }

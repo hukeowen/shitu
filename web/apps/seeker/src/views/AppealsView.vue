@@ -55,7 +55,7 @@ const RESULT: Record<ReviewStatus, string> = {
         <IconInbox :size="48" :stroke-width="1.5" />
         <div class="state-block-t">暂无申诉记录</div>
         <div class="state-block-d">实名认证时提示「身份证已被其他账号绑定」或「账号受限」，可在实名页提交申诉。</div>
-        <van-button type="primary" to="/kyc" replace>返回实名认证</van-button>
+        <van-button type="primary" to="/kyc">返回实名认证</van-button>
       </div>
       <div v-else class="pad stack">
         <article v-for="a in rows" :key="a.id" class="acard">

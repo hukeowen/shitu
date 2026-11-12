@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type ResumeArchive } from '@shitu/api-client'
 import { IconCheck, IconChevronRight, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
@@ -21,6 +21,8 @@ const archive = ref<ResumeArchive | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const saving = ref(false)
+/** 保存被拒的原因：留在底部通栏上，轻提示两秒就没了 */
+const saveError = ref('')
 
 const form = reactive({
   wechatId: '',
@@ -73,8 +75,12 @@ function addTo(list: 'expectRegions' | 'skillTags', draft: { value: string }, ma
   form[list] = [...form[list], v]
   return (draft.value = '')
 }
-const addRegion = () => !(errs.region = addTo('expectRegions', regionDraft, MAX_REGIONS, 20, '期望地点'))
-const addTag = () => !(errs.tag = addTo('skillTags', tagDraft, MAX_TAGS, 12, '技能标签'))
+function addRegion() {
+  errs.region = addTo('expectRegions', regionDraft, MAX_REGIONS, 20, '期望地点')
+}
+function addTag() {
+  errs.tag = addTo('skillTags', tagDraft, MAX_TAGS, 12, '技能标签')
+}
 function removeFrom(list: 'expectRegions' | 'skillTags', v: string) {
   form[list] = form[list].filter((x) => x !== v)
   if (list === 'expectRegions') errs.region = ''
@@ -83,7 +89,8 @@ function removeFrom(list: 'expectRegions' | 'skillTags', v: string) {
 
 async function save() {
   if (saving.value) return
-  // 输入框里还没点「添加」的内容一并收进来
+  saveError.value = ''
+  // 输入框里还没点「添加」的内容一并收进来；超长或超上限只在字段下方提示，不拦保存
   addRegion()
   addTag()
   const phone = form.emergencyPhone.trim()
@@ -92,9 +99,14 @@ async function save() {
   errs.wechat = wechat && !/^[A-Za-z0-9_-]{5,40}$/.test(wechat) ? '微信号只能包含字母、数字、下划线和减号' : ''
   const years = form.workYears.trim()
   errs.years = years && (!/^\d{1,2}$/.test(years) || Number(years) > 50) ? '工作年限请填 0 到 50 的整数' : ''
-  // 校验没通过：原因写在字段下方，同时轻提示第一条（出错的字段可能不在当前这一屏）
-  const first = errs.region || errs.years || errs.tag || errs.wechat || errs.phone
-  if (first) return void showToast(first)
+  // 校验没通过：原因写在字段下方，轻提示第一条并滚到那个字段（它可能不在当前这一屏）
+  const first = errs.phone || errs.wechat || errs.years
+  if (first) {
+    showToast(first)
+    const key = errs.phone ? 'phone' : errs.wechat ? 'wechat' : 'years'
+    void nextTick(() => document.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ block: 'center' }))
+    return
+  }
   saving.value = true
   try {
     await seekerApi.saveResume({
@@ -109,7 +121,8 @@ async function save() {
     })
     showToast('简历已保存')
   } catch (e) {
-    showToast(errorMessage(e, '保存失败，请稍后重试'))
+    saveError.value = errorMessage(e, '保存失败，请稍后重试')
+    showToast(saveError.value)
   } finally {
     saving.value = false
   }
@@ -176,8 +189,8 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
 
           <p class="lbl">期望工种</p>
           <div class="picks">
-            <button v-for="t in JOB_TYPES" :key="t" type="button" class="pick" :class="{ on: form.expectJobTypes.includes(t) }" :aria-pressed="form.expectJobTypes.includes(t)" @click="toggleType(t)">
-              <span><IconCheck v-if="form.expectJobTypes.includes(t)" :size="14" :stroke-width="2.5" />{{ label('JobType', t) }}</span>
+            <button v-for="t in JOB_TYPES" :key="t" type="button" class="chip-tap" :aria-pressed="form.expectJobTypes.includes(t)" @click="toggleType(t)">
+              <span class="chip opt"><IconCheck v-if="form.expectJobTypes.includes(t)" :size="14" :stroke-width="2.5" />{{ label('JobType', t) }}</span>
             </button>
           </div>
 
@@ -199,9 +212,10 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
               <template #button><button type="button" class="ffield-act" :disabled="!regionDraft.trim()" @click="addRegion">添加</button></template>
             </van-field>
             <div v-if="form.expectRegions.length" class="picks picked">
-              <button v-for="r in form.expectRegions" :key="r" type="button" class="pick on" :aria-label="`删除 ${r}`" @click="removeFrom('expectRegions', r)">
-                <span>{{ r }}<IconX :size="14" /></span>
-              </button>
+              <span v-for="r in form.expectRegions" :key="r" class="sel">
+                <span class="chip opt on">{{ r }}</span>
+                <button type="button" :aria-label="`删除 ${r}`" @click="removeFrom('expectRegions', r)"><IconX :size="14" /></button>
+              </span>
             </div>
 
             <van-field
@@ -212,11 +226,13 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
               label-align="top"
               type="digit"
               maxlength="2"
-              placeholder="如 3；没有工作过填 0"
+              placeholder="如 3"
+              data-field="years"
               :error-message="errs.years"
               :border="false"
               @update:model-value="errs.years = ''"
             />
+            <p class="fhint">没有工作过填 0</p>
 
             <van-field
               v-model="tagDraft"
@@ -235,9 +251,10 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
               <template #button><button type="button" class="ffield-act" :disabled="!tagDraft.trim()" @click="addTag">添加</button></template>
             </van-field>
             <div v-if="form.skillTags.length" class="picks picked">
-              <button v-for="t in form.skillTags" :key="t" type="button" class="pick on" :aria-label="`删除 ${t}`" @click="removeFrom('skillTags', t)">
-                <span>{{ t }}<IconX :size="14" /></span>
-              </button>
+              <span v-for="t in form.skillTags" :key="t" class="sel">
+                <span class="chip opt on">{{ t }}</span>
+                <button type="button" :aria-label="`删除 ${t}`" @click="removeFrom('skillTags', t)"><IconX :size="14" /></button>
+              </span>
             </div>
 
             <van-field
@@ -265,13 +282,15 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
               label="微信号"
               label-align="top"
               maxlength="40"
-              placeholder="方便驻场老师加你微信"
+              placeholder="如 zhangsan_1990"
               autocapitalize="off"
               autocomplete="off"
+              data-field="wechat"
               :error-message="errs.wechat"
               :border="false"
               @update:model-value="errs.wechat = ''"
             />
+            <p class="fhint">方便驻场老师加你微信</p>
             <van-field v-model="form.emergencyName" class="ffield" label="紧急联系人" label-align="top" maxlength="20" placeholder="姓名，如 父亲 张建军" :border="false" />
             <van-field
               v-model="form.emergencyPhone"
@@ -283,6 +302,7 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
               inputmode="numeric"
               maxlength="11"
               placeholder="11 位手机号"
+              data-field="phone"
               :error-message="errs.phone"
               :border="false"
               @update:model-value="errs.phone = ''"
@@ -290,10 +310,11 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
           </van-cell-group>
           <p class="fhint">紧急联系人电话加密保存，只在你在岗期间出现工伤等紧急情况时使用。</p>
         </section>
-        <div class="bottom-bar-gap"></div>
+        <div class="bottom-bar-gap" :class="{ tall: saveError }"></div>
       </div>
 
       <div class="bottom-bar">
+        <p v-if="saveError" class="why" role="alert"><IconTriangleExclamationPoint :size="16" />没有保存成功：{{ saveError }}</p>
         <van-button type="primary" size="large" block :loading="saving" loading-text="保存中…" @click="save">保存简历</van-button>
       </div>
     </template>
@@ -314,13 +335,20 @@ const verified = computed(() => archive.value?.kycStatus === 'VERIFIED')
 .home-meta dt { font-size: var(--font-size-aux); color: var(--text-3); }
 .home-meta dd { margin-top: 2px; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .home-meta dd.bad { color: var(--danger-text); }
-/* 可选的小块：外层按钮撑到 44 高当点击区，里面的块 32 高；选中除了变色还带勾 */
-.picks { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); }
-.pick { display: inline-flex; align-items: center; max-width: 100%; min-height: 44px; padding: 0; border: 0; background: none; }
-.pick span { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; min-height: 32px; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-body); color: var(--text-2); overflow-wrap: anywhere; text-align: left; }
-.pick.on span { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
-.pick:focus-visible span { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* 可选的小块复用 .chip-tap + .chip（外层 44 高的点击区）；这里只加大字号、描边和选中态，选中除了变色还带勾 */
+.picks { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); margin-top: var(--space-1); }
+.chip.opt { min-height: 32px; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-body); text-align: left; overflow-wrap: anywhere; }
+.chip-tap[aria-pressed="true"] .opt, .opt.on { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
+.chip-tap:focus-visible .opt { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* 已选的地点和技能：只有「×」能删，它的点击区是 44×44，画在小块右边的留白里 */
+.picked { gap: 0 var(--space-3); }
+.sel { position: relative; display: inline-flex; align-items: center; max-width: 100%; min-height: 44px; }
+.sel .opt { display: inline-flex; align-items: center; padding-right: 30px; }
+.sel button { position: absolute; top: 0; right: -9px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: var(--primary-text); }
 .grp { margin-top: var(--space-3); }
 .grp .picked { margin-top: var(--space-1); }
 .grp .picked + .ffield { margin-top: var(--space-2); }
+.why { display: flex; justify-content: center; gap: var(--space-1); margin-bottom: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--danger-text); }
+.why svg { flex: none; margin-top: 2px; }
+.bottom-bar-gap.tall { height: calc(128px + env(safe-area-inset-bottom)); }
 </style>
