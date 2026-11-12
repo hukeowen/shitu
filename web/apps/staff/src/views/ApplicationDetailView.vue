@@ -3,11 +3,12 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, tenantApi, useDict, type ApplicationInsight, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
+import { IconCircleExclamationPoint, IconCopy, IconPhone } from '@shitu/ui-icons'
 import AppActions from '@/components/AppActions.vue'
 import ApplicationCard from '@/components/ApplicationCard.vue'
 import QrImage from '@/components/QrImage.vue'
 import { useNow } from '@/composables/useNow'
-import { CONTRACT_TAG } from '@/utils/actions'
+import { ACTION_TEXT, CONTRACT_TONE, DOMAIN_TONE, splitActions } from '@/utils/actions'
 import { copyText } from '@/utils/clipboard'
 import { fmtFull, parseLocal } from '@/utils/time'
 
@@ -25,6 +26,10 @@ const { label } = useDict()
 const actions = ref<InstanceType<typeof AppActions> | null>(null)
 
 const id = computed(() => String(route.params.id ?? ''))
+/** 后端拒绝过的操作：按钮置灰、原因留在通栏上方，重新加载后重新判断 */
+const blocked = ref<{ action: SiteApplicationAction; reason: string } | null>(null)
+/** 无权查看 / 不存在：给「返回」；其他失败给「重新加载」 */
+const notFound = ref(false)
 
 /** 画像标签、匹配记录、历史报名：加载失败不影响主流程，只是不显示 */
 const insight = shallowRef<ApplicationInsight | null>(null)
@@ -41,11 +46,13 @@ async function load(silent = false) {
   if (!id.value) return
   if (!silent) loading.value = true
   loadError.value = ''
+  blocked.value = null
   try {
     app.value = await tenantApi.application(id.value)
   } catch (e) {
     if (silent && app.value) return
     app.value = null
+    notFound.value = isApiError(e) && (e.status === 403 || e.status === 404)
     loadError.value = isApiError(e) && e.status === 403 ? '无权查看该报名（不在你负责的项目）' : errorMessage(e, '加载失败')
   } finally {
     loading.value = false
@@ -53,13 +60,19 @@ async function load(silent = false) {
 }
 watch(id, () => { void load(); void loadInsight() }, { immediate: true })
 
-function onAction(a: SiteApplication, action: SiteApplicationAction) {
-  void actions.value?.run(action, a)
+const acts = computed(() => (app.value ? splitActions(app.value) : { main: [], more: [] }))
+function onAction(action: SiteApplicationAction) {
+  if (app.value) void actions.value?.run(action, app.value)
 }
 function onDone(_action: SiteApplicationAction, updated: SiteApplication | null) {
+  blocked.value = null
   if (updated) app.value = updated
   void load(true)
 }
+function onRejected(_a: SiteApplication, action: SiteApplicationAction, reason: string) {
+  blocked.value = { action, reason }
+}
+const hasBar = computed(() => !!app.value && (!!app.value.phone || acts.value.main.length > 0 || acts.value.more.length > 0))
 
 const contract = computed(() => app.value?.contract)
 async function copy(url: string) {
@@ -79,83 +92,124 @@ function back() {
 
 <template>
   <div class="detail">
-    <van-nav-bar title="报名详情" left-arrow safe-area-inset-top @click-left="back" />
-    <div v-if="loading && !app" class="state"><van-loading size="28" vertical>加载中…</van-loading></div>
-    <div v-else-if="!app" class="state">
-      <van-empty image="error" :description="loadError || '加载失败'">
-        <van-button round type="primary" size="small" @click="load()">重新加载</van-button>
-      </van-empty>
+    <van-nav-bar title="报名详情" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
+    <div v-if="loading && !app" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+    <div v-else-if="!app" class="state-block">
+      <IconCircleExclamationPoint :size="48" />
+      <p class="state-block-t">{{ loadError || '加载失败' }}</p>
+      <template v-if="notFound">
+        <p class="state-block-d">这条报名不在你负责的项目里，或已被删除</p>
+        <van-button type="primary" @click="back">返回</van-button>
+      </template>
+      <template v-else>
+        <p class="state-block-d">请检查网络后重新加载</p>
+        <van-button type="primary" @click="load()">重新加载</van-button>
+      </template>
     </div>
     <div v-else class="pad stack">
-      <ApplicationCard :app="app" :now="now" @action="onAction" @more="(a) => actions?.more(a)" />
+      <ApplicationCard :app="app" :now="now" no-actions />
       <section v-if="contract" class="acard">
         <div class="acard-hd">
           <h4>电子合同</h4>
-          <span class="tag" :class="CONTRACT_TAG[contract.status] ?? 'tag-muted'">{{ label('ContractStatus', contract.status) }}</span>
+          <span class="status-tag" :class="`status-tag--${CONTRACT_TONE[contract.status] ?? 'neutral'}`">{{ label('ContractStatus', contract.status) }}</span>
         </div>
         <div v-if="contract.signUrl" class="sign">
           <QrImage :url="contract.signUrl" :size="112" alt="电子合同签署码" />
           <div class="flex1">
-            <div class="t-xs">签署链接 · 请求职者扫码或打开链接签署</div>
-            <div class="mono link">{{ contract.signUrl }}</div>
-            <van-button size="small" type="primary" plain class="copy" @click="copy(contract.signUrl)">复制链接</van-button>
+            <p class="sign-hint">签署链接 · 请求职者扫码或打开链接签署</p>
+            <p class="sign-url">{{ contract.signUrl }}</p>
+            <van-button size="small" plain type="primary" class="copy" @click="copy(contract.signUrl)"><template #icon><IconCopy :size="16" /></template>复制链接</van-button>
           </div>
         </div>
         <dl>
-          <div class="kv"><dt>发起时间</dt><dd class="num">{{ full(contract.createdAt) }}</dd></div>
-          <div class="kv"><dt>签署时间</dt><dd class="num">{{ contract.signedAt ? full(contract.signedAt) : '未签署' }}</dd></div>
-          <div class="kv"><dt>合同编号</dt><dd class="num">{{ contract.contractNo || contract.contractId }}</dd></div>
+          <div class="kv"><dt>发起时间</dt><dd>{{ full(contract.createdAt) }}</dd></div>
+          <div class="kv"><dt>签署时间</dt><dd>{{ contract.signedAt ? full(contract.signedAt) : '未签署' }}</dd></div>
+          <div class="kv"><dt>合同编号</dt><dd class="code">{{ contract.contractNo || contract.contractId }}</dd></div>
         </dl>
       </section>
       <section v-if="insight" class="acard">
         <div class="acard-hd"><h4>求职者画像</h4></div>
-        <div v-if="insight.profileTags.length" class="chips"><span v-for="t in insight.profileTags" :key="t" class="tag tag-muted">{{ t }}</span></div>
-        <div v-else class="t-xs">没有答题记录（推荐报名）</div>
+        <div v-if="insight.profileTags.length" class="chips"><span v-for="t in insight.profileTags" :key="t" class="status-tag">{{ t }}</span></div>
+        <p v-else class="para">没有答题记录（推荐报名）</p>
         <template v-if="insight.matchRecords.length">
-          <div class="sub-hd">匹配记录</div>
+          <h5 class="sub-hd">匹配记录</h5>
           <div v-for="(m, i) in insight.matchRecords" :key="i" class="rec">
-            <div class="rec-hd"><span class="num t-xs">{{ full(m.matchedAt) }}</span><span v-if="m.source" class="tag tag-ok">本次报名</span></div>
+            <div class="rec-hd"><span>{{ full(m.matchedAt) }}</span><span v-if="m.source" class="status-tag status-tag--success">本次报名</span></div>
             <div v-for="j in m.jobs" :key="j.jobId" class="rec-job">
-              <span :class="{ strong: j.appliedJob }">{{ j.title }}</span><b class="num">{{ Number(j.matchScore).toFixed(0) }}%</b>
+              <span :class="{ strong: j.appliedJob }">{{ j.title }}</span><b>{{ Number(j.matchScore).toFixed(0) }}%</b>
             </div>
           </div>
         </template>
-        <div class="sub-hd">在本公司的历史报名</div>
-        <div v-if="insight.history.length === 0" class="t-xs">这是第一次报名本公司岗位</div>
+        <h5 class="sub-hd">在本公司的历史报名</h5>
+        <p v-if="insight.history.length === 0" class="para">这是第一次报名本公司岗位</p>
         <div v-for="h in insight.history" :key="h.applicationId" class="his">
-          <div><span class="strong">{{ h.jobTitle }}</span> <span class="tag tag-muted">{{ label('ApplicationStatus', h.status) }}</span></div>
-          <div class="t-xs num">{{ full(h.createdAt) }}<template v-if="h.endReason"> · {{ label('LifecycleEvent', h.endReason) }}</template></div>
+          <div class="his-hd"><span class="strong">{{ h.jobTitle }}</span> <span class="status-tag">{{ label('ApplicationStatus', h.status) }}</span></div>
+          <div class="his-m">{{ full(h.createdAt) }}<template v-if="h.endReason"> · {{ label('LifecycleEvent', h.endReason) }}</template></div>
         </div>
       </section>
       <section class="acard">
         <div class="acard-hd"><h4>跟进记录</h4></div>
         <dl>
-          <div class="kv"><dt>报名时间</dt><dd class="num">{{ full(app.createdAt) }}</dd></div>
-          <div class="kv"><dt>24h 响应截止</dt><dd class="num">{{ full(app.responseDeadline) }}</dd></div>
-          <div class="kv"><dt>知悉时间</dt><dd class="num">{{ app.acknowledgedAt ? full(app.acknowledgedAt) : '未知悉' }}</dd></div>
-          <div class="kv"><dt>面试时间</dt><dd class="num">{{ app.interviewAt ? full(app.interviewAt) : '未推送' }}</dd></div>
-          <div class="kv"><dt>到厂时间</dt><dd class="num">{{ app.arrivedAt ? full(app.arrivedAt) : '未到厂' }}</dd></div>
-          <div v-if="app.notice?.address" class="kv"><dt>面试地点</dt><dd>{{ app.notice.address }}</dd></div>
-          <div class="kv"><dt>报名编号</dt><dd class="num">{{ app.applicationId }}</dd></div>
+          <div class="kv">
+            <dt>来源</dt>
+            <dd class="src">
+              <span class="status-tag" :class="`status-tag--${DOMAIN_TONE[app.fromPublic ? 'PUBLIC' : 'PRIVATE']}`">{{ app.fromPublic ? label('DomainTag', 'PUBLIC') : `本公司${label('DomainTag', 'PRIVATE')}` }}</span>
+              <template v-if="app.fromPublic">→ 报名后<span class="status-tag status-tag--pending">{{ label('DomainTag', 'TEMP_PRIVATE') }}</span></template>
+            </dd>
+          </div>
+          <div class="kv"><dt>报名时间</dt><dd>{{ full(app.createdAt) }}</dd></div>
+          <div class="kv"><dt>24h 响应截止</dt><dd>{{ full(app.responseDeadline) }}</dd></div>
+          <div class="kv"><dt>知悉时间</dt><dd>{{ app.acknowledgedAt ? full(app.acknowledgedAt) : '未知悉' }}</dd></div>
+          <div class="kv"><dt>面试时间</dt><dd>{{ app.interviewAt ? full(app.interviewAt) : '未推送' }}</dd></div>
+          <div class="kv"><dt>到厂时间</dt><dd>{{ app.arrivedAt ? full(app.arrivedAt) : '未到厂' }}</dd></div>
+          <div v-if="app.notice?.address" class="kv kv-stack"><dt>面试地点</dt><dd>{{ app.notice.address }}</dd></div>
+          <div class="kv"><dt>报名编号</dt><dd class="code">{{ app.applicationId }}</dd></div>
         </dl>
       </section>
-      <div class="page-bottom-gap" />
+      <div :class="hasBar ? (blocked ? 'bottom-bar-gap with-why' : 'bottom-bar-gap') : 'page-bottom-gap'" />
     </div>
-    <AppActions ref="actions" @done="onDone" />
+    <div v-if="hasBar && app" class="bottom-bar">
+      <p v-if="blocked" class="bar-why" role="status">暂时不能{{ ACTION_TEXT[blocked.action] }}：{{ blocked.reason }}</p>
+      <div class="bar-acts">
+        <van-button v-if="app.phone" size="large" class="b-call" :url="`tel:${app.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
+        <van-button v-if="acts.more.length" size="large" class="b-more" @click="actions?.more(app)">更多</van-button>
+        <van-button
+          v-for="b in acts.main"
+          :key="b.key"
+          size="large"
+          :type="b.type === 'primary' ? 'primary' : 'default'"
+          :disabled="blocked?.action === b.key"
+          class="b-main"
+          @click="onAction(b.key)"
+        >
+          {{ b.text }}
+        </van-button>
+      </div>
+    </div>
+    <AppActions ref="actions" @done="onDone" @rejected="onRejected" />
   </div>
 </template>
 
 <style scoped>
 .detail { min-height: 100vh; }
-.state { padding-top: 80px; }
-.sign { display: flex; gap: 12px; align-items: flex-start; padding-bottom: 10px; margin-bottom: 2px; border-bottom: 1px dashed var(--line); }
-.link { font-size: 11px; color: var(--ink-600); word-break: break-all; margin: 4px 0 8px; }
-.copy { border-radius: var(--r-sm); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.sub-hd { margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ink-600); }
-.rec { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 6px; }
-.rec-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.rec-job { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; }
-.strong { font-weight: 700; color: var(--ink-900); }
-.his { padding: 7px 0; border-top: 1px dashed var(--line); line-height: 1.7; font-size: 13px; }
+.sign { display: flex; gap: var(--space-3); align-items: flex-start; padding-bottom: var(--space-3); margin-bottom: var(--space-1); border-bottom: 1px solid var(--divider); }
+.sign-hint { font-size: var(--font-size-aux); color: var(--text-3); }
+.sign-url { margin: var(--space-1) 0 var(--space-2); font-family: var(--font-mono); font-size: var(--font-size-min); color: var(--text-2); word-break: break-all; }
+.code { font-family: var(--font-mono); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.para { font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
+.sub-hd { margin: var(--space-4) 0 var(--space-2); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.rec { padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); margin-bottom: var(--space-2); }
+.rec-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-1); font-size: var(--font-size-aux); color: var(--text-3); }
+.rec-job { display: flex; justify-content: space-between; gap: var(--space-3); padding: 2px 0; font-size: var(--font-size-body); color: var(--text-2); }
+.rec-job b { font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.strong { font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.his { padding: var(--space-2) 0; border-top: 1px solid var(--divider); font-size: var(--font-size-body); line-height: 22px; }
+.his-hd { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.his-m { font-size: var(--font-size-aux); color: var(--text-3); }
+.src { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-1); }
+.bar-acts { display: flex; gap: var(--space-2); }
+.bar-acts .van-button { width: auto; }
+.b-call, .b-more { flex: none; padding: 0 var(--space-4); }
+.b-main { flex: 1; min-width: 0; padding: 0 var(--space-2); }
 </style>

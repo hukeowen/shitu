@@ -12,7 +12,9 @@ import { fmtFull, nextWorkday9, parseLocal, toLocalIso } from '@/utils/time'
  */
 const props = defineProps<{ application: SiteApplication | null }>()
 const show = defineModel<boolean>('show', { required: true })
-const emit = defineEmits<{ done: [app: SiteApplication] }>()
+const emit = defineEmits<{ done: [app: SiteApplication]; rejected: [e: unknown] }>()
+/** 提交被拒的原因：留在提交按钮上方，轻提示消失后还看得到 */
+const submitError = ref('')
 
 const auth = useAuthStore()
 const PRESET_DOCS = ['身份证', '一寸照片', '银行卡', '健康证', '学历证明']
@@ -38,6 +40,7 @@ const title = computed(() => (isRepush.value ? '修改面试信息' : '知悉并
 const allDocs = computed(() => [...PRESET_DOCS, ...customDocs.value])
 
 watch(show, (v) => {
+  if (v) submitError.value = ''
   if (v && props.application) void prefill(props.application)
 })
 
@@ -169,6 +172,7 @@ async function submit() {
     return
   }
   submitting.value = true
+  submitError.value = ''
   try {
     const updated = await tenantApi.acknowledge(app.applicationId, {
       interviewAt: toLocalIso(form.interviewAt),
@@ -182,7 +186,9 @@ async function submit() {
     show.value = false
     emit('done', updated)
   } catch (e) {
-    showToast(errorMessage(e, '推送失败，请稍后重试'))
+    submitError.value = errorMessage(e, '推送失败，请稍后重试')
+    showToast(submitError.value)
+    emit('rejected', e)
   } finally {
     submitting.value = false
   }
@@ -257,6 +263,7 @@ async function submit() {
       </div>
 
       <div class="foot">
+        <p v-if="submitError" class="bar-why err" role="status">没有提交成功：{{ submitError }}</p>
         <van-button block type="primary" class="btn-cta" :loading="submitting" loading-text="推送中…" :disabled="!application" @click="submit">
           {{ isRepush ? '保存并重新推送' : '确认知悉并推送' }}
         </van-button>
@@ -273,22 +280,22 @@ async function submit() {
 </template>
 
 <style scoped>
-.ack { height: 100%; display: flex; flex-direction: column; background: var(--surface-2); }
+.ack { height: 100%; display: flex; flex-direction: column; background: var(--bg-page); }
 .body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 16px; }
 .who { display: flex; align-items: center; gap: 10px; padding: 14px 16px 4px; }
-.who b { display: block; font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.who span { display: block; font-size: 12px; color: var(--ink-500); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who b { display: block; font-size: var(--font-size-body); font-weight: 700; color: var(--text-1); }
+.who span { display: block; font-size: var(--font-size-min); color: var(--text-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp { margin-top: 12px; }
-.hint { padding: 0 16px 10px; margin-top: -4px; font-size: 11.5px; color: var(--ink-400); background: var(--surface); }
-.docs-hd { padding: 12px 16px 4px; font-size: 14px; color: var(--ink-800); }
-.docs-hd span { font-size: 12px; color: var(--ink-400); }
+.hint { padding: 0 16px 10px; margin-top: -4px; font-size: var(--font-size-min); color: var(--text-3); background: var(--bg-card); }
+.docs-hd { padding: 12px 16px 4px; font-size: var(--font-size-body); color: var(--text-1); }
+.docs-hd span { font-size: var(--font-size-min); color: var(--text-3); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px 4px; }
-.chip { display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--line-2); background: var(--surface); font-size: 13px; color: var(--ink-700); }
-.chip.on { border-color: var(--signal); background: var(--signal-50); color: var(--signal-700); font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--border); background: var(--bg-card); font-size: var(--font-size-aux); color: var(--text-2); }
+.chip.on { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: 600; }
 .custom { display: flex; gap: 8px; align-items: center; padding: 8px 16px 14px; }
-.custom-in { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); font-size: 13px; background: var(--surface-2); color: var(--ink-800); outline: none; }
-.custom-in:focus { border-color: var(--signal); background: var(--surface); }
+.custom-in { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-control); font-size: var(--font-size-aux); background: var(--bg-page); color: var(--text-1); outline: none; }
+.custom-in:focus { border-color: var(--primary); background: var(--bg-card); }
 .tip { padding: 12px 18px 0; line-height: 1.7; }
-.tip b { color: var(--ink-700); }
-.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.tip b { color: var(--text-2); }
+.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 </style>

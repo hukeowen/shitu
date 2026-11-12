@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { errorMessage, tenantApi, useDict, type LaborContractView, type SiteApplication } from '@shitu/api-client'
 import QrImage from '@/components/QrImage.vue'
-import { CONTRACT_TAG } from '@/utils/actions'
+import { CONTRACT_TONE } from '@/utils/actions'
 import { copyText } from '@/utils/clipboard'
 import { addDays, fmtDay, fmtFull, fmtPhone, parseLocal, startOfDay, ymd } from '@/utils/time'
 
@@ -14,7 +14,9 @@ import { addDays, fmtDay, fmtFull, fmtPhone, parseLocal, startOfDay, ymd } from 
  */
 const props = defineProps<{ application: SiteApplication | null; resend: boolean }>()
 const show = defineModel<boolean>('show', { required: true })
-const emit = defineEmits<{ done: [] }>()
+const emit = defineEmits<{ done: []; rejected: [e: unknown] }>()
+/** 提交被拒的原因：留在提交按钮上方，轻提示消失后还看得到 */
+const submitError = ref('')
 const { label } = useDict()
 
 type Mode = 'current' | 'form' | 'result'
@@ -28,6 +30,7 @@ function defaultTermEnd(start: Date): Date {
 }
 
 watch(show, (v) => {
+  if (v) submitError.value = ''
   if (!v) return
   const today = startOfDay()
   form.startDate = today
@@ -94,6 +97,7 @@ async function submit() {
     }
   }
   submitting.value = true
+  submitError.value = ''
   try {
     result.value = await tenantApi.confirmOnboard(app.applicationId, {
       startDate: ymd(form.startDate),
@@ -104,7 +108,9 @@ async function submit() {
     showSuccessToast(props.resend ? '已重新发起电子签约' : '确权完成，已发起电子签约')
     emit('done')
   } catch (e) {
-    showToast(errorMessage(e, '提交失败，请稍后重试'))
+    submitError.value = errorMessage(e, '提交失败，请稍后重试')
+    showToast(submitError.value)
+    emit('rejected', e)
   } finally {
     submitting.value = false
   }
@@ -145,7 +151,7 @@ const full = (v?: string) => {
           <section class="acard sign">
             <div class="acard-hd">
               <h4>当前签署码</h4>
-              <span class="tag" :class="CONTRACT_TAG[current.status] ?? 'tag-muted'">{{ label('ContractStatus', current.status) }}</span>
+              <span class="status-tag" :class="`status-tag--${CONTRACT_TONE[current.status] ?? 'neutral'}`">{{ label('ContractStatus', current.status) }}</span>
             </div>
             <div v-if="current.signUrl" class="qr-wrap">
               <QrImage :url="current.signUrl" :size="180" alt="电子合同签署码" />
@@ -183,7 +189,7 @@ const full = (v?: string) => {
           <section class="acard sign">
             <div class="acard-hd">
               <h4>待签合同</h4>
-              <span class="tag" :class="CONTRACT_TAG[result.status] ?? 'tag-muted'">{{ label('ContractStatus', result.status) }}</span>
+              <span class="status-tag" :class="`status-tag--${CONTRACT_TONE[result.status] ?? 'neutral'}`">{{ label('ContractStatus', result.status) }}</span>
             </div>
             <div v-if="result.signUrl" class="qr-wrap">
               <QrImage :url="result.signUrl" :size="180" alt="电子合同签署码" />
@@ -203,6 +209,7 @@ const full = (v?: string) => {
       </div>
 
       <div class="foot">
+        <p v-if="submitError" class="bar-why err" role="status">没有提交成功：{{ submitError }}</p>
         <template v-if="mode === 'current'">
           <van-button block class="btn-cta" @click="mode = 'form'">作废并重发签约</van-button>
         </template>
@@ -227,26 +234,26 @@ const full = (v?: string) => {
 </template>
 
 <style scoped>
-.cf { height: 100%; display: flex; flex-direction: column; background: var(--surface-2); }
+.cf { height: 100%; display: flex; flex-direction: column; background: var(--bg-page); }
 .body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 14px 16px; }
 .steps { display: flex; align-items: center; padding: 14px 2px 4px; }
-.steps .st { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-400); white-space: nowrap; }
-.steps .st i { width: 18px; height: 18px; border-radius: 50%; background: var(--surface-3); color: var(--ink-500); display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; }
-.steps .st.done i { background: var(--ok); color: #fff; }
-.steps .st.now { color: var(--ink-900); font-weight: 600; }
-.steps .st.now i { background: var(--signal); color: #fff; }
-.steps .ln { flex: 1; height: 1px; background: var(--line-2); margin: 0 6px; min-width: 8px; }
+.steps .st { display: flex; align-items: center; gap: 5px; font-size: var(--font-size-min); color: var(--text-3); white-space: nowrap; }
+.steps .st i { width: 18px; height: 18px; border-radius: 50%; background: var(--bg-fill); color: var(--text-3); display: grid; place-items: center; font-style: normal; font-size: var(--font-size-min); font-weight: 700; }
+.steps .st.done i { background: var(--success-text); color: var(--text-on-primary); }
+.steps .st.now { color: var(--text-1); font-weight: 600; }
+.steps .st.now i { background: var(--primary); color: var(--text-on-primary); }
+.steps .ln { flex: 1; height: 1px; background: var(--border); margin: 0 6px; min-width: 8px; }
 .who { display: flex; align-items: center; gap: 10px; padding: 12px 2px; }
-.who b { display: block; font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.who .ph { display: inline; font-size: 12px; font-weight: 500; color: var(--ink-500); margin-left: 8px; }
-.who span { display: block; font-size: 12px; color: var(--ink-500); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who b { display: block; font-size: var(--font-size-body); font-weight: 700; color: var(--text-1); }
+.who .ph { display: inline; font-size: var(--font-size-min); font-weight: 500; color: var(--text-3); margin-left: 8px; }
+.who span { display: block; font-size: var(--font-size-min); color: var(--text-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp { margin: 12px 0 0; }
-.hint { padding: 0 16px 10px; margin-top: -4px; font-size: 11.5px; color: var(--ink-400); background: var(--surface); }
-.warn-note { border-left-color: var(--warn); background: var(--warn-bg); }
-.ok-note { border-left-color: var(--ok); background: var(--ok-bg); }
+.hint { padding: 0 16px 10px; margin-top: -4px; font-size: var(--font-size-min); color: var(--text-3); background: var(--bg-card); }
+.warn-note { border-left-color: var(--warning-text); background: var(--warning-soft); }
+.ok-note { border-left-color: var(--success-text); background: var(--success-soft); }
 .sign { margin-top: 12px; }
-.qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0 12px; border-bottom: 1px dashed var(--line); margin-bottom: 4px; }
-.link { font-size: 11.5px; color: var(--ink-600); word-break: break-all; text-align: center; padding: 0 6px; }
-.copy { border-radius: var(--r-sm); }
-.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0 12px; border-bottom: 1px dashed var(--border); margin-bottom: 4px; }
+.link { font-size: var(--font-size-min); color: var(--text-2); word-break: break-all; text-align: center; padding: 0 6px; }
+.copy { border-radius: var(--radius-control); }
+.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 </style>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showDialog, showToast } from 'vant'
+import { showDialog, showToast, type FieldInstance } from 'vant'
 import { errorMessage, tenantApi } from '@shitu/api-client'
-import { BrandMark } from '@shitu/ui-icons'
+import { BrandMark, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
 import { useSmsSender } from '@/composables/useSmsSender'
 import { safeRedirect } from '@/router'
@@ -19,7 +19,9 @@ const phone = ref('')
 const code = ref('')
 const submitting = ref(false)
 const sentTo = ref('')
-const codeInput = ref<HTMLInputElement | null>(null)
+const codeInput = ref<FieldInstance | null>(null)
+/** 登录没成功的原因：留在登录按钮上方，轻提示消失后还看得到 */
+const formError = ref('')
 
 const sms = useSmsSender(tenantApi, (r) => {
   sentTo.value = phone.value.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
@@ -33,11 +35,10 @@ const sms = useSmsSender(tenantApi, (r) => {
 const captcha = sms.captcha
 const phoneValid = computed(() => PHONE_RE.test(phone.value))
 
-function onPhoneInput(e: Event) {
-  phone.value = (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 11)
-}
-function onCodeInput(e: Event) {
-  code.value = (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6)
+const digits = (v: string) => v.replace(/\D/g, '')
+function fail(msg: string) {
+  formError.value = msg
+  showToast(msg)
 }
 
 function sendCode() {
@@ -47,8 +48,9 @@ function sendCode() {
 
 async function submit() {
   if (submitting.value) return
-  if (!phoneValid.value) return showToast('请输入正确的 11 位手机号')
-  if (!/^\d{6}$/.test(code.value)) return showToast('请输入 6 位短信验证码')
+  if (!phoneValid.value) return fail('请输入正确的 11 位手机号')
+  if (!/^\d{6}$/.test(code.value)) return fail('请输入 6 位短信验证码')
+  formError.value = ''
   submitting.value = true
   try {
     const resp = await tenantApi.login(phone.value, code.value)
@@ -65,7 +67,7 @@ async function submit() {
     showToast({ type: 'success', message: '登录成功' })
     await router.replace(me.operational ? safeRedirect(route.query.redirect) : '/notice')
   } catch (e) {
-    showToast(errorMessage(e, '登录失败，请稍后重试'))
+    fail(errorMessage(e, '登录失败，请稍后重试'))
   } finally {
     submitting.value = false
   }
@@ -74,67 +76,56 @@ async function submit() {
 
 <template>
   <div class="login">
-    <header class="brand">
-      <div class="glow" />
-      <div class="top">
-        <BrandMark :size="40" />
-        <span class="tag">驻场端</span>
-      </div>
-      <h2>仕兔驻场</h2>
-      <p>报名跟进、到厂确认、确权签约，一部手机搞定</p>
-      <div class="chips" aria-hidden="true">
-        <span><b>24h</b>响应提醒</span>
-        <span><b>扫码</b>电子签约</span>
-        <span><b>一键</b>流转经纪人</span>
-      </div>
-    </header>
+    <div class="body">
+      <div class="brand"><BrandMark :size="48" /><span>仕兔</span><span class="status-tag status-tag--info">驻场端</span></div>
+      <p class="slogan">报名跟进、到厂确认、确权签约，一部手机搞定</p>
 
-    <div class="body sheet">
-      <h3>成员登录</h3>
-      <p class="hint">使用公司为你开通的手机号登录</p>
-      <div class="field">
-        <div class="lbl">手机号码</div>
-        <div class="line">
-          <span class="cc mono">+86</span>
-          <input
-            :value="phone"
-            class="inp"
-            type="tel"
-            inputmode="numeric"
-            maxlength="11"
-            autocomplete="tel-national"
-            placeholder="请输入成员手机号"
-            @input="onPhoneInput"
-          />
-        </div>
-      </div>
+      <h1>成员登录</h1>
+      <p class="sub">使用公司为你开通的手机号登录</p>
 
-      <div class="field">
-        <div class="lbl">短信验证码</div>
-        <div class="line">
-          <input
-            ref="codeInput"
-            :value="code"
-            class="inp code"
-            type="tel"
-            inputmode="numeric"
-            maxlength="6"
-            autocomplete="one-time-code"
-            placeholder="6 位验证码"
-            @input="onCodeInput"
-          />
+      <van-field
+        v-model="phone"
+        class="fld"
+        label="手机号码"
+        label-align="top"
+        type="tel"
+        inputmode="numeric"
+        maxlength="11"
+        autocomplete="tel-national"
+        placeholder="请输入成员手机号"
+        :formatter="digits"
+        :border="false"
+      >
+        <template #left-icon><span class="cc">+86</span></template>
+      </van-field>
+      <van-field
+        ref="codeInput"
+        v-model="code"
+        class="fld"
+        label="短信验证码"
+        label-align="top"
+        type="tel"
+        inputmode="numeric"
+        maxlength="6"
+        autocomplete="one-time-code"
+        placeholder="6 位验证码"
+        :formatter="digits"
+        :border="false"
+      >
+        <template #button>
           <button type="button" class="send" :disabled="sms.sending.value || sms.countdown.counting.value" @click="sendCode">
-            <template v-if="sms.countdown.counting.value"><span class="mono">{{ sms.countdown.seconds.value }}s</span> 后重发</template>
+            <template v-if="sms.countdown.counting.value">{{ sms.countdown.seconds.value }}s 后重发</template>
             <template v-else-if="sms.sending.value">发送中…</template>
             <template v-else>{{ sentTo ? '重新获取' : '获取验证码' }}</template>
           </button>
-        </div>
-        <p v-if="sentTo" class="t-xs sent">验证码已发送至 {{ sentTo }}</p>
-      </div>
+        </template>
+      </van-field>
+      <p v-if="sentTo" class="sent">验证码已发送至 {{ sentTo }}</p>
 
-      <van-button type="primary" block class="btn-cta submit" :loading="submitting" loading-text="登录中…" @click="submit">登录</van-button>
+      <p v-if="formError" class="form-err" role="alert"><IconCircleExclamationPoint :size="16" />{{ formError }}</p>
+      <van-button type="primary" block size="large" class="submit" :loading="submitting" loading-text="登录中…" @click="submit">登录</van-button>
 
-      <p class="t-xs tip">账号由所在劳务公司管理员在「公司后台 · 成员管理」中添加。<br />新公司入驻请使用电脑访问公司后台。</p>
+      <p class="tip">账号由所在劳务公司管理员在「公司后台 · 成员管理」中添加。<br />新公司入驻请使用电脑访问公司后台。</p>
     </div>
 
     <CaptchaDialog
@@ -149,40 +140,28 @@ async function submit() {
 </template>
 
 <style scoped>
-.login { min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(170deg, #1E2834 0%, #0F141B 55%, #1C130E 100%); }
-
-/* ------------------------------------------------------------ 顶部品牌区 */
-.brand { position: relative; overflow: hidden; padding: calc(28px + env(safe-area-inset-top)) 24px 34px; color: #fff; }
-.glow { position: absolute; width: 300px; height: 300px; right: -110px; top: -90px; border-radius: 50%; background: rgba(232, 89, 12, .45); filter: blur(60px); pointer-events: none; }
-.top { position: relative; display: flex; align-items: center; justify-content: space-between; }
-.tag { font-size: 12px; color: rgba(255,255,255,.7); padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); }
-.brand h2 { position: relative; margin: 26px 0 0; font-family: var(--f-dis); font-size: 32px; font-weight: 700; letter-spacing: .02em; }
-.brand p { position: relative; margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: rgba(255,255,255,.66); }
-.chips { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-.chips span { font-size: 12px; color: rgba(255,255,255,.75); padding: 6px 11px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); }
-.chips b { color: #FF9A5C; margin-right: 4px; font-weight: 700; }
-
-/* ------------------------------------------------------------ 表单底板 */
-.sheet { flex: 1; background: var(--surface); border-radius: 28px 28px 0 0; padding: 28px 22px calc(28px + env(safe-area-inset-bottom));
-  box-shadow: 0 -18px 40px -24px rgba(0,0,0,.5); animation: rise .35s ease-out; }
-@keyframes rise { from { transform: translateY(24px); opacity: .4 } to { transform: none; opacity: 1 } }
-@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
-.sheet h3 { margin: 0; font-size: 20px; font-weight: 700; color: var(--ink-900); }
-.hint { margin: 4px 0 6px; font-size: 13px; color: var(--ink-500); }
-.field { margin-top: 18px; }
-.lbl { font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
-.line { display: flex; align-items: center; gap: 8px; height: 54px; padding: 0 8px 0 16px; border-radius: 16px; background: var(--surface-2);
-  border: 1.5px solid transparent; transition: border-color .15s, background .15s, box-shadow .15s; }
-.line:focus-within { background: var(--surface); border-color: var(--signal); box-shadow: 0 0 0 4px rgba(232,89,12,.12); }
-.cc { font-size: 15px; color: var(--ink-600); padding-right: 10px; border-right: 1px solid var(--line-2); }
-.inp { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; padding: 0 4px; font-size: 19px; font-family: var(--f-dis); letter-spacing: .06em; color: var(--ink-900); }
-.inp::placeholder { font-family: var(--f-cn); font-size: 15px; letter-spacing: 0; color: var(--ink-300); }
-.inp.code { letter-spacing: .3em; }
-.send { flex: none; height: 40px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--signal-50); color: var(--signal-700); font-size: 14px; font-weight: 600; }
-.send:active:not(:disabled) { background: var(--signal-300); }
-.send:disabled { background: var(--surface-3); color: var(--ink-400); }
-.sent { margin: 8px 0 0 4px; }
-.submit { margin-top: 30px; height: 52px; border: 0; border-radius: 16px; font-size: 17px; font-weight: 700; letter-spacing: .2em;
-  background: linear-gradient(135deg, #F07A3A 0%, #E8590C 55%, #C9490A 100%); box-shadow: 0 14px 26px -14px rgba(232,89,12,.9); }
-.tip { margin-top: 20px; text-align: center; line-height: 1.8; color: var(--ink-400); }
+.login { min-height: 100vh; background: var(--bg-card); }
+.body { padding: calc(var(--space-8) + env(safe-area-inset-top)) var(--space-page) calc(var(--space-6) + env(safe-area-inset-bottom)); }
+/* 品牌字标：全站只有启动屏和登录页用这个字号 */
+.brand { display: flex; align-items: center; gap: var(--space-3); font-size: 24px; font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.slogan { margin-top: var(--space-3); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+h1 { margin-top: var(--space-8); font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
+.sub { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-2); }
+.fld { margin-top: var(--space-4); padding: 0; }
+.fld :deep(.van-field__label) { margin-bottom: var(--space-2); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); }
+.fld :deep(.van-field__body) { height: var(--control-height); padding: 0 var(--space-1) 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); transition: border-color .15s; }
+.fld :deep(.van-field__body:focus-within) { border-color: var(--primary); }
+/* 输入框不小于 16px，否则 iOS 聚焦时会放大页面 */
+.fld :deep(.van-field__control) { font-size: var(--font-size-section); }
+.fld :deep(.van-field__left-icon) { display: flex; align-items: center; height: var(--control-height); margin-right: 0; padding-left: var(--space-3); border: 1px solid var(--border); border-right: 0; border-radius: var(--radius-control) 0 0 var(--radius-control); }
+.fld :deep(.van-field__left-icon + .van-field__value .van-field__body) { border-left: 0; border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+.cc { padding-right: var(--space-3); border-right: 1px solid var(--divider); font-size: var(--font-size-section); color: var(--text-2); }
+.send { min-width: 104px; height: calc(var(--control-height) - 2px); padding: 0 var(--space-3); border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.send:disabled { color: var(--text-placeholder); }
+.sent { margin-top: var(--space-2); font-size: var(--font-size-min); color: var(--text-3); }
+.form-err { display: flex; align-items: flex-start; gap: var(--space-1); margin-top: var(--space-4); font-size: var(--font-size-body); line-height: 22px; color: var(--danger-text); }
+.form-err svg { flex: none; margin-top: 3px; }
+.submit { margin-top: var(--space-5); }
+.form-err + .submit { margin-top: var(--space-2); }
+.tip { margin-top: var(--space-5); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
 </style>

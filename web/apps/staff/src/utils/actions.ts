@@ -13,6 +13,14 @@ export const ACTION_TEXT: Record<SiteApplicationAction, string> = {
   RESEND_CONTRACT: '查看签署码 / 重发',
 }
 
+/** 卡片主按钮上的短文案（和原型一致；「拨打」「更多」同排时 360 宽也放得下一行），弹窗和「更多」里仍用完整文案 */
+const MAIN_TEXT: Partial<Record<SiteApplicationAction, string>> = {
+  ACKNOWLEDGE: '知悉并推送',
+  FAIL: '未通过',
+  CONFIRM: '入职确权',
+  RESEND_CONTRACT: '查看签署码',
+}
+
 const DANGER: SiteApplicationAction[] = ['FAIL', 'NO_SHOW', 'CANCEL']
 
 export function has(app: SiteApplication, a: SiteApplicationAction): boolean {
@@ -42,7 +50,7 @@ export function splitActions(app: SiteApplication): { main: ActionBtn[]; more: A
   else if (has(app, 'RESEND_CONTRACT')) main = ['RESEND_CONTRACT']
   const btn = (k: SiteApplicationAction, inMain: boolean): ActionBtn => ({
     key: k,
-    text: inMain && k === 'FAIL' ? '未通过' : ACTION_TEXT[k],
+    text: (inMain && MAIN_TEXT[k]) || ACTION_TEXT[k],
     type: inMain ? (k === 'FAIL' ? 'default' : 'primary') : DANGER.includes(k) ? 'danger' : 'default',
   })
   return {
@@ -51,12 +59,19 @@ export function splitActions(app: SiteApplication): { main: ActionBtn[]; more: A
   }
 }
 
-/** 合同状态徽标配色（中文名取字典 ContractStatus） */
-export const CONTRACT_TAG: Record<string, string> = {
-  PENDING_SIGN: 'tag-warn',
-  EFFECTIVE: 'tag-ok',
-  EXPIRED: 'tag-muted',
-  DISSOLVED: 'tag-muted',
-  TERMINATED: 'tag-muted',
-  VOIDED: 'tag-muted',
+/** 合同状态的共享状态标签色调（中文名取字典 ContractStatus；与 console 的 ContractStatus 色调一致） */
+export const CONTRACT_TONE: Record<string, string> = {
+  PENDING_SIGN: 'warning',
+  EFFECTIVE: 'success',
+  EXPIRED: 'neutral',
+  DISSOLVED: 'neutral',
+  TERMINATED: 'neutral',
+  VOIDED: 'neutral',
+}
+
+/** 归属的共享状态标签色调：私域、公域、报名中（临时私域） */
+export const DOMAIN_TONE: Record<string, string> = {
+  PRIVATE: 'private',
+  PUBLIC: 'public',
+  TEMP_PRIVATE: 'pending',
 }

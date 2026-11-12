@@ -2,14 +2,22 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useDict, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
-import { CONTRACT_TAG, splitActions } from '@/utils/actions'
+import { IconBriefcase, IconChevronRight, IconClock, IconPhone } from '@shitu/ui-icons'
+import { ACTION_TEXT, CONTRACT_TONE, DOMAIN_TONE, splitActions } from '@/utils/actions'
 import { fmtPhone, fmtRemain, fmtTime, parseLocal } from '@/utils/time'
 
 /**
- * M-02 / M-03 待办卡片：来源 / 状态 / 24h 倒计时、姓名（脱敏）与完整手机号（仅驻场）、岗位、到厂与签约状态；
- * 操作按钮完全由后端 allowedActions 决定（主按钮 + 「更多」）。
+ * M-02 / M-03 待办卡片，从上到下：姓名、归属标签、剩余时间 → 岗位和面试时间 → 手机号（仅驻场可见完整号码）→ 「拨打」和当前阶段的主按钮。
+ * 操作按钮完全由后端 allowedActions 决定（主按钮 + 「更多」）；blocked 是后端拒绝过的那个操作和原因，按钮置灰、原因留在卡片上。
  */
-const props = defineProps<{ app: SiteApplication; now: number; detailLink?: boolean }>()
+const props = defineProps<{
+  app: SiteApplication
+  now: number
+  detailLink?: boolean
+  /** 详情页顶部：不放操作按钮（操作在底部通栏） */
+  noActions?: boolean
+  blocked?: { action: SiteApplicationAction; reason: string } | null
+}>()
 const emit = defineEmits<{ action: [app: SiteApplication, action: SiteApplicationAction]; more: [app: SiteApplication] }>()
 const { label } = useDict()
 
@@ -27,10 +35,9 @@ const countdown = computed(() => {
   if (remainMs.value == null) return null
   if (props.app.status !== 'PENDING_INTERVIEW' && props.app.status !== 'PENDING_CONFIRM') return null
   const t = fmtRemain(remainMs.value)
-  if (!t) return { text: '已超时', cls: 'tag-danger' }
-  return { text: `剩 ${t}`, cls: remainMs.value < URGENT_MS ? 'tag-danger' : 'tag-warn' }
+  if (!t) return { text: '已超时', urgent: true }
+  return { text: t, urgent: remainMs.value < URGENT_MS }
 })
-const urgent = computed(() => remainMs.value != null && remainMs.value < URGENT_MS && !!countdown.value && acts.value.main.length > 0)
 
 const contract = computed(() => props.app.contract)
 const statusText = computed(() => {
@@ -45,78 +52,80 @@ const statusText = computed(() => {
   }
   return label('ApplicationStatus', a.status)
 })
-const sourceText = computed(() =>
-  props.app.fromPublic ? `${label('DomainTag', 'PUBLIC')} → 报名后${label('DomainTag', 'TEMP_PRIVATE')}` : `本公司${label('DomainTag', 'PRIVATE')}`,
-)
 const nowDate = computed(() => new Date(props.now))
-const avatarChar = computed(() => (props.app.seekerName === '未实名' ? '?' : props.app.seekerName.slice(0, 1)))
+const whenText = computed(() => {
+  const a = props.app
+  const parts: string[] = []
+  parts.push(a.interviewAt ? `${fmtTime(a.interviewAt, nowDate.value)} 面试` : `${fmtTime(a.createdAt, nowDate.value)} 报名`)
+  if (a.arrivedAt) parts.push(`${fmtTime(a.arrivedAt, nowDate.value)} 已到厂`)
+  return parts.join(' · ')
+})
+const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[props.blocked.action]}：${props.blocked.reason}` : ''))
 </script>
 
 <template>
-  <article class="acard app" :class="{ urgent }">
-    <div class="top">
-      <div class="row tags">
-        <span class="tag" :class="domain === 'PUBLIC' ? 'tag-public' : 'tag-private'"><i class="dot" />{{ label('DomainTag', domain) }}</span>
-        <span class="tag tag-temp">{{ label('ApplicationStatus', app.status) }}</span>
-        <span v-if="app.arrivedAt && app.status === 'PENDING_INTERVIEW'" class="tag tag-ok">已到厂</span>
-        <span v-else-if="acked && app.status === 'PENDING_INTERVIEW'" class="tag tag-ok">已推送</span>
-        <span v-if="contract && app.status === 'PENDING_CONFIRM'" class="tag" :class="CONTRACT_TAG[contract.status] ?? 'tag-muted'">合同{{ label('ContractStatus', contract.status) }}</span>
+  <article class="acard app">
+    <div class="item-hd">
+      <div class="who">
+        <component :is="detailLink ? RouterLink : 'div'" :to="detailLink ? `/applications/${app.applicationId}` : undefined" class="name-link">
+          <h3>{{ app.seekerName }}</h3>
+          <IconChevronRight v-if="detailLink" :size="16" class="chev" />
+        </component>
+        <span class="status-tag" :class="`status-tag--${DOMAIN_TONE[domain]}`">{{ label('DomainTag', domain) }}</span>
       </div>
-      <span v-if="countdown" class="tag num" :class="countdown.cls">{{ countdown.text }}</span>
+      <div v-if="countdown" class="left" :class="countdown.urgent ? 'urgent' : 'soon'">
+        <small>剩余</small><b>{{ countdown.text }}</b>
+      </div>
+      <span v-else class="status-tag status-tag--neutral">{{ label('ApplicationStatus', app.status) }}</span>
     </div>
 
-    <component :is="detailLink ? RouterLink : 'div'" :to="detailLink ? `/applications/${app.applicationId}` : undefined" class="row person">
-      <div class="avatar" :class="app.fromPublic ? 'avatar--t' : 'avatar--o'">{{ avatarChar }}</div>
-      <div class="flex1">
-        <div class="name">{{ app.seekerName }}</div>
-        <div v-if="app.phone" class="t-xs mono">{{ fmtPhone(app.phone) }} · 仅驻场可见完整号码</div>
-      </div>
-      <span v-if="detailLink" class="t-xs go">详情<van-icon name="arrow" /></span>
-    </component>
+    <ul class="facts">
+      <li><IconBriefcase :size="16" /><span>{{ app.jobTitle ?? '—' }}<template v-if="app.projectName"> · {{ app.projectName }}</template></span></li>
+      <li><IconClock :size="16" /><span>{{ whenText }}</span></li>
+      <li v-if="app.phone"><IconPhone :size="16" /><span>{{ fmtPhone(app.phone) }}<small> · 仅驻场可见完整号码</small></span></li>
+    </ul>
+    <p class="item-meta">
+      {{ statusText }}
+      <span v-if="contract && app.status === 'PENDING_CONFIRM'" class="status-tag" :class="`status-tag--${CONTRACT_TONE[contract.status] ?? 'neutral'}`">合同{{ label('ContractStatus', contract.status) }}</span>
+    </p>
 
-    <div class="divider" />
-    <dl>
-      <div class="kv"><dt>应聘岗位</dt><dd>{{ app.jobTitle ?? '—' }}</dd></div>
-      <div v-if="app.projectName" class="kv"><dt>项目</dt><dd>{{ app.projectName }}</dd></div>
-      <div class="kv"><dt>报名时间</dt><dd class="num">{{ fmtTime(app.createdAt, nowDate) }}</dd></div>
-      <div v-if="app.interviewAt" class="kv"><dt>面试时间</dt><dd class="num">{{ fmtTime(app.interviewAt, nowDate) }}</dd></div>
-      <div v-if="app.arrivedAt" class="kv"><dt>到厂时间</dt><dd class="num">{{ fmtTime(app.arrivedAt, nowDate) }}</dd></div>
-      <div v-if="contract && app.status === 'PENDING_CONFIRM'" class="kv">
-        <dt>电子合同</dt>
-        <dd>{{ label('ContractStatus', contract.status) }} · <span class="num">{{ fmtTime(contract.createdAt, nowDate) }}</span> 发起</dd>
-      </div>
-      <div class="kv"><dt>来源</dt><dd>{{ sourceText }}</dd></div>
-      <div class="kv"><dt>当前状态</dt><dd>{{ statusText }}</dd></div>
-    </dl>
-
-    <div v-if="app.phone || acts.main.length || acts.more.length" class="acts">
-      <van-button v-if="app.phone" size="small" class="act" :url="`tel:${app.phone}`">拨打</van-button>
-      <van-button v-if="acts.more.length" size="small" class="act" @click="emit('more', app)">更多</van-button>
+    <div v-if="!noActions && (app.phone || acts.main.length || acts.more.length)" class="acts">
+      <van-button v-if="app.phone" class="act act--call" :url="`tel:${app.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
+      <van-button v-if="acts.more.length" class="act" @click="emit('more', app)">更多</van-button>
       <van-button
         v-for="b in acts.main"
         :key="b.key"
-        size="small"
         :type="b.type === 'primary' ? 'primary' : 'default'"
-        class="act"
-        :class="{ 'act--main': acts.main.length === 1 }"
+        :disabled="blocked?.action === b.key"
+        class="act act--main"
         @click="emit('action', app, b.key)"
       >
         {{ b.text }}
       </van-button>
     </div>
+    <p v-if="!noActions && blocked" class="why" role="status">{{ blockedText }}</p>
   </article>
 </template>
 
 <style scoped>
-.app.urgent { border-color: var(--danger-line); }
-.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.tags { gap: 6px; flex-wrap: wrap; min-width: 0; }
-.person { gap: 10px; text-decoration: none; color: inherit; }
-.go { display: inline-flex; align-items: center; gap: 1px; flex: none; }
-.name { font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.divider { height: 1px; background: var(--line); margin: 10px 0 4px; }
-.kv { padding: 6px 0; font-size: 12.5px; }
-.acts { display: flex; gap: 8px; margin-top: 12px; }
-.act { flex: 1; min-width: 0; padding: 0 6px; border-radius: var(--r-sm); font-weight: 600; }
-.act--main { flex: 1.8; }
+.who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex-wrap: wrap; }
+.name-link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: calc(var(--space-3) * -1) 0; color: inherit; text-decoration: none; min-width: 0; }
+.name-link .chev { flex: none; color: var(--text-3); }
+.left { flex: none; text-align: right; line-height: 1.2; }
+.left small { display: block; font-size: var(--font-size-min); color: var(--text-3); }
+.left b { display: block; margin-top: 2px; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); }
+.left.urgent b { color: var(--danger-text); }
+.left.soon b { color: var(--warning-text); }
+.facts { margin-top: var(--space-2); display: grid; gap: var(--space-1); }
+.facts li { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
+.facts li > svg { flex: none; margin-top: 3px; color: var(--text-3); }
+.facts li > span { min-width: 0; overflow-wrap: anywhere; }
+.facts small { font-size: var(--font-size-aux); color: var(--text-3); }
+.item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+.acts { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.act { flex: 1 1 auto; min-width: 0; padding: 0 var(--space-2); font-weight: var(--font-weight-medium); }
+.act--call { flex: 0 0 auto; padding: 0 var(--space-3); }
+.act--main { flex: 1.8; white-space: nowrap; }
+.act--main :deep(.van-button__text) { overflow: hidden; text-overflow: ellipsis; }
+.why { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); }
 </style>

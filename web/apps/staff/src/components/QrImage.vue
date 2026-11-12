@@ -12,7 +12,7 @@ watchEffect(async () => {
   failed.value = false
   try {
     src.value = u
-      ? await QRCode.toDataURL(u, { width: props.size * 2, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0D1117', light: '#FFFFFF' } })
+      ? await QRCode.toDataURL(u, { width: props.size * 2, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#FFFFFF' } })
       : ''
   } catch {
     failed.value = true
@@ -28,6 +28,6 @@ watchEffect(async () => {
 </template>
 
 <style scoped>
-.qr { background: #fff; border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px; display: grid; place-items: center; flex: none; box-sizing: border-box; }
+.qr { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-control); padding: 8px; display: grid; place-items: center; flex: none; box-sizing: border-box; }
 .qr img { width: 100%; height: 100%; image-rendering: pixelated; }
 </style>

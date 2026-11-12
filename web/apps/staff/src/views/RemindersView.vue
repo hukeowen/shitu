@@ -11,9 +11,10 @@ import {
   type SiteApplication,
   type SiteApplicationAction,
 } from '@shitu/api-client'
+import { IconBriefcase, IconChevronRight, IconCircleExclamationPoint, IconClock, IconInbox, IconPhone } from '@shitu/ui-icons'
 import AppActions from '@/components/AppActions.vue'
 import { useNow } from '@/composables/useNow'
-import { splitActions } from '@/utils/actions'
+import { ACTION_TEXT, DOMAIN_TONE, splitActions } from '@/utils/actions'
 import { fmtPhone, fmtRemain, fmtTime, parseLocal } from '@/utils/time'
 
 /**
@@ -58,9 +59,12 @@ const loading = ref(true)
 const loadError = ref('')
 const appsForbidden = ref(false)
 const refreshing = ref(false)
+/** 后端拒绝过的操作：这一条的按钮置灰、原因留在卡片上，刷新后重新判断 */
+const blocked = ref<Record<string, { text: string; action?: SiteApplicationAction }>>({})
 
 async function load() {
   loadError.value = ''
+  blocked.value = {}
   const errs: string[] = []
   await Promise.all([
     tenantApi
@@ -85,6 +89,10 @@ async function load() {
   loading.value = false
 }
 void load()
+function reload() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   try {
     await load()
@@ -110,16 +118,19 @@ function remain(i: Item) {
   if (i.deadline == null) return null
   const ms = i.deadline - now.value
   const t = fmtRemain(ms)
-  if (!t) return { text: '已超时', cls: 'tag-danger', urgent: true }
-  return { text: `剩 ${t}`, cls: ms < URGENT_MS ? 'tag-danger' : 'tag-warn', urgent: ms < URGENT_MS }
+  if (!t) return { text: '已超时', urgent: true }
+  return { text: t, urgent: ms < URGENT_MS }
 }
-const KIND_TAG: Record<Kind, { text: string; cls: string }> = {
-  private: { text: '私域待匹配', cls: 'tag-private' },
-  ack: { text: '待知悉', cls: 'tag-temp' },
-  confirm: { text: '待确权', cls: 'tag-info' },
-}
+const KIND_TEXT: Record<Kind, string> = { private: '私域待匹配', ack: '待知悉', confirm: '待确权' }
 const nowDate = computed(() => new Date(now.value))
-const initial = (n: string) => (n === '未实名' ? '?' : n.slice(0, 1))
+
+function onRejected(a: SiteApplication, action: SiteApplicationAction, reason: string) {
+  blocked.value = { ...blocked.value, [a.applicationId]: { action, text: `暂时不能${ACTION_TEXT[action]}：${reason}` } }
+}
+function onDone() {
+  blocked.value = {}
+  void load()
+}
 
 // ---------- M-09 一键流转 ----------
 async function transfer(p: PrivatePendingRow) {
@@ -137,6 +148,7 @@ async function transfer(p: PrivatePendingRow) {
           return true
         } catch (e) {
           showToast(errorMessage(e, '流转失败，请稍后重试'))
+          if (isApiError(e)) blocked.value = { ...blocked.value, [p.userId]: { text: `暂时不能流转：${errorMessage(e)}` } }
           return false
         }
       },
@@ -162,135 +174,133 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
 <template>
   <div class="rem">
     <van-nav-bar title="跟进提醒" safe-area-inset-top fixed placeholder z-index="30" />
-    <div class="sticky">
-      <div class="atabs" role="tablist">
-        <button
-          v-for="f in FILTERS"
-          :key="f.key"
-          type="button"
-          role="tab"
-          :aria-selected="filter === f.key"
-          :class="{ on: filter === f.key }"
-          @click="filter = f.key"
-        >
-          {{ f.title }}<span v-if="!loading" class="mono n">{{ count(f.key) }}</span>
-        </button>
-      </div>
-    </div>
+    <van-tabs v-model:active="filter" sticky offset-top="44" shrink class="seg-tabs">
+      <van-tab v-for="f in FILTERS" :key="f.key" :name="f.key">
+        <template #title>{{ f.title }}<span v-if="!loading" class="n">{{ count(f.key) }}</span></template>
+      </van-tab>
+    </van-tabs>
 
     <van-pull-refresh v-model="refreshing" class="pr" @refresh="onRefresh">
-      <div class="pad stack">
-        <section v-if="!loading" class="acard sum" :class="{ hot: urgentCount > 0 }">
-          <div class="row" style="justify-content: space-between">
-            <div>
-              <div class="t-xs">24 小时窗口内待跟进</div>
-              <b class="num big">{{ items.length }}<small> 人</small></b>
-            </div>
-            <div style="text-align: right">
-              <div class="t-xs">4 小时内将超时</div>
-              <b class="num big" :class="{ red: urgentCount > 0 }">{{ urgentCount }}<small> 人</small></b>
-            </div>
+      <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+      <div v-else-if="loadError && !items.length" class="state-block">
+        <IconCircleExclamationPoint :size="48" />
+        <p class="state-block-t">{{ loadError }}</p>
+        <p class="state-block-d">请检查网络后重新加载</p>
+        <van-button type="primary" @click="reload">重新加载</van-button>
+      </div>
+      <div v-else class="pad stack">
+        <section class="acard sum">
+          <div class="metrics two">
+            <div class="metric"><b>{{ items.length }}</b><span>24 小时窗口内待跟进</span></div>
+            <div class="metric"><b :class="{ red: urgentCount > 0 }">{{ urgentCount }}</b><span>4 小时内将超时</span></div>
           </div>
-          <p class="t-xs" style="margin-top: 8px; line-height: 1.6">超时后系统被动释放至公域，该用户可被全平台其他公司匹配，本次获客成本作废。</p>
+          <p class="sum-d">超时后系统被动释放至公域，该用户可被全平台其他公司匹配，本次获客成本作废。</p>
         </section>
 
-        <p v-if="loadError" class="note err">{{ loadError }}，下拉可重试</p>
-        <div v-if="loading" class="state"><van-loading size="24" vertical>加载中…</van-loading></div>
+        <p v-if="loadError" class="tipbar tipbar--danger" role="alert">
+          <IconCircleExclamationPoint :size="18" /><span class="flex1">{{ loadError }}，下拉可重试</span>
+        </p>
 
-        <template v-else>
-          <article v-for="i in shown" :key="i.key" class="acard item" :class="{ urgent: remain(i)?.urgent }">
-            <div class="top">
-              <div class="row" style="gap: 6px">
-                <span v-if="remain(i)?.urgent" class="tag tag-danger">紧急</span>
-                <span class="tag" :class="KIND_TAG[i.kind].cls">{{ KIND_TAG[i.kind].text }}</span>
-              </div>
-              <span v-if="remain(i)" class="tag num" :class="remain(i)!.cls">{{ remain(i)!.text }}</span>
+        <article v-for="i in shown" :key="i.key" class="acard item">
+          <div class="item-hd">
+            <div class="who">
+              <router-link v-if="i.a" :to="`/applications/${i.a.applicationId}`" class="name-link"><h3>{{ i.a.seekerName }}</h3><IconChevronRight :size="16" class="chev" /></router-link>
+              <h3 v-else-if="i.p">{{ i.p.seekerName }}</h3>
+              <span v-if="i.a" class="status-tag" :class="`status-tag--${DOMAIN_TONE[i.a.fromPublic ? 'PUBLIC' : 'PRIVATE']}`">{{ label('DomainTag', i.a.fromPublic ? 'PUBLIC' : 'PRIVATE') }}</span>
+              <span v-else class="status-tag status-tag--private">{{ label('DomainTag', 'PRIVATE') }}</span>
             </div>
+            <div v-if="remain(i)" class="left" :class="remain(i)!.urgent ? 'urgent' : 'soon'">
+              <small>{{ remain(i)!.urgent ? '紧急 · 剩余' : '剩余' }}</small><b>{{ remain(i)!.text }}</b>
+            </div>
+          </div>
 
-            <!-- 私域待匹配 -->
-            <template v-if="i.p">
-              <div class="row person">
-                <div class="avatar avatar--o">{{ initial(i.p.seekerName) }}</div>
-                <div class="flex1">
-                  <div class="name">{{ i.p.seekerName }}</div>
-                  <a :href="`tel:${i.p.phone}`" class="t-xs mono tel">{{ fmtPhone(i.p.phone) }}</a>
-                </div>
-              </div>
-              <dl class="dl">
-                <div class="kv"><dt>注册时间</dt><dd class="num">{{ fmtTime(i.p.registeredAt, nowDate) }}</dd></div>
-                <div class="kv"><dt>来源</dt><dd>{{ i.p.channelMemberName ? `${i.p.channelMemberName} 的专属码` : i.p.channelCode ? `渠道码 ${i.p.channelCode}` : '本公司渠道' }}</dd></div>
-                <div class="kv"><dt>当前状态</dt><dd>尚未报名 · 待跟进匹配</dd></div>
-              </dl>
-              <div class="acts">
-                <van-button size="small" class="act" :url="`tel:${i.p.phone}`">立即拨打</van-button>
-                <van-button size="small" class="act act--main" :type="i.p.inBrokerPool ? 'default' : 'primary'" :disabled="i.p.inBrokerPool" @click="transfer(i.p)">
-                  {{ i.p.inBrokerPool ? '已在流转池' : '一键流转经纪人' }}
-                </van-button>
-              </div>
-            </template>
+          <!-- 私域待匹配 -->
+          <template v-if="i.p">
+            <ul class="facts">
+              <li><IconBriefcase :size="16" /><span>尚未报名 · 待跟进匹配</span></li>
+              <li><IconClock :size="16" /><span>{{ fmtTime(i.p.registeredAt, nowDate) }} 注册 · {{ i.p.channelMemberName ? `${i.p.channelMemberName} 的专属码` : i.p.channelCode ? `渠道码 ${i.p.channelCode}` : '本公司渠道' }}</span></li>
+              <li><IconPhone :size="16" /><span>{{ fmtPhone(i.p.phone) }}</span></li>
+            </ul>
+            <p class="item-meta"><span class="status-tag status-tag--private">{{ KIND_TEXT.private }}</span></p>
+            <div class="acts">
+              <van-button class="act act--call" :url="`tel:${i.p.phone}`"><template #icon><IconPhone :size="18" /></template>立即拨打</van-button>
+              <van-button class="act act--main" :type="i.p.inBrokerPool ? 'default' : 'primary'" :disabled="i.p.inBrokerPool || !!blocked[i.p.userId]" @click="transfer(i.p)">
+                {{ i.p.inBrokerPool ? '已在流转池' : '一键流转经纪人' }}
+              </van-button>
+            </div>
+            <p v-if="blocked[i.p.userId]" class="why" role="status">{{ blocked[i.p.userId].text }}</p>
+          </template>
 
-            <!-- 报名待知悉 / 待确权 -->
-            <template v-else-if="i.a">
-              <router-link :to="`/applications/${i.a.applicationId}`" class="row person">
-                <div class="avatar" :class="i.a.fromPublic ? 'avatar--t' : 'avatar--o'">{{ initial(i.a.seekerName) }}</div>
-                <div class="flex1">
-                  <div class="name">{{ i.a.seekerName }}</div>
-                  <div class="t-xs">{{ i.a.jobTitle ?? '—' }}<template v-if="i.a.projectName"> · {{ i.a.projectName }}</template></div>
-                </div>
-                <van-icon name="arrow" class="chev" />
-              </router-link>
-              <p class="t-xs desc">
-                <template v-if="i.kind === 'ack'">{{ fmtTime(i.a.createdAt, nowDate) }} 报名 · 尚未推送面试信息</template>
-                <template v-else-if="i.a.contract?.status === 'PENDING_SIGN'">已确权 · 合同{{ label('ContractStatus', 'PENDING_SIGN') }}</template>
-                <template v-else>面试已通过 · 待入职确权</template>
-              </p>
-              <div class="acts">
-                <van-button v-if="i.a.phone" size="small" class="act" :url="`tel:${i.a.phone}`">拨打</van-button>
-                <van-button v-if="mainAction(i.a)" size="small" type="primary" class="act act--main" @click="run(i.a, mainAction(i.a)!.key)">
-                  {{ mainAction(i.a)!.text }}
-                </van-button>
-              </div>
-            </template>
-          </article>
+          <!-- 报名待知悉 / 待确权 -->
+          <template v-else-if="i.a">
+            <ul class="facts">
+              <li><IconBriefcase :size="16" /><span>{{ i.a.jobTitle ?? '—' }}<template v-if="i.a.projectName"> · {{ i.a.projectName }}</template></span></li>
+              <li>
+                <IconClock :size="16" />
+                <span>
+                  <template v-if="i.kind === 'ack'">{{ fmtTime(i.a.createdAt, nowDate) }} 报名 · 尚未推送面试信息</template>
+                  <template v-else-if="i.a.contract?.status === 'PENDING_SIGN'">已确权 · 合同{{ label('ContractStatus', 'PENDING_SIGN') }}</template>
+                  <template v-else>面试已通过 · 待入职确权</template>
+                </span>
+              </li>
+              <li v-if="i.a.phone"><IconPhone :size="16" /><span>{{ fmtPhone(i.a.phone) }}</span></li>
+            </ul>
+            <p class="item-meta"><span class="status-tag status-tag--info">{{ KIND_TEXT[i.kind] }}</span></p>
+            <div v-if="i.a.phone || mainAction(i.a)" class="acts">
+              <van-button v-if="i.a.phone" class="act act--call" :url="`tel:${i.a.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
+              <van-button
+                v-if="mainAction(i.a)"
+                type="primary"
+                class="act act--main"
+                :disabled="blocked[i.a.applicationId]?.action === mainAction(i.a)!.key"
+                @click="run(i.a, mainAction(i.a)!.key)"
+              >
+                {{ mainAction(i.a)!.text }}
+              </van-button>
+            </div>
+            <p v-if="blocked[i.a.applicationId]" class="why" role="status">{{ blocked[i.a.applicationId].text }}</p>
+          </template>
+        </article>
 
-          <van-empty v-if="!shown.length && !loadError" image="search" :description="filter === 'all' ? '暂无 24 小时窗口内待跟进的用户' : '暂无该类待跟进'" />
-          <p v-if="appsForbidden" class="t-xs" style="text-align: center">报名待办仅对驻场 / 项目经理开放</p>
-          <p class="t-xs foot">提醒频率：白天每 6 小时 1 次 · 夜间每 12 小时 1 次；推送驻场 · 项目经理 · 老板三方同步</p>
-        </template>
+        <div v-if="!shown.length && !loadError" class="state-block">
+          <IconInbox :size="48" />
+          <p class="state-block-t">{{ filter === 'all' ? '暂无 24 小时窗口内待跟进的用户' : '暂无该类待跟进' }}</p>
+          <p class="state-block-d">新报名、面试通过和扫码注册的用户会出现在这里</p>
+        </div>
+        <p v-if="appsForbidden" class="foot">报名待办仅对驻场 / 项目经理开放</p>
+        <p class="foot">提醒频率：白天每 6 小时 1 次 · 夜间每 12 小时 1 次；推送驻场 · 项目经理 · 老板三方同步</p>
         <div class="page-bottom-gap" />
       </div>
     </van-pull-refresh>
 
-    <AppActions ref="actions" @done="load" />
+    <AppActions ref="actions" @done="onDone" @rejected="onRejected" />
   </div>
 </template>
 
 <style scoped>
 .rem { min-height: 100vh; }
-.sticky { position: sticky; top: calc(46px + env(safe-area-inset-top)); z-index: 20; }
-.atabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.atabs::-webkit-scrollbar { height: 0; }
-.atabs button { flex: none; padding: 5px 12px; border-radius: 20px; border: 0; font-size: 12.5px; color: var(--ink-500); background: var(--surface-3); font-weight: 500; }
-.atabs button.on { background: var(--ink-900); color: #fff; font-weight: 600; }
-.atabs .n { margin-left: 4px; font-size: 11px; opacity: .8; }
+.n { margin-left: var(--space-1); }
 .pr { min-height: calc(100vh - 140px); }
-.sum.hot { border-color: var(--danger-line); background: var(--danger-bg); }
-.big { display: block; font-size: 22px; font-weight: 700; color: var(--ink-900); margin-top: 2px; }
-.big small { font-size: 11px; font-weight: 500; color: var(--ink-400); }
-.big.red { color: var(--danger); }
-.err { border-left-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
-.item.urgent { border-color: var(--danger-line); }
-.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.person { gap: 10px; text-decoration: none; color: inherit; }
-.person .chev { color: var(--ink-300); }
-.name { font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.tel { color: var(--signal-700); text-decoration: none; }
-.dl { margin-top: 6px; }
-.dl .kv { padding: 6px 0; font-size: 12.5px; }
-.desc { margin-top: 8px; }
-.acts { display: flex; gap: 8px; margin-top: 12px; }
-.act { flex: 1; min-width: 0; padding: 0 6px; border-radius: var(--r-sm); font-weight: 600; }
+.metrics.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.metrics .red { color: var(--danger-text); }
+.sum-d { margin-top: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex-wrap: wrap; }
+.name-link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: calc(var(--space-3) * -1) 0; color: inherit; text-decoration: none; min-width: 0; }
+.name-link .chev { flex: none; color: var(--text-3); }
+.left { flex: none; text-align: right; line-height: 1.2; }
+.left small { display: block; font-size: var(--font-size-min); color: var(--text-3); }
+.left b { display: block; margin-top: 2px; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); }
+.left.urgent b { color: var(--danger-text); }
+.left.soon b { color: var(--warning-text); }
+.facts { margin-top: var(--space-2); display: grid; gap: var(--space-1); }
+.facts li { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
+.facts li > svg { flex: none; margin-top: 3px; color: var(--text-3); }
+.facts li > span { min-width: 0; overflow-wrap: anywhere; }
+.item-meta { margin-top: var(--space-2); }
+.acts { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.act { flex: 1; min-width: 0; padding: 0 var(--space-2); font-weight: var(--font-weight-medium); }
+.act--call { flex: 0 0 auto; padding: 0 var(--space-4); }
 .act--main { flex: 1.8; }
-.state { padding: 40px 0; }
-.foot { text-align: center; line-height: 1.6; padding: 4px 10px 0; }
+.why { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); }
+.foot { padding: 0 var(--space-3); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
 </style>

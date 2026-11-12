@@ -70,7 +70,7 @@ defineExpose({ open })
     :title="opts?.title"
     show-cancel-button
     :confirm-button-text="opts?.confirmText ?? '确定'"
-    :confirm-button-color="opts?.danger ? 'var(--danger)' : undefined"
+    :confirm-button-color="opts?.danger ? 'var(--danger-text)' : undefined"
     :before-close="beforeClose"
     teleport="body"
     class="reason-dlg"
@@ -94,11 +94,11 @@ defineExpose({ open })
 
 <style scoped>
 .rd { padding: 8px 18px 4px; }
-.msg { font-size: 13px; line-height: 1.7; color: var(--ink-600); margin-bottom: 10px; }
+.msg { font-size: var(--font-size-aux); line-height: 1.7; color: var(--text-2); margin-bottom: 10px; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.chip { height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--surface); font-size: 12px; color: var(--ink-700); }
-.chip.on { border-color: var(--signal); background: var(--signal-50); color: var(--signal-700); font-weight: 600; }
-.ta { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); font-size: 13.5px; line-height: 1.6; color: var(--ink-800); background: var(--surface-2); resize: none; outline: none; font-family: inherit; }
-.ta:focus { border-color: var(--signal); background: var(--surface); }
-.cnt { text-align: right; font-size: 11px; color: var(--ink-400); margin-top: 2px; }
+.chip { height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); font-size: var(--font-size-min); color: var(--text-2); }
+.chip.on { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: 600; }
+.ta { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); font-size: var(--font-size-body); line-height: 1.6; color: var(--text-1); background: var(--bg-page); resize: none; outline: none; font-family: inherit; }
+.ta:focus { border-color: var(--primary); background: var(--bg-card); }
+.cnt { text-align: right; font-size: var(--font-size-min); color: var(--text-3); margin-top: 2px; }
 </style>
