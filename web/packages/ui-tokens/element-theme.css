@@ -1,32 +1,140 @@
-/* Element Plus 主题映射：主色 = 仕兔橙 #E8590C。
+/* Element Plus 主题映射（后台：console、ops），在 tokens.css 之后引入。
  * 选择器用 html:root 提高优先级：按需引入的组件样式（unplugin 自动注入）在本文件之后加载，
  * 其中也在 :root 上定义了 --el-color-*，同优先级时后加载的会把主色覆盖回 Element 默认蓝。 */
 html:root {
-  --el-color-primary: #E8590C;
-  --el-color-primary-light-3: #EF8B55;
-  --el-color-primary-light-5: #F4AC86;
-  --el-color-primary-light-7: #F8CDB6;
-  --el-color-primary-light-8: #FADECE;
-  --el-color-primary-light-9: #FDEEE7;
-  --el-color-primary-dark-2: #BA470A;
-  --el-color-success: #12734A;
-  --el-color-warning: #A85B00;
-  --el-color-danger: #AE2B22;
-  --el-color-error: #AE2B22;
-  --el-color-info: #6B7887;
-  --el-text-color-primary: var(--ink-900);
-  --el-text-color-regular: var(--ink-700);
-  --el-text-color-secondary: var(--ink-500);
-  --el-text-color-placeholder: var(--ink-400);
-  --el-border-color: var(--line-2);
-  --el-border-color-light: var(--line);
-  --el-border-color-lighter: var(--line);
-  --el-fill-color-light: var(--surface-2);
-  --el-fill-color-lighter: var(--surface-2);
-  --el-bg-color: var(--surface);
-  --el-bg-color-page: var(--paper);
-  --el-font-family: var(--f-cn);
-  --el-border-radius-base: var(--r-sm);
-  --el-border-radius-small: var(--r-xs);
-  --el-box-shadow-light: var(--sh-2);
+  /* 后台的字号、圆角、控件高度、间距 */
+  --font-size-title: 20px;
+  --font-size-body:  14px;
+  --font-size-metric: 26px;   /* 指标卡大数字 */
+  --radius-card:     8px;
+  --radius-control:  6px;
+  --control-height:  32px;
+  --space-page: var(--space-6);   /* 主区内边距 */
+  --space-card: var(--space-4);   /* 卡片内边距 */
+  --space-gap:  var(--space-4);   /* 卡片间距 */
+
+  /* 语义色和梯度。Element 的梯度不能用 var() 推导，必须写具体色值：
+   * light-N = 向白混 N×10%，dark-2 = 向黑混 20%，由注释里的设计变量算出；改了设计变量要同步改这里，
+   * tools/design-guard 会校验两边一致。
+   * success / warning / danger 取文字色：Element 同一个变量既当文字色又当实心按钮底色，文字色两头都达标。 */
+  /* primary = --primary */
+  --el-color-primary: #2B6BFF;
+  --el-color-primary-light-3: #6B97FF;
+  --el-color-primary-light-5: #95B5FF;
+  --el-color-primary-light-7: #BFD3FF;
+  --el-color-primary-light-8: #D5E1FF;
+  --el-color-primary-light-9: #EAF0FF;
+  --el-color-primary-dark-2: #2256CC;
+  /* success = --success-text */
+  --el-color-success: #0E7C45;
+  --el-color-success-light-3: #56A37D;
+  --el-color-success-light-5: #87BEA2;
+  --el-color-success-light-7: #B7D8C7;
+  --el-color-success-light-8: #CFE5DA;
+  --el-color-success-light-9: #E7F2EC;
+  --el-color-success-dark-2: #0B6337;
+  /* warning = --warning-text */
+  --el-color-warning: #A55D00;
+  --el-color-warning-light-3: #C08E4D;
+  --el-color-warning-light-5: #D2AE80;
+  --el-color-warning-light-7: #E4CEB3;
+  --el-color-warning-light-8: #EDDFCC;
+  --el-color-warning-light-9: #F6EFE6;
+  --el-color-warning-dark-2: #844A00;
+  /* danger = --danger-text */
+  --el-color-danger: #C9302C;
+  --el-color-danger-light-3: #D96E6B;
+  --el-color-danger-light-5: #E49896;
+  --el-color-danger-light-7: #EFC1C0;
+  --el-color-danger-light-8: #F4D6D5;
+  --el-color-danger-light-9: #FAEAEA;
+  --el-color-danger-dark-2: #A12623;
+  /* error = --danger-text */
+  --el-color-error: #C9302C;
+  --el-color-error-light-3: #D96E6B;
+  --el-color-error-light-5: #E49896;
+  --el-color-error-light-7: #EFC1C0;
+  --el-color-error-light-8: #F4D6D5;
+  --el-color-error-light-9: #FAEAEA;
+  --el-color-error-dark-2: #A12623;
+  /* info = --text-3 */
+  --el-color-info: #676E7C;
+  --el-color-info-light-3: #959AA3;
+  --el-color-info-light-5: #B3B7BE;
+  --el-color-info-light-7: #D1D4D8;
+  --el-color-info-light-8: #E1E2E5;
+  --el-color-info-light-9: #F0F1F2;
+  --el-color-info-dark-2: #525863;
+
+  /* 文字、边框、底色 */
+  --el-text-color-primary: var(--text-1);
+  --el-text-color-regular: var(--text-2);
+  --el-text-color-secondary: var(--text-3);
+  --el-text-color-placeholder: var(--text-placeholder);
+  --el-text-color-disabled: var(--text-placeholder);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--divider);
+  --el-border-color-extra-light: var(--divider);
+  --el-fill-color: var(--bg-fill);
+  --el-fill-color-light: var(--bg-hover);
+  --el-fill-color-lighter: var(--bg-hover);
+  --el-fill-color-blank: var(--bg-card);
+  --el-bg-color: var(--bg-card);
+  --el-bg-color-page: var(--bg-page);
+  --el-bg-color-overlay: var(--bg-card);
+
+  /* 字体、字号、圆角、控件高度 */
+  --el-font-family: var(--font-sans);
+  --el-font-size-extra-large: var(--font-size-title);
+  --el-font-size-medium: var(--font-size-section);
+  --el-font-size-base: var(--font-size-body);
+  --el-font-size-small: var(--font-size-aux);
+  --el-font-size-extra-small: var(--font-size-min);
+  --el-border-radius-base: var(--radius-control);
+  --el-border-radius-small: var(--radius-tag);
+  --el-component-size: var(--control-height);
+
+  /* 阴影：只有浮层用 */
+  --el-box-shadow: var(--shadow-modal);
+  --el-box-shadow-light: var(--shadow-popup);
+  --el-box-shadow-lighter: var(--shadow-popup);
+  --el-box-shadow-dark: var(--shadow-modal);
+
+  /* 菜单 */
+  --el-menu-active-color: var(--primary-text);
+  --el-menu-hover-bg-color: var(--bg-hover);
+}
+
+/* 下面这些变量 Element 定义在组件自己的类上，写在根上不生效，所以按组件覆盖。
+ * 前面加 html 是为了压过后加载的组件样式。 */
+html .el-table {
+  --el-table-header-bg-color: var(--bg-fill);
+  --el-table-header-text-color: var(--text-2);
+  --el-table-row-hover-bg-color: var(--bg-hover);
+  --el-table-border-color: var(--divider);
+}
+html .el-card { --el-card-border-radius: var(--radius-card); }
+html .el-dialog { --el-dialog-border-radius: var(--radius-card); }
+/* 开关旁选中的文字用主色文字色 */
+html .el-switch__label.is-active { color: var(--primary-text); }
+
+/* 主按钮悬停和按下用加深的主色（Element 默认悬停是变浅） */
+html .el-button--primary {
+  --el-button-hover-bg-color: var(--primary-hover);
+  --el-button-hover-border-color: var(--primary-hover);
+  --el-button-active-bg-color: var(--primary-hover);
+  --el-button-active-border-color: var(--primary-hover);
+}
+/* 文字按钮和链接用主色文字色，白底上对比度够 */
+html .el-button--primary.is-link,
+html .el-button--primary.is-text,
+html .el-link.el-link--primary {
+  --el-button-text-color: var(--primary-text);
+  --el-link-text-color: var(--primary-text);
+}
+/* 标签：圆角和字号跟设计变量 */
+html .el-tag {
+  --el-tag-border-radius: var(--radius-tag);
+  --el-tag-font-size: var(--font-size-min);
 }

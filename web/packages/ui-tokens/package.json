@@ -2,7 +2,7 @@
   "name": "@shitu/ui-tokens",
   "version": "0.1.0",
   "private": true,
-  "description": "仕兔设计 Token（源自 prototype/assets/css/core.css）",
+  "description": "仕兔设计 Token（颜色、字号、圆角、间距、阴影和两套组件库主题）",
   "exports": {
     "./tokens.css": "./tokens.css",
     "./vant-theme.css": "./vant-theme.css",

@@ -9,7 +9,9 @@
     "dev:ops": "pnpm --filter @shitu/ops dev",
     "build": "pnpm -r --filter \"./apps/*\" build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r typecheck"
+    "lint": "pnpm -r typecheck",
+    "guard": "node ../tools/design-guard/guard.mjs",
+    "guard:test": "node --test ../tools/design-guard/guard.test.mjs"
   },
   "devDependencies": {
     "typescript": "5.6.3",

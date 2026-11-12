@@ -1,4 +1,90 @@
-/* 仕兔设计 Token —— 源自 prototype/assets/css/core.css，修改请同步原型 */
+/* 仕兔设计变量（信任蓝）。取值以 .atw/spec/frontend/design-system.md 为准，四个端都从这里取值。
+ * 随端不同的几项（页面标题和正文字号、卡片和控件圆角、控件高度、页面间距）
+ * 定义在 vant-theme.css（手机）和 element-theme.css（后台）里。 */
+:root {
+  /* 主色：主按钮底色、选中指示、强调图标 */
+  --primary:        #2B6BFF;
+  --primary-hover:  #1F58E0;   /* 悬停和按下 */
+  --primary-text:   #1F58E0;   /* 链接、浅蓝底上的选中文字 */
+  --primary-bg:     #EEF3FF;   /* 选中态底色 */
+  --primary-line:   #D6E2FF;   /* 次按钮描边 */
+
+  /* 底色 */
+  --bg-page:   #F5F6F8;
+  --bg-card:   #FFFFFF;
+  --bg-hover:  #F7F8FA;   /* 表格行悬停 */
+  --bg-fill:   #F2F3F5;   /* 福利标签、中性标签 */
+
+  /* 线 */
+  --border:   #E6E8EC;
+  --divider:  #F0F1F3;
+
+  /* 文字 */
+  --text-1:           #1A1D23;
+  --text-2:           #4B5260;
+  --text-3:           #676E7C;
+  --text-placeholder: #9CA3AF;   /* 只用于输入框占位和禁用态，不承载信息 */
+  --text-on-primary:  #FFFFFF;
+
+  /* 薪资：只用于白底上 18px 及以上、600 字重的数字；小字号的金额用一级文字色 */
+  --salary: #FF5A1F;
+
+  /* 状态：solid 用于图形（圆点、进度、角标），text 用于文字和图标，soft 是浅底 */
+  --danger-solid:   #E5484D;  --danger-text:   #C9302C;  --danger-soft:   #FDECEC;
+  --warning-solid:  #E8890C;  --warning-text:  #A55D00;  --warning-soft:  #FFF4E5;
+  --success-solid:  #18A058;  --success-text:  #0E7C45;  --success-soft:  #E8F6EE;
+
+  /* 归属：只在 staff、console、ops 出现 */
+  --domain-private-bg:  #FFF3E0;  --domain-private-text:  #B45309;
+  --domain-public-bg:   #E6F7F5;  --domain-public-text:   #0F766E;
+  --domain-pending-bg:  #F1EBFD;  --domain-pending-text:  #6D3FD1;   /* 报名中（临时私域） */
+
+  /* 图表分类色：主色、青、橙、紫、玫红、灰蓝，与白底对比度都不低于 3 */
+  --chart-1: #2B6BFF;
+  --chart-2: #0C97A6;
+  --chart-3: #DB6E0B;
+  --chart-4: #7C5CDB;
+  --chart-5: #D6457F;
+  --chart-6: #64748B;
+
+  /* 字体：只用系统字体；等宽只用于合同号、批次号这类编码 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+  --font-size-section: 16px;   /* 区块标题 */
+  --font-size-aux:     13px;   /* 辅助 */
+  --font-size-min:     12px;   /* 最小 */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  /* 间距：4 的倍数 */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;  --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px;
+
+  --radius-tag: 4px;
+
+  /* 阴影：卡片最多用 card，也可以只用边框；popup、modal 只给浮层 */
+  --shadow-card:  0 1px 2px rgba(0, 0, 0, .04);
+  --shadow-popup: 0 4px 16px rgba(0, 0, 0, .10);
+  --shadow-modal: 0 12px 32px rgba(0, 0, 0, .14);
+}
+
+/* ---------- 基础 ---------- */
+html, body { margin: 0; font-family: var(--font-sans); font-variant-numeric: tabular-nums; color: var(--text-1); background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ---------- 状态标签：所有端的状态标签都用这组类 ---------- */
+.status-tag { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-tag); font-size: var(--font-size-min); font-weight: var(--font-weight-medium); line-height: 1; white-space: nowrap; color: var(--text-2); background: var(--bg-fill); }
+.status-tag--success { color: var(--success-text); background: var(--success-soft); }
+.status-tag--warning { color: var(--warning-text); background: var(--warning-soft); }
+.status-tag--danger  { color: var(--danger-text);  background: var(--danger-soft); }
+.status-tag--info    { color: var(--primary-text); background: var(--primary-bg); }
+.status-tag--neutral { color: var(--text-2);       background: var(--bg-fill); }
+.status-tag--private { color: var(--domain-private-text); background: var(--domain-private-bg); }
+.status-tag--public  { color: var(--domain-public-text);  background: var(--domain-public-bg); }
+.status-tag--pending { color: var(--domain-pending-text); background: var(--domain-pending-bg); }
+
+/* legacy:start —— 改版前的旧变量和旧标签类。各端页面迁移完后整段删除，新代码不要引用 */
 :root {
   /* Paper & ink — warm engineering-drawing base */
   --paper:        #F1EFE9;
@@ -61,9 +147,6 @@
   --r-xs: 3px; --r-sm: 5px; --r-md: 8px; --r-lg: 14px; --r-xl: 22px;
 }
 
-/* ---------- 基础 ---------- */
-html, body { margin: 0; font-family: var(--f-cn); color: var(--ink-800); background: var(--paper); -webkit-font-smoothing: antialiased; }
-*, *::before, *::after { box-sizing: border-box; }
 .num, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 
 /* ---------- 公私域徽标（产品视觉签名） ---------- */
@@ -78,3 +161,4 @@ html, body { margin: 0; font-family: var(--f-cn); color: var(--ink-800); backgro
 .tag-danger { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-line); }
 .tag-info   { color: var(--info);   background: var(--info-bg);   border-color: var(--info-line); }
 .tag-muted  { color: var(--ink-500); background: var(--muted-bg); border-color: var(--line); }
+/* legacy:end */
