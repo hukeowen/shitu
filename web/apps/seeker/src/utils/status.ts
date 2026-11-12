@@ -1,4 +1,4 @@
-import type { DomainTag, UserStatus } from '@shitu/api-client'
+import type { ApplicationStatus, UserStatus } from '@shitu/api-client'
 
 /** 状态徽标配色（仅展示样式；中文名一律从字典取） */
 export const STATUS_TAG_CLASS: Record<UserStatus, string> = {
@@ -20,9 +20,13 @@ export const STATUS_TONE: Record<UserStatus, string> = {
   EMPLOYED: 'status-tag--success',
 }
 
-/** 首页状态头配色：私域 / 临时私域用橙棕，公域用青色 */
-export function heroClass(domain: DomainTag | undefined): string {
-  if (domain === 'PUBLIC') return 'pub'
-  if (domain === 'PRIVATE' || domain === 'TEMP_PRIVATE') return 'pri'
-  return ''
+/** 报名状态的标签色调（我的报备、面试详情、我的台账共用） */
+export const APPLICATION_TONE: Record<ApplicationStatus, string> = {
+  PENDING_INTERVIEW: 'status-tag--pending',
+  PENDING_CONFIRM: 'status-tag--pending',
+  EMPLOYED: 'status-tag--success',
+  CANCELLED: 'status-tag--neutral',
+  INTERVIEW_FAILED: 'status-tag--neutral',
+  NO_SHOW: 'status-tag--warning',
+  TIMEOUT: 'status-tag--danger',
 }

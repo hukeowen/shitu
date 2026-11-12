@@ -2,8 +2,10 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication } from '@shitu/api-client'
+import { IconChevronRight, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import ComplaintPopup from '@/components/ComplaintPopup.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
+import { APPLICATION_TONE } from '@/utils/status'
 import { formatServerTime, formatShort } from '@/utils/time'
 
 /**
@@ -23,15 +25,6 @@ const TAB_STATUSES: Record<Exclude<TabKey, 'ALL'>, ApplicationStatus[]> = {
 }
 const TAB_ORDER: TabKey[] = ['ALL', 'PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED', 'CANCELLED', 'TIMEOUT']
 
-const STATUS_TAG: Record<ApplicationStatus, string> = {
-  PENDING_INTERVIEW: 'tag-temp',
-  PENDING_CONFIRM: 'tag-temp',
-  EMPLOYED: 'tag-ok',
-  CANCELLED: 'tag-muted',
-  INTERVIEW_FAILED: 'tag-muted',
-  NO_SHOW: 'tag-warn',
-  TIMEOUT: 'tag-danger',
-}
 const ACTIVE: ApplicationStatus[] = ['PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED']
 
 const list = ref<MyApplication[]>([])
@@ -51,6 +44,10 @@ async function load() {
   }
 }
 void load()
+function retry() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   await load()
   refreshing.value = false
@@ -95,56 +92,52 @@ function openComplain(a: MyApplication) {
 
 <template>
   <div class="reports">
-    <van-nav-bar title="我的报备" fixed placeholder safe-area-inset-top z-index="50" class="bar" />
-    <div class="atabs" role="tablist">
-      <button v-for="k in TAB_ORDER" :key="k" type="button" role="tab" :aria-selected="tab === k" :class="{ on: tab === k }" @click="tab = k">
-        {{ tabLabel(k) }} <span class="mono">{{ counts[k] }}</span>
-      </button>
-    </div>
+    <van-nav-bar title="我的报备" fixed placeholder safe-area-inset-top z-index="50" />
+    <van-tabs v-model:active="tab" sticky offset-top="44" shrink class="seg-tabs">
+      <van-tab v-for="k in TAB_ORDER" :key="k" :name="k" :title="`${tabLabel(k)} ${counts[k]}`" />
+    </van-tabs>
 
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-      <div class="pad stack body">
-        <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-        <div v-else-if="loadError" class="page-state">
-          <van-empty image="error" :description="loadError">
-            <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-          </van-empty>
-        </div>
-        <template v-else-if="shown.length">
-          <article v-for="a in shown" :key="a.applicationId" class="acard rep" :class="{ dim: !ACTIVE.includes(a.status), cur: a.status === 'PENDING_INTERVIEW' }">
-            <div class="row-b" style="margin-bottom: 9px">
-              <span class="tag" :class="STATUS_TAG[a.status]"><i class="dot"></i>{{ label('ApplicationStatus', a.status) }}</span>
-              <span class="t-xs">{{ rightMeta(a) }}</span>
-            </div>
-            <div class="jt">{{ a.jobTitle || '岗位' }}</div>
-            <div v-if="where(a)" class="t-sm" style="margin-top: 2px">{{ where(a) }}</div>
-            <div class="divider" style="margin: 10px 0"></div>
-            <dl>
-              <div class="kv"><dt>报名单号</dt><dd class="num">{{ a.applicationId }}</dd></div>
-              <div class="kv"><dt>报名时间</dt><dd class="num">{{ formatServerTime(a.createdAt) }}</dd></div>
-              <div v-if="!a.notice && a.address" class="kv"><dt>面试地点</dt><dd>{{ a.address }}</dd></div>
-              <div class="kv"><dt>当前状态</dt><dd>{{ stateText(a) }}</dd></div>
-              <div v-if="a.endReason" class="kv"><dt>原因</dt><dd>{{ a.endReason }}</dd></div>
-            </dl>
+    <van-pull-refresh v-model="refreshing" class="body" @refresh="onRefresh">
+      <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+      <div v-else-if="loadError" class="state-block">
+        <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">加载失败</div>
+        <div class="state-block-d">{{ loadError }}</div>
+        <van-button type="primary" @click="retry">重新加载</van-button>
+      </div>
+      <div v-else-if="shown.length" class="pad stack">
+        <article v-for="a in shown" :key="a.applicationId" class="acard">
+          <div class="item-hd">
+            <h3>{{ a.jobTitle || '岗位' }}</h3>
+            <span class="status-tag" :class="APPLICATION_TONE[a.status]">{{ label('ApplicationStatus', a.status) }}</span>
+          </div>
+          <p v-if="where(a)" class="item-sub">{{ where(a) }}</p>
+          <p v-if="rightMeta(a)" class="item-meta">{{ rightMeta(a) }}</p>
+          <dl class="facts">
+            <div class="kv"><dt>报名单号</dt><dd class="code">{{ a.applicationId }}</dd></div>
+            <div class="kv"><dt>报名时间</dt><dd>{{ formatServerTime(a.createdAt) }}</dd></div>
+            <div v-if="!a.notice && a.address" class="kv"><dt>面试地点</dt><dd>{{ a.address }}</dd></div>
+            <div class="kv"><dt>当前状态</dt><dd>{{ stateText(a) }}</dd></div>
+            <div v-if="a.endReason" class="kv"><dt>原因</dt><dd>{{ label('LifecycleEvent', a.endReason) }}</dd></div>
+          </dl>
 
-            <template v-if="a.notice && ACTIVE.includes(a.status)">
-              <div class="ntc">
-                <div class="ntc-t">面试确认信息</div>
-                <InterviewNoticeCard :notice="a.notice" />
-              </div>
-              <van-button block size="small" class="more" @click="router.push(`/reports/${a.applicationId}`)">查看完整面试须知</van-button>
-            </template>
+          <template v-if="a.notice && ACTIVE.includes(a.status)">
+            <h4 class="sub-t">面试确认信息</h4>
+            <InterviewNoticeCard :notice="a.notice" />
+            <van-button block class="more" @click="router.push(`/reports/${a.applicationId}`)">查看完整面试须知</van-button>
+          </template>
 
-            <div v-if="ACTIVE.includes(a.status)" class="t-xs ro">仅可查看 · 如需更换岗位，请联系驻场</div>
-            <div v-else-if="a.status !== 'TIMEOUT'" class="note note--info" style="margin-top: 10px">报名已结束，可重新进入 AI 问薪匹配。</div>
-            <button type="button" class="cmp-link" @click="openComplain(a)">岗位与描述不符？投诉该岗位 ›</button>
-          </article>
-        </template>
-        <div v-else class="page-state">
-          <van-empty :description="tab === 'ALL' ? '还没有报名记录' : `没有「${tabLabel(tab)}」的报名`">
-            <van-button v-if="tab === 'ALL'" round type="primary" size="small" @click="router.push('/match')">去 AI 问薪</van-button>
-          </van-empty>
-        </div>
+          <p v-if="ACTIVE.includes(a.status)" class="ro">仅可查看 · 如需更换岗位，请联系驻场</p>
+          <p v-else-if="a.status !== 'TIMEOUT'" class="note ended">报名已结束，可重新进入 AI 问薪匹配。</p>
+          <button type="button" class="cmp-link" @click="openComplain(a)">岗位与描述不符？投诉该岗位<IconChevronRight :size="16" /></button>
+        </article>
+        <p class="list-end">没有更多了</p>
+      </div>
+      <div v-else class="state-block">
+        <IconInbox :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">{{ tab === 'ALL' ? '还没有报名记录' : `没有「${tabLabel(tab)}」的报名` }}</div>
+        <div v-if="tab === 'ALL'" class="state-block-d">完成 AI 问薪后，从推荐岗位里选 1 个报名</div>
+        <van-button v-if="tab === 'ALL'" type="primary" @click="router.push('/match')">去 AI 问薪</van-button>
       </div>
     </van-pull-refresh>
     <ComplaintPopup
@@ -158,16 +151,15 @@ function openComplain(a: MyApplication) {
 </template>
 
 <style scoped>
-.reports { min-height: 100vh; background: var(--surface-2); }
-.bar :deep(.van-nav-bar__title) { font-weight: 700; color: var(--ink-900); }
-.body { min-height: 60vh; align-content: start; }
-.page-state { padding-top: 40px; }
-.rep.cur { border-color: var(--temp-line); }
-.rep.dim { opacity: .78; }
-.jt { font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.ntc { margin-top: 10px; padding: 10px 12px 4px; border-radius: var(--r-md); background: var(--temp-bg); border: 1px solid var(--temp-line); }
-.ntc-t { font-size: 12.5px; font-weight: 700; color: var(--temp); }
-.more { margin-top: 10px; }
-.ro { margin-top: 8px; text-align: center; }
-.cmp-link { display: block; margin: 8px auto 0; padding: 4px 8px; background: none; border: 0; font-size: 12px; color: var(--ink-400); }
+.reports { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
+.body { min-height: 60vh; }
+.facts { margin-top: var(--space-3); border-top: 1px solid var(--divider); }
+/* 长地址折行时两行尽量等长，不留孤字 */
+.facts dd { word-break: normal; overflow-wrap: anywhere; text-wrap: balance; }
+.code { font-family: var(--font-mono); }
+.sub-t { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); line-height: 22px; color: var(--text-1); }
+.more { margin-top: var(--space-3); }
+.ro { margin-top: var(--space-3); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
+.ended { margin-top: var(--space-3); }
+.cmp-link { display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; min-height: 44px; margin-bottom: calc(var(--space-3) * -1); padding: 0; border: 0; background: none; font-size: var(--font-size-aux); color: var(--text-3); }
 </style>

@@ -29,19 +29,22 @@ async function freshSeekerCookie() {
 }
 if (!process.env.SUITE || process.env.SUITE.includes("seeker")) await freshSeekerCookie()
 
-// 新注册的求职者没有匹配结果也没报过名，岗位详情和报名成功页打不开：这两页用截图数据里的人物（跑过 seed.mjs 才有），
-// 地址和进入脚本取 routes.mjs 的登记。没有 baseline-data.json 时跳过并说明。
+// 新注册的求职者没有匹配结果、没报过名、没入职，下面这些页面要么打不开，要么只有空状态：
+// 用截图数据里的人物（跑过 seed.mjs 才有）再开一遍，地址和进入脚本取 routes.mjs 的登记。没有 baseline-data.json 时跳过并说明。
+const SEEDED_ROUTES = ['/jobs/:jobId', '/apply/success', '/reports', '/reports/:applicationId', '/recommendations', '/ledger', '/work']
 const dataFile = path.join(SHOTS, 'baseline-data.json')
 const seeded = fs.existsSync(dataFile) ? JSON.parse(fs.readFileSync(dataFile, 'utf8')) : null
-if (!seeded) console.log('没有 shots/baseline-data.json：岗位详情、报名成功页这次没有覆盖（先跑 node seed.mjs）\n')
+if (!seeded) console.log('没有 shots/baseline-data.json：岗位详情、报名成功、面试详情和有数据的报备 / 推荐 / 台账 / 我的工作这次没有覆盖（先跑 node seed.mjs）\n')
 const seededSuites = []
-for (const r of seeded ? ROUTES.filter((x) => x.app === 'seeker' && ['/jobs/:jobId', '/apply/success'].includes(x.route)) : []) {
-  const name = 'seeker-' + r.persona
+// 同一个人物的页面放进同一组，只用一次会话
+const byPersona = Map.groupBy(seeded ? ROUTES.filter((x) => x.app === 'seeker' && SEEDED_ROUTES.includes(x.route)) : [], (r) => r.persona)
+for (const [persona, list] of byPersona) {
+  const name = 'seeker-' + persona
   if (process.env.SUITE && !process.env.SUITE.split(',').includes(name)) continue
-  const phone = seeded.personas[r.persona].phone
+  const phone = seeded.personas[persona].phone
   await seekerSession(phone)
   seededSuites.push({ name, app: 'seeker', cookieFile: `seeker-${phone}.rt`,
-    paths: [{ path: typeof r.to === 'function' ? r.to(seeded.ids) : r.route, enter: r.enter?.(seeded.ids, seeded.personas) }] })
+    paths: list.map((r) => ({ path: typeof r.to === 'function' ? r.to(seeded.ids) : r.route, enter: r.enter?.(seeded.ids, seeded.personas) })) })
 }
 
 const SUITES = [
@@ -99,7 +102,7 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
     if (v.errs?.length) issues.push('页面错误提示: ' + v.errs.join(' | '))
     if (v.empty) issues.push('页面几乎空白')
     for (const w of v.layout ?? []) issues.push('排版: ' + w)
-    const redirected = v.url !== p
+    const redirected = v.url !== p.split('?')[0]
     report.push({ suite: s.name, path: p, landed: v.url, issues })
     console.log(`${issues.length ? 'ISSUE' : 'ok   '}  ${s.name.padEnd(13)} ${p.padEnd(26)} ${redirected ? '→ ' + v.url : ''}${issues.length ? '\n        ' + issues.join('\n        ') : ''}`)
     if (issues.length || process.env.SHOT_ALL) {

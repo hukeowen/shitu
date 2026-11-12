@@ -46,4 +46,6 @@ const until = computed(() => untilText(props.notice.interviewAt))
 /* 地址可能很长：导航链接单独占一行，不跟着折行的末尾 */
 .nav-line { display: block; padding-left: 0; }
 .notice .kv { align-items: flex-start; }
+/* 长地址、路线折行时各行尽量等长，不留孤字 */
+.notice dd { word-break: normal; overflow-wrap: anywhere; text-wrap: balance; }
 </style>

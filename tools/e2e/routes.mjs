@@ -61,20 +61,26 @@ const SEEKER = [
   ['/kyc/appeals', 'appealing'],
   ['/apply/success', 'acknowledged', null, enterApplySuccess],
   ['/reports', 'acknowledged'],
+  ['/reports', 'registered'], // 列表页另截空状态
   ['/reports/:applicationId', 'acknowledged', (ids) => `/reports/${ids.seekerApplicationId}`],
   ['/messages', 'acknowledged'],
   ['/contracts/sign', 'confirmed'],
   ['/contracts', 'veteran'],
   ['/contracts/:id', 'employedToday', (ids) => `/contracts/${ids.contractId}`],
-  ['/work', 'veteran'],
+  ['/work', 'veteran'], // 我的工作按状态各截一张：在岗 / 待面试 / 待签约入职 / 还没报名（已离职没有现成人物，在 states.mjs 里用假数据截）
+  ['/work', 'acknowledged'],
+  ['/work', 'confirmed'],
+  ['/work', 'public'],
   ['/advance', 'veteran'],
   ['/advance/records', 'veteran'],
   ['/advance/:id', 'veteran', (ids) => `/advance/${ids.seekerAdvanceId}`],
   ['/payslips', 'veteran'],
   ['/payslips/:id', 'veteran', (ids) => `/payslips/${ids.payslipId}`],
   ['/recommendations', 'recommended'],
+  ['/recommendations', 'registered'],
   ['/resume', 'veteran'],
-  ['/ledger', 'veteran'],
+  ['/ledger', 'veteran'], // 老员工是花名册导入的，没有报名记录：这张就是空状态
+  ['/ledger', 'veteran', () => '/ledger?tab=work', null, 'ledger@work'],
   ['/me', 'veteran'],
   ['/feedback', 'acknowledged'],
 ]

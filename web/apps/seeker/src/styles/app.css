@@ -37,12 +37,8 @@ ul, ol { list-style: none; }
 .acard-hd { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
 .acard-hd h4 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 24px; }
 
-/* 深色状态头：只剩还没迁移的页面（我的、我的工作、工资、预支）在用，随那几页的工单删除 */
+/* 深色状态头：只剩还没迁移的页面（我的、工资、预支）在用，随那几页的工单删除 */
 .hero { padding: calc(12px + env(safe-area-inset-top)) var(--space-page) 20px; color: var(--text-on-primary); background: var(--text-1); }
-.hero-state { margin-top: var(--space-3); display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-.hero-meta { margin-top: var(--space-3); display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-3); }
-.hero-meta div { font-size: var(--font-size-min); color: var(--text-on-primary); }
-.hero-meta div b { display: block; font-size: var(--font-size-aux); color: var(--text-on-primary); font-weight: var(--font-weight-semibold); margin-top: 2px; }
 
 /* 白色身份头（首页） */
 .home-head { padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-page) var(--space-4); background: var(--bg-card); border-bottom: 1px solid var(--border); }
@@ -161,17 +157,23 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .qopt.sel { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
 .qopt > svg { flex: none; color: var(--primary); }
 
-/* 岗位卡 */
-.job { background: var(--bg-card); border-radius: var(--radius-card); box-shadow: var(--shadow-card); overflow: hidden; }
-.job-top { padding: var(--space-card) var(--space-card) var(--space-3); }
-.job-title { display: flex; align-items: flex-start; gap: var(--space-2); }
-.job-title b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); flex: 1; line-height: 1.35; min-width: 0; }
 /* 薪资：薪资色只给大数字，单位用二级文字 */
 .salary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--space-1); margin-top: var(--space-1); }
 .salary b { font-size: 24px; font-weight: var(--font-weight-semibold); line-height: 32px; color: var(--salary); }
 .salary span { font-size: var(--font-size-aux); color: var(--text-2); }
-.job-ft { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-card); border-top: 1px solid var(--divider); }
-.job-ft .co { flex: 1; font-size: var(--font-size-min); color: var(--text-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 列表卡片（报备、推荐、台账）：第一行标题加状态标签，第二行关键信息，第三行辅助信息 */
+.item-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.item-hd h3 { min-width: 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); line-height: 24px; color: var(--text-1); overflow-wrap: anywhere; }
+.item-hd .status-tag { flex: none; margin-top: 1px; }
+.item-sub { margin-top: 2px; font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
+.item-meta { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+/* 列表到底的提示 */
+.list-end { padding: var(--space-2) 0; font-size: var(--font-size-aux); color: var(--text-3); text-align: center; }
+/* 分段标签（van-tabs）：选中色和 2px 下划线来自主题变量，这里只管字号和下边线 */
+.seg-tabs { --van-tab-font-size: var(--font-size-body); }
+.seg-tabs .van-tabs__wrap { border-bottom: 1px solid var(--divider); }
+/* 正文段落 */
+.para { font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
 
 /* 胶囊标签页 */
 .atabs { display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2) var(--space-page); background: var(--bg-card); border-bottom: 1px solid var(--divider); scrollbar-width: none; -webkit-overflow-scrolling: touch; }

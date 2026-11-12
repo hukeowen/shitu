@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, type MyRecommendation } from '@shitu/api-client'
+import { IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useJourney } from '@/composables/useJourney'
 import { useAuthStore } from '@/stores/auth'
@@ -19,7 +20,8 @@ const journey = useJourney()
 const loading = ref(!journey.recsLoaded)
 const loadError = ref('')
 const refreshing = ref(false)
-const busy = ref<number | null>(null)
+/** 正在提交的答复：哪一条、哪个按钮 */
+const busy = ref<{ id: number; act: 'accept' | 'decline' } | null>(null)
 
 async function load() {
   loadError.value = ''
@@ -32,6 +34,10 @@ async function load() {
   }
 }
 void load()
+function retry() {
+  loading.value = true
+  void load()
+}
 if (!auth.profile) void auth.loadProfile().catch(() => undefined)
 async function onRefresh() {
   await load()
@@ -43,11 +49,16 @@ const company = computed(() => auth.profile?.boundCompanyName || '')
 const appliedLock = computed(() => auth.profile?.status === 'PENDING_INTERVIEW' || auth.profile?.status === 'PENDING_CONFIRM')
 
 const DECISION: Record<MyRecommendation['decision'], { t: string; cls: string }> = {
-  PENDING: { t: '待你确认', cls: 'tag-warn' },
-  ACCEPTED: { t: '已接受', cls: 'tag-ok' },
-  DECLINED: { t: '不考虑', cls: 'tag-muted' },
+  PENDING: { t: '待你确认', cls: 'status-tag--warning' },
+  ACCEPTED: { t: '已接受', cls: 'status-tag--success' },
+  DECLINED: { t: '不考虑', cls: 'status-tag--neutral' },
 }
+/** 一屏只有一个主色实心按钮：第一条待确认的推荐 */
+const firstPendingId = computed(() => list.value.find((r) => r.decision === 'PENDING')?.id)
 
+function canOpen(r: MyRecommendation) {
+  return r.decision !== 'DECLINED'
+}
 function openJob(r: MyRecommendation) {
   void router.push({ path: `/jobs/${r.jobId}`, query: { from: 'rec' } })
 }
@@ -55,12 +66,14 @@ function openJob(r: MyRecommendation) {
 async function accept(r: MyRecommendation) {
   if (busy.value) return
   if (r.decision === 'ACCEPTED') return openJob(r)
-  busy.value = r.id
+  busy.value = { id: r.id, act: 'accept' }
   try {
     await seekerApi.decideRecommendation(r.id, true)
     journey.setDecision(r.id, 'ACCEPTED')
     openJob(r)
   } catch (e) {
+    // 先复位再提示：提示出来时按钮不能还在转
+    busy.value = null
     showToast(errorMessage(e, '操作失败，请稍后重试'))
   } finally {
     busy.value = null
@@ -74,12 +87,14 @@ async function decline(r: MyRecommendation) {
   } catch {
     return
   }
-  busy.value = r.id
+  busy.value = { id: r.id, act: 'decline' }
   try {
     await seekerApi.decideRecommendation(r.id, false)
     journey.setDecision(r.id, 'DECLINED')
+    busy.value = null
     showToast('已反馈给专属顾问')
   } catch (e) {
+    busy.value = null
     showToast(errorMessage(e, '操作失败，请稍后重试'))
   } finally {
     busy.value = null
@@ -93,51 +108,78 @@ async function decline(r: MyRecommendation) {
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
       <div class="pad stack body">
         <section class="acard intro">
-          <div class="row" style="gap: 10px">
-            <div class="avatar avatar--o">{{ (company || '顾').slice(0, 1) }}</div>
-            <div class="flex1">
-              <b class="i-t">{{ company ? `${company} · 专属顾问` : '专属顾问' }}</b>
-              <div class="t-xs">根据你的求职画像人工挑选，确认后按正常流程实名 + 报名</div>
-            </div>
+          <div class="avatar avatar--lg">{{ (company || '顾').slice(0, 1) }}</div>
+          <div class="flex1">
+            <h2>{{ company ? `${company} · 专属顾问` : '专属顾问' }}</h2>
+            <p>根据你的求职画像人工挑选，确认后按正常流程实名 + 报名</p>
           </div>
         </section>
 
-        <div v-if="appliedLock" class="note note--warn">你已有进行中的报名，面试结果出来前不能报名其他岗位。</div>
+        <section v-if="appliedLock" class="tipbar tipbar--warn">
+          <IconLock :size="20" />
+          <div class="flex1">
+            <div class="tipbar-t">你已有进行中的报名。</div>
+            <div class="tipbar-d">面试结果出来前不能报名其他岗位。</div>
+          </div>
+        </section>
 
         <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-        <div v-else-if="loadError" class="page-state">
-          <van-empty image="error" :description="loadError">
-            <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-          </van-empty>
+        <div v-else-if="loadError" class="state-block">
+          <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+          <div class="state-block-t">加载失败</div>
+          <div class="state-block-d">{{ loadError }}</div>
+          <van-button type="primary" @click="retry">重新加载</van-button>
         </div>
-        <div v-else-if="!list.length" class="page-state">
-          <van-empty description="专属顾问正在为你挑选岗位">
-            <p class="t-xs">有推荐时会通过站内消息通知你，请保持手机畅通</p>
-          </van-empty>
+        <div v-else-if="!list.length" class="state-block">
+          <IconInbox :size="48" :stroke-width="1.5" />
+          <div class="state-block-t">专属顾问正在为你挑选岗位</div>
+          <div class="state-block-d">有推荐时会通过站内消息通知你，请保持手机畅通</div>
         </div>
 
         <template v-else>
-          <article v-for="r in list" :key="r.id" class="job rec" :class="{ dim: r.decision === 'DECLINED' }">
-            <div class="job-top" @click="r.decision !== 'DECLINED' && openJob(r)">
-              <div class="job-title">
-                <b>{{ r.jobTitle || '推荐岗位' }}</b>
-                <span class="tag" :class="DECISION[r.decision].cls">{{ DECISION[r.decision].t }}</span>
+          <article v-for="r in list" :key="r.id" class="acard rec">
+            <div
+              class="rec-top"
+              :class="{ tap: canOpen(r) }"
+              :role="canOpen(r) ? 'button' : undefined"
+              :tabindex="canOpen(r) ? 0 : undefined"
+              @click="canOpen(r) && openJob(r)"
+              @keydown.enter="canOpen(r) && openJob(r)"
+            >
+              <div class="item-hd">
+                <h3>{{ r.jobTitle || '推荐岗位' }}</h3>
+                <span class="status-tag" :class="DECISION[r.decision].cls">{{ DECISION[r.decision].t }}</span>
               </div>
-              <div class="t-sm" style="margin-top: 3px">{{ r.companyName || '—' }}</div>
-              <div v-if="r.note" class="memo"><b>顾问说：</b>{{ r.note }}</div>
+              <p class="item-sub">{{ r.companyName || '—' }}</p>
+              <div v-if="r.note" class="memo">
+                <b>顾问说</b>
+                <p>{{ r.note }}</p>
+              </div>
             </div>
-            <div class="job-ft">
-              <span class="co">推荐于 {{ formatRelative(r.createdAt) }}</span>
+            <div class="rec-ft">
+              <span class="item-meta flex1">推荐于 {{ formatRelative(r.createdAt) }}</span>
               <template v-if="r.decision === 'PENDING'">
-                <van-button size="small" class="act" :disabled="busy === r.id" @click="decline(r)">不考虑</van-button>
-                <van-button size="small" type="primary" class="act" :loading="busy === r.id" :disabled="appliedLock" @click="accept(r)">去报名</van-button>
+                <van-button class="act" :loading="busy?.id === r.id && busy.act === 'decline'" loading-text="提交中…" :disabled="!!busy && !(busy.id === r.id && busy.act === 'decline')" @click="decline(r)">不考虑</van-button>
+                <van-button
+                  :type="r.id === firstPendingId ? 'primary' : 'default'"
+                  class="act"
+                  :class="{ second: r.id !== firstPendingId }"
+                  :loading="busy?.id === r.id && busy.act === 'accept'"
+                  loading-text="提交中…"
+                  :disabled="appliedLock || (!!busy && !(busy.id === r.id && busy.act === 'accept'))"
+                  @click="accept(r)"
+                >
+                  去报名
+                </van-button>
               </template>
-              <van-button v-else-if="r.decision === 'ACCEPTED'" size="small" type="primary" plain class="act" @click="openJob(r)">查看岗位</van-button>
+              <!-- 卡片上半部分已经能打开岗位，这颗不再单独占一个键盘焦点 -->
+              <van-button v-else-if="r.decision === 'ACCEPTED'" class="act second" tabindex="-1" @click="openJob(r)">查看岗位</van-button>
             </div>
           </article>
+          <p class="list-end">没有更多了</p>
         </template>
 
-        <div class="note note--info">
+        <div class="note">
           推荐岗位与 AI 问薪结果一样，需先同意求职告知书并完成实名认证才能报名。都不满意时，顾问可为你开放全平台岗位匹配，届时可匹配全平台岗位。
         </div>
         <div class="page-bottom-gap"></div>
@@ -147,15 +189,18 @@ async function decline(r: MyRecommendation) {
 </template>
 
 <style scoped>
-.recs { min-height: 100vh; background: var(--surface-2); }
+.recs { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
 .body { min-height: 70vh; align-content: start; }
-.page-state { padding-top: 30px; }
-.intro { background: linear-gradient(160deg, #7A3410, #2B1408); border: 0; color: #fff; }
-.intro .t-xs { color: rgba(255, 255, 255, .6); margin-top: 2px; }
-.i-t { font-size: 14px; display: block; }
-.rec .job-title .tag { flex: none; }
-.rec.dim { opacity: .65; }
-.memo { margin-top: 9px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--signal-50); font-size: 12.5px; line-height: 1.6; color: var(--ink-700); }
-.memo b { color: var(--signal-700); }
-.act { flex: none; border-radius: 8px !important; padding: 0 12px !important; }
+.page-state { padding-top: var(--space-8); }
+.intro { display: flex; align-items: center; gap: var(--space-3); }
+.intro h2 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); line-height: 24px; color: var(--text-1); }
+.intro p { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.tap { cursor: pointer; }
+.tap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-tag); }
+.memo { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--primary-bg); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
+.memo b { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--primary-text); }
+.rec-ft { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.rec-ft .item-meta { margin-top: 0; }
+.act { flex: none; }
+.second { border-color: var(--primary-line); color: var(--primary-text); }
 </style>
