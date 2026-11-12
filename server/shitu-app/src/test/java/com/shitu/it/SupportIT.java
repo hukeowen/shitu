@@ -205,6 +205,47 @@ class SupportIT extends FlowItSupport {
         jdbc.update("DELETE FROM billing_daily WHERE user_id IN (?, ?)", active, ended);
     }
 
+    @Test
+    void billDisputeOverHttp() throws Exception {
+        // 验收清单第 7 条的接口层：老板在异议期内提异议 → 平台驳回 / 接受 → 账单状态随之变化；越权与过期都被拒
+        Company c = company();
+        Company other = company();
+        String billId = "MB" + RND.nextInt(1_000_000_000);
+        jdbc.update("INSERT INTO monthly_bill (bill_id, company_id, bill_month, service_fee, transfer_payable, transfer_receivable, status, "
+                + "issued_at, dispute_deadline, settle_deadline) VALUES (?, ?, '2031-03', 12.00, 1200.00, 0, 'ISSUED', ?, ?, ?)",
+                billId, c.companyId(), java.time.LocalDateTime.now(), java.time.LocalDate.now().plusDays(5), java.time.LocalDate.now().plusDays(20));
+        String url = "/api/v1/tenant/bills/" + billId + "/disputes";
+
+        assertThat(status(post(url), c.pm(), Map.of("content", "x"))).as("只有老板能提异议").isEqualTo(403);
+        assertThat(code(call(post(url), other.owner(), Map.of("content", "别家公司的账单")))).as("不能对别家账单提异议").isNotEqualTo("0");
+        assertThat(code(call(post(url), c.owner(), Map.of("content", " ")))).isEqualTo("SYS_4000");
+
+        JsonNode d1 = data(call(post(url), c.owner(), Map.of("content", "3 月有 2 人已于月中离职，应停止计费")));
+        assertThat(d1.get("status").asText()).isEqualTo("OPEN");
+        JsonNode detail = data(call(get("/api/v1/tenant/bills/" + billId), c.owner(), null));
+        assertThat(detail.get("bill").get("status").asText()).isEqualTo("DISPUTED");
+        assertThat(detail.get("disputes").size()).isEqualTo(1);
+        assertThat(code(call(post(url), c.owner(), Map.of("content", "重复提交")))).as("处理中不能再提").isEqualTo("SYS_4000");
+
+        String reply = "/api/v1/ops/disputes/" + d1.get("id").asLong() + "/reply";
+        assertThat(status(post(reply), c.owner(), Map.of("accept", true, "reply", "x"))).as("企业不能自己处理异议").isEqualTo(403);
+        assertThat(code(call(post(reply), ops, Map.of("accept", false, "reply", " ")))).isEqualTo("SYS_4000");
+        data(call(post(reply), ops, Map.of("accept", false, "reply", "核对任职记录，离职日为月末，计费无误")));
+        assertThat(code(call(post(reply), ops, Map.of("accept", true, "reply", "重复处理")))).isEqualTo("SYS_4040");
+        detail = data(call(get("/api/v1/tenant/bills/" + billId), c.owner(), null));
+        assertThat(detail.get("bill").get("status").asText()).as("驳回后回到已下发").isEqualTo("ISSUED");
+        assertThat(detail.get("disputes").get(0).get("reply").asText()).contains("计费无误");
+
+        JsonNode d2 = data(call(post(url), c.owner(), Map.of("content", "补充了离职证明，请重新核对")));
+        data(call(post("/api/v1/ops/disputes/" + d2.get("id").asLong() + "/reply"), ops, Map.of("accept", true, "reply", "核实属实，修正后重新下发")));
+        assertThat(data(call(get("/api/v1/ops/bills/" + billId), ops, null)).get("bill").get("status").asText())
+                .as("接受后退回待下发").isEqualTo("GENERATED");
+
+        // 过了异议期不能再提
+        jdbc.update("UPDATE monthly_bill SET status = 'ISSUED', dispute_deadline = ? WHERE bill_id = ?", java.time.LocalDate.now().minusDays(1), billId);
+        assertThat(code(call(post(url), c.owner(), Map.of("content", "过期后再提")))).isEqualTo("SYS_4000");
+    }
+
     /** 空值字段在响应里可能被省略，也可能是 null */
     private static boolean absent(JsonNode n, String field) {
         return n.get(field) == null || n.get(field).isNull();

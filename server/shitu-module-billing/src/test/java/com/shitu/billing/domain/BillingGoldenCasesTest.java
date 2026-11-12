@@ -174,4 +174,169 @@ class BillingGoldenCasesTest {
             assertThat(s.supplyAmount().multiply(BigDecimal.valueOf(90))).isEqualByComparingTo("720");
         }
     }
+
+    @Nested
+    @DisplayName("跨月、跨年与多段任职")
+    class Spans {
+        @Test
+        void 整月在职_按当月自然日() {
+            assertThat(BillableDays.countInMonth(d("2026-06-15"), null, YearMonth.of(2026, 7))).isEqualTo(31);
+            assertThat(BillableDays.countInMonth(d("2026-06-15"), null, YearMonth.of(2026, 9))).isEqualTo(30);
+        }
+
+        @Test
+        void 跨年任职_十二月与一月分别累计() {
+            // 12-20 入职，次年 1-10 离职：12 月计 21~31 = 11 天，1 月计 1~9 = 9 天
+            assertThat(BillableDays.countInMonth(d("2026-12-20"), d("2027-01-10"), YearMonth.of(2026, 12))).isEqualTo(11);
+            assertThat(BillableDays.countInMonth(d("2026-12-20"), d("2027-01-10"), YearMonth.of(2027, 1))).isEqualTo(9);
+        }
+
+        @Test
+        void 当月入职当月离职_首尾两天都不计() {
+            assertThat(BillableDays.countInMonth(d("2026-07-10"), d("2026-07-20"), YearMonth.of(2026, 7))).isEqualTo(9);
+        }
+
+        @Test
+        void 月末最后一天入职_当月零天_次月整月() {
+            assertThat(BillableDays.countInMonth(d("2026-07-31"), null, YearMonth.of(2026, 7))).isZero();
+            assertThat(BillableDays.countInMonth(d("2026-07-31"), null, YearMonth.of(2026, 8))).isEqualTo(31);
+        }
+
+        @Test
+        void 月初一日离职_当月零天() {
+            assertThat(BillableDays.countInMonth(d("2026-07-20"), d("2026-08-01"), YearMonth.of(2026, 8))).isZero();
+            assertThat(BillableDays.countInMonth(d("2026-07-20"), d("2026-08-01"), YearMonth.of(2026, 7))).isEqualTo(11);
+        }
+
+        @Test
+        void 任职与账单月不重叠_零天() {
+            assertThat(BillableDays.countInMonth(d("2026-05-01"), d("2026-06-10"), YearMonth.of(2026, 7))).isZero();
+            assertThat(BillableDays.countInMonth(d("2026-08-05"), null, YearMonth.of(2026, 7))).isZero();
+        }
+
+        @Test
+        void 离职后再入职_两段任职分别计_中间空档不计() {
+            // 第一段 7-01 ~ 7-10 计 2~9 = 8 天；第二段 7-15 起计 16~31 = 16 天
+            int first = BillableDays.countInMonth(d("2026-07-01"), d("2026-07-10"), YearMonth.of(2026, 7));
+            int second = BillableDays.countInMonth(d("2026-07-15"), null, YearMonth.of(2026, 7));
+            assertThat(first).isEqualTo(8);
+            assertThat(second).isEqualTo(16);
+            assertThat(BillableDays.isBillable(d("2026-07-01"), d("2026-07-10"), d("2026-07-12"))).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("免费期边界")
+    class FreeEdges {
+        @Test
+        void 入驻当天就在免费期内() {
+            assertThat(FreePeriod.isInFreePeriod(d("2025-04-01"), 3, d("2025-04-01"))).isTrue();
+        }
+
+        @Test
+        void 一月三十一日入驻_四月没有三十一日_免费到四月二十九日() {
+            assertThat(FreePeriod.lastFreeDay(d("2026-01-31"), 3)).isEqualTo(d("2026-04-29"));
+            assertThat(FreePeriod.lockDate(d("2026-01-31"), 3)).isEqualTo(d("2026-04-30"));
+        }
+
+        @Test
+        void 闰年_十一月三十日入驻_免费到二月二十八日() {
+            assertThat(FreePeriod.lastFreeDay(d("2027-11-30"), 3)).isEqualTo(d("2028-02-28"));
+            assertThat(FreePeriod.lockDate(d("2027-11-30"), 3)).isEqualTo(d("2028-02-29"));
+        }
+
+        @Test
+        void 免费期最后一天为零_次日开始计费() {
+            LocalDate join = d("2025-04-01");
+            assertThat(GrowthFeeCalculator.daily(300, 180, FreePeriod.isInFreePeriod(join, 3, d("2025-06-30")), R).fee()).isEqualTo(m("0"));
+            assertThat(GrowthFeeCalculator.daily(300, 180, FreePeriod.isInFreePeriod(join, 3, d("2025-07-01")), R).fee()).isEqualTo(m("12.00"));
+        }
+    }
+
+    @Nested
+    @DisplayName("增长技术服务费的边界与月累计")
+    class GrowthEdges {
+        @Test
+        void 只多一个人_一毛钱() {
+            assertThat(GrowthFeeCalculator.daily(181, 180, false, R).fee()).isEqualTo(m("0.10"));
+        }
+
+        @Test
+        void 没有存量_在岗全部计费() {
+            GrowthFeeCalculator.Result r = GrowthFeeCalculator.daily(100, 0, false, R);
+            assertThat(r.incrementCount()).isEqualTo(100);
+            assertThat(r.fee()).isEqualTo(m("10.00"));
+        }
+
+        @Test
+        void 没人在岗_零() {
+            assertThat(GrowthFeeCalculator.daily(0, 0, false, R).fee()).isEqualTo(m("0"));
+        }
+
+        @Test
+        void 整月累计_增量658人_三十一天_2039点80() {
+            BigDecimal day = GrowthFeeCalculator.daily(838, 180, false, R).fee();
+            assertThat(day.multiply(BigDecimal.valueOf(31))).isEqualByComparingTo("2039.80");
+        }
+
+        @Test
+        void 存量走光再招满_在岗等于存量_仍为零() {
+            // 存量 180 人全部离职，又新招 180 人：按人数差口径不收费（D-18）
+            assertThat(GrowthFeeCalculator.daily(180, 180, false, R).incrementCount()).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("流转费的跨月、回流与来源资格变化")
+    class TransferSpans {
+        @Test
+        void 跨月流转_七月110_八月40_来源方88与32() {
+            Split s = TransferFeeSplitter.daily(A, SourceEligibility.ELIGIBLE, B, R).orElseThrow();
+            int july = BillableDays.countInMonth(d("2026-07-20"), d("2026-08-05"), YearMonth.of(2026, 7));
+            int aug = BillableDays.countInMonth(d("2026-07-20"), d("2026-08-05"), YearMonth.of(2026, 8));
+            assertThat(s.payerAmount().multiply(BigDecimal.valueOf(july))).isEqualByComparingTo("110");
+            assertThat(s.payerAmount().multiply(BigDecimal.valueOf(aug))).isEqualByComparingTo("40");
+            assertThat(s.supplyAmount().multiply(BigDecimal.valueOf(july))).isEqualByComparingTo("88");
+            assertThat(s.supplyAmount().multiply(BigDecimal.valueOf(aug))).isEqualByComparingTo("32");
+            assertThat(s.platformAmount().multiply(BigDecimal.valueOf(july + aug))).isEqualByComparingTo("30");
+        }
+
+        @Test
+        void 流转出去的人回到来源公司_不再产生流转费() {
+            assertThat(TransferFeeSplitter.daily(A, SourceEligibility.ELIGIBLE, B, R)).isPresent();
+            assertThat(TransferFeeSplitter.daily(A, SourceEligibility.ELIGIBLE, A, R)).isEmpty();
+        }
+
+        @Test
+        void 从B再流转到第三家公司_付费方换人_来源方不变() {
+            Split s = TransferFeeSplitter.daily(A, SourceEligibility.ELIGIBLE, "C30001", R).orElseThrow();
+            assertThat(s.payerCompanyId()).isEqualTo("C30001");
+            assertThat(s.supplyCompanyId()).isEqualTo(A);
+            assertThat(s.supplyAmount()).isEqualTo(m("8.00"));
+        }
+
+        @Test
+        void 来源公司月中被取消权限_付费方金额不变_分成改归平台() {
+            // 前 10 天来源方正常，后 5 天被取消收费服务权限（D-24）
+            Split ok = TransferFeeSplitter.daily(A, SourceEligibility.ELIGIBLE, B, R).orElseThrow();
+            Split revoked = TransferFeeSplitter.daily(A, SourceEligibility.REVOKED, B, R).orElseThrow();
+            BigDecimal payer = ok.payerAmount().multiply(BigDecimal.TEN).add(revoked.payerAmount().multiply(BigDecimal.valueOf(5)));
+            BigDecimal supply = ok.supplyAmount().multiply(BigDecimal.TEN).add(revoked.supplyAmount().multiply(BigDecimal.valueOf(5)));
+            BigDecimal platform = ok.platformAmount().multiply(BigDecimal.TEN).add(revoked.platformAmount().multiply(BigDecimal.valueOf(5)));
+            assertThat(payer).isEqualByComparingTo("150");
+            assertThat(supply).isEqualByComparingTo("80");
+            assertThat(platform).isEqualByComparingTo("70");
+        }
+
+        @Test
+        void 任何来源资格下_付费方金额等于来源方加平台() {
+            for (String source : new String[]{A, Constants.PLATFORM}) {
+                for (SourceEligibility e : SourceEligibility.values()) {
+                    Split s = TransferFeeSplitter.daily(source, e, B, R).orElseThrow();
+                    assertThat(s.supplyAmount().add(s.platformAmount())).as(source + " / " + e).isEqualByComparingTo(s.payerAmount());
+                    assertThat(s.payerAmount()).as("付费方固定 10 元").isEqualTo(m("10.00"));
+                }
+            }
+        }
+    }
 }
