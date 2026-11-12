@@ -67,6 +67,8 @@ ul, ol { list-style: none; }
 .tipbar--warn > svg { color: var(--warning-text); }
 .tipbar--ok { background: var(--success-soft); }
 .tipbar--ok > svg { color: var(--success-text); }
+.tipbar--danger { background: var(--danger-soft); }
+.tipbar--danger > svg { color: var(--danger-text); }
 
 /* 文字链接：带右箭头的小入口 */
 .link { display: inline-flex; align-items: center; gap: 2px; min-height: 24px; padding: 0; border: 0; background: none; font-size: var(--font-size-aux); color: var(--primary-text); text-decoration: none; white-space: nowrap; }
@@ -193,6 +195,27 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .hint { font-size: var(--font-size-min); color: var(--text-3); margin-top: var(--space-1); display: flex; align-items: center; gap: var(--space-1); }
 .hint.ok { color: var(--success-text); }
 .hint.err { color: var(--danger-text); font-weight: var(--font-weight-medium); }
+
+/* 表单字段（加在 van-field 上，配 label-align="top"）：标签在上、带边框的输入框，错误提示在字段下方 */
+.ffield.van-cell { padding: 0; background: none; }
+.ffield + .ffield { margin-top: var(--space-4); }
+.ffield .van-field__label { margin-bottom: var(--space-2); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); line-height: 20px; }
+.ffield .van-field__body { min-height: var(--control-height); padding: 0 var(--space-3); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-control); transition: border-color .15s; }
+.ffield .van-field__body:focus-within { border-color: var(--primary); }
+.ffield.bad .van-field__body { border-color: var(--danger-solid); }
+/* 输入框里的字不小于 16px，否则 iOS 聚焦时会放大页面 */
+.ffield .van-field__control { font-size: var(--font-size-section); }
+.ffield textarea.van-field__control { padding: var(--space-2) 0; line-height: 24px; }
+.ffield .van-field__error-message { margin-top: var(--space-1); line-height: 18px; }
+.ffield .van-field__word-limit { margin-top: var(--space-1); color: var(--text-3); }
+/* 输入框右边的文字操作（添加） */
+.ffield-act { min-width: 56px; height: calc(var(--control-height) - 2px); padding: 0 var(--space-1); border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.ffield-act:disabled { color: var(--text-placeholder); }
+/* 字段下方的说明 */
+.fhint { display: flex; align-items: flex-start; gap: var(--space-1); margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 18px; color: var(--text-3); }
+.fhint svg { flex: none; margin-top: 2px; }
+.fhint--ok { color: var(--success-text); }
+.fhint--err { color: var(--danger-text); }
 
 /* 顶栏右侧的文字操作（退出、重新匹配） */
 .bar-act { min-height: 44px; padding: 0 0 0 var(--space-2); border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); white-space: nowrap; }

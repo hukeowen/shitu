@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, useDict } from '@shitu/api-client'
+import { IconX } from '@shitu/ui-icons'
 
 /**
  * 实名申诉（C-406）：身份证已被其他账号占用（APP_4007）→ 申诉换绑；平台级失信（APP_4008）→ 失信申诉。
@@ -60,36 +61,41 @@ async function submit() {
 
 <template>
   <van-popup v-model:show="show" position="bottom" round teleport="body" safe-area-inset-bottom :close-on-popstate="true" class="apl">
-    <div class="sheet-h" aria-hidden="true"></div>
-    <div class="row-b" style="margin-bottom: 4px">
-      <h3 class="ttl">提交申诉</h3>
-      <button type="button" class="x" aria-label="关闭" @click="show = false"><van-icon name="cross" size="18" /></button>
+    <div class="sheet-head">
+      <div class="flex1">
+        <h3>提交申诉</h3>
+        <p class="sheet-sub">{{ label('KycReviewType', type) }}</p>
+      </div>
+      <button type="button" class="sheet-x" aria-label="关闭" @click="show = false"><IconX :size="20" /></button>
     </div>
-    <p class="t-sm sub"><span class="tag" :class="type === 'BLACKLIST_APPEAL' ? 'tag-muted' : 'tag-warn'">{{ label('KycReviewType', type) }}</span></p>
 
-    <ul class="tips t-xs">
-      <li v-for="t in tips" :key="t">· {{ t }}</li>
+    <ul class="tips">
+      <li v-for="t in tips" :key="t">{{ t }}</li>
     </ul>
 
-    <div class="field">
-      <label for="apl-ta">申诉理由（必填）</label>
-      <textarea id="apl-ta" v-model="remark" class="ta" :maxlength="MAX" rows="5" :placeholder="placeholder"></textarea>
-      <div class="cnt t-xs" :class="{ over: remark.length >= MAX }">{{ remark.length }} / {{ MAX }}</div>
-    </div>
+    <van-cell-group :border="false">
+      <van-field
+        v-model="remark"
+        class="ffield"
+        type="textarea"
+        label="申诉理由（必填）"
+        label-align="top"
+        rows="5"
+        :maxlength="MAX"
+        show-word-limit
+        :placeholder="placeholder"
+        :border="false"
+      />
+    </van-cell-group>
 
-    <div class="note note--info" style="margin-bottom: 14px">平台风控将在 <b>5 个工作日</b>内人工复核，结果会通过消息中心通知你，也可在「我的申诉」查看进度。</div>
-    <van-button block type="primary" class="btn-cta" :loading="submitting" loading-text="提交中…" :disabled="!remark.trim()" @click="submit">提交申诉</van-button>
+    <div class="note">平台风控将在 <b>5 个工作日</b>内人工复核，结果会通过消息中心通知你，也可在「我的申诉」查看进度。</div>
+    <van-button block type="primary" size="large" class="submit" :loading="submitting" loading-text="提交中…" :disabled="!remark.trim()" @click="submit">提交申诉</van-button>
   </van-popup>
 </template>
 
 <style scoped>
-.apl { padding: 8px 16px 12px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
-.sheet-h { width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 12px; }
-.ttl { font-size: 17px; font-weight: 700; color: var(--ink-900); }
-.x { width: 32px; height: 32px; display: grid; place-items: center; background: none; border: 0; color: var(--ink-500); padding: 0; margin-right: -6px; }
-.sub { margin-bottom: 10px; }
-.tips { line-height: 1.8; margin-bottom: 12px; color: var(--ink-500); }
-.field { margin-bottom: 12px; }
-.cnt { text-align: right; margin-top: 4px; }
-.cnt.over { color: var(--warn); }
+.apl { max-height: 88vh; padding: var(--space-4) var(--space-page) var(--space-3); overflow-y: auto; box-sizing: border-box; }
+.tips { margin: var(--space-3) 0 var(--space-4); padding-left: var(--space-5); list-style: disc; font-size: var(--font-size-body); line-height: 24px; color: var(--text-2); }
+.note { margin-top: var(--space-4); }
+.submit { margin-top: var(--space-4); }
 </style>

@@ -1,14 +1,14 @@
 import type { ContractStatus, LaborContractView } from '@shitu/api-client'
 import { formatServerTime, parseServerTime } from '@/utils/time'
 
-/** 合同状态徽标配色（中文名从字典 ContractStatus 取） */
-export const CONTRACT_TAG_CLASS: Record<ContractStatus, string> = {
-  PENDING_SIGN: 'tag-warn',
-  EFFECTIVE: 'tag-ok',
-  EXPIRED: 'tag-muted',
-  DISSOLVED: 'tag-muted',
-  TERMINATED: 'tag-muted',
-  VOIDED: 'tag-muted',
+/** 合同状态的标签色调（tokens.css 的 .status-tag--*；中文名从字典 ContractStatus 取） */
+export const CONTRACT_TONE: Record<ContractStatus, string> = {
+  PENDING_SIGN: 'status-tag--warning',
+  EFFECTIVE: 'status-tag--success',
+  EXPIRED: 'status-tag--neutral',
+  DISSOLVED: 'status-tag--neutral',
+  TERMINATED: 'status-tag--neutral',
+  VOIDED: 'status-tag--neutral',
 }
 
 const DAY = 86400_000

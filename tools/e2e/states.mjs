@@ -2,7 +2,7 @@
 // 用法：node states.mjs <输出目录> [--app seeker] [--only 名字里包含的一段]
 //   node states.mjs ../../.atw/tasks/<任务>/screenshots --app seeker
 // 文件名：<端>_<页面>_<状态>_<宽>x<高>.png。前提同 shots.mjs（后端、dev server、Chrome 9888、跑过 seed.mjs）。
-// 这里只看不写：会落库的接口（发起匹配、报名、投诉、答复顾问推荐）一律用 rules 拦住，不让请求真的发到后端。
+// 这里只看不写：会落库的接口（发起匹配、报名、投诉、答复顾问推荐、实名、申诉、保存简历）一律用 rules 拦住，不让请求真的发到后端。
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -179,7 +179,52 @@ const onePrimary = `(() => { const n = [...document.querySelectorAll('#app .van-
 const disabledBtn = (text) => `(() => { const b = [...document.querySelectorAll('#app button')].find((x) => x.innerText.includes(${JSON.stringify(text)})); return b && b.disabled ? '' : '「${text}」没有置灰' })()`
 const clickTab = (text) => `[...document.querySelectorAll('.van-tab')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`
 
+// ---- 工单 09：实名、申诉、合同、简历 ----
+const KYC_API = '/seeker/kyc'
+const KYC_APPEALS_API = '/seeker/kyc/appeals'
+const CONTRACTS_API = '/seeker/contracts'
+const PENDING_API = '/seeker/contracts/pending'
+const RESUME_API = '/seeker/resume'
+// 还没实名的人：截图数据里的人物都实名过了，表单用这条假回应打开；提交（POST）另外拦
+const kycNone = { url: KYC_API, method: 'GET', action: 'respond', body: reply({ kycStatus: 'NONE', canApply: false }) }
+const kycPost = (action, body) => ({ url: KYC_API, method: 'POST', action, body })
+const GOOD_ID = '110105199003070017', BAD_ID = '110105199003070010', OTHER_ID = '110105199003070025'
+const fillKyc = (id, id2 = id) => [fill('与身份证上的姓名一致', '张伟民'), fill('18 位身份证号码', id), fill('请再输入一次', id2)]
+// 错误提示：在字段下方、危险文字色
+const fieldError = (text) => `(() => { const e = [...document.querySelectorAll('.van-field__error-message')].find((x) => x.innerText.includes(${JSON.stringify(text)}))
+  if (!e) return '字段下方没有「${text}」'
+  if (getComputedStyle(e).color !== ${tokenColor('--danger-text')}) return '错误提示不是危险文字色：' + getComputedStyle(e).color
+  const body = e.closest('.van-field').querySelector('.van-field__body')
+  return e.getBoundingClientRect().top >= body.getBoundingClientRect().bottom - 1 ? '' : '错误提示不在字段下方' })()`
+// 表单：字段都在 Vant 单元格组里，输入框的字不小于 16px
+const formGroups = `(() => { const fs = [...document.querySelectorAll('#app .van-field')]
+  if (!fs.length) return '没有表单字段'
+  if (fs.some((f) => !f.closest('.van-cell-group'))) return '有字段不在单元格组里'
+  if (document.querySelector('#app input.inp, #app textarea.ta')) return '还在用旧的手写输入框'
+  const small = fs.map((f) => f.querySelector('.van-field__control')).find((c) => parseFloat(getComputedStyle(c).fontSize) < 16)
+  return small ? '输入框的字小于 16px' : '' })()`
+// 正文不小于 15px：卡片里的段落、键值、列表行
+const bodyText = `(() => { const bad = [...document.querySelectorAll('#app .para, #app .kv dt, #app .kv dd, #app .item-sub, #app .tl-t, #app .tipbar-d')].find((e) => parseFloat(getComputedStyle(e).fontSize) < 15)
+  return bad ? '正文小于 15px：' + bad.innerText.slice(0, 20) : '' })()`
+// 加载中的按钮点了没反应：提交中再点一次，拦住的请求仍然只有一条在转
+const noLegacy = `document.querySelector('#app .tag, #app .note--warn, #app .note--info, #app .mono, #app .num') ? '还在用旧的标签、提示或等宽数字类' : ''`
+const fakeAppeal = (id, reviewType, status, extra = {}) => ({ id, reviewType, status, remark: '这是我本人身份证，旧手机号 138****1234 已停用，无法登录原账号，申请换绑到当前手机号。', createdAt: `2026-11-0${id}T10:00:00`, ...extra })
+const fakeAppeals = reply([fakeAppeal(3, 'ID_OCCUPIED_APPEAL', 'PENDING'),
+  fakeAppeal(2, 'BLACKLIST_APPEAL', 'REJECTED', { reviewerRemark: '经核查，失信标记与入职记录一致，维持原处理。', reviewedAt: '2026-11-06T15:00:00' }),
+  fakeAppeal(1, 'ID_OCCUPIED_APPEAL', 'APPROVED', { reviewerRemark: '已核实为本人，旧账号已解绑。', reviewedAt: '2026-11-03T15:00:00' })])
+const fakeContract = (n, status, extra = {}) => ({ contractId: 'LC-SHOT-' + n, contractNo: 'LC2026111200' + n, title: '劳动合同（劳务派遣）', companyName: '仕兔演示劳务',
+  jobTitle: '成品仓储分拣员', projectName: '立讯精密昆山二期', termStart: '2025-11-12', termEnd: '2026-11-11', status, createdAt: '2025-11-12T09:00:00', signedAt: '2025-11-12T10:30:00', ...extra })
+const pendingContract = { ...fakeContract(1, 'PENDING_SIGN', { termStart: '2026-11-12', termEnd: '2027-11-11', createdAt: '2026-11-12T09:00:00' }), signedAt: undefined }
+// 五种合同状态各一张；待签署只会有一份，所以整页只有一个主色按钮
+const fakeContracts = reply([{ ...pendingContract, signUrl: 'https://esign.example.com/sign/SHOT' },
+  fakeContract(2, 'EFFECTIVE', { termStart: '2026-05-01', termEnd: '2027-04-30', createdAt: '2026-05-01T09:00:00', signedAt: '2026-05-01T10:30:00' }),
+  fakeContract(3, 'TERMINATED'), fakeContract(4, 'EXPIRED', { termStart: '2024-05-01', termEnd: '2025-04-30', createdAt: '2024-05-01T09:00:00', signedAt: '2024-05-01T10:30:00' }),
+  fakeContract(5, 'DISSOLVED', { termStart: '2023-05-01', termEnd: '2024-04-30', createdAt: '2023-05-01T09:00:00', signedAt: '2023-05-01T10:30:00' })])
+const CONTRACT = `/contracts/${data.ids.contractId}`
+const resumePut = (action, body) => ({ url: RESUME_API, method: 'PUT', action, body })
+
 // 每项：端、页面、状态、人物、地址；width 不写是 390；rules 是接口拦截（见 cdp.mjs 的 intercept）；
+// lateRules 是页面打开并安静下来之后才生效的拦截（排在 rules 前面），用来截「先正常打开、再点按钮时接口挂住」；
 // steps 是打开后依次在页面里执行的脚本；quick = 最后一步之后不等页面安静，马上截（轻提示两秒就消失）；
 // checks 是截图前的检查（见上）
 const STATES = [
@@ -373,6 +418,105 @@ const STATES = [
     checks: [`(() => { const e = [...document.querySelectorAll('#app span')].find((x) => x.innerText.includes('KS-0077')); return e && e.getClientRects().length === 1 ? '' : '工号被折成两行' })()`] },
   { app: 'seeker', screen: 'work', state: 'loading', persona: 'veteran', path: '/work', rules: [{ url: '/seeker/work', action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'work', state: 'error', persona: 'veteran', path: '/work', rules: [{ url: '/seeker/work', action: 'fail' }], checks: [has('重新加载')] },
+  // 工单 09：实名验证。提交、申诉一律拦住，不落库
+  { app: 'seeker', screen: 'kyc', state: 'normal', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('hang')],
+    checks: [formGroups, bottomBar('提交实名认证'), onePrimary, disabledBtn('提交实名认证'), has('进行中'), has('已完成'), bodyText, noLegacy] },
+  { app: 'seeker', screen: 'kyc', state: 'normal', persona: 'registered', path: '/kyc', width: NARROW, rules: [kycNone, kycPost('hang')], checks: [formGroups, bottomBar('提交实名认证')] },
+  { app: 'seeker', screen: 'kyc', state: 'field-error', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('hang')], steps: [...fillKyc(BAD_ID, OTHER_ID), fill('与身份证上的姓名一致', 'ab1')],
+    checks: [fieldError('请输入 2–20 个汉字的真实姓名'), fieldError('身份证号码不正确'), fieldError('两次输入的身份证号码不一致'), disabledBtn('提交实名认证'), bottomBar('提交实名认证')] },
+  { app: 'seeker', screen: 'kyc', state: 'filled', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('hang')], steps: fillKyc(GOOD_ID), checks: [has('两次输入一致，校验通过'), bottomBar('提交实名认证')] },
+  { app: 'seeker', screen: 'kyc', state: 'submitting', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('hang')], steps: [...fillKyc(GOOD_ID), click('提交实名认证')], quick: true,
+    checks: [spinning('核验中')] },
+  { app: 'seeker', screen: 'kyc', state: 'rejected', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('respond', refuse('APP_4009', '姓名与身份证号码不一致，请核对后重试'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证')], checks: [idle, has('姓名与身份证号码不一致，请核对后重试'), bottomBar('提交实名认证')] },
+  { app: 'seeker', screen: 'kyc', state: 'rejected-field', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('respond', refuse('APP_4005', '身份证号码不正确，请核对后重新输入'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证')], checks: [idle, fieldError('身份证号码不正确，请核对后重新输入')] },
+  { app: 'seeker', screen: 'kyc', state: 'occupied', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('respond', refuse('APP_4007', '该身份证已被其他账号实名绑定'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证')], checks: [has('证件已被其他账号绑定'), onePrimary, tapTall('#app .acard button, #app a.link'), bodyText, noLegacy] },
+  { app: 'seeker', screen: 'kyc', state: 'occupied', persona: 'registered', path: '/kyc', width: NARROW, rules: [kycNone, kycPost('respond', refuse('APP_4007', '该身份证已被其他账号实名绑定'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证')] },
+  { app: 'seeker', screen: 'kyc', state: 'blacklist', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('respond', refuse('APP_4008', '你的账号因平台失信记录暂时受限'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证')], checks: [has('账号受限'), onePrimary, noLegacy] },
+  { app: 'seeker', screen: 'kyc', state: 'underage', persona: 'registered', path: '/kyc', rules: [kycNone, kycPost('respond', refuse('APP_4006', '未满 16 周岁，不能使用平台服务'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证')], checks: [has('暂时无法为你提供服务'), onePrimary, noLegacy] },
+  { app: 'seeker', screen: 'kyc', state: 'reviewing', persona: 'registered', path: '/kyc', rules: [{ url: KYC_API, action: 'respond', body: reply({ kycStatus: 'REVIEWING', canApply: false }) }], checks: [has('实名资料人工复核中')] },
+  { app: 'seeker', screen: 'kyc', state: 'verified', persona: 'veteran', path: '/kyc', checks: [has('已完成实名认证'), onePrimary] },
+  { app: 'seeker', screen: 'kyc', state: 'loading', persona: 'registered', path: '/kyc', rules: [{ url: KYC_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'kyc', state: 'error', persona: 'registered', path: '/kyc', rules: [{ url: KYC_API, action: 'fail' }], checks: [has('重新加载')] },
+  // 申诉弹层（从「一证一号」进）：申诉接口排在前面，地址里也带 /seeker/kyc
+  { app: 'seeker', screen: 'kyc-appeal', state: 'normal', persona: 'registered', path: '/kyc', rules: [{ url: KYC_APPEALS_API, action: 'hang' }, kycNone, kycPost('respond', refuse('APP_4007', '该身份证已被其他账号实名绑定'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证'), click('提交申诉')], checks: [`document.querySelector('.van-popup .van-cell-group .van-field textarea') ? '' : '申诉理由不在单元格组里'`, tapArea('.van-popup .sheet-x')] },
+  { app: 'seeker', screen: 'kyc-appeal', state: 'normal', persona: 'registered', path: '/kyc', width: NARROW, rules: [{ url: KYC_APPEALS_API, action: 'hang' }, kycNone, kycPost('respond', refuse('APP_4007', '该身份证已被其他账号实名绑定'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证'), click('提交申诉')] },
+  { app: 'seeker', screen: 'kyc-appeal', state: 'submitting', persona: 'registered', path: '/kyc', rules: [{ url: KYC_APPEALS_API, action: 'hang' }, kycNone, kycPost('respond', refuse('APP_4007', '该身份证已被其他账号实名绑定'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证'), click('提交申诉'), `(() => { const el = document.querySelector('.van-popup textarea'); el.value = '旧手机号已停用，申请换绑'; el.dispatchEvent(new Event('input', { bubbles: true })) })()`,
+      `[...document.querySelectorAll('.van-popup button')].find((b) => b.innerText.includes('提交申诉')).click()`], quick: true,
+    checks: [`document.querySelector('.van-popup .van-button--loading') ? '' : '提交中「提交申诉」没有转圈'`] },
+  { app: 'seeker', screen: 'kyc-appeal', state: 'rejected', persona: 'registered', path: '/kyc',
+    rules: [{ url: KYC_APPEALS_API, action: 'respond', body: refuse('SYS_4000', '没有可申诉的拦截记录') }, kycNone, kycPost('respond', refuse('APP_4007', '该身份证已被其他账号实名绑定'))],
+    steps: [...fillKyc(GOOD_ID), click('提交实名认证'), click('提交申诉'), `(() => { const el = document.querySelector('.van-popup textarea'); el.value = '旧手机号已停用，申请换绑'; el.dispatchEvent(new Event('input', { bubbles: true })) })()`,
+      `[...document.querySelectorAll('.van-popup button')].find((b) => b.innerText.includes('提交申诉')).click()`], quick: true,
+    checks: [`document.querySelector('.van-popup .van-button--loading') ? '被拒之后「提交申诉」还在转' : ''`, `document.body.innerText.includes('没有可申诉的拦截记录') ? '' : '被拒之后没有写明原因'`] },
+  // 我的申诉
+  { app: 'seeker', screen: 'kyc-appeals', state: 'normal', persona: 'appealing', path: '/kyc/appeals', checks: [cardTags, noLegacy] },
+  { app: 'seeker', screen: 'kyc-appeals', state: 'normal', persona: 'appealing', path: '/kyc/appeals', width: NARROW, checks: [cardTags] },
+  { app: 'seeker', screen: 'kyc-appeals', state: 'all-status', persona: 'appealing', path: '/kyc/appeals', rules: [{ url: KYC_APPEALS_API, action: 'respond', body: fakeAppeals }],
+    checks: [cardCount(3), cardTags, has('复核意见：'), has('申诉未通过'), tapTall('#app a.link')] },
+  { app: 'seeker', screen: 'kyc-appeals', state: 'empty', persona: 'veteran', path: '/kyc/appeals', checks: [has('暂无申诉记录'), onePrimary] },
+  { app: 'seeker', screen: 'kyc-appeals', state: 'loading', persona: 'appealing', path: '/kyc/appeals', rules: [{ url: KYC_APPEALS_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'kyc-appeals', state: 'error', persona: 'appealing', path: '/kyc/appeals', rules: [{ url: KYC_APPEALS_API, action: 'fail' }], checks: [has('重新加载')] },
+  // 待签合同：只截到「去签署」为止，不进电子签
+  { app: 'seeker', screen: 'contract-sign', state: 'normal', persona: 'confirmed', path: '/contracts/sign', checks: [bottomBar('去签署'), onePrimary, blocks('合同摘要'), bodyText, noLegacy] },
+  { app: 'seeker', screen: 'contract-sign', state: 'normal', persona: 'confirmed', path: '/contracts/sign', width: NARROW, checks: [bottomBar('去签署')] },
+  { app: 'seeker', screen: 'contract-sign', state: 'empty', persona: 'registered', path: '/contracts/sign', checks: [has('当前没有待签署的合同'), onePrimary, tapTall('#app a.link')] },
+  { app: 'seeker', screen: 'contract-sign', state: 'loading', persona: 'confirmed', path: '/contracts/sign', rules: [{ url: PENDING_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'contract-sign', state: 'error', persona: 'confirmed', path: '/contracts/sign', rules: [{ url: PENDING_API, action: 'fail' }], checks: [has('重新加载')] },
+  { app: 'seeker', screen: 'contract-sign', state: 'submitting', persona: 'confirmed', path: '/contracts/sign', lateRules: [{ url: PENDING_API, action: 'hang' }], steps: [click('我已完成签署')], quick: true,
+    checks: [spinning('正在查询')] },
+  { app: 'seeker', screen: 'contract-sign', state: 'rejected', persona: 'confirmed', path: '/contracts/sign', steps: [click('我已完成签署'), wait(600)], quick: true,
+    checks: [idle, `document.body.innerText.includes('还未检测到签署结果') ? '' : '没签完就刷新，没有轻提示写明原因'`] },
+  { app: 'seeker', screen: 'contract-sign', state: 'no-link', persona: 'confirmed', path: '/contracts/sign', rules: [{ url: PENDING_API, action: 'respond', body: reply(pendingContract) }],
+    checks: [disabledBtn('去签署'), has('签署链接暂不可用，请联系驻场老师重新发送'), bottomBar('去签署')] },
+  // 我的合同
+  // 花名册导入的老员工没有电子合同，有合同的是当天签约入职的人
+  { app: 'seeker', screen: 'contracts', state: 'normal', persona: 'employedToday', path: '/contracts', checks: [cardTags, tapTall('#app article button'), bodyText, noLegacy] },
+  { app: 'seeker', screen: 'contracts', state: 'normal', persona: 'employedToday', path: '/contracts', width: NARROW, checks: [cardTags] },
+  { app: 'seeker', screen: 'contracts', state: 'all-status', persona: 'veteran', path: '/contracts', rules: [{ url: CONTRACTS_API, action: 'respond', body: fakeContracts }],
+    checks: [cardCount(5), cardTags, onePrimary, has('待签署'), has('已解除')] },
+  { app: 'seeker', screen: 'contracts', state: 'empty', persona: 'registered', path: '/contracts', checks: [has('还没有劳动合同')] },
+  { app: 'seeker', screen: 'contracts', state: 'loading', persona: 'veteran', path: '/contracts', rules: [{ url: CONTRACTS_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'contracts', state: 'error', persona: 'veteran', path: '/contracts', rules: [{ url: CONTRACTS_API, action: 'fail' }], checks: [has('重新加载')] },
+  // 合同详情：签署记录是时间线，节点带文字
+  { app: 'seeker', screen: 'contract-detail', state: 'normal', persona: 'employedToday', path: CONTRACT, checks: [blocks('岗位信息', '签约主体', '签署记录'), nodesLabeled, bodyText, noLegacy,
+    `document.querySelectorAll('#app .tl li').length >= 3 ? '' : '签署记录不是时间线（或不到 3 个节点）'`] },
+  { app: 'seeker', screen: 'contract-detail', state: 'normal', persona: 'employedToday', path: CONTRACT, width: NARROW, checks: [blocks('岗位信息', '签约主体', '签署记录')] },
+  { app: 'seeker', screen: 'contract-detail', state: 'terminated', persona: 'veteran', path: '/contracts/LC-SHOT-3', rules: [{ url: CONTRACTS_API, action: 'respond', body: fakeContracts }],
+    checks: [nodesLabeled, has('合同已终止'), has('已结束'), `document.querySelectorAll('#app .tl li').length === 4 ? '' : '已终止的合同应当有 4 个节点'`] },
+  { app: 'seeker', screen: 'contract-detail', state: 'not-found', persona: 'veteran', path: '/contracts/LC-NONE', checks: [has('合同不存在'), has('返回我的合同'), hasNot('重新加载')] },
+  { app: 'seeker', screen: 'contract-detail', state: 'loading', persona: 'employedToday', path: CONTRACT, rules: [{ url: CONTRACTS_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'contract-detail', state: 'error', persona: 'employedToday', path: CONTRACT, rules: [{ url: CONTRACTS_API, action: 'fail' }], checks: [has('重新加载'), hasNot('合同不存在')] },
+  // 我的简历：保存（PUT）一律拦住
+  { app: 'seeker', screen: 'resume', state: 'normal', persona: 'veteran', path: '/resume', rules: [resumePut('hang')],
+    checks: [blocks('用工档案', '工作经历', '求职意向', '联系方式'), formGroups, bottomBar('保存简历'), onePrimary, tapTall('#app .pick, #app a.link'), bodyText, noLegacy] },
+  { app: 'seeker', screen: 'resume', state: 'normal', persona: 'veteran', path: '/resume', width: NARROW, rules: [resumePut('hang')], checks: [formGroups, bottomBar('保存简历')] },
+  { app: 'seeker', screen: 'resume', state: 'empty', persona: 'registered', path: '/resume', rules: [resumePut('hang')], checks: [has('目前没有在岗的工作'), bottomBar('保存简历')] },
+  { app: 'seeker', screen: 'resume', state: 'picked', persona: 'registered', path: '/resume', rules: [resumePut('hang')],
+    steps: [click('普工'), fill('昆山', '昆山'), `[...document.querySelectorAll('.ffield-act')][0].click()`, fill('叉车证', '叉车证'), `[...document.querySelectorAll('.ffield-act')][1].click()`],
+    checks: [`document.querySelector('#app .pick.on[aria-pressed=true] svg') ? '' : '选中的工种没有勾'`, `document.querySelectorAll('#app .picked .pick').length === 2 ? '' : '添加的地点和技能标签没出来'`, tapTall('#app .pick')] },
+  // 表单下半截：滚到底，看输入框、字数和底部通栏
+  { app: 'seeker', screen: 'resume', state: 'form', persona: 'registered', path: '/resume', rules: [resumePut('hang')],
+    steps: [click('普工'), fill('昆山', '昆山'), `[...document.querySelectorAll('.ffield-act')][0].click()`, fill('叉车证', '叉车证'), `[...document.querySelectorAll('.ffield-act')][1].click()`, `document.querySelector('.picked').scrollIntoView()`] },
+  { app: 'seeker', screen: 'resume', state: 'form', persona: 'registered', path: '/resume', width: NARROW, rules: [resumePut('hang')], steps: [`window.scrollTo(0, document.documentElement.scrollHeight)`] },
+  { app: 'seeker', screen: 'resume', state: 'field-error', persona: 'registered', path: '/resume', rules: [resumePut('hang')],
+    steps: [fill('方便驻场老师', 'a b'), fill('11 位手机号', '123'), fill('没有工作过填 0', '77'), click('保存简历'), wait(2600), `window.scrollTo(0, document.documentElement.scrollHeight)`],
+    checks: [fieldError('微信号只能包含字母、数字、下划线和减号'), fieldError('紧急联系人手机号格式不正确'), fieldError('工作年限请填 0 到 50 的整数'), idle] },
+  { app: 'seeker', screen: 'resume', state: 'field-error-toast', persona: 'registered', path: '/resume', rules: [resumePut('hang')], steps: [fill('11 位手机号', '123'), click('保存简历')], quick: true,
+    checks: [`document.querySelector('.van-toast')?.innerText.includes('紧急联系人手机号格式不正确') ? '' : '校验没通过时没有轻提示'`] },
+  { app: 'seeker', screen: 'resume', state: 'submitting', persona: 'veteran', path: '/resume', rules: [resumePut('hang')], steps: [click('保存简历')], quick: true, checks: [spinning('保存中')] },
+  { app: 'seeker', screen: 'resume', state: 'rejected', persona: 'veteran', path: '/resume', rules: [resumePut('respond', refuse('SYS_4000', '个人简介包含不允许的内容'))], steps: [click('保存简历')], quick: true,
+    checks: [idle, `document.body.innerText.includes('个人简介包含不允许的内容') ? '' : '被拒之后没有写明原因'`] },
+  { app: 'seeker', screen: 'resume', state: 'loading', persona: 'veteran', path: '/resume', rules: [{ url: RESUME_API, action: 'hang' }], checks: [spinnerPrimary] },
+  { app: 'seeker', screen: 'resume', state: 'error', persona: 'veteran', path: '/resume', rules: [{ url: RESUME_API, action: 'fail' }], checks: [has('重新加载')] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
@@ -394,6 +538,7 @@ for (const s of todo) {
   if (s.rules) await b.intercept(s.rules)
   await b.send('Page.navigate', { url: conf.base + s.path })
   await b.settle()
+  if (s.lateRules) await b.intercept([...s.lateRules, ...(s.rules ?? [])])
   const issues = []
   for (const [i, step] of (s.steps ?? []).entries()) {
     const res = await b.send('Runtime.evaluate', { expression: step, awaitPromise: true })
