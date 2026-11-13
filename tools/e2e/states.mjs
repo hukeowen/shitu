@@ -1149,7 +1149,10 @@ const pickOpt = (i, not = '') => [`document.querySelectorAll('.el-dialog .el-sel
 const openStaff = (text) => [`${findBtn(text, '#app .el-table__body')}.click()`, wait(600)]
 const tabsBlank = `document.querySelector('#app .filter-tabs .n') ? '没拿到数据却显示了页签计数' : ''`
 const tblMask = `document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`
-const statusTags = `(() => { const rs = [...document.querySelectorAll('#app .el-table__body tr')]; if (!rs.length) return '表格没有行'; const r = rs.find((tr) => !tr.querySelector('.status-tag')); return r ? '这一行的状态不是共享状态标签：' + r.innerText.slice(0, 12) : '' })()`
+// 「状态」列一律是共享状态标签（不再有改版前的状态点）
+const statusTags = `(() => { const t = document.querySelector('#app .el-table'), i = [...t.querySelectorAll('.el-table__header th')].findIndex((th) => th.innerText.trim() === '状态'); if (i < 0) return '表格没有「状态」列'
+  const rs = [...t.querySelectorAll('.el-table__body tr')]; if (!rs.length) return '表格没有行'
+  const r = rs.find((tr) => !tr.children[i]?.querySelector('.status-tag')); return r ? '这一行的状态不是共享状态标签：' + r.innerText.replace(/\\s+/g, ' ').slice(0, 16) : '' })()`
 const RESIGN_WHY = '离职申请已被处理，请刷新后再操作'
 const resignRefused = refuse('RESIGN_4091', RESIGN_WHY)
 const STATES = [
