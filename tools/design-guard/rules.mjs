@@ -40,6 +40,8 @@ export const COLOR_ALLOWLIST = [
   { file: FAVICON, value: '#FFFFFF', reason: 'favicon 是独立文件，读不到设计变量；对应 --text-on-primary' },
   { file: 'web/apps/staff/src/utils/qr.ts', value: '#000000', reason: '二维码码点保持黑白，保证能扫（qrcode 库画在 canvas 上，读不到设计变量）；驻场的签署码和专属码都从这里取' },
   { file: 'web/apps/staff/src/utils/qr.ts', value: '#FFFFFF', reason: '二维码底色保持白色，保证能扫' },
+  { file: 'web/apps/console/src/utils/qr.ts', value: '#000000', reason: '渠道码、签署码的码点保持黑白，保证能扫（qrcode 库画在 canvas 上，读不到设计变量）' },
+  { file: 'web/apps/console/src/utils/qr.ts', value: '#FFFFFF', reason: '二维码底色和下载图底色保持白色，保证静区能扫' },
 ]
 
 const TEXT = 4.5 // 正文

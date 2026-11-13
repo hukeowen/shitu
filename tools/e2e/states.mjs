@@ -818,7 +818,8 @@ const allZero = `(() => { const n = [...document.querySelectorAll('#app .filter-
 // 只有异常卡的数字用危险色：没有提醒色数字，危险色的数不为 0
 const statTone = `(() => { if (document.querySelector('#app .stat--warn')) return '指标数字用了提醒色'; const z = [...document.querySelectorAll('#app .stat--danger .stat-v')].find((v) => Number(v.innerText.trim()) === 0); return z ? '数字为 0 也用了危险色' : '' })()`
 // 表格行高约 48
-const rowsTall = `(() => { const r = [...document.querySelectorAll('#app .el-table__body tr')].find((tr) => tr.getBoundingClientRect().height < 44); return r ? '表格行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px：' + r.innerText.slice(0, 12) : '' })()`
+// 看不见的表格（没选中的标签页）不算
+const rowsTall = `(() => { const r = [...document.querySelectorAll('#app .el-table__body tr')].find((tr) => tr.getClientRects().length && tr.getBoundingClientRect().height < 44); return r ? '表格行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px：' + r.innerText.slice(0, 12) : '' })()`
 // 断网的轻提示出来之后再截图
 const toastShown = `(async () => { for (let i = 0; i < 40 && !document.querySelector('.el-message--error'); i++) await ${wait(100)}; await ${wait(400)} })()`
 const wbFit = `(() => { const main = document.querySelector('.main').getBoundingClientRect(), q = document.querySelector('#app .queue').getBoundingClientRect(), d = document.querySelector('#app .detail').getBoundingClientRect()
@@ -1024,7 +1025,7 @@ const drawerSalary = `(() => { const e = document.querySelector('.job-drawer .sa
   if (parseFloat(cs.fontSize) < 18 || Number(cs.fontWeight) < 600) return '薪资不够大或不够粗：' + cs.fontSize + ' ' + cs.fontWeight
   return cs.color === ${tokenColor('--salary')} ? '' : '薪资不是薪资色：' + cs.color })()`
 // 操作列文字按钮的点击区至少 24 高
-const opsTap = `(() => { const b = [...document.querySelectorAll('#app td.ops-col .el-button')].find((x) => x.getBoundingClientRect().height < 24); return b ? '操作列「' + b.innerText.trim() + '」点击区只有 ' + Math.round(b.getBoundingClientRect().height) + 'px 高' : '' })()`
+const opsTap = `(() => { const b = [...document.querySelectorAll('#app td.ops-col .el-button')].find((x) => x.getClientRects().length && x.getBoundingClientRect().height < 24); return b ? '操作列「' + b.innerText.trim() + '」点击区只有 ' + Math.round(b.getBoundingClientRect().height) + 'px 高' : '' })()`
 // 岗位表薪资列右对齐；驳回原因整段显示（不截断、不省略）
 const salaryRight = `(() => { const tds = [...document.querySelectorAll('#app .el-table__body td.salary-col')]; if (!tds.length) return '没有薪资列'; return tds.every((td) => td.classList.contains('is-right')) ? '' : '薪资列没有右对齐' })()`
 const remarkFull = `(() => { const e = [...document.querySelectorAll('#app .remark')]; if (!e.length) return '没有驳回原因'
@@ -1250,6 +1251,67 @@ const monthKept = (m) => `document.querySelector('#app .page-hd .el-select__sele
 // 切月份时不出现「新月份标题 + 旧数字」：标题不带月份、数字是「—」、不下结论
 const switchBlank = `(() => { const t = [...document.querySelectorAll('#app .stat-l, #app .card__hd h3')].map((e) => e.innerText).find((x) => /\\d{4}-\\d{2}/.test(x)); if (t) return '没拿到这个月的数据，标题却写了月份：' + t
   return document.querySelector('#app').innerText.includes('需线下追收') ? '没拿到数据却显示了「需线下追收」' : '' })()`
+// ---- 工单 20：设置（第 11 类）----
+const PROJ_API = '/tenant/projects', CONTRACT_API = '/tenant/client-contracts', CHANNEL_API = '/tenant/channel-codes', MEMBER_API = '/tenant/members'
+// 设置页排法：页面头（标题 + 右边「新增」主按钮）→ 标签页（如有）→ 白卡片里的表格
+const setLayout = (addText, tabs = false) => `(() => { const hd = document.querySelector('#app .page-hd'); if (!hd?.querySelector('h2')) return '没有页面头'
+  const add = ${findBtn(addText, '#app .page-hd')}; if (!add || !add.classList.contains('el-button--primary') || add.classList.contains('is-plain') || add.classList.contains('is-link')) return '页面头右边没有「${addText}」主按钮'
+  const t = [...document.querySelectorAll('#app .el-table')].find((x) => x.getClientRects().length); if (!t) return '没有表格'
+  const card = t.closest('.card'); if (!card || getComputedStyle(card).backgroundColor !== ${bgToken('--bg-card')}) return '表格不在白卡片里'
+  const y = (e) => e.getBoundingClientRect().top
+  if (${tabs}) { const tb = document.querySelector('#app .el-tabs__header'); if (!tb) return '没有标签页'; if (!(y(hd) < y(tb) && y(tb) < y(t))) return '顺序不是页面头 → 标签页 → 表格' }
+  return y(hd) < y(t) ? '' : '表格不在页面头下面' })()`
+// 编辑用弹窗，宽 480–640（最上面那个弹窗）
+const dlgWidth = `(() => { const d = [...document.querySelectorAll('.el-dialog')].filter((x) => x.getClientRects().length).at(-1); if (!d) return '没有弹窗'
+  const w = Math.round(d.getBoundingClientRect().width); return w >= 480 && w <= 640 ? '' : '弹窗宽 ' + w + '，应在 480–640' })()`
+// 页面上的专属码：码点纯黑白；按页面上的链接重新编码、逐个模块对照（本机没有扫码库，用这个代替解码）；白底框，码四周白边不少于 2 个模块
+const qrScreen = `(async () => { const QR = (await import('/node_modules/.vite/deps/qrcode.js')).default
+  const box = document.querySelector('#app .mine .qr'), img = box?.querySelector('img'); if (!img) return '没有专属码图片'
+  const url = document.querySelector('#app .mine .url')?.innerText.trim(); if (!url) return '页面上没有专属链接'
+  await img.decode(); const W = img.naturalWidth, c = document.createElement('canvas'); c.width = W; c.height = img.naturalHeight; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
+  const d = x.getImageData(0, 0, W, c.height).data; let grey = 0; for (let i = 0; i < d.length; i += 4) if (d[i] !== d[i + 1] || d[i] !== d[i + 2] || (d[i] !== 0 && d[i] !== 255)) grey++
+  if (grey) return '专属码里有 ' + grey + ' 个不是纯黑白的像素'
+  const mod = QR.create(url, { errorCorrectionLevel: 'M' }).modules, n = mod.size, cell = W / (n + 2); let wrong = 0
+  for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) { const i = (Math.floor((r + 1.5) * cell) * W + Math.floor((col + 1.5) * cell)) * 4; if ((d[i] === 0) !== !!mod.data[r * n + col]) wrong++ }
+  if (wrong) return '专属码的码点和链接 ' + url + ' 对不上：' + wrong + ' 个模块不同'
+  if (getComputedStyle(box).backgroundColor !== 'rgb(255, 255, 255)') return '二维码底框不是白色：' + getComputedStyle(box).backgroundColor
+  const ir = img.getBoundingClientRect(), shown = ir.width / (n + 2), pad = ir.left - box.getBoundingClientRect().left - parseFloat(getComputedStyle(box).borderLeftWidth)
+  const quiet = (pad + shown) / shown; return quiet >= 2 ? '' : '二维码白边只有 ' + quiet.toFixed(1) + ' 个模块' })()`
+// 表格里启用中的渠道码：每一张都只有纯黑、纯白两种像素
+const qrRowsPure = `(async () => { const imgs = [...document.querySelectorAll('#app td .qr:not(.dim) img')]; if (!imgs.length) return '表格里没有启用中的二维码'
+  for (const img of imgs) { await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
+    const d = x.getImageData(0, 0, c.width, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i] !== d[i + 1] || d[i] !== d[i + 2] || (d[i] !== 0 && d[i] !== 255)) return '表格里的二维码有不是纯黑白的像素' }
+  return '' })()`
+// 下载的二维码图片：在页面里调 utils/qr.ts 合成（不触发下载）；码区纯黑白、码点和链接一致，外圈静区全白且（连同码自带的 1 模块白边）不少于 4 个模块
+const qrPng = `(async () => { const m = await import('/src/utils/qr.ts'), QR = (await import('/node_modules/.vite/deps/qrcode.js')).default
+  const url = document.querySelector('#app .mine .url').innerText.trim(), src = await m.qrPosterDataUrl({ url, title: '郭伟的专属码', subtitle: '仕兔演示劳务' })
+  const img = new Image(); img.src = src; await img.decode(); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
+  const { size: S, pad: P } = m.QR_POSTER, q = x.getImageData(P, P, S, S).data; let grey = 0
+  for (let i = 0; i < q.length; i += 4) if (q[i] !== q[i + 1] || q[i] !== q[i + 2] || (q[i] !== 0 && q[i] !== 255)) grey++
+  if (grey) return '下载图的二维码区域有 ' + grey + ' 个不是纯黑白的像素'
+  const W = S + P * 2, ring = x.getImageData(0, 0, W, W).data; let dirty = 0
+  for (let yy = 0; yy < W; yy++) for (let xx = 0; xx < W; xx++) { if (xx >= P && xx < P + S && yy >= P && yy < P + S) continue; const i = (yy * W + xx) * 4; if (ring[i] !== 255 || ring[i + 1] !== 255 || ring[i + 2] !== 255) dirty++ }
+  if (dirty) return '下载图二维码外圈 ' + P + 'px 静区里有 ' + dirty + ' 个不是白色的像素'
+  const mod = QR.create(url, { errorCorrectionLevel: 'M' }).modules, n = mod.size, cell = S / (n + 2)
+  if ((P + cell) / cell < 4) return '下载图静区不到 4 个模块：' + ((P + cell) / cell).toFixed(1)
+  let wrong = 0; for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) { const i = (Math.floor((r + 1.5) * cell) * S + Math.floor((col + 1.5) * cell)) * 4; if ((q[i] === 0) !== !!mod.data[r * n + col]) wrong++ }
+  return wrong ? '下载图的码点和链接对不上：' + wrong + ' 个模块不同' : '' })()`
+// 两个独立区块（专属码、渠道码列表）各自带加载遮罩 / 各给一个「重新加载」
+const eachMask = (sels) => `(() => { const miss = ${JSON.stringify(sels)}.filter((s) => !document.querySelector('#app ' + s + ' .el-loading-mask')); return miss.length ? '这些区块加载中没有自己的遮罩：' + miss.join('、') : '' })()`
+const eachRetry = (sels) => `(() => { const miss = ${JSON.stringify(sels)}.filter((s) => [...document.querySelectorAll('#app ' + s + ' button')].filter((b) => b.innerText.includes('重新加载')).length !== 1); return miss.length ? '这些区块失败时没有各给一个「重新加载」：' + miss.join('、') : '' })()`
+// 权限矩阵：有 / 没有用共享图标（不是 ✓ ✕ 字符），没有的不用危险色
+const matrixIcons = `(() => { const t = document.querySelector('#app .matrix'); if (!t) return '没有权限矩阵'; if (/[✓✕]/.test(t.innerText)) return '权限矩阵还在用 ✓ ✕ 字符'
+  const yes = t.querySelectorAll('.yes svg').length, no = [...t.querySelectorAll('.no')]; if (!yes || !no.length) return '权限矩阵没有图标'
+  return no.some((e) => getComputedStyle(e).color === ${tokenColor('--danger-text')}) ? '「没有该权限」用了危险色' : '' })()`
+const pickDateRange = [`document.querySelector('.el-dialog .el-range-editor').click()`, wait(400),
+  `document.querySelector('.el-date-range-picker td.today, .el-date-range-picker td.available').click()`, wait(200),
+  `[...document.querySelectorAll('.el-date-range-picker .is-right td.available')].at(-1).click()`, wait(300)]
+const pickContractFile = `(async () => { const i = document.querySelector('.el-dialog input[type=file]'), dt = new DataTransfer()
+  dt.items.add(new File(['x'], '合作合同.pdf', { type: 'application/pdf' })); i.files = dt.files; i.dispatchEvent(new Event('change', { bubbles: true })); await ${wait(800)} })()`
+const fakeContractFile = reply({ key: 'contract/2026/11/shot-contract.pdf', name: '合作合同.pdf', size: 1 })
+const fillContract = [`${findBtn('上传合同', '#app .page-hd')}.click()`, wait(600), ...pickOpt(0), ...pickDateRange, pickContractFile]
+const contractRules = (...more) => sr({ url: '/tenant/files', method: 'POST', action: 'respond', body: fakeContractFile }, ...more)
+const openRow = (text) => [`${findBtn(text, '#app .el-table__body')}.click()`, wait(500)]
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
@@ -2376,6 +2438,88 @@ const STATES = [
     lateRules: [{ url: RECON_API, action: 'hang' }], quick: true, steps: [...pickMonth('2026-09'), wait(600)], checks: [loadMask, monthKept('2026-09'), noNums, switchBlank, refreshBusy] },
   { app: 'console', screen: 'payroll-recon', state: 'switch-error', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'respond', body: fakeRecon }),
     lateRules: [{ url: RECON_API, action: 'fail' }], steps: pickMonth('2026-09'), checks: [oneRetry, monthKept('2026-09'), noNums, switchBlank] },
+  // ---- 工单 20：项目与甲方（第 11 类：页面头 → 标签页 → 白卡片表格；新增按钮在页面头）----
+  { app: 'console', screen: 'settings-projects', state: 'normal', persona: 'pm', path: '/settings/projects', rules: sr(),
+    checks: [cSide('pm'), setLayout('新建项目', true), opsCol, tblFit, opsTap, rowsTall, cLegacy16, queryReset, hasPager, statusTags, elPrimary] },
+  { app: 'console', screen: 'settings-projects', state: 'normal', persona: 'pm', path: '/settings/projects', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, opsCol, tblFit] },
+  { app: 'console', screen: 'settings-projects', state: 'loading', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无项目')] },
+  { app: 'console', screen: 'settings-projects', state: 'empty', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无项目'), cLegacy16] },
+  { app: 'console', screen: 'settings-projects', state: 'error', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('暂无项目')] },
+  // 结束项目：在确认框里提交
+  { app: 'console', screen: 'settings-projects', state: 'close-submitting', persona: 'pm', path: '/settings/projects', rules: sr(), quick: true,
+    steps: [...openRow('结束'), countXhr, boxClickTwice('结束项目')], checks: [boxTitle, elSpinning('结束项目', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'settings-projects', state: 'close-rejected', persona: 'pm', path: '/settings/projects', rules: sr({ url: '/close', method: 'POST', action: 'respond', body: refuse('TEN_4092', '项目下还有招聘中的岗位') }),
+    steps: [...openRow('结束'), `${findBtn('结束项目', '.el-message-box')}.click()`, elToastGone('项目下还有招聘中的岗位')],
+    checks: [boxWhy('结束项目', '暂时不能结束项目：项目下还有招聘中的岗位'), whyStays('#app .tbl-tip', '暂时不能结束项目：项目下还有招聘中的岗位'), onlyOff('#app td.ops-col', '结束'), dlgIdle] },
+  // 新建 / 编辑项目弹窗
+  { app: 'console', screen: 'settings-project-dlg', state: 'create', persona: 'pm', path: '/settings/projects', rules: sr(), steps: [`${findBtn('新建项目', '#app .page-hd')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-project-dlg', state: 'client-create', persona: 'pm', path: '/settings/projects', rules: sr(),
+    steps: [`${findBtn('新建项目', '#app .page-hd')}.click()`, wait(500), `${findBtn('新建甲方企业', '.el-dialog')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-project-dlg', state: 'edit', persona: 'pm', path: '/settings/projects', rules: sr(), steps: openRow('编辑'), checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-project-dlg', state: 'submitting', persona: 'pm', path: '/settings/projects', rules: sr(), quick: true,
+    steps: [...openRow('编辑'), countXhr, elClickTwice('保存', '.el-dialog')], checks: [elSpinning('保存', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'settings-project-dlg', state: 'rejected', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API + '/', method: 'PUT', action: 'respond', body: refuse('TEN_4093', '项目已结束，不能修改') }),
+    steps: [...openRow('编辑'), `${findBtn('保存', '.el-dialog')}.click()`, elToastGone('项目已结束，不能修改')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能保存：项目已结束，不能修改'), dlgOff('保存'), dlgIdle] },
+  // 合作合同标签页
+  { app: 'console', screen: 'settings-contracts', state: 'normal', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr(),
+    checks: [cSide('pm'), setLayout('上传合同', true), tblFit, opsTap, rowsTall, cLegacy16, queryReset, hasPager, elPrimary] },
+  { app: 'console', screen: 'settings-contracts', state: 'normal', persona: 'pm', path: '/settings/projects?tab=contracts', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, sideActive, tblFit] },
+  { app: 'console', screen: 'settings-contracts', state: 'loading', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无合作合同')] },
+  { app: 'console', screen: 'settings-contracts', state: 'empty', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无合作合同'), cLegacy16] },
+  { app: 'console', screen: 'settings-contracts', state: 'error', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('暂无合作合同')] },
+  { app: 'console', screen: 'settings-contract-dlg', state: 'normal', persona: 'pm', path: '/settings/projects?tab=contracts', rules: contractRules(), steps: fillContract, checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-contract-dlg', state: 'submitting', persona: 'pm', path: '/settings/projects?tab=contracts', rules: contractRules(), quick: true,
+    steps: [...fillContract, countXhr, elClickTwice('提交审核', '.el-dialog')], checks: [elSpinning('提交审核', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'settings-contract-dlg', state: 'rejected', persona: 'pm', path: '/settings/projects?tab=contracts',
+    rules: contractRules({ url: CONTRACT_API, method: 'POST', action: 'respond', body: refuse('TEN_4095', '该甲方已有待审核的合同') }),
+    steps: [...fillContract, `${findBtn('提交审核', '.el-dialog')}.click()`, elToastGone('该甲方已有待审核的合同')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能提交审核：该甲方已有待审核的合同'), dlgOff('提交审核'), dlgIdle] },
+  // ---- 工单 20：渠道二维码（码点纯黑白、和链接一致；下载图静区够 4 个模块）----
+  { app: 'console', screen: 'settings-channels', state: 'normal', persona: 'owner', path: '/settings/channels', rules: sr(),
+    checks: [cSide('owner'), setLayout('生成渠道码'), kpiCards, opsCol, tblFit, opsTap, rowsTall, cLegacy16, queryReset, hasPager, statusTags, elPrimary, qrScreen, qrRowsPure, qrPng] },
+  { app: 'console', screen: 'settings-channels', state: 'normal', persona: 'owner', path: '/settings/channels', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cFit, sideActive, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'settings-channels', state: 'loading', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)],
+    checks: [eachMask(['.mine-card', '.tbl-card']), noNums, tabsBlank, hasNot('暂无渠道码'), hasNot('暂无专属码')] },
+  { app: 'console', screen: 'settings-channels', state: 'empty', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API + '/mine', action: 'continue' }, { url: CHANNEL_API, method: 'GET', action: 'respond', body: reply([]) }),
+    checks: [has('暂无渠道码'), allZero, cLegacy16] },
+  { app: 'console', screen: 'settings-channels', state: 'error', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API, method: 'GET', action: 'fail' }),
+    checks: [eachRetry(['.mine-card', '.tbl-card']), noNums, tabsBlank, hasNot('暂无渠道码'), hasNot('暂无专属码')] },
+  { app: 'console', screen: 'settings-channels', state: 'toggle-submitting', persona: 'owner', path: '/settings/channels', rules: sr(), quick: true,
+    steps: [...openRow('停用'), countXhr, boxClickTwice('停用')], checks: [boxTitle, elSpinning('停用', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'settings-channels', state: 'toggle-rejected', persona: 'owner', path: '/settings/channels', rules: sr({ url: '/disable', method: 'POST', action: 'respond', body: refuse('CHANNEL_4091', '渠道码状态已变化，请刷新后再操作') }),
+    steps: [...openRow('停用'), `${findBtn('停用', '.el-message-box')}.click()`, elToastGone('渠道码状态已变化')],
+    checks: [boxWhy('停用', '暂时不能停用：渠道码状态已变化'), whyStays('#app .tbl-tip', '暂时不能停用：渠道码状态已变化'), onlyOff('#app td.ops-col', '停用'), dlgIdle] },
+  { app: 'console', screen: 'settings-channel-dlg', state: 'normal', persona: 'owner', path: '/settings/channels', rules: sr(), steps: [`${findBtn('生成渠道码', '#app .page-hd')}.click()`, wait(600)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-channel-dlg', state: 'submitting', persona: 'owner', path: '/settings/channels', rules: sr(), quick: true,
+    steps: [`${findBtn('生成渠道码', '#app .page-hd')}.click()`, wait(600), fillDlg('input[maxlength="30"]', '视频号直播间'), countXhr, elClickTwice('生成', '.el-dialog__footer')], checks: [elSpinning('生成', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'settings-channel-dlg', state: 'rejected', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API, method: 'POST', action: 'respond', body: refuse('CHANNEL_4090', '渠道码数量已达上限') }),
+    steps: [`${findBtn('生成渠道码', '#app .page-hd')}.click()`, wait(600), fillDlg('input[maxlength="30"]', '视频号直播间'), `${findBtn('生成', '.el-dialog__footer')}.click()`, elToastGone('渠道码数量已达上限')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能生成：渠道码数量已达上限'), dlgOff('生成'), dlgIdle] },
+  // 驻场只有自己的专属码
+  { app: 'console', screen: 'settings-channels', state: 'mine-only', persona: 'site', path: '/settings/channels', rules: sr(), checks: [has('我的专属码'), hasNot('启用中的渠道码'), qrScreen, cLegacy16] },
+  // ---- 工单 20：组织与权限 ----
+  { app: 'console', screen: 'settings-org', state: 'normal', persona: 'owner', path: '/settings/org', rules: sr(),
+    checks: [cSide('owner'), setLayout('新增成员'), kpiCards, opsCol, tblFit, opsTap, cLegacy16, queryReset, hasPager, statusTags, elPrimary, matrixIcons,
+      `(() => { const r = [...document.querySelectorAll('#app .members .el-table__body tr')].find((tr) => tr.getBoundingClientRect().height < 44); return r ? '成员表行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px' : '' })()`] },
+  { app: 'console', screen: 'settings-org', state: 'normal', persona: 'owner', path: '/settings/org', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cFit, sideActive, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'settings-org', state: 'loading', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, hasNot('暂无成员')] },
+  { app: 'console', screen: 'settings-org', state: 'empty', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'respond', body: reply([]) }),
+    checks: [has('暂无成员'), cLegacy16, `(() => { const n = [...document.querySelectorAll('#app .stat-v')].map((e) => e.innerText.trim()).filter((t) => !/^0( \\/ 0)?$/.test(t)); return n.length ? '列表是空的，计数却不是 0：' + n.join('、') : '' })()`] },
+  { app: 'console', screen: 'settings-org', state: 'error', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'fail' }), checks: [oneRetry, noNums, hasNot('暂无成员')] },
+  { app: 'console', screen: 'settings-org', state: 'toggle-submitting', persona: 'owner', path: '/settings/org', rules: sr(), quick: true,
+    steps: [...openRow('停用'), countXhr, boxClickTwice('停用')], checks: [boxTitle, elSpinning('停用', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'settings-org', state: 'toggle-rejected', persona: 'owner', path: '/settings/org', rules: sr({ url: '/status', method: 'POST', action: 'respond', body: refuse('TEN_4031', '不能停用自己') }),
+    steps: [...openRow('停用'), `${findBtn('停用', '.el-message-box')}.click()`, elToastGone('不能停用自己')],
+    checks: [boxWhy('停用', '暂时不能停用：不能停用自己'), whyStays('#app .tbl-tip', '暂时不能停用：不能停用自己'), onlyOff('#app td.ops-col', '停用'), dlgIdle] },
+  { app: 'console', screen: 'settings-org', state: 'readonly', persona: 'pm', path: '/settings/org', rules: sr(), checks: [hasNot('新增成员'), has('只读'), cLegacy16, `document.querySelector('#app td.ops-col') ? '只读视图不该有操作列' : ''`] },
+  { app: 'console', screen: 'settings-member-dlg', state: 'create', persona: 'owner', path: '/settings/org', rules: sr(), steps: [`${findBtn('新增成员', '#app .page-hd')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-member-dlg', state: 'edit', persona: 'owner', path: '/settings/org', rules: sr(), steps: openRow('编辑'), checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-member-dlg', state: 'submitting', persona: 'owner', path: '/settings/org', rules: sr(), quick: true,
+    steps: [...openRow('编辑'), countXhr, elClickTwice('保存', '.el-dialog')], checks: [elSpinning('保存', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'settings-member-dlg', state: 'rejected', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API + '/', method: 'PUT', action: 'respond', body: refuse('TEN_4032', '公司至少要保留一位老板') }),
+    steps: [...openRow('编辑'), `${findBtn('保存', '.el-dialog')}.click()`, elToastGone('公司至少要保留一位老板')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能保存：公司至少要保留一位老板'), dlgOff('保存'), dlgIdle] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

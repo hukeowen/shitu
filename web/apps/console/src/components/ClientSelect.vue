@@ -102,14 +102,14 @@ async function create() {
     >
       <el-option v-for="c in options" :key="c.clientId" :label="c.name" :value="c.clientId">
         <span>{{ c.name }}</span>
-        <span v-if="c.city" class="t-xs" style="float: right">{{ c.city }}</span>
+        <span v-if="c.city" class="opt-r">{{ c.city }}</span>
       </el-option>
     </el-select>
-    <div v-if="allowCreate && !disabled" class="t-xs" style="margin-top: 4px">
+    <div v-if="allowCreate && !disabled" class="create-hint">
       找不到？<el-button link type="primary" size="small" @click="openCreate">新建甲方企业</el-button>
     </div>
 
-    <el-dialog v-model="creating.visible" title="新建甲方企业" width="440px" append-to-body :close-on-click-modal="false">
+    <el-dialog v-model="creating.visible" title="新建甲方企业" width="480px" append-to-body :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="110px">
         <el-form-item label="企业全称" prop="name"><el-input v-model="form.name" maxlength="100" placeholder="与合同上的甲方名称一致" /></el-form-item>
         <el-form-item label="所在城市"><el-input v-model="form.city" maxlength="20" placeholder="如：苏州" /></el-form-item>
@@ -125,4 +125,6 @@ async function create() {
 
 <style scoped>
 .client-select { width: 100%; }
+.opt-r { float: right; font-size: var(--font-size-min); color: var(--text-3); }
+.create-hint { margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
 </style>

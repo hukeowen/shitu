@@ -26,7 +26,8 @@ watchEffect(async () => {
 </template>
 
 <style scoped>
-.qr { background: #fff; border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px; display: grid; place-items: center; flex: none; position: relative; }
+/* 白底框给二维码补静区（码自带 1 个模块白边），码点保持黑白（utils/qr.ts 的 QR_COLOR） */
+.qr { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-control); padding: var(--space-2); display: grid; place-items: center; flex: none; position: relative; }
 .qr img { width: 100%; height: 100%; image-rendering: pixelated; }
 .qr.dim img { opacity: .25; filter: grayscale(1); }
 </style>
