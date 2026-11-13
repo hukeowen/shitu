@@ -109,7 +109,7 @@ function back() {
             <div class="kv"><dt>申请时间</dt><dd>{{ full(adv.createdAt) }}</dd></div>
             <div class="kv"><dt>所属月份</dt><dd>{{ adv.bizMonth }}</dd></div>
             <div v-if="adv.paidAt" class="kv"><dt>拨款时间</dt><dd>{{ full(adv.paidAt) }}</dd></div>
-            <div class="kv"><dt>已抵扣</dt><dd>{{ fmtYuan(adv.repaidAmount) }}</dd></div>
+            <div class="kv"><dt>已抵扣</dt><dd class="money">{{ fmtYuan(adv.repaidAmount) }}</dd></div>
             <div class="kv"><dt>申请单号</dt><dd class="code">{{ adv.advanceId }}</dd></div>
           </dl>
         </section>
@@ -141,8 +141,8 @@ function back() {
               <span>{{ full(l.createdAt) }}</span>
             </dt>
             <dd>
-              <b>{{ l.changeType === 'PAYOUT' ? '+' : '−' }}{{ fmtYuan(l.amount) }}</b>
-              <span>本笔剩余 {{ fmtYuan(l.balanceAfter) }}</span>
+              <b class="money">{{ Number(l.amount) ? (l.changeType === 'PAYOUT' ? '+' : '−') : '' }}{{ fmtYuan(l.amount) }}</b>
+              <span>本笔剩余 <span class="money-in">{{ fmtYuan(l.balanceAfter) }}</span></span>
             </dd>
           </div>
         </section>
@@ -152,7 +152,7 @@ function back() {
     </van-pull-refresh>
 
     <div v-if="hasBar && adv" class="bottom-bar">
-      <p v-if="blocked" class="bar-why" role="status">{{ blocked }}</p>
+      <p v-if="blocked" class="bar-why err" role="status">{{ blocked }}</p>
       <div class="bar-acts">
         <van-button v-if="adv.allowedActions.includes('SITE_REJECT')" size="large" plain type="danger" :disabled="!!blocked" @click="review(false)">驳回</van-button>
         <van-button v-if="adv.allowedActions.includes('SITE_APPROVE')" size="large" type="primary" :disabled="!!blocked" @click="review(true)">初审通过</van-button>
@@ -165,14 +165,15 @@ function back() {
 <style scoped>
 .advd { min-height: 100vh; }
 .sum { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--font-size-body); color: var(--text-2); }
-.sum-amt { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); white-space: nowrap; }
+.sum-amt { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .code { font-family: var(--font-mono); }
 /* 审批时间线：完成 / 进行中 / 驳回除了圆点颜色，文字里也写明（「· 通过」「待处理」「· 驳回」） */
 .tl { position: relative; padding-left: 20px; }
 .tl::before { content: ""; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
 .tl li { position: relative; padding: 0 0 var(--space-4); }
 .tl li:last-child { padding-bottom: 0; }
-.tl li::before { content: ""; position: absolute; left: -19px; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--border); box-sizing: border-box; }
+/* 未到的节点是空心圆，描边用三级文字色（白底 5.12），过图形 3:1 */
+.tl li::before { content: ""; position: absolute; left: -19px; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--text-3); box-sizing: border-box; }
 .tl li.done::before { background: var(--success-solid); border-color: var(--success-solid); }
 .tl li.now::before { background: var(--primary); border-color: var(--primary); }
 .tl li.fail::before { background: var(--danger-solid); border-color: var(--danger-solid); }
@@ -180,8 +181,11 @@ function back() {
 .tl li.fail .tl-t { color: var(--danger-text); }
 .tl-m { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .tl-o { margin-top: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
-.led dt b, .led dd b { display: block; font-weight: var(--font-weight-medium); color: var(--text-1); }
+.led dt b { display: block; font-weight: var(--font-weight-medium); color: var(--text-1); }
+.led dd b { display: block; }
 .led dt span, .led dd span { display: block; margin-top: 2px; font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); }
+/* 被拒的原因：危险文字色、左对齐（和列表卡片、原因弹窗里的同一句一致） */
+.bottom-bar .bar-why { justify-content: flex-start; text-align: left; }
 .bar-acts { display: flex; gap: var(--space-3); }
 .bar-acts .van-button { flex: 1; min-width: 0; }
 </style>

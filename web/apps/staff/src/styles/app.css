@@ -99,6 +99,12 @@ ul, ol { list-style: none; }
 .seg-tabs { --van-tab-font-size: var(--font-size-body); --van-tabs-bottom-bar-width: 24px; }
 .seg-tabs .van-tabs__wrap { border-bottom: 1px solid var(--divider); }
 
+/* 金额：一级文字色加粗、数字等宽，不用薪资色；和求职者端 app.css 的 .money / .money-in 同义 */
+/* 整格金额：右对齐、不折行（.kv dd 自带 500 字重，在键值行里要再点一次名） */
+.money, .kv dd.money { font-weight: var(--font-weight-semibold); color: var(--text-1); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 夹在文字里的金额：跟着所在那行的字号 */
+.money-in { display: inline; font-size: inherit; font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 /* 底部固定通栏 */
 .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-width: 750px; margin: 0 auto; padding: var(--space-2) var(--space-page) calc(var(--space-2) + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 .bottom-bar-gap { height: calc(80px + env(safe-area-inset-bottom)); }

@@ -165,6 +165,7 @@ function back() {
 .list { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 .item { display: block; width: 100%; text-align: left; color: inherit; cursor: pointer; }
 .item:active { background: var(--bg-hover); }
+.item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .no { margin-left: var(--space-2); font-family: var(--font-mono); font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); }
 .meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
 .meta dt { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }

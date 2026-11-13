@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, useDict } from '@shitu/api-client'
-import { IconBell, IconChevronRight, IconQrCode, IconShieldCheck, IconTriangleExclamationPoint, IconUsers, IconWallet } from '@shitu/ui-icons'
+import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconQrCode, IconShieldCheck, IconUsers, IconWallet } from '@shitu/ui-icons'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
 
@@ -65,14 +65,13 @@ async function onLogout() {
           </div>
         </div>
       </section>
-      <div v-else-if="reloading" class="acard page-state in-card"><van-loading size="28" vertical>加载中…</van-loading></div>
-      <section v-else class="acard">
-        <div class="state-block state-block--sm">
-          <IconTriangleExclamationPoint :size="32" />
-          <p class="state-block-t">{{ loadError || '成员信息加载失败' }}</p>
-          <van-button @click="reload">重新加载</van-button>
-        </div>
-      </section>
+      <div v-else-if="reloading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+      <div v-else class="state-block">
+        <IconCircleExclamationPoint :size="48" />
+        <p class="state-block-t">{{ loadError || '成员信息加载失败' }}</p>
+        <p class="state-block-d">请检查网络后重新加载</p>
+        <van-button type="primary" @click="reload">重新加载</van-button>
+      </div>
 
       <section v-if="me" class="acard">
         <div class="acard-hd"><h4>所属公司</h4></div>
@@ -129,7 +128,6 @@ async function onLogout() {
 .me-name { display: block; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); overflow-wrap: anywhere; }
 .me-phone { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .me-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
-.in-card { padding: var(--space-6) 0; }
 .me-group { padding: 0; overflow: hidden; }
 .me-group .lrow { text-decoration: none; color: inherit; }
 .ic { flex: none; color: var(--text-2); }

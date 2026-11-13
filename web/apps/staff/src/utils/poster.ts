@@ -5,10 +5,26 @@ export interface PosterInput {
   company: string
 }
 
+/**
+ * 海报尺寸、品牌标和二维码的位置。tools/e2e/states.mjs 的 posterCheck 直接读这组常量，
+ * 按它查二维码区域纯黑白、四周静区全白、品牌标是主色。
+ */
+export const POSTER = {
+  width: 750,
+  height: 1120,
+  brand: { x: 60, y: 70, size: 72 },
+  qr: { x: 165, y: 440, size: 420 },
+} as const
+
 /** canvas 读不到 var()：运行时从 :root 取设计变量的真实色值，海报和页面跟着同一套变量走 */
 function tokens() {
   const cs = getComputedStyle(document.documentElement)
-  const v = (name: string) => cs.getPropertyValue(name).trim()
+  // 读不到时 fillStyle 会静默沿用上一种颜色，画出来的海报颜色就错了：直接报错，由页面提示「生成图片失败」
+  const v = (name: string) => {
+    const value = cs.getPropertyValue(name).trim()
+    if (!value) throw new Error(`生成图片失败：读不到设计变量 ${name}`)
+    return value
+  }
   return {
     primary: v('--primary'),
     primaryText: v('--primary-text'),
@@ -20,7 +36,7 @@ function tokens() {
     text1: v('--text-1'),
     text2: v('--text-2'),
     text3: v('--text-3'),
-    font: v('--font-sans') || 'sans-serif',
+    font: v('--font-sans'),
   }
 }
 
@@ -68,8 +84,8 @@ function drawBrandMark(ctx: CanvasRenderingContext2D, x: number, y: number, size
 }
 
 export async function composePoster({ qrDataUrl, name, company }: PosterInput): Promise<string> {
-  const W = 750
-  const H = 1120
+  const W = POSTER.width
+  const H = POSTER.height
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
@@ -82,7 +98,7 @@ export async function composePoster({ qrDataUrl, name, company }: PosterInput): 
 
   // 头部：品牌标 + 「仕兔」+ 一句话
   ctx.textBaseline = 'top'
-  drawBrandMark(ctx, 60, 70, 72, t)
+  drawBrandMark(ctx, POSTER.brand.x, POSTER.brand.y, POSTER.brand.size, t)
   ctx.fillStyle = t.text1
   ctx.font = `600 56px ${t.font}`
   ctx.fillText('仕兔', 150, 76)
@@ -114,11 +130,9 @@ export async function composePoster({ qrDataUrl, name, company }: PosterInput): 
   ctx.fillText(fitText(ctx, `驻场老师 ${name} 邀请你加入仕兔`, cardW - 80), W / 2, cardY + 104)
 
   // 二维码四周都是卡片白底：上下离文字 ≥ 48px、左右 105px，加上码自带的 1 模块白边，静区超过 4 个模块；码点上不压任何品牌元素。
-  // 位置和大小改了要同步 tools/e2e/states.mjs 的 posterCheck
   const qr = await loadImage(qrDataUrl)
-  const qrSize = 420
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(qr, (W - qrSize) / 2, cardY + 190, qrSize, qrSize)
+  ctx.drawImage(qr, POSTER.qr.x, POSTER.qr.y, POSTER.qr.size, POSTER.qr.size)
 
   // 行动句：主色浅底胶囊配主色文字
   const cta = '微信扫一扫 · 注册即享 24 小时专属跟进'

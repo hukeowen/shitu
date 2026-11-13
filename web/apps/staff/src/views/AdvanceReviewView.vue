@@ -90,14 +90,16 @@ function back() {
       <div v-else class="pad stack">
         <p v-if="tab === 'todo' && todo.length" class="note">流程：本人发起 → <b>驻场初审</b> → 项目经理终审 → 拨款。驳回后本次机会退回给求职者。</p>
         <article v-for="a in shown" :key="a.advanceId" class="acard adv-card">
-          <div class="item-hd">
-            <router-link :to="`/advance/${a.advanceId}`" class="name-link">
+          <router-link :to="`/advance/${a.advanceId}`" class="head">
+            <div class="item-hd">
               <h3>{{ a.seekerName ?? '—' }}</h3>
+              <span class="status-tag" :class="ADVANCE_TONE[a.status]">{{ label('AdvanceStatus', a.status) }}</span>
+            </div>
+            <p class="item-sub">
+              <span class="flex1">预支 <b class="money-in">{{ fmtYuan(a.amount) }}</b> · {{ a.projectName ?? '—' }}</span>
               <IconChevronRight :size="16" class="chev" />
-            </router-link>
-            <span class="status-tag" :class="ADVANCE_TONE[a.status]">{{ label('AdvanceStatus', a.status) }}</span>
-          </div>
-          <p class="item-sub">预支 <b class="amt">{{ fmtYuan(a.amount) }}</b> · {{ a.projectName ?? '—' }}</p>
+            </p>
+          </router-link>
           <dl class="facts">
             <div class="kv"><dt>申请时间</dt><dd>{{ fmtTime(a.createdAt, nowDate) }}</dd></div>
             <div class="kv"><dt>所属月份</dt><dd>{{ a.bizMonth }}</dd></div>
@@ -126,12 +128,14 @@ function back() {
 .adv { min-height: 100vh; }
 .n { margin-left: var(--space-1); }
 .pr { min-height: calc(100vh - 100px); }
-.name-link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: calc(var(--space-3) * -1) 0; min-width: 0; color: inherit; text-decoration: none; }
-.name-link .chev { flex: none; color: var(--text-3); }
-.amt { font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.head { display: block; color: inherit; text-decoration: none; }
+.head:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-control); }
+.head .item-sub { display: flex; align-items: center; gap: var(--space-2); }
+.head .chev { flex: none; color: var(--text-3); }
 .facts { margin-top: var(--space-2); }
 .code { font-family: var(--font-mono); }
 .acts { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
 .act { flex: 1; min-width: 0; font-weight: var(--font-weight-medium); }
-.why { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); }
+/* 被后端拒绝的原因：危险文字色、左对齐（和详情通栏、原因弹窗里的同一句一致） */
+.why { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--danger-text); text-align: left; }
 </style>

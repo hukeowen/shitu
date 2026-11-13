@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { showToast } from 'vant'
 import { errorMessage, isApiError } from '@shitu/api-client'
+import { IconCheck } from '@shitu/ui-icons'
 
 /**
  * 填原因 / 意见的确认弹窗（面试未通过、取消报名、爽约备注、预支驳回等）。
@@ -89,7 +90,7 @@ defineExpose({ open })
       <p v-if="opts?.message" class="msg">{{ opts.message }}</p>
       <div v-if="opts?.presets?.length" class="presets">
         <button v-for="p in opts.presets" :key="p" type="button" class="chip-tap" :aria-pressed="text.includes(p)" @click="pick(p)">
-          <span class="chip" :class="{ on: text.includes(p) }">{{ p }}</span>
+          <span class="chip" :class="{ on: text.includes(p) }"><IconCheck :size="14" :stroke-width="2.25" class="ck" />{{ p }}</span>
         </button>
       </div>
       <textarea
@@ -113,8 +114,14 @@ defineExpose({ open })
 .chip-tap { display: inline-flex; align-items: center; min-height: var(--control-height); padding: 0; border: 0; background: none; font: inherit; }
 .chip { height: 30px; padding: 0 var(--space-3); border-radius: 15px; border: 1px solid var(--border); background: var(--bg-card); font-size: var(--font-size-aux); line-height: 28px; color: var(--text-2); }
 .chip.on { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+/* 选中除了变色还带勾；勾一直占位、没选中时隐藏，选中前后宽度不变 */
+.chip { display: inline-flex; align-items: center; gap: 2px; }
+.chip .ck { flex: none; visibility: hidden; }
+.chip.on .ck { visibility: visible; }
+.chip-tap:focus-visible .chip { outline: 2px solid var(--primary); outline-offset: 2px; }
 .ta { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); font-size: 16px; line-height: 1.6; color: var(--text-1); background: var(--bg-page); resize: none; outline: none; font-family: inherit; }
 .ta:focus { border-color: var(--primary); background: var(--bg-card); }
 .cnt { text-align: right; font-size: var(--font-size-min); color: var(--text-3); margin-top: 2px; }
-.bar-why { display: block; margin: var(--space-2) 0 0; }
+/* 被拒的原因：危险文字色、左对齐 */
+.bar-why { display: block; justify-content: flex-start; margin: var(--space-2) 0 0; text-align: left; }
 </style>

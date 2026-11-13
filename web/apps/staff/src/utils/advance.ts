@@ -2,11 +2,11 @@ import { showSuccessToast, showToast } from 'vant'
 import { errorMessage, isApiError, tenantApi, type AdvanceApprovalStep, type AdvanceRow, type AdvanceStatus, type DebtLogEntry } from '@shitu/api-client'
 import type ReasonDialog from '@/components/ReasonDialog.vue'
 
-/** 预支状态的标签色调（tokens.css 的 .status-tag--*；中文名取字典 AdvanceStatus） */
+/** 预支状态的标签色调（tokens.css 的 .status-tag--*；中文名取字典 AdvanceStatus）；和求职者端 utils/advance.ts 同一组色调 */
 export const ADVANCE_TONE: Record<AdvanceStatus, string> = {
   SUBMITTED: 'status-tag--warning',
-  SITE_APPROVED: 'status-tag--info',
-  PM_APPROVED: 'status-tag--info',
+  SITE_APPROVED: 'status-tag--warning',
+  PM_APPROVED: 'status-tag--warning',
   PAID: 'status-tag--success',
   PARTIALLY_REPAID: 'status-tag--pending',
   REPAID: 'status-tag--neutral',

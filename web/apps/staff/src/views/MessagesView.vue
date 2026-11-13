@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref, shallowRef } from 'vue'
+import { computed, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { errorMessage, tenantApi, type InboxItem } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, type InboxItem } from '@shitu/api-client'
 import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { useInboxStore } from '@/stores/inbox'
 import { fmtTime } from '@/utils/time'
@@ -19,8 +19,9 @@ const error = ref(false)
 const errorText = ref('')
 const refreshing = ref(false)
 const markingAll = ref(false)
-/** 「全部已读」没有成功：原因留在列表上方 */
+/** 「全部已读」没有成功：原因留在列表上方；被后端拒绝时按钮置灰，下拉刷新后重新判断 */
 const readAllError = ref('')
+const readAllRejected = ref(false)
 let page = 0
 let seq = 0
 
@@ -47,6 +48,8 @@ async function loadMore() {
 function reset() {
   seq += 1
   page = 0
+  readAllError.value = ''
+  readAllRejected.value = false
   rows.value = []
   error.value = false
   finished.value = false
@@ -74,9 +77,11 @@ async function open(m: InboxItem) {
   else expanded[m.id] = !expanded[m.id]
 }
 const expanded = reactive<Record<number, boolean>>({})
+/** 「全部已读」置灰：标记中、没有未读、列表还在加载或加载失败、刚被后端拒绝 */
+const readAllOff = computed(() => markingAll.value || inbox.unread === 0 || (!rows.value.length && (loading.value || error.value)) || readAllRejected.value)
 
 async function readAll() {
-  if (markingAll.value) return
+  if (readAllOff.value) return
   markingAll.value = true
   readAllError.value = ''
   try {
@@ -86,6 +91,7 @@ async function readAll() {
     showToast('已全部标为已读')
   } catch (e) {
     readAllError.value = errorMessage(e)
+    readAllRejected.value = isApiError(e)
     showToast(readAllError.value)
   } finally {
     markingAll.value = false
@@ -102,7 +108,7 @@ function back() {
   <div class="msgs">
     <van-nav-bar title="消息通知" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back">
       <template #right>
-        <button type="button" class="all" :disabled="markingAll || inbox.unread === 0" @click="readAll"><van-loading v-if="markingAll" size="16" />全部已读</button>
+        <button type="button" class="all" :disabled="readAllOff" @click="readAll"><van-loading v-if="markingAll" size="16" />全部已读</button>
       </template>
     </van-nav-bar>
 
@@ -143,6 +149,7 @@ function back() {
               <p class="msg-c" :class="{ open: expanded[m.id] }">{{ m.content }}</p>
             </div>
             <IconChevronRight v-if="m.link && INTERNAL.test(m.link)" :size="16" class="chev" />
+            <span v-else class="chev-gap" aria-hidden="true" />
           </article>
         </van-list>
         <div v-if="finished && !rows.length && !error" class="state-block">
@@ -182,5 +189,7 @@ function back() {
 .msg-c { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); overflow-wrap: anywhere; }
 .msg-c.open { display: block; -webkit-line-clamp: unset; }
 .chev { flex: none; margin-top: 4px; color: var(--text-3); }
+/* 不跳转的消息右边留出和箭头一样宽的空位，时间和其他行对齐 */
+.chev-gap { flex: none; width: 16px; }
 .tipbar-d.first { margin-top: 0; }
 </style>

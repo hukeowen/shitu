@@ -127,8 +127,8 @@ function back() {
 
       <div class="bottom-bar">
         <div class="bar-acts">
-          <van-button size="large" plain type="primary" @click="copy">复制链接</van-button>
           <van-button size="large" type="primary" :loading="saving" loading-text="生成中…" @click="save">保存图片</van-button>
+          <van-button size="large" plain type="primary" @click="copy">复制链接</van-button>
         </div>
       </div>
     </template>

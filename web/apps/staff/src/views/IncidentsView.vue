@@ -3,7 +3,7 @@ import { nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, tenantApi, useDict, type IncidentRow, type IncidentSeverity, type ProjectView } from '@shitu/api-client'
-import { IconCircleExclamationPoint, IconShieldCheck, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
+import { IconCheck, IconCircleExclamationPoint, IconShieldCheck, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
 import { fmtFull, parseLocal } from '@/utils/time'
 
 /** 工伤上报（T-405）：现场第一时间上报，老板和项目经理立刻收到站内信与短信 */
@@ -151,7 +151,7 @@ function back() {
             </template>
           </van-field>
           <van-field v-model="form.personName" label="受伤人员" required maxlength="30" placeholder="姓名" data-field="personName" :error-message="errs.personName" />
-          <van-field label="伤情" required>
+          <van-field label="伤情" required center>
             <template #input>
               <div class="seg" role="radiogroup" aria-label="伤情">
                 <button
@@ -163,7 +163,7 @@ function back() {
                   :class="{ on: form.severity === o.value }"
                   @click="form.severity = o.value as IncidentSeverity"
                 >
-                  {{ o.label }}
+                  <IconCheck v-if="form.severity === o.value" :size="14" :stroke-width="2.25" />{{ o.label }}
                 </button>
               </div>
             </template>
@@ -210,8 +210,10 @@ function back() {
 .grp { margin: 0; }
 .ctl { width: 100%; min-width: 0; padding: 0; border: 0; background: none; font: inherit; font-size: var(--font-size-body); color: var(--text-1); }
 .seg { display: flex; gap: var(--space-2); width: 100%; }
-.seg button { flex: 1; min-width: 0; min-height: 44px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-body); color: var(--text-2); }
+.seg button { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-height: 44px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-body); color: var(--text-2); }
+.seg button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* 选中除了变色还带勾；三格等宽，带勾不改变宽度 */
 .seg button.on { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
 .foot { padding: var(--space-2) var(--space-4); background: var(--bg-card); border-top: 1px solid var(--border); }
-.foot .bar-why { margin-bottom: var(--space-2); }
+.foot .bar-why { justify-content: flex-start; margin-bottom: var(--space-2); text-align: left; }
 </style>
