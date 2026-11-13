@@ -112,7 +112,7 @@ function remove(i: number) {
 .drop.busy { pointer-events: none; opacity: .6; }
 .drop-t { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-1); }
 .drop-d { font-size: var(--font-size-min); color: var(--text-3); }
-.form-err { margin: var(--space-2) 0 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--danger-text); }
+.form-err { margin-top: var(--space-2); }
 .list { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
 .list li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; font-size: var(--font-size-aux); }
 .list .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }

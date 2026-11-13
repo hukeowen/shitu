@@ -736,6 +736,7 @@ const cResult = `(() => { const box = document.querySelector('#app .result'); if
   if (!icon || Math.round(icon.getBoundingClientRect().width) !== 48) return '结果图标不是 48'
   const cs = h && getComputedStyle(h); if (!cs || parseFloat(cs.fontSize) !== 16 || Number(cs.fontWeight) !== 600) return '结果标题不是 16px / 600'
   return p ? '' : '结果区没有说明' })()`
+const scrollStart = (sel) => `document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'start' })`
 const elPrimary = `(() => { const n = [...document.querySelectorAll('#app .el-button--primary:not(.is-link):not(.is-plain):not(.is-text)')].filter((b) => b.getClientRects().length).length
   return n === 1 ? '' : '主色实心按钮有 ' + n + ' 个' })()`
 const elClickTwice = (text, scope = '#app') => `(async () => { ${findBtn(text, scope)}.click(); await ${wait(300)}; const again = document.querySelector(${JSON.stringify(scope + ' .el-button.is-loading')}) ?? ${findBtn(text, scope)}; again?.click() })()`
@@ -768,7 +769,8 @@ const fakeUpload = reply({ key: 'onboarding/2026/11/shot-license.png', name: '�
 const C_PENDING = data.personas.pendingOwner.phone
 const pendingMe = (await get(TME_API, await tenantSession(C_PENDING))).data
 const pmMe = (await get(TME_API, await tenantSession(MEMBERS.pm))).data
-const cMe = (me, company) => ({ url: TME_API, action: 'respond', body: reply({ ...me, company: { ...me.company, ...company } }) })
+// 假的成员信息。规则按「地址里包含」匹配，'/tenant/me' 也会命中 '/tenant/messages/…'（未读数会被换成成员对象），所以先放行消息的读取
+const cMe = (me, company) => [{ url: '/tenant/messages', method: 'GET', action: 'continue' }, { url: TME_API, action: 'respond', body: reply({ ...me, company: { ...me.company, ...company } }) }]
 const openBell = `document.querySelector('.top button[aria-label="消息"]').click()`
 const msgsEmpty = reply({ records: [], total: 0, page: 1, pageSize: 20 })
 // 消息抽屉：每条是标题、时间、两行摘要；未读的左边主色圆点、标题 500
@@ -779,6 +781,32 @@ const cDrawer = `(() => { const d = document.querySelector('.msg-drawer'); if (!
   if (Number(getComputedStyle(un.querySelector('.mt')).fontWeight) !== 500) return '未读标题不是 500 字重'
   const mc = un.querySelector('.mc'); if (getComputedStyle(mc).webkitLineClamp !== '2') return '摘要不是两行截断'
   return '' })()`
+// 顶栏消息角标：只显示数字（超过 99 显示 99+），不压住旁边的「退出」
+const cBadge = `(() => { const b = [...document.querySelectorAll('.top .el-badge__content')].find((e) => e.getClientRects().length); if (!b) return '没有未读角标'
+  if (!/^\\d{1,2}$|^99\\+$/.test(b.innerText.trim())) return '角标不是数字：' + b.innerText
+  const out = ${findBtn('退出', '.top')}.getBoundingClientRect(), r = b.getBoundingClientRect()
+  return r.right > out.left ? '角标压住了「退出」' : '' })()`
+// D-58：公司后台不出现「限流」字样
+const noThrottleWord = `document.querySelector('#app').innerText.includes('限流') ? '后台出现了「限流」字样' : ''`
+// 消息抽屉：宽 560–720，标题是区块标题样式
+const drawerShape = `(() => { const d = document.querySelector('.msg-drawer'), w = d.getBoundingClientRect().width; if (w < 560 || w > 720) return '消息抽屉宽 ' + w + '，应在 560–720'
+  const t = getComputedStyle(d.querySelector('.el-drawer__title'))
+  return parseFloat(t.fontSize) === 16 && Number(t.fontWeight) === 600 && t.color === ${tokenColor('--text-1')} ? '' : '抽屉标题不是 16px / 600 一级文字' })()`
+// 字段下的错误提示和下面的字段、按钮之间至少 16（同一列里往下找最近的一个）
+const fieldGap = `(() => { const errs = [...document.querySelectorAll('#app .el-form-item__error')].filter((e) => e.getClientRects().length); if (!errs.length) return '没有字段错误提示'
+  const below = [...document.querySelectorAll('#app .el-form-item, #app .el-button, #app .form-err')].filter((e) => e.getClientRects().length)
+  for (const e of errs) { const r = e.getBoundingClientRect(), own = e.closest('.el-form-item')
+    const gaps = below.filter((x) => !own.contains(x) && !x.contains(own)).map((x) => x.getBoundingClientRect())
+      .filter((x) => x.top >= r.top && x.left < r.right && x.right > r.left).map((x) => x.top - r.bottom)
+    const g = Math.min(...gaps); if (g < 15) return '「' + e.innerText + '」和下面的内容只隔 ' + Math.round(g) + 'px' }
+  return '' })()`
+// 未到的步骤文字不用占位色：和三级文字色一样
+const waitStepText = `(() => { const t = document.querySelector('#app .el-step__title.is-wait'); if (!t) return '没有未到的步骤'
+  return getComputedStyle(t).color === ${tokenColor('--text-3')} ? '' : '未到的步骤文字颜色太浅：' + getComputedStyle(t).color })()`
+// 结果区：一个主按钮加一个文字链接
+const resultActs = `(() => { const a = document.querySelector('#app .result .acts'); if (!a) return '结果区没有按钮'
+  const p = a.querySelectorAll('.el-button--primary:not(.is-link)').length, l = a.querySelectorAll('.el-button.is-link').length
+  return p === 1 && l === 1 ? '' : '结果区应当是一个主按钮加一个文字链接，实际主按钮 ' + p + ' 个、链接 ' + l + ' 个' })()`
 const readAllOffEl = `(() => { const b = ${findBtn('全部已读', '.msg-drawer')}; return b && b.disabled ? '' : '「全部已读」没有置灰' })()`
 
 const STATES = [
@@ -1449,11 +1477,10 @@ const STATES = [
   { app: 'staff', screen: 'me', state: 'submitting', persona: 'site', path: '/me', rules: sr(), steps: [toLogout, countXhr, logoutFlow], quick: true,
     checks: [spinning('退出登录'), sentOnce, logoutVisible] },
   // ---- 工单 14：企业后台外壳 ----
-  // 拦截自检：同驻场，发一条不存在的 PUT（不会落库），1.5 秒内有回应就说明写请求没被拦住
-  { app: 'console', screen: 'shell', state: 'write-guard', persona: 'pm', path: '/pm/jobs', rules: sr(),
-    checks: [`new Promise((ok) => { const x = new XMLHttpRequest(); x.open('PUT', '/api/v1/tenant/employments/E-NONE/absences'); x.onloadend = () => ok('PUT 写请求没被拦住（状态 ' + x.status + '）'); x.send('{}'); setTimeout(() => ok(''), 1500) })`] },
   { app: 'console', screen: 'shell', state: 'owner', persona: 'owner', path: '/owner/overview', rules: sr(), checks: [cSide('owner'), cTop('劳务公司老板/数据总览'), cPrimaryOnly, pageBg] },
-  { app: 'console', screen: 'shell', state: 'pm', persona: 'pm', path: '/pm/jobs', rules: sr(), checks: [cSide('pm'), cTop('项目经理/岗位管理'), cPrimaryOnly, cFit] },
+  // 最后一项是拦截自检：同驻场，发一条不存在的 PUT（不会落库），1.5 秒内有回应就说明写请求没被拦住（不单独截图：画面和正常一样）
+  { app: 'console', screen: 'shell', state: 'pm', persona: 'pm', path: '/pm/jobs', rules: sr(), checks: [cSide('pm'), cTop('项目经理/岗位管理'), cPrimaryOnly, cFit, cBadge, noThrottleWord,
+    `new Promise((ok) => { const x = new XMLHttpRequest(); x.open('PUT', '/api/v1/tenant/employments/E-NONE/absences'); x.onloadend = () => ok('PUT 写请求没被拦住（状态 ' + x.status + '）'); x.send('{}'); setTimeout(() => ok(''), 1500) })`] },
   { app: 'console', screen: 'shell', state: 'pm', persona: 'pm', path: '/pm/jobs', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, cRoom] },
   { app: 'console', screen: 'shell', state: 'site', persona: 'site', path: '/site/home', rules: sr(), checks: [cSide('site'), cTop('驻场/驻场工作台'), cPrimaryOnly] },
   { app: 'console', screen: 'shell', state: 'site', persona: 'site', path: '/site/home', width: 1280, height: 800, rules: sr(), checks: [cSide('site')] },
@@ -1461,24 +1488,27 @@ const STATES = [
   { app: 'console', screen: 'shell', state: 'org', persona: 'owner', path: '/settings/org', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cFit] },
   // 账单表各列最小宽度合计 1060，1280 宽下「操作」列要在表格里横向滚动才看得到：表格列宽归账单页的改版工单，这里只查外壳没挤占内容区
   { app: 'console', screen: 'shell', state: 'bills', persona: 'owner', path: '/owner/bills', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cRoom] },
-  { app: 'console', screen: 'shell', state: 'throttled', persona: 'pm', path: '/pm/board', rules: sr(cMe(pmMe, { status: 'THROTTLED', statusRemark: '近 30 天爽约率超标，限流至 12 月 1 日' })),
-    checks: [has('公司当前处于平台处罚期'), has('近 30 天爽约率超标'), `getComputedStyle(document.querySelector('#app .throttle')).backgroundColor === ${bgToken('--warning-soft')} ? '' : '处罚期提示条不是提醒浅底'`, cTop('项目经理/数据看板', 'warning')] },
+  { app: 'console', screen: 'shell', state: 'throttled', persona: 'pm', path: '/pm/board', rules: sr(...cMe(pmMe, { status: 'THROTTLED', statusRemark: '近 30 天有 3 起求职者投诉经核实：到厂后岗位薪资与发布内容不符' })),
+    checks: [has('公司当前处于平台处罚期'), has('岗位薪资与发布内容不符'), cBadge, noThrottleWord, `getComputedStyle(document.querySelector('#app .throttle')).backgroundColor === ${bgToken('--warning-soft')} ? '' : '处罚期提示条不是提醒浅底'`, cTop('项目经理/数据看板', 'warning')] },
   // 消息抽屉
-  { app: 'console', screen: 'messages', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [openBell], checks: [cDrawer] },
+  { app: 'console', screen: 'messages', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [openBell], checks: [cDrawer, drawerShape] },
   { app: 'console', screen: 'messages', state: 'empty', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_MSG_API, action: 'respond', body: msgsEmpty }, { url: C_UNREAD_API, action: 'respond', body: reply(0) }), steps: [openBell],
     checks: [`document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '' : '空状态没写「暂无消息」'`, readAllOffEl] },
   { app: 'console', screen: 'messages', state: 'loading', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_MSG_API, action: 'hang' }), steps: [openBell], quick: true,
     checks: [`document.querySelector('.msg-drawer .el-loading-mask') ? '' : '没有加载遮罩'`, `document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '加载中闪了空状态' : ''`, readAllOffEl] },
   { app: 'console', screen: 'messages', state: 'error', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_MSG_API, action: 'fail' }), steps: [openBell],
-    checks: [`${findBtn('重新加载', '.msg-drawer')} ? '' : '失败了没有「重新加载」'`, `document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '失败了显示成空状态' : ''`, readAllOffEl] },
+    checks: [`${findBtn('重新加载', '.msg-drawer')} ? '' : '失败了没有「重新加载」'`, `document.querySelector('.msg-drawer .state svg') && document.querySelector('.msg-drawer .state-t')?.innerText.includes('消息加载失败') ? '' : '加载失败没有图标和标题'`, `document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '失败了显示成空状态' : ''`, readAllOffEl] },
   { app: 'console', screen: 'messages', state: 'submitting', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [openBell, countXhr, elClickTwice('全部已读', '.msg-drawer')], quick: true,
     checks: [elSpinning('全部已读', '.msg-drawer'), sentOnce] },
   { app: 'console', screen: 'messages', state: 'rejected', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_READ_API, action: 'respond', body: refuse('SYS_4290', '操作太频繁，请稍后再试') }),
     steps: [openBell, `${findBtn('全部已读', '.msg-drawer')}.click()`, elToastGone('操作太频繁，请稍后再试')], checks: [stays('.msg-drawer .form-err', '操作太频繁，请稍后再试'), readAllOffEl, elIdle] },
+  // 网络失败：原因留着，但「全部已读」不置灰，可以直接再点
+  { app: 'console', screen: 'messages', state: 'readall-network', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_READ_API, action: 'fail' }),
+    steps: [openBell, `${findBtn('全部已读', '.msg-drawer')}.click()`, wait(4500)], checks: [stays('.msg-drawer .form-err', '可以再试一次'), `${findBtn('全部已读', '.msg-drawer')}.disabled ? '网络失败后「全部已读」被置灰了' : ''`, elIdle] },
   // 登录
   { app: 'console', screen: 'login', state: 'normal', persona: 'guest', path: '/login', rules: sr(), checks: [cLoginCard, cNoDecor, cLegacy, elPrimary] },
   { app: 'console', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: 1280, height: 800, rules: sr(), checks: [cLoginCard] },
-  { app: 'console', screen: 'login', state: 'invalid', persona: 'guest', path: '/login', rules: sr(), steps: [`${findBtn('登录')}.click()`], checks: [elFieldError('请输入手机号'), elFieldError('请输入短信验证码')] },
+  { app: 'console', screen: 'login', state: 'invalid', persona: 'guest', path: '/login', rules: sr(), steps: [`${findBtn('登录')}.click()`], checks: [elFieldError('请输入手机号'), elFieldError('请输入短信验证码'), fieldGap] },
   { app: 'console', screen: 'login', state: 'sms-submitting', persona: 'guest', path: '/login', rules: sr(), steps: [fillPhone, countXhr, elClickTwice('获取验证码')], quick: true, checks: [elSpinning('获取验证码'), sentOnce] },
   { app: 'console', screen: 'login', state: 'captcha', persona: 'guest', path: '/login', rules: sr({ url: C_SMS_API, action: 'respond', body: refuse('AUTH_4004', '请先完成图形验证码') }),
     steps: [fillPhone, `${findBtn('获取验证码')}.click()`, elToastGone('请先完成图形验证码')], checks: [`document.querySelector('#app img[alt="图形验证码"]') ? '' : '没有出图形验证码'`, stays('#app .form-err', '请先完成图形验证码')] },
@@ -1491,7 +1521,7 @@ const STATES = [
   { app: 'console', screen: 'onboarding-apply', state: 'normal', persona: 'guest', path: '/login', rules: sr(), steps: [enterApply], checks: [cOnboardShell, cNoDecor, cLegacy, elPrimary] },
   { app: 'console', screen: 'onboarding-apply', state: 'normal', persona: 'guest', path: '/login', width: 1280, height: 800, rules: sr(), steps: [enterApply], checks: [cOnboardShell] },
   { app: 'console', screen: 'onboarding-apply', state: 'invalid', persona: 'guest', path: '/login', rules: sr(), steps: [enterApply, `${findBtn('提交入驻申请')}.click()`],
-    checks: [elFieldError('请填写营业执照上的公司全称'), elFieldError('请上传营业执照')] },
+    checks: [elFieldError('请填写营业执照上的公司全称'), elFieldError('请上传营业执照'), fieldGap] },
   { app: 'console', screen: 'onboarding-apply', state: 'uploaded', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: fakeUpload }), steps: [enterApply, fillApply],
     checks: [`document.querySelector('#app .uploader .status-tag--success') ? '' : '已上传的文件没有成功色共享标签'`] },
   { app: 'console', screen: 'onboarding-apply', state: 'upload-failed', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: refuse('FILE_4001', '文件类型不支持') }),
@@ -1501,21 +1531,24 @@ const STATES = [
   { app: 'console', screen: 'onboarding-apply', state: 'rejected', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: fakeUpload }, { url: C_APPLY_API, action: 'respond', body: refuse('COMPANY_4091', '该统一社会信用代码已入驻') }),
     steps: [enterApply, fillApply, `${findBtn('提交入驻申请')}.click()`, elToastGone('该统一社会信用代码已入驻')], checks: [stays('#app .form-err', '该统一社会信用代码已入驻'), elIdle] },
   // 入驻进度
-  { app: 'console', screen: 'onboarding-status', state: 'pending', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), checks: [cResult, has('入驻资料审核中'), whiteBg('.top'), cNoDecor, cLegacy, elPrimary] },
+  { app: 'console', screen: 'onboarding-status', state: 'pending', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), checks: [cResult, has('入驻资料审核中'), has('入驻进度'), whiteBg('.top'), cNoDecor, cLegacy, elPrimary, resultActs, waitStepText] },
   { app: 'console', screen: 'onboarding-status', state: 'pending', persona: 'pendingOwner', path: '/onboarding/status', width: 1280, height: 800, rules: sr(), checks: [cResult] },
   { app: 'console', screen: 'onboarding-status', state: 'rejected-company', persona: 'rejectedOwner', path: '/onboarding/status', rules: sr(), checks: [cResult, has('入驻申请被驳回'), has('营业执照照片不清晰'), elPrimary] },
-  { app: 'console', screen: 'onboarding-status', state: 'banned', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(cMe(pendingMe, { status: 'BANNED', statusRemark: '多次发布虚假岗位，已封禁' })), checks: [cResult, has('公司账号已被封禁'), has('多次发布虚假岗位')] },
-  { app: 'console', screen: 'onboarding-status', state: 'empty', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(cMe(pendingMe, { licenseFiles: [], shortName: null, dispatchLicenseNo: null })), checks: [cResult, has('未上传')] },
+  { app: 'console', screen: 'onboarding-status', state: 'banned', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(...cMe(pendingMe, { status: 'BANNED', statusRemark: '多次发布虚假岗位，已封禁', auditedAt: '2026-11-01T10:00:00' })),
+    checks: [cResult, has('公司账号已被封禁'), has('多次发布虚假岗位'), `document.querySelectorAll('#app .el-step__head.is-success').length === 2 && document.querySelector('#app .el-step:last-child .el-step__head.is-error') ? '' : '封禁时步骤条不是前两步完成、「开通使用」异常'`] },
+  // 这一页没有真正的空状态（能进来就一定有公司资料）；这张是选填项和附件都没有时的样子
+  { app: 'console', screen: 'onboarding-status', state: 'no-optional', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(...cMe(pendingMe, { licenseFiles: [], shortName: null, dispatchLicenseNo: null })), checks: [cResult, has('未上传')] },
   { app: 'console', screen: 'onboarding-status', state: 'submitting', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), lateRules: [{ url: TME_API, action: 'hang' }],
     steps: [countXhr, elClickTwice('刷新状态')], quick: true, checks: [elSpinning('刷新状态'), sentOnce, `document.querySelector('#app .result .el-loading-mask') ? '' : '刷新中结果区没有加载遮罩'`] },
   { app: 'console', screen: 'onboarding-status', state: 'refresh-failed', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), lateRules: [{ url: TME_API, action: 'fail' }],
     steps: [`${findBtn('刷新状态')}.click()`, wait(5000)], checks: [stays('#app .result .form-err', '刷新失败'), has('入驻资料审核中'), elIdle] },
-  { app: 'console', screen: 'onboarding-status', state: 'editing', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), steps: [`${findBtn('修改并重新提交')}.click()`],
+  { app: 'console', screen: 'onboarding-status', state: 'editing', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), steps: [`${findBtn('修改并重新提交')}.click()`, scrollStart('#app .company-form')],
     checks: [`document.querySelector('#app input[placeholder*="与营业执照一致"]')?.value === ${JSON.stringify(pendingMe.company.name)} ? '' : '修改表单没带出原资料'`, elPrimary] },
   { app: 'console', screen: 'onboarding-status', state: 'resubmitting', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(),
-    steps: [`${findBtn('修改并重新提交')}.click()`, countXhr, elClickTwice('重新提交审核')], quick: true, checks: [elSpinning('重新提交审核'), sentOnce] },
+    steps: [`${findBtn('修改并重新提交')}.click()`, scrollTo('#app .form-acts'), countXhr, elClickTwice('重新提交审核')], quick: true, checks: [elSpinning('重新提交审核'), sentOnce, inView('#app .form-acts .is-loading')] },
   { app: 'console', screen: 'onboarding-status', state: 'resubmit-rejected', persona: 'pendingOwner', path: '/onboarding/status', rules: sr({ url: C_RESUBMIT_API, action: 'respond', body: refuse('COMPANY_4090', '公司状态已变化，请刷新后再提交') }),
-    steps: [`${findBtn('修改并重新提交')}.click()`, `${findBtn('重新提交审核')}.click()`, elToastGone('公司状态已变化，请刷新后再提交')], checks: [stays('#app .form-err', '公司状态已变化，请刷新后再提交'), elIdle] },
+    steps: [`${findBtn('修改并重新提交')}.click()`, `${findBtn('重新提交审核')}.click()`, elToastGone('公司状态已变化，请刷新后再提交'), scrollTo('#app .form-acts')],
+    checks: [stays('#app .form-err', '公司状态已变化，请刷新后再提交'), elIdle, inView('#app .form-err')] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

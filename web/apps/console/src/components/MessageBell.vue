@@ -2,8 +2,8 @@
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { errorMessage, tenantApi, type InboxItem } from '@shitu/api-client'
-import { IconBell, IconChevronRight, IconInbox } from '@shitu/ui-icons'
+import { errorMessage, isApiError, tenantApi, type InboxItem } from '@shitu/api-client'
+import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
 import { canAccess } from '@/router/access'
 import { MENU } from '@/router/menu'
 import { useInboxStore } from '@/stores/inbox'
@@ -22,8 +22,9 @@ const page = reactive({ page: 1, pageSize: 20, total: 0 })
 const loading = ref(false)
 const error = ref('')
 const marking = ref(false)
-/** 「全部已读」被后端拒绝的原因：留在抽屉里，按钮置灰，重新打开抽屉后再判断 */
+/** 「全部已读」失败的原因留在抽屉里；后端业务拒绝才置灰（重新打开抽屉后再判断），网络失败可以直接重试 */
 const readAllError = ref('')
+const readAllBlocked = ref(false)
 
 onMounted(() => inbox.start())
 onBeforeUnmount(() => inbox.stop())
@@ -45,6 +46,7 @@ async function load(reset = true) {
 function open() {
   visible.value = true
   readAllError.value = ''
+  readAllBlocked.value = false
   load()
   inbox.refresh()
 }
@@ -84,6 +86,7 @@ async function read(m: InboxItem) {
 async function readAll() {
   marking.value = true
   readAllError.value = ''
+  readAllBlocked.value = false
   try {
     await tenantApi.markRead()
     list.value.forEach((m) => (m.read = true))
@@ -92,6 +95,8 @@ async function readAll() {
     if (unreadOnly.value) load()
   } catch (e) {
     readAllError.value = errorMessage(e)
+    // 断网、超时也会包成 ApiError（code 为 NETWORK），只有后端真的回了业务错误才置灰
+    readAllBlocked.value = isApiError(e) && e.code !== 'NETWORK'
     marking.value = false
     ElMessage.error(readAllError.value)
   } finally {
@@ -107,14 +112,16 @@ async function readAll() {
     </button>
   </el-badge>
 
-  <el-drawer v-model="visible" title="消息" size="420px" class="msg-drawer" append-to-body>
+  <el-drawer v-model="visible" title="消息" size="560px" class="msg-drawer" append-to-body>
     <div class="row bar-top">
       <el-switch v-model="unreadOnly" active-text="只看未读" @change="load()" />
       <span class="spacer" />
-      <el-button link type="primary" :loading="marking" :disabled="inbox.unread === 0 || loading || !!error || !!readAllError" @click="readAll">全部已读</el-button>
+      <el-button link type="primary" :loading="marking" :disabled="inbox.unread === 0 || loading || !!error || readAllBlocked" @click="readAll">全部已读</el-button>
     </div>
-    <p v-if="readAllError" class="form-err" role="alert">暂时不能全部标为已读：{{ readAllError }}</p>
+    <p v-if="readAllError" class="form-err" role="alert">{{ readAllBlocked ? '暂时不能全部标为已读' : '全部已读没有成功，可以再试一次' }}：{{ readAllError }}</p>
     <div v-if="error" class="state">
+      <IconCircleExclamationPoint :size="48" class="state-i" />
+      <p class="state-t">消息加载失败</p>
       <p class="state-d">{{ error }}</p>
       <el-button type="primary" @click="load()">重新加载</el-button>
     </div>
@@ -143,12 +150,12 @@ async function readAll() {
 </template>
 
 <style scoped>
-.bell-badge { line-height: 1; }
+.bell-badge { line-height: 1; margin-right: var(--space-3); }  /* 角标向右探出半个宽度，留出位置不压住旁边的按钮 */
 .bell { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2); cursor: pointer; }
 .bell:hover { color: var(--text-1); background: var(--bg-hover); }
 .bell:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .bar-top { margin-bottom: var(--space-3); }
-.form-err { margin: 0 0 var(--space-3); font-size: var(--font-size-aux); color: var(--danger-text); line-height: 1.6; }
+.form-err { margin-bottom: var(--space-3); }
 .msgs { min-height: 120px; }
 .msg { padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: var(--space-2); cursor: pointer; background: var(--bg-card); }
 .msg:hover { background: var(--bg-hover); }
@@ -166,4 +173,9 @@ async function readAll() {
 .state-t { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .state-d { font-size: var(--font-size-aux); color: var(--text-3); }
 .more { text-align: center; padding: var(--space-2); }
+</style>
+
+<style>
+/* 抽屉挂在 body 上，标题样式写在不带 scoped 的块里，只作用于消息抽屉 */
+.msg-drawer .el-drawer__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 </style>

@@ -108,6 +108,6 @@ h2 { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold)
 .tipbar-i { flex: none; margin-top: 1px; color: var(--warning-text); }
 .bd { padding: var(--space-6); }
 .ft { padding: var(--space-4) var(--space-6); border-top: 1px solid var(--divider); }
-.form-err { margin: 0 0 var(--space-3); font-size: var(--font-size-aux); line-height: 1.6; color: var(--danger-text); text-align: right; }
+.form-err { margin-bottom: var(--space-3); text-align: right; }
 .actions { display: flex; justify-content: flex-end; }
 </style>

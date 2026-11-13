@@ -130,7 +130,7 @@ async function submit() {
       <h1>登录劳务工作台</h1>
       <p class="sub">使用成员手机号 + 短信验证码登录。新公司登录后可直接提交入驻申请。</p>
 
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="submit">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form-roomy" @submit.prevent="submit">
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="form.phone" maxlength="11" placeholder="请输入 11 位手机号" autocomplete="tel" clearable />
         </el-form-item>
@@ -174,7 +174,7 @@ h1 { margin-top: var(--space-6); font-size: var(--font-size-title); font-weight:
 .cap .el-input { flex: 1; min-width: 0; }
 .cap img { width: 112px; height: var(--control-height); flex: none; border: 1px solid var(--border); border-radius: var(--radius-control); cursor: pointer; object-fit: cover; }
 .send { width: 112px; flex: none; }
-.form-err { margin: 0 0 var(--space-3); font-size: var(--font-size-aux); line-height: 1.6; color: var(--danger-text); }
+.form-err { margin-bottom: var(--space-3); }
 .btn { width: 100%; margin-top: var(--space-1); }
 .tip { margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--divider); display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); text-align: center; }
 </style>

@@ -66,7 +66,7 @@ defineExpose({ collect })
 </script>
 
 <template>
-  <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="company-form">
+  <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="company-form form-roomy">
     <div class="grid g-2" style="gap: 0 16px">
       <el-form-item label="公司全称" prop="name">
         <el-input v-model="form.name" maxlength="100" placeholder="与营业执照一致" />

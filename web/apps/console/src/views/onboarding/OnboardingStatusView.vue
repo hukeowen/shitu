@@ -34,9 +34,12 @@ const stepActive = computed(() => {
     case 'REJECTED':
       return 1
     default:
-      return 3
+      // 审核通过后被封禁、注销、倒闭：前两步完成，「开通使用」标成异常并写明状态
+      return 2
   }
 })
+/** 已过审核、但当前不能使用（封禁、注销、倒闭等） */
+const blocked = computed(() => status.value !== 'PENDING_AUDIT' && status.value !== 'REJECTED')
 
 const headline = computed(() => {
   switch (status.value) {
@@ -118,22 +121,29 @@ async function doLogout() {
     </header>
 
     <main v-if="company" class="body">
+      <div class="page-hd">
+        <div>
+          <h1>入驻进度</h1>
+          <p>{{ company.name }}</p>
+        </div>
+      </div>
+
       <section v-loading="refreshing" class="card result">
         <component :is="headline.icon" :size="48" class="result-i" :class="`result-i--${headline.tone}`" />
         <h2>{{ headline.title }}</h2>
         <p>{{ headline.desc }}</p>
-        <div class="tags">
-          <span class="who-co">{{ company.name }}</span>
-          <DictTag type="CompanyStatus" :value="status" />
-        </div>
+        <DictTag type="CompanyStatus" :value="status" />
         <div v-if="company.auditRemark || company.statusRemark" class="remark" :class="`remark--${headline.tone}`">
           <div v-if="company.auditRemark"><b>审核意见：</b>{{ company.auditRemark }}</div>
           <div v-if="company.statusRemark"><b>状态说明：</b>{{ company.statusRemark }}</div>
         </div>
         <div class="acts">
-          <!-- 一屏一个主按钮：老板能改资料时主按钮是「修改并重新提交」（编辑中是表单里的「重新提交审核」），否则是「刷新状态」 -->
-          <el-button :type="editable ? undefined : 'primary'" :loading="refreshing" @click="refresh">刷新状态</el-button>
-          <el-button v-if="editable && !editing" type="primary" @click="startEdit">修改并重新提交</el-button>
+          <!-- 结果页：一个主按钮 + 一个文字链接。老板能改资料时主按钮是「修改并重新提交」（编辑中主按钮在表单里），否则「刷新状态」就是主按钮 -->
+          <template v-if="editable">
+            <el-button v-if="!editing" type="primary" @click="startEdit">修改并重新提交</el-button>
+            <el-button link type="primary" :loading="refreshing" @click="refresh">刷新状态</el-button>
+          </template>
+          <el-button v-else type="primary" :loading="refreshing" @click="refresh">刷新状态</el-button>
         </div>
         <p v-if="refreshError" class="form-err" role="alert">{{ refreshError }}</p>
       </section>
@@ -143,7 +153,7 @@ async function doLogout() {
           <el-steps :active="stepActive" finish-status="success" align-center>
             <el-step title="提交申请" :description="fmtDateTime(company.submittedAt)" />
             <el-step title="平台审核" :status="status === 'REJECTED' ? 'error' : undefined" :description="status === 'REJECTED' ? '已驳回' : status === 'PENDING_AUDIT' ? '审核中' : fmtDateTime(company.auditedAt)" />
-            <el-step title="开通使用" />
+            <el-step title="开通使用" :status="blocked ? 'error' : undefined" :description="blocked ? label('CompanyStatus', status) : undefined" />
           </el-steps>
         </div>
       </section>
@@ -196,13 +206,17 @@ async function doLogout() {
 .result-i--danger { color: var(--danger-text); }
 .result h2 { margin-top: var(--space-2); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .result p { font-size: var(--font-size-body); color: var(--text-2); }
-.tags { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
 .remark { width: 100%; max-width: 560px; margin-top: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--bg-fill); color: var(--text-1); font-size: var(--font-size-body); line-height: 1.6; text-align: left; }
 .remark--danger { background: var(--danger-soft); }
 .remark--warning { background: var(--warning-soft); }
 .remark b { font-weight: var(--font-weight-semibold); }
-.acts { margin-top: var(--space-3); }
-.form-err { margin: var(--space-2) 0 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--danger-text); }
+.acts { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }
+.acts .el-button + .el-button { margin-left: 0; }
+.page-hd { margin-bottom: 0; }
+.page-hd h1 { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+/* 未到的步骤：Element 默认用占位色（对比度约 2.5），改成三级文字色 */
+.card :deep(.el-step__title.is-wait), .card :deep(.el-step__description.is-wait), .card :deep(.el-step__head.is-wait) { color: var(--text-3); border-color: var(--text-3); }
+.form-err { margin-top: var(--space-2); }
 .form-err--r { text-align: right; }
 .form-acts { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
 .code { font-family: var(--font-mono); }

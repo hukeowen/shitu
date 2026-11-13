@@ -61,6 +61,7 @@ import {
   Upload,
   User,
   UserCheck,
+  UserMinus,
   Users,
   Wallet,
   X,
@@ -148,3 +149,4 @@ export const IconFactory = /*#__PURE__*/ shituIcon(Factory)
 export const IconArrowLeftRight = /*#__PURE__*/ shituIcon(ArrowLeftRight)
 export const IconCalculator = /*#__PURE__*/ shituIcon(Calculator)
 export const IconTrendingUp = /*#__PURE__*/ shituIcon(TrendingUp)
+export const IconUserMinus = /*#__PURE__*/ shituIcon(UserMinus)

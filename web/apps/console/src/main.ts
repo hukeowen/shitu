@@ -5,7 +5,7 @@ import 'element-plus/theme-chalk/el-message-box.css'
 import '@shitu/ui-tokens/tokens.css'
 import '@shitu/ui-tokens/element-theme.css'
 import './styles/console.css'
-import { configureAuth, useDict } from '@shitu/api-client'
+import { configureAuth, setDictOverrides, useDict } from '@shitu/api-client'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
@@ -30,6 +30,9 @@ configureAuth({
     if (!cur.meta.public) router.push({ path: '/login', query: { redirect: cur.fullPath } })
   },
 })
+
+// D-58：公司后台不出现「限流」字样，处罚期的公司状态按横幅的说法显示
+setDictOverrides({ CompanyStatus: { THROTTLED: '处罚期' } })
 
 // 预加载枚举字典
 useDict()
