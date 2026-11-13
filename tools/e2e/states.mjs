@@ -1104,23 +1104,25 @@ const readAllOffEl = `(() => { const b = ${findBtn('全部已读', '.msg-drawer'
 
 // ---- 工单 18：人员管理（第 2 类 + 请假旷工、离职、调岗弹窗）、离职审核（第 8 类）、花名册导入（第 16 类）、工伤上报（第 2 类）----
 const RESIGN_API = '/tenant/resign-requests', ROSTER_BATCHES_API = '/tenant/roster/batches', ROSTER_IMPORT_API = '/tenant/roster/import'
-// 离职审核的按钮和别的审核页（驻场预支审核的 reviewBar）一致：「驳回」在左、白底危险色字和描边；「确认离职」在右、主色实心
-const reviewOps = `(() => { const rows = [...document.querySelectorAll('#app .el-table__body tr')].filter((tr) => tr.querySelector('td.ops-col .el-button')); if (!rows.length) return '没有带审核按钮的行'
+// 审核按钮和别的审核页（驻场预支审核的 reviewBar）一致：「驳回」在左、白底危险色字和描边；通过类（如「确认离职」）在右、主色实心
+const reviewOpsFor = (okText) => `(() => { const rows = [...document.querySelectorAll('#app .el-table__body tr')].filter((tr) => tr.querySelector('td.ops-col .el-button')); if (!rows.length) return '没有带审核按钮的行'
   let seen = 0
-  for (const tr of rows) { const bs = [...tr.querySelectorAll('td.ops-col .el-button')], rj = bs.find((b) => b.innerText.includes('驳回')), ok = bs.find((b) => b.innerText.includes('确认离职')); if (!rj || !ok) continue
-    seen++; const a = rj.getBoundingClientRect(), b = ok.getBoundingClientRect(); if (Math.abs(a.top - b.top) > 1 || a.right > b.left) return '「驳回」不在「确认离职」左边'
+  for (const tr of rows) { const bs = [...tr.querySelectorAll('td.ops-col .el-button')], rj = bs.find((b) => b.innerText.includes('驳回')), ok = bs.find((b) => b.innerText.includes(${JSON.stringify(okText)})); if (!rj || !ok) continue
+    seen++; const a = rj.getBoundingClientRect(), b = ok.getBoundingClientRect(); if (Math.abs(a.top - b.top) > 1 || a.right > b.left) return '「驳回」不在「${okText}」左边'
     const lc = getComputedStyle(rj), rc = getComputedStyle(ok)
     if (lc.backgroundColor !== ${bgToken('--bg-card')} || lc.color !== ${tokenColor('--danger-text')} || lc.borderTopColor !== ${tokenColor('--danger-text')}) return '「驳回」不是危险色描边：' + lc.backgroundColor + ' ' + lc.color + ' ' + lc.borderTopColor
-    if (rc.backgroundColor !== ${bgToken('--primary')} || ok.classList.contains('is-plain') || ok.classList.contains('is-link')) return '「确认离职」不是主色实心：' + rc.backgroundColor }
-  return seen ? '' : '没有同时有「驳回」和「确认离职」的行' })()`
-// 导入页（第 16 类）：步骤说明 → 虚线上传区（写明模板和格式）→ 结果汇总（成功 n 条、失败 n 条）→ 逐行结果表
-const importLayout = `(() => { const q = (s) => document.querySelector('#app ' + s), st = q('.steps'), up = q('.el-upload-dragger'), sum = q('.result .sum'), tb = q('.row-tbl')
+    if (rc.backgroundColor !== ${bgToken('--primary')} || ok.classList.contains('is-plain') || ok.classList.contains('is-link')) return '「${okText}」不是主色实心：' + rc.backgroundColor }
+  return seen ? '' : '没有同时有「驳回」和「${okText}」的行' })()`
+const reviewOps = reviewOpsFor('确认离职')
+// 导入页（第 16 类）：步骤说明 → 虚线上传区（写明模板和格式；没有模板下载的写明按哪里的格式排，fmt 是这个说法）→ 结果汇总（成功 n 条、失败 n 条）→ 逐行结果表
+const importLayoutFor = (fmt) => `(() => { const q = (s) => document.querySelector('#app ' + s), st = q('.steps'), up = q('.el-upload-dragger'), sum = q('.result .sum'), tb = q('.row-tbl')
   if (!st || !up) return '没有步骤说明或上传区'; if (getComputedStyle(up).borderTopStyle !== 'dashed') return '上传区不是虚线边框'
-  if (!up.innerText.includes('模板') || !up.innerText.includes('.xlsx')) return '上传区没写模板下载方式和格式要求'
+  if (!up.innerText.includes(${JSON.stringify(fmt)}) || !up.innerText.includes('.xlsx')) return '上传区没写${fmt}和格式要求'
   const y = (e) => e.getBoundingClientRect().top; if (!(y(st) < y(up))) return '步骤说明不在上传区上面'
   if (sum && tb && !(y(up) < y(sum) && y(sum) < y(tb))) return '顺序不是上传区 → 结果汇总 → 逐行结果表'
   if (sum && !(/成功\\s*\\d+\\s*条/.test(sum.innerText) && /失败\\s*\\d+\\s*条/.test(sum.innerText))) return '结果汇总没写「成功 n 条、失败 n 条」'
   return '' })()`
+const importLayout = importLayoutFor('模板')
 // 逐行结果表：失败行用 --danger-soft 浅底（tr 和 td 一起看）并写明原因，成功行不铺底
 const rosterRows = `(() => { const t = document.querySelector('#app .row-tbl'); if (!t) return '没有逐行结果表'
   const trs = [...t.querySelectorAll('.el-table__body tr')], bad = trs.filter((tr) => tr.innerText.includes('失败')), good = trs.filter((tr) => !tr.innerText.includes('失败'))
@@ -1129,8 +1131,9 @@ const rosterRows = `(() => { const t = document.querySelector('#app .row-tbl'); 
   const nb = bad.find((tr) => !onSoft(tr)); if (nb) return '失败行没用危险浅底：' + nb.innerText.replace(/\\s+/g, ' ')
   if (good.some(onSoft)) return '成功行也铺了危险浅底'
   const nr = bad.find((tr) => { const c = tr.querySelectorAll('td')[2]?.innerText.trim(); return !c || c === '—' }); return nr ? '失败行没写原因：' + nr.innerText.replace(/\\s+/g, ' ') : '' })()`
-const pickXlsx = `(() => { const i = document.querySelector('#app .el-upload__input'), dt = new DataTransfer()
-  dt.items.add(new File(['x'], '十一月花名册.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); i.files = dt.files; i.dispatchEvent(new Event('change', { bubbles: true })) })()`
+const pickFile = (name) => `(() => { const i = document.querySelector('#app .el-upload__input'), dt = new DataTransfer()
+  dt.items.add(new File(['x'], ${JSON.stringify(name)}, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); i.files = dt.files; i.dispatchEvent(new Event('change', { bubbles: true })) })()`
+const pickXlsx = pickFile('十一月花名册.xlsx')
 const startImport = [pickXlsx, wait(300), `${findBtn('开始导入')}.click()`, wait(400)]
 const ROSTER_ROWS = Array.from({ length: 9 }, (_, i) => (i === 3 ? { rowNo: i + 2, success: false, error: '手机号格式不正确：1380000123' }
   : i === 6 ? { rowNo: i + 2, success: false, error: '项目「立讯精密昆山三期」不存在，请填项目编号或完整名称' } : { rowNo: i + 2, success: true, userId: 'U20261113000' + i }))
@@ -1173,6 +1176,68 @@ const dlgNoWrap = `(() => { for (const e of document.querySelectorAll('.el-dialo
 const nameOnce = (name) => `(() => { const n = document.querySelector('#app').innerText.split(${JSON.stringify(name)}).length - 1; return n === 1 ? '' : '「${name}」出现了 ' + n + ' 次' })()`
 const fakeRosterOk = reply({ batchId: 'RB-SHOT-1114', total: 3, success: 3, failed: 0, inFreePeriod: true, rows: [2, 3, 4].map((rowNo) => ({ rowNo, success: true, userId: 'U2026111300' + rowNo })) })
 const resignRefused = refuse('RESIGN_4091', RESIGN_WHY)
+// ---- 工单 19：预支审批（第 8 类，同离职审核的表格操作列）、工资表导入（第 16 类，同花名册导入）、工资申诉（第 8 类，处理弹窗）、预支抵扣对账（第 9 类）----
+const PB_API = '/tenant/payroll/batches', PIMPORT_API = '/tenant/payroll/import', APPEAL_API = '/tenant/payroll/appeals', RECON_API = '/tenant/payroll/recon'
+// 假数据的项目编号取演示库里真实的预支单，项目名才对得上
+const advLive = (await get(TADV_API, await tenantSession(MEMBERS.pm))).data
+const ADV_PROJECT = advLive[0]?.projectId ?? 'P20261112001'
+// 后端 AdvanceRow 的形状（LocalDateTime 是「2026-11-13T09:10:00」、金额是数字）
+const fakeTAdv = (n, name, status, allowedActions, extra = {}) => ({ advanceId: 'YZ2026111300' + n, userId: 'U202611120000' + n, seekerName: name, projectId: ADV_PROJECT, amount: 500, bizMonth: '2026-11',
+  status, repaidAmount: 0, createdAt: `2026-11-13T09:${n}0:00`, allowedActions, projectName: '立讯精密昆山二期', ...extra })
+const fakeTAdvs = reply([
+  fakeTAdv(1, '陈**', 'SITE_APPROVED', ['PM_APPROVE', 'PM_REJECT']),
+  fakeTAdv(2, '周**', 'PM_APPROVED', ['PAYOUT']),
+  fakeTAdv(3, '吴**', 'SUBMITTED', []),
+  fakeTAdv(4, '郑**', 'PARTIALLY_REPAID', [], { repaidAmount: 200, paidAt: '2026-11-03T15:20:00' }),
+  fakeTAdv(5, '王**', 'REPAID', [], { repaidAmount: 500, paidAt: '2026-10-20T10:05:00' }),
+  fakeTAdv(6, '冯**', 'REJECTED', []),
+])
+const ADV_WHY = '预支状态已变化，请刷新后再操作'
+const advRefused = refuse('ADVANCE_4091', ADV_WHY)
+// 填写原因用弹窗：点「驳回」弹出带多行输入框的确认框
+const boxInput = `[...document.querySelectorAll('.el-message-box textarea')].some((t) => t.getClientRects().length) ? '' : '驳回没有弹出填写原因的输入框'`
+// 处理弹窗（工资申诉）：底部「不受理」在左、危险色描边，「受理并回复」在右、主色实心，弹窗里有填写处理说明的输入框
+const dlgReview = `(() => { const ft = document.querySelector('.el-dialog__footer'); if (!ft) return '没有处理弹窗'
+  const bs = [...ft.querySelectorAll('.el-button')], rj = bs.find((b) => b.innerText.includes('不受理')), ok = bs.find((b) => b.innerText.includes('受理并回复')); if (!rj || !ok) return '弹窗底部没有「不受理 / 受理并回复」'
+  const a = rj.getBoundingClientRect(), b = ok.getBoundingClientRect(); if (a.right > b.left) return '「不受理」不在「受理并回复」左边'
+  const lc = getComputedStyle(rj), rc = getComputedStyle(ok)
+  if (lc.backgroundColor !== ${bgToken('--bg-card')} || lc.color !== ${tokenColor('--danger-text')} || lc.borderTopColor !== ${tokenColor('--danger-text')}) return '「不受理」不是危险色描边：' + lc.backgroundColor + ' ' + lc.color + ' ' + lc.borderTopColor
+  if (rc.backgroundColor !== ${bgToken('--primary')} || ok.classList.contains('is-plain')) return '「受理并回复」不是主色实心：' + rc.backgroundColor
+  return document.querySelector('.el-dialog textarea') ? '' : '弹窗里没有填写处理说明的输入框' })()`
+const fillReply = `(() => { const el = document.querySelector('.el-dialog textarea'); el.value = '核对考勤后确认无误，其他扣款为工牌补办费 20 元'; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
+const APPEAL_WHY = '申诉已处理，请刷新后再操作'
+// 金额等宽、右对齐：每个金额都是等宽数字；表格里的金额贴着格子右边（扣掉内边距），一列金额的个位对齐
+const moneyAligned = (scope = '#app') => `(() => { const els = [...document.querySelectorAll(${JSON.stringify(scope + ' .money')})].filter((e) => e.getClientRects().length); if (!els.length) return '页面上没有金额'
+  const off = els.find((e) => !getComputedStyle(e).fontVariantNumeric.includes('tabular-nums')); if (off) return '金额不是等宽数字：' + off.innerText
+  const tds = els.filter((e) => e.closest('td')); if (!tds.length) return '表格里没有金额'
+  for (const e of tds) { const c = e.closest('.cell'), r = c.getBoundingClientRect(), right = r.right - parseFloat(getComputedStyle(c).paddingRight)
+    if (Math.abs(e.getBoundingClientRect().right - right) > 1) return '表格里的金额没贴右边：' + e.innerText + '（差 ' + Math.round(right - e.getBoundingClientRect().right) + 'px）' }
+  return '' })()`
+// 后端 AdvanceRecon 的形状：10 月抵扣了 3 个人，其中 1 人已离职、抵扣后还欠
+const fakeRecon = reply({ month: '2026-10', months: ['2026-10', '2026-09'],
+  summary: { deductTotal: 1300, deductCount: 3, payoutTotal: 1500, payoutCount: 3, outstandingTotal: 1700, outstandingCount: 3, outstandingLeftCount: 1 },
+  deductions: [
+    { payslipId: 'GZ2026111200011', userId: 'U2026111200021', seekerName: '陈**', employeeNo: 'KS-0111', projectName: '立讯精密昆山二期', grossPay: 5200, netPay: 4243.5, advanceDeduct: 500, debtAfter: 0 },
+    { payslipId: 'GZ2026111200012', userId: 'U2026111200022', seekerName: '周**', employeeNo: 'KS-0112', projectName: '立讯精密昆山二期', grossPay: 4580, netPay: 3623.5, advanceDeduct: 500, debtAfter: 500 },
+    { payslipId: 'GZ2026111200013', userId: 'U2026111200023', seekerName: '孙**', projectName: '立讯精密昆山二期', endDate: '2026-10-25', grossPay: 1860, netPay: 1103.5, advanceDeduct: 300, debtAfter: 700 },
+  ],
+  outstanding: [
+    { userId: 'U2026111200023', seekerName: '孙**', projectName: '立讯精密昆山二期', endDate: '2026-10-25', debt: 700, lastChangeAt: '2026-11-05T10:12:00' },
+    { userId: 'U2026111200022', seekerName: '周**', employeeNo: 'KS-0112', projectName: '立讯精密昆山二期', debt: 500, lastChangeAt: '2026-11-05T10:12:00' },
+    { userId: 'U2026111200014', seekerName: '李**', employeeNo: 'KS-0101', projectName: '立讯精密昆山二期', debt: 500, lastChangeAt: '2026-11-12T16:57:57' },
+  ] })
+const emptyRecon = reply({ month: '2026-10', months: ['2026-10'], summary: { deductTotal: 0, deductCount: 0, payoutTotal: 0, payoutCount: 0, outstandingTotal: 0, outstandingCount: 0, outstandingLeftCount: 0 }, deductions: [], outstanding: [] })
+// 空状态自洽：指标都是 0（金额 ¥0.00，人数「0 人」）
+const reconZero = `(() => { const n = [...document.querySelectorAll('#app .stat-v')].map((e) => e.innerText.replace(/\\s*人$/, '').trim()).filter((t) => !['0', '¥0.00'].includes(t)); return n.length ? '没有数据，指标却不是 0：' + n.join('、') : '' })()`
+// 后端 PayrollBatchResult 的形状：9 行，第 4、7 行失败
+const PAY_ROWS = Array.from({ length: 9 }, (_, i) => (i === 3 ? { rowNo: i + 2, success: false, error: '未找到该月在本公司任职的员工', phoneMasked: '139****1203' }
+  : i === 6 ? { rowNo: i + 2, success: false, error: '该员工 2026-10 已导入过工资（防重复抵扣）', phoneMasked: '139****8771', employeeNo: 'KS-0102' }
+  : { rowNo: i + 2, success: true, payslipId: 'GZ20261113000' + i, advanceDeduct: i === 1 ? 500 : 0, netPay: 4100 + i * 37.5, phoneMasked: '139****' + (5100 + i), employeeNo: 'KS-01' + (10 + i) }))
+const fakePayroll = reply({ batchId: 'PB-SHOT-1113', payMonth: '2026-10', headcount: 7, grossTotal: 33600, advanceDeductTotal: 500, netTotal: 29720.5, rows: PAY_ROWS })
+const fakePayrollOk = reply({ batchId: 'PB-SHOT-1114', payMonth: '2026-10', headcount: 2, grossTotal: 9400, advanceDeductTotal: 0, netTotal: 8487, rows: [2, 3].map((rowNo) => ({ rowNo, success: true, payslipId: 'GZ2026111300' + rowNo, advanceDeduct: 0, netPay: 4243.5, phoneMasked: '139****510' + rowNo })) })
+const pickPay = pickFile('十月工资表.xlsx')
+const startPay = [pickPay, wait(300), `${findBtn('开始导入')}.click()`, wait(400)]
+const payImportLayout = importLayoutFor('表格格式')
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
@@ -2214,6 +2279,83 @@ const STATES = [
   { app: 'console', screen: 'pm-incidents', state: 'close-rejected', persona: 'pm', path: '/pm/incidents', rules: sr({ url: '/close', method: 'POST', action: 'respond', body: refuse('INC_4091', '该工伤已结案') }),
     steps: [...openJobRow('结案'), fillDlg('textarea[placeholder*="救治"]', '包扎后当天复工，未申报工伤认定'), `${findBtn('结案', '.el-dialog__footer')}.click()`, elToastGone('该工伤已结案')],
     checks: [whyStays('.el-dialog .blocked-why', '暂时不能结案：该工伤已结案'), dlgOff('结案'), dlgIdle] },
+  // ---- 工单 19：预支审批（第 8 类：表格操作列里驳回在左、终审通过在右，驳回原因在确认框里填）----
+  { app: 'console', screen: 'pm-advance', state: 'normal', persona: 'pm', path: '/pm/advance', rules: sr(),
+    checks: [cSide('pm'), kpiCards, reviewOpsFor('终审通过'), tblFit, opsTap, rowsTall, statTone, cLegacy16, noThrottleWord, queryReset, hasPager, cMoney('#app .tbl-card')] },
+  { app: 'console', screen: 'pm-advance', state: 'normal', persona: 'pm', path: '/pm/advance', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, kpiCards, reviewOpsFor('终审通过'), tblFit] },
+  { app: 'console', screen: 'pm-advance', state: 'all', persona: 'pm', path: '/pm/advance?tab=all', rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }),
+    checks: [reviewOpsFor('终审通过'), tblFit, opsTap, rowsTall, cLegacy16, cMoney('#app .tbl-card'), has('登记拨款'), has('已驳回')] },
+  { app: 'console', screen: 'pm-advance', state: 'all', persona: 'pm', path: '/pm/advance?tab=all', width: 1280, height: 800, rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }), checks: [cFit, tblFit] },
+  { app: 'console', screen: 'pm-advance', state: 'loading', persona: 'pm', path: '/pm/advance', rules: sr({ url: TADV_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, hasNot('暂无需要你处理的预支申请')] },
+  { app: 'console', screen: 'pm-advance', state: 'empty', persona: 'pm', path: '/pm/advance', rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无需要你处理的预支申请'), allZero, cLegacy16] },
+  { app: 'console', screen: 'pm-advance', state: 'error', persona: 'pm', path: '/pm/advance', rules: sr({ url: TADV_API, method: 'GET', action: 'fail' }), checks: [oneRetry, noNums, hasNot('暂无需要你处理的预支申请')] },
+  { app: 'console', screen: 'pm-advance', state: 'submitting', persona: 'pm', path: '/pm/advance', rules: sr(), quick: true,
+    steps: [...openJobRow('终审通过'), countXhr, boxClickTwice('终审通过')], checks: [elSpinning('终审通过', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-advance', state: 'rejected', persona: 'pm', path: '/pm/advance', rules: sr({ url: '/pm-review', method: 'POST', action: 'respond', body: advRefused }),
+    steps: [...openJobRow('终审通过'), `${findBtn('终审通过', '.el-message-box')}.click()`, elToastGone(ADV_WHY)],
+    checks: [boxTitle, has('暂时不能终审通过'), hasNot('请刷新后再操作。刷新后重新判断'), ...rowOff('暂时不能终审通过：' + ADV_WHY, '终审通过'), boxWhy('终审通过', '暂时不能终审通过：' + ADV_WHY), elIdle] },
+  { app: 'console', screen: 'pm-advance', state: 'reject-box', persona: 'pm', path: '/pm/advance', rules: sr(), steps: openJobRow('驳回'), checks: [boxReject, boxTitle, boxInput] },
+  { app: 'console', screen: 'pm-advance', state: 'reject-submitting', persona: 'pm', path: '/pm/advance', rules: sr(), quick: true,
+    steps: [...openJobRow('驳回'), fillBox('本月已预支过一次，请下月再申请'), countXhr, boxClickTwice('确认驳回')], checks: [elSpinning('确认驳回', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-advance', state: 'reject-rejected', persona: 'pm', path: '/pm/advance', rules: sr({ url: '/pm-review', method: 'POST', action: 'respond', body: advRefused }),
+    steps: [...openJobRow('驳回'), fillBox('本月已预支过一次，请下月再申请'), `${findBtn('确认驳回', '.el-message-box')}.click()`, elToastGone(ADV_WHY)],
+    checks: [...rowOff('暂时不能驳回：' + ADV_WHY, '驳回'), boxWhy('确认驳回', '暂时不能驳回：' + ADV_WHY), elIdle] },
+  { app: 'console', screen: 'pm-advance', state: 'network', persona: 'pm', path: '/pm/advance', rules: sr({ url: '/pm-review', method: 'POST', action: 'fail' }),
+    steps: [...openJobRow('终审通过'), `${findBtn('终审通过', '.el-message-box')}.click()`, toastShown],
+    checks: [`document.querySelector('#app .blocked-why, .msgbox-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn('终审通过', '.el-message-box')}?.disabled === false ? '' : '网络失败后确认框关了或确认按钮被置灰'`] },
+  { app: 'console', screen: 'pm-advance', state: 'payout-box', persona: 'pm', path: '/pm/advance?tab=all', rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }),
+    steps: openJobRow('登记拨款'), checks: [boxTitle, `${findBtn('已转账，登记拨款', '.el-message-box')} ? '' : '确认框里没有「已转账，登记拨款」'`] },
+  // ---- 工单 19：工资表导入（第 16 类，同花名册导入）----
+  { app: 'console', screen: 'payroll-batches', state: 'normal', persona: 'pm', path: '/payroll/batches', rules: sr(), checks: [cSide('pm'), payImportLayout, tblFit, cLegacy16, noThrottleWord, cMoney('#app .tbl-card')] },
+  { app: 'console', screen: 'payroll-batches', state: 'normal', persona: 'pm', path: '/payroll/batches', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, sideActive, payImportLayout, tblFit] },
+  { app: 'console', screen: 'payroll-batches', state: 'loading', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无导入记录')] },
+  { app: 'console', screen: 'payroll-batches', state: 'empty', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'respond', body: reply([]) }), checks: [has('暂无导入记录'), cLegacy16] },
+  { app: 'console', screen: 'payroll-batches', state: 'error', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'fail' }), checks: [oneRetry, hasNot('暂无导入记录')] },
+  { app: 'console', screen: 'payroll-batches', state: 'picked', persona: 'pm', path: '/payroll/batches', rules: sr(), steps: [pickPay, wait(300)],
+    checks: [nameOnce('十月工资表.xlsx'), `${findBtn('开始导入')}.disabled ? '选了文件「开始导入」还是灰的' : ''`] },
+  { app: 'console', screen: 'payroll-batches', state: 'submitting', persona: 'pm', path: '/payroll/batches', rules: sr(), quick: true,
+    steps: [...startPay, countXhr, boxClickTwice('开始导入')], checks: [boxTitle, elSpinning('开始导入', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'payroll-batches', state: 'result', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: fakePayroll }),
+    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')],
+    checks: [payImportLayout, rosterRows, tblFit, cLegacy16, cMoney('#app .result'), has('下载失败行'), has('只保留失败行')] },
+  { app: 'console', screen: 'payroll-batches', state: 'result', persona: 'pm', path: '/payroll/batches', width: 1280, height: 800, rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: fakePayroll }),
+    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [cFitAny, payImportLayout, rosterRows, tblFit] },
+  { app: 'console', screen: 'payroll-batches', state: 'all-ok', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: fakePayrollOk }),
+    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [has('全部导入成功'), payImportLayout] },
+  { app: 'console', screen: 'payroll-batches', state: 'rejected', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: refuse('SYS_4000', '无法读取工资表，请检查格式（第一行为表头）') }),
+    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, elToastGone('无法读取工资表')],
+    checks: [boxTitle, boxWhy('开始导入', '暂时不能导入：无法读取工资表'), whyStays('#app .up-why', '暂时不能导入：无法读取工资表'), `${findBtn('开始导入')}.disabled ? '' : '被拒之后页面上的「开始导入」没有置灰'`, elIdle] },
+  // ---- 工单 19：工资申诉（第 8 类：表格「处理」打开弹窗，弹窗里填说明，不受理在左、受理并回复在右）----
+  { app: 'console', screen: 'payroll-appeals', state: 'normal', persona: 'pm', path: '/payroll/appeals', rules: sr(),
+    checks: [cSide('pm'), opsCol, tblFit, opsTap, rowsTall, statusTags, cLegacy16, noThrottleWord, hasPager, cMoney('#app .tbl-card')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'normal', persona: 'pm', path: '/payroll/appeals', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, opsCol, tblFit] },
+  { app: 'console', screen: 'payroll-appeals', state: 'all', persona: 'pm', path: '/payroll/appeals', rules: sr(), steps: [`[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('全部')).click()`, wait(600)],
+    checks: [opsCol, tblFit, rowsTall, statusTags, has('处理说明')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'loading', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('没有待处理的工资申诉')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'empty', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('没有待处理的工资申诉'), cLegacy16] },
+  { app: 'console', screen: 'payroll-appeals', state: 'error', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('没有待处理的工资申诉')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'handle', persona: 'pm', path: '/payroll/appeals', rules: sr(), steps: openJobRow('处理'), checks: [dlgReview, dlgLegacy, dlgNoWrap, cMoney('.el-dialog')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'submitting', persona: 'pm', path: '/payroll/appeals', rules: sr(), quick: true,
+    steps: [...openJobRow('处理'), fillReply, countXhr, elClickTwice('受理并回复', '.el-dialog')], checks: [elSpinning('受理并回复', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'payroll-appeals', state: 'rejected', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: '/handle', method: 'POST', action: 'respond', body: refuse('APPEAL_4091', APPEAL_WHY) }),
+    steps: [...openJobRow('处理'), fillReply, `${findBtn('受理并回复', '.el-dialog')}.click()`, elToastGone(APPEAL_WHY)],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能受理：' + APPEAL_WHY), whyStays('#app .tbl-tip', '暂时不能受理：' + APPEAL_WHY), dlgOff('受理并回复'),
+      `${findBtn('不受理', '.el-dialog')}.disabled ? '被拒的是受理，「不受理」也被置灰了' : ''`, dlgIdle] },
+  { app: 'console', screen: 'payroll-appeals', state: 'network', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: '/handle', method: 'POST', action: 'fail' }),
+    steps: [...openJobRow('处理'), fillReply, `${findBtn('受理并回复', '.el-dialog')}.click()`, toastShown],
+    checks: [`document.querySelector('#app .blocked-why, .el-dialog .blocked-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn('受理并回复', '.el-dialog')}?.disabled === false ? '' : '网络失败后弹窗关了或按钮被置灰'`] },
+  // ---- 工单 19：预支抵扣对账（第 9 类：汇总卡 → 明细表，金额等宽右对齐）。演示库 10 月没有抵扣，正常状态用后端形状的假数据 ----
+  { app: 'console', screen: 'payroll-recon', state: 'normal', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'respond', body: fakeRecon }),
+    checks: [cSide('pm'), kpiCards, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord, cMoney(), moneyAligned()] },
+  { app: 'console', screen: 'payroll-recon', state: 'normal', persona: 'pm', path: '/payroll/recon', width: 1280, height: 800, rules: sr({ url: RECON_API, action: 'respond', body: fakeRecon }),
+    checks: [cSide('pm'), cFitAny, sideActive, kpiCards, tblFit, cMoney(), moneyAligned()] },
+  { app: 'console', screen: 'payroll-recon', state: 'live', persona: 'pm', path: '/payroll/recon', rules: sr(), checks: [has('这个月没有工资抵扣'), tblFit, cMoney(), moneyAligned()] },
+  { app: 'console', screen: 'payroll-recon', state: 'loading', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'hang' }), quick: true, steps: [wait(600)],
+    checks: [loadMask, noNums, hasNot('这个月没有工资抵扣'), hasNot('没有未还清的预支')] },
+  { app: 'console', screen: 'payroll-recon', state: 'empty', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'respond', body: emptyRecon }),
+    checks: [has('这个月没有工资抵扣'), has('没有未还清的预支'), reconZero, statTone, cLegacy16] },
+  { app: 'console', screen: 'payroll-recon', state: 'error', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'fail' }),
+    checks: [oneRetry, noNums, hasNot('这个月没有工资抵扣'), hasNot('没有未还清的预支')] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

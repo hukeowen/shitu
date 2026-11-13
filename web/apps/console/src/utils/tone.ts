@@ -50,6 +50,8 @@ const TONES: Record<string, Record<string, Tone>> = {
   IncidentStatus: { OPEN: 'warning', CLOSED: 'success' },
   DisputeStatus: { OPEN: 'warning', ACCEPTED: 'success', REJECTED: 'danger' },
   LedgerDirection: { PAYABLE: 'danger', RECEIVABLE: 'success' },
+  // 工资申诉：以 seeker 工资条详情页的 APPEAL_TONE 为准
+  PayslipAppealStatus: { OPEN: 'warning', RESOLVED: 'success', REJECTED: 'danger' },
   // 预支状态：以 seeker utils/advance.ts 的 ADVANCE_TONE 为准
   AdvanceStatus: {
     SUBMITTED: 'warning',
