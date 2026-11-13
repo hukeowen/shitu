@@ -2,8 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, genFileId, type UploadFile, type UploadInstance, type UploadRawFile } from 'element-plus'
 import { errorMessage, tenantApi, type MemberView, type RosterBatch, type RosterBatchResult } from '@shitu/api-client'
-import { IconCircleExclamationPoint, IconDownload, IconFileText, IconUpload } from '@shitu/ui-icons'
+import { IconCircleCheck, IconCircleExclamationPoint, IconDownload, IconFileText, IconUpload } from '@shitu/ui-icons'
 import { boxSubmit } from '@/composables/boxSubmit'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { downloadAuthed } from '@/utils/download'
 import { fmtDateTime } from '@/utils/format'
 
@@ -25,6 +26,8 @@ const why = ref('')
 /** 逐行结果：全部行（失败行用危险浅底标出），前端分页 */
 const rowPage = reactive({ page: 1, pageSize: 20 })
 const resultRows = computed(() => (result.value?.rows ?? []).slice((rowPage.page - 1) * rowPage.pageSize, rowPage.page * rowPage.pageSize))
+/** 操作列宽按本页实际出现的按钮算（规范 Page States「console 表格操作列宽」） */
+const batchOpsWidth = computed(() => actionsColWidth(batches.value.map((b) => ({ labels: b.failedRows > 0 ? ['下载失败行'] : [] }))))
 function rowClass({ row }: { row: { success: boolean } }) {
   return row.success ? '' : 'row-danger'
 }
@@ -156,11 +159,11 @@ async function doImport() {
               <IconUpload :size="32" class="up-i" />
               <b>将 .xlsx 文件拖到此处，或点击选择</b>
               <p>列：姓名、手机号、身份证号、项目（编号或名称）、岗位编号（选填）、入职日期、工号（选填）</p>
-              <p>没有模板？点右上角「下载模板」</p>
+              <p>.xlsx 格式，单次最多 2000 行、5MB 以内 · 没有模板？点右上角「下载模板」</p>
             </div>
           </el-upload>
           <div class="up-ft">
-            <span class="up-f">{{ file ? `已选择：${file.name}` : '未选择文件' }}</span>
+            <span v-if="!file" class="up-f">未选择文件</span>
             <span class="spacer" />
             <el-button type="primary" :disabled="!file || !!why" @click="doImport">开始导入</el-button>
           </div>
@@ -199,6 +202,10 @@ async function doImport() {
           <span class="spacer" />
           <el-button v-if="result.failed > 0" :loading="downloading === result.batchId" @click="download(result.batchId)"><IconDownload :size="16" class="btn-i" />下载失败行</el-button>
         </div>
+        <div v-if="result.failed === 0" class="notice-bar notice-bar--ok all-ok">
+          <IconCircleCheck :size="16" class="notice-bar-i" />
+          <span>全部导入成功。</span>
+        </div>
         <el-table class="row-tbl" :data="resultRows" row-key="rowNo" :row-class-name="rowClass">
           <el-table-column label="行号" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.rowNo }}</span></template></el-table-column>
           <el-table-column label="结果" width="100">
@@ -226,7 +233,7 @@ async function doImport() {
         <el-table-column label="失败" width="90" align="right"><template #default="{ row }"><span class="tnum" :class="{ 'why-t': row.failedRows }">{{ row.failedRows }}</span></template></el-table-column>
         <el-table-column label="计费口径" width="110"><template #default="{ row }"><span class="status-tag" :class="row.inFreePeriod ? 'status-tag--success' : 'status-tag--warning'">{{ row.inFreePeriod ? '存量' : '增量' }}</span></template></el-table-column>
         <el-table-column label="操作人" width="110"><template #default="{ row }">{{ memberName(row.operatorId) }}</template></el-table-column>
-        <el-table-column label="操作" width="104" align="right" class-name="ops-col">
+        <el-table-column label="操作" :width="batchOpsWidth" align="right" class-name="ops-col">
           <template #default="{ row }">
             <el-button v-if="row.failedRows > 0" size="small" link type="primary" :loading="downloading === row.batchId" @click="download(row.batchId)">下载失败行</el-button>
             <span v-else class="sub">—</span>
@@ -266,6 +273,7 @@ async function doImport() {
 .up-ft { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
 .up-f { font-size: var(--font-size-aux); color: var(--text-2); }
 .up-why { margin-top: var(--space-2); }
+.all-ok { margin-bottom: var(--space-3); }
 .rule-note { margin-top: var(--space-4); font-size: var(--font-size-aux); line-height: 1.7; color: var(--text-2); }
 .rule-note b { color: var(--text-1); }
 .result, .tbl-card { margin-top: var(--space-gap); }

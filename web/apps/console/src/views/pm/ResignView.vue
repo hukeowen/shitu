@@ -106,7 +106,7 @@ async function reject(r: ResignRow) {
     await ElMessageBox.prompt(s.message, scheduled ? '撤销离职' : '驳回离职申请', {
       confirmButtonText: act,
       cancelButtonText: '取消',
-      confirmButtonClass: 'el-button--danger',
+      confirmButtonClass: 'el-button--danger is-plain btn-reject',
       inputType: 'textarea',
       inputPlaceholder: '说明（选填）',
       type: 'warning',
@@ -146,7 +146,7 @@ const opsWidth = computed(() =>
         <span class="spacer" />
         <span v-if="!isPm" class="ro">离职审核由项目经理处理，当前为只读</span>
       </div>
-      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }} {{ b.text }}。刷新后重新判断</p>
+      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}{{ b.text.includes('刷新') ? '' : '。刷新后重新判断' }}</p>
       <el-table v-loading="loading" :data="pageRows" row-key="id">
         <el-table-column label="员工" min-width="130">
           <template #default="{ row }">
@@ -177,12 +177,12 @@ const opsWidth = computed(() =>
         </el-table-column>
         <el-table-column v-if="showOps" label="操作" :width="opsWidth" align="right" class-name="ops-col">
           <template #default="{ row }">
-            <div class="acts review-acts">
+            <div class="acts">
               <template v-if="row.status === 'PENDING'">
-                <el-button size="small" type="danger" plain :disabled="blocked[row.id]?.act === 'reject'" @click="reject(row)">驳回</el-button>
+                <el-button size="small" type="danger" plain class="btn-reject" :disabled="blocked[row.id]?.act === 'reject'" @click="reject(row)">驳回</el-button>
                 <el-button size="small" type="primary" :disabled="blocked[row.id]?.act === 'approve'" @click="approve(row)">确认离职</el-button>
               </template>
-              <el-button v-else size="small" type="danger" plain :disabled="blocked[row.id]?.act === 'reject'" @click="reject(row)">撤销离职</el-button>
+              <el-button v-else size="small" type="danger" plain class="btn-reject" :disabled="blocked[row.id]?.act === 'reject'" @click="reject(row)">撤销离职</el-button>
             </div>
           </template>
         </el-table-column>
@@ -225,9 +225,9 @@ const opsWidth = computed(() =>
             <div><dt>匹配范围</dt><dd>恢复为全平台</dd></div>
             <div><dt>增长技术服务费</dt><dd>停止计费</dd></div>
             <div><dt>人才流转费</dt><dd>停止计费</dd></div>
+            <div><dt>薪酬预支</dt><dd>欠款从最后一笔工资抵扣，扣不完记平台失信</dd></div>
             <div><dt>劳动合同</dt><dd>变更为「已终止」</dd></div>
             <div><dt>来源归属（source）</dt><dd>保持不变</dd></div>
-            <div><dt>薪酬预支</dt><dd>欠款从最后一笔工资抵扣，扣不完记平台失信</dd></div>
           </dl>
         </div>
       </div>
@@ -252,10 +252,5 @@ const opsWidth = computed(() =>
 .tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .acts { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: flex-end; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
-/* 审核按钮（规范第 8 类、和驻场端预支审核一致）：「驳回」白底、危险色字和描边，「确认离职」主色实心 */
-.review-acts .el-button--danger.is-plain {
-  --el-button-bg-color: var(--bg-card);
-  --el-button-border-color: var(--danger-text);
-}
 .explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
 </style>

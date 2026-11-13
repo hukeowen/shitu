@@ -75,7 +75,7 @@ async function submit() {
         <div><dt>入职 / 在岗</dt><dd class="tnum">{{ row.startDate }} · {{ row.dutyDays }} 天</dd></div>
         <div class="full"><dt>岗位</dt><dd>{{ row.jobTitle ?? '—' }} · {{ row.projectName }}</dd></div>
       </dl>
-      <el-form label-width="88px" class="dlg-form" @submit.prevent>
+      <el-form label-width="100px" class="dlg-form" @submit.prevent>
         <el-form-item label="最后工作日" required>
           <el-date-picker v-model="form.resignDate" type="date" value-format="YYYY-MM-DD" :disabled-date="disableDate" :clearable="false" style="width: 100%" />
         </el-form-item>

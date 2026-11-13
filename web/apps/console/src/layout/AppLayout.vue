@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { logout, useDict } from '@shitu/api-client'
@@ -16,6 +16,18 @@ const meStore = useMeStore()
 const { label } = useDict()
 
 const menu = computed(() => visibleMenu(meStore.me))
+/** 进入页面时把选中的菜单项滚进侧栏可视区（1280×800 下菜单比侧栏高，靠下的项会被藏住） */
+const navRef = ref<HTMLElement>()
+function revealActive() {
+  const nav = navRef.value, it = nav?.querySelector<HTMLElement>('.item.is-active')
+  if (!nav || !it) return
+  const n = nav.getBoundingClientRect(), r = it.getBoundingClientRect()
+  if (r.top < n.top) nav.scrollTop -= n.top - r.top + 8
+  else if (r.bottom > n.bottom) nav.scrollTop += r.bottom - n.bottom + 8
+}
+// immediate 的回调在挂载前执行、拿不到 nav，首次进入页面由 onMounted 负责
+onMounted(revealActive)
+watch(() => [route.path, menu.value.length], revealActive, { flush: 'post' })
 const company = computed(() => meStore.me?.company)
 const companyName = computed(() => company.value?.shortName || company.value?.name || '')
 const roleText = computed(() => (meStore.me?.roles ?? []).map((r) => label('ActorRole', r)).join(' · '))
@@ -43,7 +55,7 @@ async function doLogout() {
         <b :title="company.name">{{ company.name }}</b>
         <span>{{ company.creditScore != null ? `诚信分 ${company.creditScore}` : company.unifiedCreditCode }}</span>
       </div>
-      <nav class="nav" aria-label="主菜单">
+      <nav ref="navRef" class="nav" aria-label="主菜单">
         <template v-for="g in menu" :key="g.key">
           <div class="grp">{{ g.title }}</div>
           <router-link v-for="it in g.items.filter((x) => !x.hidden)" :key="it.path" :to="it.path" class="item" :class="{ 'is-active': route.path === it.path || route.path.startsWith(it.path + '/') }">

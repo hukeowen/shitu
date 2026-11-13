@@ -221,7 +221,11 @@ const opsWidth = computed(() => actionsColWidth([{ labels: ['结案'] }]))
       <template v-if="dlg.row">
         <div class="dlg-who"><span class="strong-t">{{ dlg.row.personName }}</span> · {{ dlg.row.projectName }} · <span class="tnum">{{ fmtDateTime(dlg.row.occurredAt) }}</span></div>
         <div class="content box">{{ dlg.row.detail }}</div>
-        <el-input v-model="dlg.note" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="救治情况、是否已申报工伤认定、费用如何处理等" class="dlg-note" />
+        <el-form label-position="top" class="dlg-note" @submit.prevent>
+          <el-form-item label="处理结论" required>
+            <el-input v-model="dlg.note" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="救治情况、是否已申报工伤认定、费用如何处理等" />
+          </el-form-item>
+        </el-form>
         <div class="notice-bar dlg-hint">
           <IconCircleExclamationPoint :size="16" class="notice-bar-i" />
           <span>这里只做内部留痕。工伤认定须在事故发生之日起 30 日内向社保部门申请。</span>
@@ -249,6 +253,6 @@ const opsWidth = computed(() => actionsColWidth([{ labels: ['结案'] }]))
 .dlg-tip { margin-bottom: var(--space-4); }
 .dlg-who { margin-bottom: var(--space-2); color: var(--text-2); }
 .dlg-note { margin-top: var(--space-3); }
-.dlg-hint { margin-top: var(--space-3); }
+.dlg-hint { margin-top: 0; }
 .dlg-why { margin-top: var(--space-3); }
 </style>

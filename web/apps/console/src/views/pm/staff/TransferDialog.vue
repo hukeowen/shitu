@@ -78,7 +78,7 @@ async function submit() {
     <template v-if="row">
       <dl class="desc-list">
         <div><dt>员工</dt><dd>{{ row.name }}{{ row.employeeNo ? ` · ${row.employeeNo}` : '' }}</dd></div>
-        <div><dt>当前</dt><dd>{{ row.projectName }} · {{ row.jobTitle ?? '—' }}</dd></div>
+        <div class="full"><dt>当前</dt><dd>{{ row.projectName }} · {{ row.jobTitle ?? '—' }}</dd></div>
       </dl>
       <el-form label-width="80px" class="dlg-form" @submit.prevent>
         <el-form-item label="调入项目" required>
@@ -106,6 +106,7 @@ async function submit() {
 </template>
 
 <style scoped>
+.desc-list .full { grid-column: 1 / -1; }
 .dlg-form { margin-top: var(--space-4); }
 .dlg-why { margin-top: var(--space-3); }
 </style>

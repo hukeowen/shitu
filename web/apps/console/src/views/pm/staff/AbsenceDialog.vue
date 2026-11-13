@@ -6,6 +6,7 @@ import { errorMessage, tenantApi, type DutyAbsenceView, type StaffRow } from '@s
 import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import { boxSubmit, isBlocked } from '@/composables/boxSubmit'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDateTime } from '@/utils/format'
 import { enumLabel } from '@/utils/labels'
 import { monthRange, parseLocal, ym, ymd } from '@/utils/time'
@@ -29,6 +30,8 @@ const why = ref('')
 watch(() => [form.date, form.type, form.remark], () => (why.value = ''))
 /** 撤销被后端业务拒绝的记录：只置灰这一条的「撤销」，原因写在记录表上方，重新加载后再判断 */
 const blocked = reactive<Record<number, { date: string; text: string }>>({})
+/** 操作列宽按实际出现的按钮算（规范 Page States「console 表格操作列宽」） */
+const opsWidth = actionsColWidth([{ labels: ['撤销'] }])
 
 const summary = computed(() => ({
   leave: records.value.filter((r) => r.absenceType === 'LEAVE').length,
@@ -156,13 +159,13 @@ async function revoke(rec: DutyAbsenceView) {
         <span v-if="ready" class="rec-sum">请假 {{ summary.leave }} 天 · 旷工 {{ summary.absent }} 天</span>
         <el-date-picker v-model="month" type="month" value-format="YYYY-MM" :clearable="false" style="width: 130px" size="small" />
       </div>
-      <p v-for="(b, id) in blocked" :key="id" class="blocked-why rec-why" role="status">{{ b.date }} {{ b.text }}。重新加载后再判断</p>
+      <p v-for="(b, id) in blocked" :key="id" class="blocked-why rec-why" role="status">「{{ b.date }}」{{ b.text }}{{ b.text.includes('刷新') ? '' : '。重新加载后再判断' }}</p>
       <el-table v-loading="loading" :data="records" size="small" max-height="260" row-key="id">
         <el-table-column label="日期" width="110"><template #default="{ row: r }"><span class="tnum">{{ r.absenceDate }}</span></template></el-table-column>
         <el-table-column label="类型" width="80"><template #default="{ row: r }"><DictTag type="AbsenceType" :value="r.absenceType" /></template></el-table-column>
         <el-table-column label="备注" min-width="120"><template #default="{ row: r }">{{ r.remark || '—' }}</template></el-table-column>
         <el-table-column label="标记时间" width="140"><template #default="{ row: r }"><span class="tnum sub">{{ fmtDateTime(r.createdAt) }}</span></template></el-table-column>
-        <el-table-column label="操作" width="70" align="right" class-name="ops-col">
+        <el-table-column label="操作" :width="opsWidth" align="right" class-name="ops-col">
           <template #default="{ row: r }"><el-button link type="danger" size="small" :disabled="!!blocked[r.id]" @click="revoke(r)">撤销</el-button></template>
         </el-table-column>
         <template #empty>

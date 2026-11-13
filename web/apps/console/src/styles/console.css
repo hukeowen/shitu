@@ -184,3 +184,8 @@ a { color: inherit; text-decoration: none; }
 /* 图表图例（第 10 类）：色块 + 12px 二级文字 */
 .chart-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--font-size-min); color: var(--text-2); }
 .chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: var(--radius-tag); margin-right: var(--space-1); }
+
+/* 审核页的「驳回」（规范第 8 类，和驻场端预支审核一致）：白底、危险色字和描边，配 type="danger" plain；确认框里的驳回按钮也用它 */
+.el-button.el-button--danger.btn-reject { --el-button-bg-color: var(--bg-card); --el-button-border-color: var(--danger-text); --el-button-text-color: var(--danger-text); }
+/* 确认框（ElMessageBox）标题和弹窗标题同级：16px / 600 */
+.el-message-box .el-message-box__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); }
