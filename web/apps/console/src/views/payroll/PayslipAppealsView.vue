@@ -6,7 +6,7 @@ import { IconCircleExclamationPoint, IconInfo, IconMessageSquare } from '@shitu/
 import DictTag from '@/components/DictTag.vue'
 import { isBlocked } from '@/composables/boxSubmit'
 import { actionsColWidth } from '@/utils/actionsWidth'
-import { fmtDateTime, fmtYuan } from '@/utils/format'
+import { fmtDateTime, fmtSigned, fmtYuan, toNum } from '@/utils/format'
 
 /** 工资申诉（C-702 / D-28）：员工对某张工资条提出疑问，项目经理 / 老板核对后回复，结果通知本人 */
 const { label } = useDict()
@@ -53,6 +53,11 @@ onMounted(load)
 watch(tab, load)
 
 const dlg = reactive({ open: false, row: null as PayslipAppealRow | null, reply: '', saving: '' as Act | '' })
+/** 扣款合计 = 社保 + 个税 + 其他扣款 + 预支抵扣（同求职者端工资条的「扣款合计」） */
+const deductTotal = computed(() => {
+  const r = dlg.row
+  return r ? toNum(r.socialInsurance) + toNum(r.incomeTax) + toNum(r.otherDeduct) + toNum(r.advanceDeduct) : 0
+})
 const dlgBlocked = computed(() => (dlg.row ? blocked[dlg.row.id] : undefined))
 function openHandle(row: PayslipAppealRow) {
   dlg.row = row
@@ -74,7 +79,7 @@ async function submit(accept: boolean) {
   } catch (e) {
     ElMessage.error(errorMessage(e, '操作失败'))
     // 业务拒绝才置灰并留原因；断网只提示，可以直接再点
-    if (isBlocked(e)) blocked[row.id] = { name: row.seekerName, act, text: `暂时不能${accept ? '受理' : '不受理'}：${errorMessage(e)}` }
+    if (isBlocked(e)) blocked[row.id] = { name: row.seekerName, act, text: `暂时不能${accept ? '受理' : '标记不受理'}：${errorMessage(e)}` }
   } finally {
     dlg.saving = ''
   }
@@ -92,7 +97,7 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((r) => ({ labels:
         <p>员工对工资条提出的疑问 · 核对后回复，结果会通知员工本人</p>
       </div>
       <span class="spacer" />
-      <el-button @click="load">刷新</el-button>
+      <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
     <div class="card tbl-card">
@@ -174,16 +179,20 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((r) => ({ labels:
         <!-- 工资条按「应发 / 扣款 / 实发」分组，实发最醒目（规范第 9 类） -->
         <div class="slip">
           <div class="slip-g">
-            <div class="slip-r"><span>应发</span><b class="money">{{ fmtYuan(dlg.row.grossPay) }}</b></div>
+            <div class="slip-h">应发</div>
+            <div class="slip-r"><span>应发合计</span><b class="money">{{ fmtYuan(dlg.row.grossPay) }}</b></div>
           </div>
           <div class="slip-g">
-            <div class="slip-r"><span>社保</span><b class="money">{{ fmtYuan(dlg.row.socialInsurance) }}</b></div>
-            <div class="slip-r"><span>个税</span><b class="money">{{ fmtYuan(dlg.row.incomeTax) }}</b></div>
-            <div class="slip-r"><span>其他扣款</span><b class="money">{{ fmtYuan(dlg.row.otherDeduct) }}</b></div>
-            <div class="slip-r"><span>预支抵扣</span><b class="money">{{ fmtYuan(dlg.row.advanceDeduct) }}</b></div>
+            <div class="slip-h">扣款</div>
+            <div class="slip-r"><span>社保</span><b class="money">{{ fmtSigned(dlg.row.socialInsurance, 'out') }}</b></div>
+            <div class="slip-r"><span>个税</span><b class="money">{{ fmtSigned(dlg.row.incomeTax, 'out') }}</b></div>
+            <div class="slip-r"><span>其他扣款</span><b class="money">{{ fmtSigned(dlg.row.otherDeduct, 'out') }}</b></div>
+            <div class="slip-r"><span>预支抵扣</span><b class="money">{{ fmtSigned(dlg.row.advanceDeduct, 'out') }}</b></div>
+            <div class="slip-r total"><span>扣款合计</span><b class="money">{{ fmtSigned(deductTotal, 'out') }}</b></div>
           </div>
           <div class="slip-g">
-            <div class="slip-r net"><span>实发</span><b class="money">{{ fmtYuan(dlg.row.netPay) }}</b></div>
+            <div class="slip-h">实发工资</div>
+            <div class="slip-r net"><b class="money">{{ fmtYuan(dlg.row.netPay) }}</b></div>
           </div>
         </div>
         <div class="ask">
@@ -233,6 +242,10 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((r) => ({ labels:
 .slip-g { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); }
 .slip-r { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); font-size: var(--font-size-aux); }
 .slip-r span { color: var(--text-2); }
+.slip-h { font-size: var(--font-size-min); font-weight: var(--font-weight-medium); color: var(--text-3); }
+.slip-r.total { margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid var(--divider); }
+.slip-r.total span { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.slip-r.net { justify-content: flex-end; }
 .slip-r.net b { font-size: var(--font-size-section); }
 .ask { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); max-height: 200px; overflow: auto; }
 .ask-t { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }

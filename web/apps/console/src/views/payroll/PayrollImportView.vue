@@ -6,6 +6,7 @@ import { errorMessage, tenantApi, type MemberView, type PayrollBatchResult } fro
 import { IconCircleCheck, IconCircleExclamationPoint, IconDownload, IconFileText, IconInfo, IconUpload } from '@shitu/ui-icons'
 import { boxSubmit } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
+import { downloadAuthed } from '@/utils/download'
 import { fmtDateTime, fmtYuan, toNum } from '@/utils/format'
 
 /**
@@ -34,6 +35,17 @@ const batches = ref<BatchRow[]>([])
 const batchesLoading = ref(false)
 const batchesError = ref('')
 const members = ref<MemberView[]>([])
+const downloading = ref(false)
+async function downloadTemplate() {
+  downloading.value = true
+  try {
+    await downloadAuthed(tenantApi.payrollTemplatePath, '工资表模板.xlsx')
+  } catch (e) {
+    ElMessage.error(errorMessage(e, '下载失败'))
+  } finally {
+    downloading.value = false
+  }
+}
 /** 导入被后端业务拒绝的原因：留在上传区下方、置灰「开始导入」，换了文件或月份再放开 */
 const why = ref('')
 watch(month, () => (why.value = ''))
@@ -186,12 +198,13 @@ async function doImport() {
         <p>按月导入工资表 → 自动抵扣预支欠款 → 生成员工工资条</p>
       </div>
       <span class="spacer" />
+      <el-button :loading="downloading" @click="downloadTemplate"><IconDownload :size="16" class="btn-i" />下载模板</el-button>
     </div>
 
     <!-- 第 16 类导入（同花名册导入）：步骤说明 → 上传区 → 结果汇总 → 逐行结果表 -->
     <ol class="steps card">
-      <li><b>1</b><div><h4>选择工资月份</h4><p>按员工在该月是否在本公司任职匹配</p></div></li>
-      <li><b>2</b><div><h4>上传并导入</h4><p>.xlsx，单次最多 5000 行、5MB 以内</p></div></li>
+      <li><b>1</b><div><h4>下载模板</h4><p>点右上角「下载模板」，按模板的列填写</p></div></li>
+      <li><b>2</b><div><h4>选择月份并导入</h4><p>.xlsx，单次最多 5000 行、5MB 以内</p></div></li>
       <li><b>3</b><div><h4>查看逐行结果</h4><p>失败行写明原因，修改后只保留失败行重传</p></div></li>
     </ol>
 
@@ -219,7 +232,7 @@ async function doImport() {
               <IconUpload :size="32" class="up-i" />
               <b>将 .xlsx 工资表拖到此处，或点击选择</b>
               <p>列顺序：手机号 / 工号 / 应发 / 社保 / 个税 / 其他扣款（工号优先，无工号按手机号匹配）</p>
-              <p>.xlsx 格式，第一行为表头，单次最多 5000 行、5MB 以内 · 各列按右侧「表格格式」排列</p>
+              <p>.xlsx 格式，第一行为表头，单次最多 5000 行、5MB 以内 · 没有模板？点右上角「下载模板」</p>
             </div>
           </el-upload>
           <div class="up-ft">
@@ -271,7 +284,7 @@ async function doImport() {
           <div class="sum-i" :class="{ bad: failed.length > 0 }"><span>失败</span><b class="tnum">{{ failed.length }}<small> 条</small></b></div>
           <div class="sum-i"><span>应发合计</span><b class="money">{{ fmtYuan(result.grossTotal) }}</b></div>
           <div class="sum-i"><span>预支抵扣合计</span><b class="money">{{ fmtYuan(result.advanceDeductTotal) }}</b></div>
-          <div class="sum-i"><span>实发合计</span><b class="money net">{{ fmtYuan(result.netTotal) }}</b></div>
+          <div class="sum-i"><span>实发合计</span><b class="money">{{ fmtYuan(result.netTotal) }}</b></div>
           <span class="spacer" />
           <el-button v-if="failed.length" @click="downloadFailed"><IconDownload :size="16" class="btn-i" />下载失败行</el-button>
         </div>
@@ -375,7 +388,6 @@ async function doImport() {
 .sum-i > span:first-child { font-size: var(--font-size-aux); color: var(--text-2); }
 .sum-i b { font-size: var(--font-size-metric); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 1.2; }
 .sum-i b.money { font-size: var(--font-size-title); }
-.sum-i b.net { color: var(--primary-text); }
 .sum-i b small { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-3); }
 .sum-i.bad b { color: var(--danger-text); }
 .res-tip { margin-bottom: var(--space-3); }

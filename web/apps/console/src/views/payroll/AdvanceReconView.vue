@@ -13,8 +13,10 @@ const loadError = ref('')
 /** 两张表都是一次返回全部，前端分页 */
 const PAGE = 20
 const pg = reactive({ deduct: 1, owe: 1 })
-const deductRows = computed(() => (data.value?.deductions ?? []).slice((pg.deduct - 1) * PAGE, pg.deduct * PAGE))
-const oweRows = computed(() => (data.value?.outstanding ?? []).slice((pg.owe - 1) * PAGE, pg.owe * PAGE))
+/** 加载中（含切换月份）不显示上一次的数字和结论，标题的月份也跟着数据走（规范 Page States） */
+const shown = computed(() => (loading.value ? null : data.value))
+const deductRows = computed(() => (shown.value?.deductions ?? []).slice((pg.deduct - 1) * PAGE, pg.deduct * PAGE))
+const oweRows = computed(() => (shown.value?.outstanding ?? []).slice((pg.owe - 1) * PAGE, pg.owe * PAGE))
 
 async function load() {
   loading.value = true
@@ -49,7 +51,7 @@ onMounted(load)
         <el-option v-for="m in months" :key="m" :label="m" :value="m" />
         <el-option v-if="month && !months.includes(month)" :label="month" :value="month" />
       </el-select>
-      <el-button @click="load">刷新</el-button>
+      <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
     <!-- 第 9 类：顶部汇总（本期金额加关键分项）→ 明细表；金额等宽、右对齐。一个请求，整块一个加载遮罩、一个「重新加载」 -->
@@ -57,27 +59,27 @@ onMounted(load)
       <div class="kpis">
         <div class="stat stat--icon stat--signal">
           <IconReceipt :size="20" class="stat-i" />
-          <div class="stat-l">{{ month || '本月' }} 工资抵扣</div>
-          <div class="stat-v money">{{ data ? fmtYuan(data.summary.deductTotal) : '—' }}</div>
-          <div class="stat-d">{{ data ? `${data.summary.deductCount} 人 · 导入工资表时自动扣除` : '—' }}</div>
+          <div class="stat-l">{{ shown ? `${shown.month} 工资抵扣` : '工资抵扣' }}</div>
+          <div class="stat-v money">{{ shown ? fmtYuan(shown.summary.deductTotal) : '—' }}</div>
+          <div class="stat-d">{{ shown ? `${shown.summary.deductCount} 人 · 导入工资表时自动扣除` : '—' }}</div>
         </div>
         <div class="stat stat--icon">
           <IconBanknote :size="20" class="stat-i" />
-          <div class="stat-l">{{ month || '本月' }} 新拨款</div>
-          <div class="stat-v money">{{ data ? fmtYuan(data.summary.payoutTotal) : '—' }}</div>
-          <div class="stat-d">{{ data ? `${data.summary.payoutCount} 笔` : '—' }}</div>
+          <div class="stat-l">{{ shown ? `${shown.month} 新拨款` : '新拨款' }}</div>
+          <div class="stat-v money">{{ shown ? fmtYuan(shown.summary.payoutTotal) : '—' }}</div>
+          <div class="stat-d">{{ shown ? `${shown.summary.payoutCount} 笔` : '—' }}</div>
         </div>
         <div class="stat stat--icon">
           <IconWallet :size="20" class="stat-i" />
           <div class="stat-l">当前未还欠款</div>
-          <div class="stat-v money">{{ data ? fmtYuan(data.summary.outstandingTotal) : '—' }}</div>
-          <div class="stat-d">{{ data ? `${data.summary.outstandingCount} 人 · 截至现在` : '—' }}</div>
+          <div class="stat-v money">{{ shown ? fmtYuan(shown.summary.outstandingTotal) : '—' }}</div>
+          <div class="stat-d">{{ shown ? `${shown.summary.outstandingCount} 人 · 截至现在` : '—' }}</div>
         </div>
-        <div class="stat stat--icon" :class="{ 'stat--danger': (data?.summary.outstandingLeftCount ?? 0) > 0 }">
+        <div class="stat stat--icon" :class="{ 'stat--danger': (shown?.summary.outstandingLeftCount ?? 0) > 0 }">
           <IconUserMinus :size="20" class="stat-i" />
           <div class="stat-l">其中已离职</div>
-          <div class="stat-v">{{ data ? data.summary.outstandingLeftCount : '—' }}<small v-if="data">人</small></div>
-          <div class="stat-d">需线下追收</div>
+          <div class="stat-v">{{ shown ? shown.summary.outstandingLeftCount : '—' }}<small v-if="shown">人</small></div>
+          <div class="stat-d">{{ shown ? '需线下追收' : '—' }}</div>
         </div>
       </div>
 
@@ -92,7 +94,7 @@ onMounted(load)
 
       <template v-else>
         <div class="card tbl-card">
-          <div class="card__hd"><h3>{{ month }} 工资抵扣明细</h3><span class="hint">按抵扣金额从高到低</span></div>
+          <div class="card__hd"><h3>{{ shown ? `${shown.month} 工资抵扣明细` : '工资抵扣明细' }}</h3><span class="hint">按抵扣金额从高到低</span></div>
           <el-table :data="deductRows" row-key="payslipId">
             <el-table-column label="员工" min-width="170">
               <template #default="{ row }">
@@ -115,13 +117,13 @@ onMounted(load)
               <div v-if="!loading" class="state-box">
                 <IconCircleCheck :size="48" />
                 <h4>这个月没有工资抵扣</h4>
-                <p>{{ month }} 导入的工资表里没有人有预支欠款；换个月份看看</p>
+                <p>{{ shown?.month }} 导入的工资表里没有人有预支欠款；换个月份看看</p>
               </div>
               <span v-else />
             </template>
           </el-table>
-          <div v-if="(data?.deductions.length ?? 0) > PAGE" class="pager">
-            <el-pagination v-model:current-page="pg.deduct" :page-size="PAGE" :total="data?.deductions.length ?? 0" layout="total, prev, pager, next" background size="small" />
+          <div v-if="(shown?.deductions.length ?? 0) > 0" class="pager">
+            <el-pagination v-model:current-page="pg.deduct" :page-size="PAGE" :total="shown?.deductions.length ?? 0" layout="total, prev, pager, next" background size="small" />
           </div>
         </div>
 
@@ -154,8 +156,8 @@ onMounted(load)
               <span v-else />
             </template>
           </el-table>
-          <div v-if="(data?.outstanding.length ?? 0) > PAGE" class="pager">
-            <el-pagination v-model:current-page="pg.owe" :page-size="PAGE" :total="data?.outstanding.length ?? 0" layout="total, prev, pager, next" background size="small" />
+          <div v-if="(shown?.outstanding.length ?? 0) > 0" class="pager">
+            <el-pagination v-model:current-page="pg.owe" :page-size="PAGE" :total="shown?.outstanding.length ?? 0" layout="total, prev, pager, next" background size="small" />
           </div>
         </div>
       </template>

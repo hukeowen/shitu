@@ -1114,15 +1114,14 @@ const reviewOpsFor = (okText) => `(() => { const rows = [...document.querySelect
     if (rc.backgroundColor !== ${bgToken('--primary')} || ok.classList.contains('is-plain') || ok.classList.contains('is-link')) return '「${okText}」不是主色实心：' + rc.backgroundColor }
   return seen ? '' : '没有同时有「驳回」和「${okText}」的行' })()`
 const reviewOps = reviewOpsFor('确认离职')
-// 导入页（第 16 类）：步骤说明 → 虚线上传区（写明模板和格式；没有模板下载的写明按哪里的格式排，fmt 是这个说法）→ 结果汇总（成功 n 条、失败 n 条）→ 逐行结果表
-const importLayoutFor = (fmt) => `(() => { const q = (s) => document.querySelector('#app ' + s), st = q('.steps'), up = q('.el-upload-dragger'), sum = q('.result .sum'), tb = q('.row-tbl')
+// 导入页（第 16 类）：步骤说明 → 虚线上传区（写明模板和格式）→ 结果汇总（成功 n 条、失败 n 条）→ 逐行结果表
+const importLayout = `(() => { const q = (s) => document.querySelector('#app ' + s), st = q('.steps'), up = q('.el-upload-dragger'), sum = q('.result .sum'), tb = q('.row-tbl')
   if (!st || !up) return '没有步骤说明或上传区'; if (getComputedStyle(up).borderTopStyle !== 'dashed') return '上传区不是虚线边框'
-  if (!up.innerText.includes(${JSON.stringify(fmt)}) || !up.innerText.includes('.xlsx')) return '上传区没写${fmt}和格式要求'
+  if (!up.innerText.includes('模板') || !up.innerText.includes('.xlsx')) return '上传区没写模板下载方式和格式要求'
   const y = (e) => e.getBoundingClientRect().top; if (!(y(st) < y(up))) return '步骤说明不在上传区上面'
   if (sum && tb && !(y(up) < y(sum) && y(sum) < y(tb))) return '顺序不是上传区 → 结果汇总 → 逐行结果表'
   if (sum && !(/成功\\s*\\d+\\s*条/.test(sum.innerText) && /失败\\s*\\d+\\s*条/.test(sum.innerText))) return '结果汇总没写「成功 n 条、失败 n 条」'
   return '' })()`
-const importLayout = importLayoutFor('模板')
 // 逐行结果表：失败行用 --danger-soft 浅底（tr 和 td 一起看）并写明原因，成功行不铺底
 const rosterRows = `(() => { const t = document.querySelector('#app .row-tbl'); if (!t) return '没有逐行结果表'
   const trs = [...t.querySelectorAll('.el-table__body tr')], bad = trs.filter((tr) => tr.innerText.includes('失败')), good = trs.filter((tr) => !tr.innerText.includes('失败'))
@@ -1237,7 +1236,20 @@ const fakePayroll = reply({ batchId: 'PB-SHOT-1113', payMonth: '2026-10', headco
 const fakePayrollOk = reply({ batchId: 'PB-SHOT-1114', payMonth: '2026-10', headcount: 2, grossTotal: 9400, advanceDeductTotal: 0, netTotal: 8487, rows: [2, 3].map((rowNo) => ({ rowNo, success: true, payslipId: 'GZ2026111300' + rowNo, advanceDeduct: 0, netPay: 4243.5, phoneMasked: '139****510' + rowNo })) })
 const pickPay = pickFile('十月工资表.xlsx')
 const startPay = [pickPay, wait(300), `${findBtn('开始导入')}.click()`, wait(400)]
-const payImportLayout = importLayoutFor('表格格式')
+// 页面头有「下载模板」（不点，不真的下载）
+const tplBtn = `${findBtn('下载模板', '#app .page-hd')} ? '' : '页面头没有「下载模板」'`
+// 汇总里的金额（含实发合计）都是一级文字色，不用颜色区分
+const sumPlain = `(() => { const c = ${tokenColor('--text-1')}, e = [...document.querySelectorAll('#app .result .sum .money')].find((x) => getComputedStyle(x).color !== c); return e ? '汇总金额不是一级文字色：' + e.innerText : '' })()`
+// 审批链一行放下（不折行，「→ 还清」不掉到第二行）
+const chainOneLine = `(() => { const cs = [...document.querySelectorAll('#app .chain')]; if (!cs.length) return '没有审批链'
+  const bad = cs.find((c) => new Set([...c.querySelectorAll('.cn')].map((x) => Math.round(x.getBoundingClientRect().top))).size > 1); return bad ? '审批链折行了：' + bad.innerText.replace(/\\s+/g, '') : '' })()`
+const refreshBusy = `${findBtn('刷新', '#app .page-hd')}?.classList.contains('is-loading') ? '' : '加载中「刷新」没有转圈，能连点'`
+const pickMonth = (m) => [`document.querySelector('#app .page-hd .el-select__wrapper').click()`, wait(400),
+  `[...document.querySelectorAll('.el-select-dropdown__item')].find((x) => x.getClientRects().length && x.innerText.trim() === ${JSON.stringify(m)}).click()`]
+const monthKept = (m) => `document.querySelector('#app .page-hd .el-select__selected-item:not(.is-hidden)')?.innerText.trim() === ${JSON.stringify(m)} ? '' : '月份选择框没保留已选的「${m}」：' + document.querySelector('#app .page-hd .el-select')?.innerText.trim()`
+// 切月份时不出现「新月份标题 + 旧数字」：标题不带月份、数字是「—」、不下结论
+const switchBlank = `(() => { const t = [...document.querySelectorAll('#app .stat-l, #app .card__hd h3')].map((e) => e.innerText).find((x) => /\\d{4}-\\d{2}/.test(x)); if (t) return '没拿到这个月的数据，标题却写了月份：' + t
+  return document.querySelector('#app').innerText.includes('需线下追收') ? '没拿到数据却显示了「需线下追收」' : '' })()`
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
@@ -2281,11 +2293,11 @@ const STATES = [
     checks: [whyStays('.el-dialog .blocked-why', '暂时不能结案：该工伤已结案'), dlgOff('结案'), dlgIdle] },
   // ---- 工单 19：预支审批（第 8 类：表格操作列里驳回在左、终审通过在右，驳回原因在确认框里填）----
   { app: 'console', screen: 'pm-advance', state: 'normal', persona: 'pm', path: '/pm/advance', rules: sr(),
-    checks: [cSide('pm'), kpiCards, reviewOpsFor('终审通过'), tblFit, opsTap, rowsTall, statTone, cLegacy16, noThrottleWord, queryReset, hasPager, cMoney('#app .tbl-card')] },
-  { app: 'console', screen: 'pm-advance', state: 'normal', persona: 'pm', path: '/pm/advance', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, kpiCards, reviewOpsFor('终审通过'), tblFit] },
+    checks: [cSide('pm'), kpiCards, reviewOpsFor('终审通过'), chainOneLine, tblFit, opsTap, rowsTall, statTone, cLegacy16, noThrottleWord, queryReset, hasPager, cMoney('#app .tbl-card')] },
+  { app: 'console', screen: 'pm-advance', state: 'normal', persona: 'pm', path: '/pm/advance', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, kpiCards, reviewOpsFor('终审通过'), chainOneLine, tblFit, noWrap('#app .person b')] },
   { app: 'console', screen: 'pm-advance', state: 'all', persona: 'pm', path: '/pm/advance?tab=all', rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }),
-    checks: [reviewOpsFor('终审通过'), tblFit, opsTap, rowsTall, cLegacy16, cMoney('#app .tbl-card'), has('登记拨款'), has('已驳回')] },
-  { app: 'console', screen: 'pm-advance', state: 'all', persona: 'pm', path: '/pm/advance?tab=all', width: 1280, height: 800, rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }), checks: [cFit, tblFit] },
+    checks: [reviewOpsFor('终审通过'), chainOneLine, tblFit, opsTap, rowsTall, cLegacy16, cMoney('#app .tbl-card'), has('登记拨款'), has('已驳回')] },
+  { app: 'console', screen: 'pm-advance', state: 'all', persona: 'pm', path: '/pm/advance?tab=all', width: 1280, height: 800, rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }), checks: [cFit, chainOneLine, tblFit, noWrap('#app .person b')] },
   { app: 'console', screen: 'pm-advance', state: 'loading', persona: 'pm', path: '/pm/advance', rules: sr({ url: TADV_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, hasNot('暂无需要你处理的预支申请')] },
   { app: 'console', screen: 'pm-advance', state: 'empty', persona: 'pm', path: '/pm/advance', rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无需要你处理的预支申请'), allZero, cLegacy16] },
   { app: 'console', screen: 'pm-advance', state: 'error', persona: 'pm', path: '/pm/advance', rules: sr({ url: TADV_API, method: 'GET', action: 'fail' }), checks: [oneRetry, noNums, hasNot('暂无需要你处理的预支申请')] },
@@ -2306,22 +2318,22 @@ const STATES = [
   { app: 'console', screen: 'pm-advance', state: 'payout-box', persona: 'pm', path: '/pm/advance?tab=all', rules: sr({ url: TADV_API, method: 'GET', action: 'respond', body: fakeTAdvs }),
     steps: openJobRow('登记拨款'), checks: [boxTitle, `${findBtn('已转账，登记拨款', '.el-message-box')} ? '' : '确认框里没有「已转账，登记拨款」'`] },
   // ---- 工单 19：工资表导入（第 16 类，同花名册导入）----
-  { app: 'console', screen: 'payroll-batches', state: 'normal', persona: 'pm', path: '/payroll/batches', rules: sr(), checks: [cSide('pm'), payImportLayout, tblFit, cLegacy16, noThrottleWord, cMoney('#app .tbl-card')] },
-  { app: 'console', screen: 'payroll-batches', state: 'normal', persona: 'pm', path: '/payroll/batches', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, sideActive, payImportLayout, tblFit] },
+  { app: 'console', screen: 'payroll-batches', state: 'normal', persona: 'pm', path: '/payroll/batches', rules: sr(), checks: [cSide('pm'), importLayout, tplBtn, tblFit, cLegacy16, noThrottleWord, cMoney('#app .tbl-card')] },
+  { app: 'console', screen: 'payroll-batches', state: 'normal', persona: 'pm', path: '/payroll/batches', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, sideActive, importLayout, tblFit] },
   { app: 'console', screen: 'payroll-batches', state: 'loading', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无导入记录')] },
-  { app: 'console', screen: 'payroll-batches', state: 'empty', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'respond', body: reply([]) }), checks: [has('暂无导入记录'), cLegacy16] },
-  { app: 'console', screen: 'payroll-batches', state: 'error', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'fail' }), checks: [oneRetry, hasNot('暂无导入记录')] },
+  { app: 'console', screen: 'payroll-batches', state: 'empty', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'respond', body: reply([]) }), steps: [scrollStart('#app .tbl-card')], checks: [has('暂无导入记录'), cLegacy16] },
+  { app: 'console', screen: 'payroll-batches', state: 'error', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PB_API, action: 'fail' }), steps: [scrollStart('#app .tbl-card')], checks: [oneRetry, hasNot('暂无导入记录')] },
   { app: 'console', screen: 'payroll-batches', state: 'picked', persona: 'pm', path: '/payroll/batches', rules: sr(), steps: [pickPay, wait(300)],
     checks: [nameOnce('十月工资表.xlsx'), `${findBtn('开始导入')}.disabled ? '选了文件「开始导入」还是灰的' : ''`] },
   { app: 'console', screen: 'payroll-batches', state: 'submitting', persona: 'pm', path: '/payroll/batches', rules: sr(), quick: true,
     steps: [...startPay, countXhr, boxClickTwice('开始导入')], checks: [boxTitle, elSpinning('开始导入', '.el-message-box'), sentOnce] },
   { app: 'console', screen: 'payroll-batches', state: 'result', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: fakePayroll }),
     steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')],
-    checks: [payImportLayout, rosterRows, tblFit, cLegacy16, cMoney('#app .result'), has('下载失败行'), has('只保留失败行')] },
+    checks: [importLayout, rosterRows, tblFit, cLegacy16, cMoney('#app .result'), sumPlain, has('下载失败行'), has('只保留失败行')] },
   { app: 'console', screen: 'payroll-batches', state: 'result', persona: 'pm', path: '/payroll/batches', width: 1280, height: 800, rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: fakePayroll }),
-    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [cFitAny, payImportLayout, rosterRows, tblFit] },
+    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [cFitAny, importLayout, rosterRows, tblFit] },
   { app: 'console', screen: 'payroll-batches', state: 'all-ok', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: fakePayrollOk }),
-    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [has('全部导入成功'), payImportLayout] },
+    steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [has('全部导入成功'), importLayout] },
   { app: 'console', screen: 'payroll-batches', state: 'rejected', persona: 'pm', path: '/payroll/batches', rules: sr({ url: PIMPORT_API, method: 'POST', action: 'respond', body: refuse('SYS_4000', '无法读取工资表，请检查格式（第一行为表头）') }),
     steps: [...startPay, `${findBtn('开始导入', '.el-message-box')}.click()`, elToastGone('无法读取工资表')],
     checks: [boxTitle, boxWhy('开始导入', '暂时不能导入：无法读取工资表'), whyStays('#app .up-why', '暂时不能导入：无法读取工资表'), `${findBtn('开始导入')}.disabled ? '' : '被拒之后页面上的「开始导入」没有置灰'`, elIdle] },
@@ -2331,16 +2343,19 @@ const STATES = [
   { app: 'console', screen: 'payroll-appeals', state: 'normal', persona: 'pm', path: '/payroll/appeals', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, opsCol, tblFit] },
   { app: 'console', screen: 'payroll-appeals', state: 'all', persona: 'pm', path: '/payroll/appeals', rules: sr(), steps: [`[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('全部')).click()`, wait(600)],
     checks: [opsCol, tblFit, rowsTall, statusTags, has('处理说明')] },
-  { app: 'console', screen: 'payroll-appeals', state: 'loading', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('没有待处理的工资申诉')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'loading', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, refreshBusy, hasNot('没有待处理的工资申诉')] },
   { app: 'console', screen: 'payroll-appeals', state: 'empty', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('没有待处理的工资申诉'), cLegacy16] },
   { app: 'console', screen: 'payroll-appeals', state: 'error', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: APPEAL_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('没有待处理的工资申诉')] },
-  { app: 'console', screen: 'payroll-appeals', state: 'handle', persona: 'pm', path: '/payroll/appeals', rules: sr(), steps: openJobRow('处理'), checks: [dlgReview, dlgLegacy, dlgNoWrap, cMoney('.el-dialog')] },
+  { app: 'console', screen: 'payroll-appeals', state: 'handle', persona: 'pm', path: '/payroll/appeals', rules: sr(), steps: openJobRow('处理'), checks: [dlgReview, dlgLegacy, dlgNoWrap, cMoney('.el-dialog'), `document.querySelector('.el-dialog .slip').innerText.includes('扣款合计') ? '' : '扣款块没有「扣款合计」'`] },
   { app: 'console', screen: 'payroll-appeals', state: 'submitting', persona: 'pm', path: '/payroll/appeals', rules: sr(), quick: true,
     steps: [...openJobRow('处理'), fillReply, countXhr, elClickTwice('受理并回复', '.el-dialog')], checks: [elSpinning('受理并回复', '.el-dialog'), sentOnce] },
   { app: 'console', screen: 'payroll-appeals', state: 'rejected', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: '/handle', method: 'POST', action: 'respond', body: refuse('APPEAL_4091', APPEAL_WHY) }),
     steps: [...openJobRow('处理'), fillReply, `${findBtn('受理并回复', '.el-dialog')}.click()`, elToastGone(APPEAL_WHY)],
     checks: [whyStays('.el-dialog .blocked-why', '暂时不能受理：' + APPEAL_WHY), whyStays('#app .tbl-tip', '暂时不能受理：' + APPEAL_WHY), dlgOff('受理并回复'),
       `${findBtn('不受理', '.el-dialog')}.disabled ? '被拒的是受理，「不受理」也被置灰了' : ''`, dlgIdle] },
+  { app: 'console', screen: 'payroll-appeals', state: 'reject-rejected', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: '/handle', method: 'POST', action: 'respond', body: refuse('APPEAL_4091', APPEAL_WHY) }),
+    steps: [...openJobRow('处理'), fillReply, `${findBtn('不受理', '.el-dialog')}.click()`, elToastGone(APPEAL_WHY)],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能标记不受理：' + APPEAL_WHY), hasNot('不能不受理'), dlgOff('不受理'), dlgIdle] },
   { app: 'console', screen: 'payroll-appeals', state: 'network', persona: 'pm', path: '/payroll/appeals', rules: sr({ url: '/handle', method: 'POST', action: 'fail' }),
     steps: [...openJobRow('处理'), fillReply, `${findBtn('受理并回复', '.el-dialog')}.click()`, toastShown],
     checks: [`document.querySelector('#app .blocked-why, .el-dialog .blocked-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn('受理并回复', '.el-dialog')}?.disabled === false ? '' : '网络失败后弹窗关了或按钮被置灰'`] },
@@ -2351,11 +2366,16 @@ const STATES = [
     checks: [cSide('pm'), cFitAny, sideActive, kpiCards, tblFit, cMoney(), moneyAligned()] },
   { app: 'console', screen: 'payroll-recon', state: 'live', persona: 'pm', path: '/payroll/recon', rules: sr(), checks: [has('这个月没有工资抵扣'), tblFit, cMoney(), moneyAligned()] },
   { app: 'console', screen: 'payroll-recon', state: 'loading', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'hang' }), quick: true, steps: [wait(600)],
-    checks: [loadMask, noNums, hasNot('这个月没有工资抵扣'), hasNot('没有未还清的预支')] },
+    checks: [loadMask, noNums, refreshBusy, switchBlank, hasNot('这个月没有工资抵扣'), hasNot('没有未还清的预支')] },
   { app: 'console', screen: 'payroll-recon', state: 'empty', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'respond', body: emptyRecon }),
     checks: [has('这个月没有工资抵扣'), has('没有未还清的预支'), reconZero, statTone, cLegacy16] },
   { app: 'console', screen: 'payroll-recon', state: 'error', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'fail' }),
-    checks: [oneRetry, noNums, hasNot('这个月没有工资抵扣'), hasNot('没有未还清的预支')] },
+    checks: [oneRetry, noNums, switchBlank, hasNot('这个月没有工资抵扣'), hasNot('没有未还清的预支')] },
+  // 切换月份：接口挂住时月份框保留新选的月份，标题、数字、结论都不显示；失败时同样保留月份、给「重新加载」
+  { app: 'console', screen: 'payroll-recon', state: 'switch-loading', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'respond', body: fakeRecon }),
+    lateRules: [{ url: RECON_API, action: 'hang' }], quick: true, steps: [...pickMonth('2026-09'), wait(600)], checks: [loadMask, monthKept('2026-09'), noNums, switchBlank, refreshBusy] },
+  { app: 'console', screen: 'payroll-recon', state: 'switch-error', persona: 'pm', path: '/payroll/recon', rules: sr({ url: RECON_API, action: 'respond', body: fakeRecon }),
+    lateRules: [{ url: RECON_API, action: 'fail' }], steps: pickMonth('2026-09'), checks: [oneRetry, monthKept('2026-09'), noNums, switchBlank] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

@@ -257,19 +257,19 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
       </div>
       <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}{{ b.text.includes('刷新') ? '' : '。刷新后重新判断' }}</p>
       <el-table v-loading="loading" :data="pageRows" row-key="advanceId">
-        <el-table-column label="申请单号" width="150">
+        <el-table-column label="申请单号" width="140">
           <template #default="{ row }">
             <div class="code">{{ row.advanceId }}</div>
             <div class="sub tnum">{{ fmtDateTime(row.createdAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="员工" min-width="90">
+        <el-table-column label="员工" min-width="96">
           <template #default="{ row }"><PersonCell :name="row.seekerName ?? '—'" /></template>
         </el-table-column>
-        <el-table-column label="项目" min-width="130">
+        <el-table-column label="项目" min-width="80">
           <template #default="{ row }">{{ projectName(row.projectId) }}</template>
         </el-table-column>
-        <el-table-column label="金额 / 月份" width="110" align="right">
+        <el-table-column label="金额 / 月份" width="100" align="right">
           <template #default="{ row }">
             <div class="money">{{ fmtYuan(row.amount) }}</div>
             <div class="sub tnum">{{ row.bizMonth }}</div>
@@ -284,14 +284,14 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
             <span v-else class="sub">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态 / 审批链" min-width="230">
+        <el-table-column label="状态 / 审批链" min-width="296">
           <template #default="{ row }">
             <DictTag type="AdvanceStatus" :value="row.status" />
             <div class="chain">
               <!-- 箭头和后一步连在一起折行，行尾不留单独的箭头 -->
               <span v-for="(s, i) in chainSteps(row)" :key="s" class="st">
-                <span v-if="i > 0" class="ar" aria-hidden="true">→</span>
-                <span class="cn" :class="stepClass(row, i)"><IconCheck v-if="stepClass(row, i) === 'done'" :size="12" />{{ s }}</span>
+                <span v-if="i > 0" class="ar" aria-hidden="true">›</span>
+                <span class="cn" :class="stepClass(row, i)"><IconCheck v-if="stepClass(row, i) === 'done'" :size="10" />{{ s }}</span>
               </span>
             </div>
           </template>
@@ -386,14 +386,13 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
 .code { font-family: var(--font-mono); font-size: var(--font-size-aux); color: var(--text-1); white-space: nowrap; }
 .sub { margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
 .tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* 审批链：完成的带勾、进行中主色浅底加粗、驳回危险色浅底，不只靠颜色区分（规范 Page States 时间线、步骤条） */
-.chain { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); font-size: var(--font-size-min); }
-.chain .st { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; }
-.chain .cn { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border-radius: var(--radius-tag); color: var(--text-3); background: var(--bg-fill); line-height: 20px; white-space: nowrap; }
-.chain .cn.done { color: var(--success-text); background: var(--success-soft); }
-.chain .cn.now { color: var(--primary-text); background: var(--primary-bg); font-weight: var(--font-weight-semibold); }
-.chain .cn.rej { color: var(--danger-text); background: var(--danger-soft); font-weight: var(--font-weight-semibold); }
-.chain .ar { color: var(--text-3); }
+/* 审批链：一行放下（不折行）；完成的带勾、进行中主色加粗、驳回危险色加粗，不只靠颜色区分（规范 Page States 时间线、步骤条） */
+.chain { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 20px; white-space: nowrap; color: var(--text-3); }
+.chain .st { display: inline-flex; align-items: center; gap: var(--space-1); }
+.chain .cn { display: inline-flex; align-items: center; }
+.chain .cn.done { color: var(--success-text); }
+.chain .cn.now { color: var(--primary-text); font-weight: var(--font-weight-semibold); }
+.chain .cn.rej { color: var(--danger-text); font-weight: var(--font-weight-semibold); }
 .acts { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: flex-end; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
 .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
