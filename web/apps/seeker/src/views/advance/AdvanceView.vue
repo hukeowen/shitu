@@ -208,7 +208,7 @@ async function onApply() {
         </section>
 
         <van-button block class="btn-cta" @click="router.push('/advance/records')">预支记录与还款</van-button>
-        <div class="bottom-bar-gap"></div>
+        <div class="bottom-bar-gap" :class="{ tall: !!quota && !quota.eligible && !!reason }"></div>
       </div>
     </van-pull-refresh>
 
@@ -259,5 +259,5 @@ button.acard { display: block; width: 100%; text-align: left; font: inherit; }
 .rules li i { flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; background: var(--ok-bg); color: var(--ok); margin-top: 1px; }
 .rules li.bad { color: var(--ink-500); }
 .rules li.bad i { background: var(--danger-bg); color: var(--danger); }
-.why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; line-height: 1.5; }
+.why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; line-height: 1.5; text-wrap: balance; }
 </style>

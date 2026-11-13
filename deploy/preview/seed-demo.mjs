@@ -1,7 +1,8 @@
 // 预览环境演示数据：在服务器本机以 root 运行，全部走真实业务接口，再把日期往前拨并补跑历史计费。
 //   node /opt/shitu/upload/seed-demo.mjs          （admin 密码已改过：OPS_PASSWORD=新密码 node ...）
 // 前置：后端以 preview profile 运行（短信验证码回显）、平台管理员 admin 的密码还是初始密码。
-// 只能跑一次：库里已经有第二家公司时直接退出。全部是虚构的人员与公司，不要在有真实数据的库上运行。
+// 整套数据只能造一次；在途流程（待面试、待确权等）过 24 小时会被系统释放，演示前补一批：node seed-demo.mjs refresh
+// 库里已经有第二家公司时不带 refresh 直接退出。全部是虚构的人员与公司，不要在有真实数据的库上运行。
 import fs from 'node:fs'
 import zlib from 'node:zlib'
 import { execFileSync } from 'node:child_process'
@@ -226,6 +227,10 @@ function backdate(s, d) {
     `UPDATE user_status_log SET created_at = created_at - INTERVAL 1 DAY WHERE user_id = '${u}' AND event LIKE 'REGISTER%'`,
     `UPDATE match_session SET started_at = started_at - INTERVAL ${d + 1} DAY, finished_at = finished_at - INTERVAL ${d + 1} DAY WHERE user_id = '${u}'`,
     `UPDATE application SET created_at = created_at - INTERVAL ${d + 1} DAY, acknowledged_at = acknowledged_at - INTERVAL ${d + 1} DAY, interview_at = interview_at - INTERVAL ${d + 1} DAY, arrived_at = arrived_at - INTERVAL ${d} DAY WHERE user_id = '${u}'`,
+    `UPDATE interview_notice n JOIN application a ON a.application_id = n.application_id SET n.interview_at = a.interview_at, n.pushed_at = a.acknowledged_at WHERE a.user_id = '${u}'`,
+    // 站内信是异步发的，这里能拨到多少算多少（面试、到厂的提醒在入职前一天，签约提醒在入职当天）
+    `UPDATE notification SET created_at = created_at - INTERVAL ${d + 1} DAY WHERE recipient_type = 'SEEKER' AND recipient_id = '${u}' AND template_code IN ('INTERVIEW_INFO_PUSHED', 'ARRIVAL_CONFIRMED')`,
+    `UPDATE notification SET created_at = created_at - INTERVAL ${d} DAY WHERE recipient_type = 'SEEKER' AND recipient_id = '${u}' AND template_code = 'CONTRACT_SIGN_REQUIRED'`,
     `UPDATE employment SET start_date = CURDATE() - INTERVAL ${d} DAY, created_at = created_at - INTERVAL ${d} DAY WHERE user_id = '${u}'`,
     `UPDATE contract SET term_start = CURDATE() - INTERVAL ${d} DAY, signed_at = signed_at - INTERVAL ${d} DAY, created_at = created_at - INTERVAL ${d} DAY WHERE user_id = '${u}'`,
     `UPDATE kyc_record SET created_at = created_at - INTERVAL ${d + 2} DAY WHERE user_id = '${u}'`,
@@ -284,10 +289,70 @@ async function newCompany(ops, c) {
   return co
 }
 
+/** 今天的在途流程：私域待匹配、待面试各阶段、待确权、爽约、未通过、取消。过 24 小时会被系统按规则释放，演示前用 refresh 再补一批。 */
+async function inflight(A, B, C) {
+  const fresh = async (label, co, fn) => step(`${co.short}：${label}`, async () => fn(await newSeeker(co.channel)))
+  for (let i = 0; i < 2; i++) await fresh('私域待匹配（刚扫码注册）', A, async () => undefined)
+  await fresh('私域待匹配 → 已转人才经纪人、经纪人已联系', A, async (s) => {
+    const caseId = await A.site.post(`/tenant/seekers/${s.userId}/transfer-to-broker`)
+    await A.broker.post(`/tenant/broker/cases/${caseId}/contact`)
+    await A.broker.post(`/tenant/broker/cases/${caseId}/report`)
+  })
+  await fresh('待面试（驻场还没知悉）', A, (s) => apply(s, A, 0))
+  await fresh('待面试（已约明天面试）', A, async (s) => ack(A, await apply(s, A, 1)))
+  await fresh('待面试（已到厂，等面试结果）', A, async (s) => { const id = await apply(s, A, 0); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/arrive`) })
+  await fresh('待确权（面试通过）', A, async (s) => { const id = await apply(s, A, 1); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/result`, { pass: true }) })
+  await fresh('待确权（合同已发、等本人签署）', A, async (s) => {
+    const id = await apply(s, A, 0); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/result`, { pass: true })
+    await A.site.post(`/tenant/applications/${id}/confirm`, { startDate: day(1), employeeNo: 'ST' + pad(++A.empSeq, 4) })
+  })
+  await fresh('爽约', A, async (s) => { const id = await apply(s, A, 2); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/no-show`, { remark: '约好 9 点半面试，电话三次未接' }) })
+  await fresh('面试未通过', A, async (s) => { const id = await apply(s, A, 2); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/result`, { pass: false, remark: '色弱，不符合目检岗位要求' }) })
+  await fresh('取消报名', A, async (s) => { const id = await apply(s, A, 1); await A.site.post(`/tenant/applications/${id}/cancel`, { reason: '本人来电说已在别处上班' }) })
+  await fresh('待面试（已约明天面试）', B, async (s) => ack(B, await apply(s, B, 0)))
+  await fresh('待面试（驻场还没知悉）', B, (s) => apply(s, B, 1))
+  await fresh('私域待匹配', B, async () => undefined)
+  await fresh('待面试（已约明天面试）', C, async (s) => ack(C, await apply(s, C, 0)))
+}
+
+/** 读取一家已有公司的三个角色、项目、在招岗位和渠道码。 */
+async function loadCompany(short, phones, siteName, address) {
+  const co = { short, jobs: [], meta: {}, empSeq: 5000 + rnd(4000), siteName, address }
+  co.owner = await new Actor('tenant', phones[0]).login()
+  co.pm = await new Actor('tenant', phones[1]).login()
+  co.site = await new Actor('tenant', phones[2]).login()
+  co.companyId = (await co.owner.get('/tenant/me')).company.companyId
+  co.projectId = (await co.pm.get('/tenant/projects'))[0].projectId
+  for (const j of (await co.pm.get('/tenant/jobs?pageSize=50')).records.filter((x) => x.status === 'RECRUITING')) {
+    co.jobs.push(j.jobId)
+    co.meta[j.jobId] = j
+  }
+  co.channel = (await co.owner.get('/tenant/channel-codes'))[0].code
+  return co
+}
+
+/** 只补今天的在途流程（公司、在岗人员、账单等不动）。 */
+async function refresh() {
+  for (const pat of ['*rl:sms:day:*', '*sms:iv:*']) {
+    const keys = redis('--scan', '--pattern', pat).split(String.fromCharCode(10)).filter(Boolean)
+    for (let i = 0; i < keys.length; i += 100) redis('DEL', ...keys.slice(i, i + 100))
+  }
+  ENGINE = sql("SELECT CONCAT(JSON_EXTRACT(config, '$.resultCount'), ',', JSON_EXTRACT(config, '$.maxPerCompanyPublic')) FROM engine_config WHERE status = 'ACTIVE'")
+  sql("UPDATE engine_config SET config = JSON_SET(config, '$.resultCount', 30, '$.maxPerCompanyPublic', 30) WHERE status = 'ACTIVE'")
+  const A = await step('读取公司 A', () => loadCompany('仕兔演示', ['13800000001', '13800000002', '13800000003'], '王磊', '昆山开发区前进东路 88 号'))
+  const B = await step('读取公司 B', () => loadCompany('宏泰人力', ['13800000011', '13800000012', '13800000013'], '赵志刚', '苏州工业园区星湖街 328 号'))
+  const C = await step('读取公司 C', () => loadCompany('汇智劳务', ['13800000021', '13800000022', '13800000023'], '冯大伟', '无锡新吴区长江路 16 号'))
+  if (!A || !B || !C) throw new Error('读取演示公司失败')
+  A.broker = await new Actor('tenant', '13800000004').login()
+  await inflight(A, B, C)
+  console.log(`\n完成：补了一批今天的在途流程，失败步骤 ${failed} 个`)
+}
+
 // ==================================================================== 主流程
 async function main() {
   if (Number(sql('SELECT COUNT(*) FROM company')) > 1) {
-    console.log('库里已有多家公司，演示数据应该已经造过，退出。')
+    if (process.argv[2] === 'refresh') return refresh()
+    console.log('库里已有多家公司，演示数据应该已经造过，退出。在途流程过了 24 小时会被系统自动释放，演示前补一批：node seed-demo.mjs refresh')
     return
   }
   // 演示账号的手机号当天可能已经登录过多次（同号一天发满 3 次短信就要图形验证），先清掉短信计数
@@ -450,28 +515,7 @@ async function main() {
   })
 
   // ---------------------------------------------------------------- 6. 今天的在途流程
-  const fresh = async (label, co, fn) => step(`${co.short}：${label}`, async () => fn(await newSeeker(co.channel)))
-  for (let i = 0; i < 2; i++) await fresh('私域待匹配（刚扫码注册）', A, async () => undefined)
-  await fresh('私域待匹配 → 已转人才经纪人、经纪人已联系', A, async (s) => {
-    const caseId = await A.site.post(`/tenant/seekers/${s.userId}/transfer-to-broker`)
-    await A.broker.post(`/tenant/broker/cases/${caseId}/contact`)
-    await A.broker.post(`/tenant/broker/cases/${caseId}/report`)
-  })
-  await fresh('待面试（驻场还没知悉）', A, (s) => apply(s, A, 0))
-  await fresh('待面试（已约明天面试）', A, async (s) => ack(A, await apply(s, A, 1)))
-  await fresh('待面试（已到厂，等面试结果）', A, async (s) => { const id = await apply(s, A, 0); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/arrive`) })
-  await fresh('待确权（面试通过）', A, async (s) => { const id = await apply(s, A, 1); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/result`, { pass: true }) })
-  await fresh('待确权（合同已发、等本人签署）', A, async (s) => {
-    const id = await apply(s, A, 0); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/result`, { pass: true })
-    await A.site.post(`/tenant/applications/${id}/confirm`, { startDate: day(1), employeeNo: 'ST' + pad(++A.empSeq, 4) })
-  })
-  await fresh('爽约', A, async (s) => { const id = await apply(s, A, 2); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/no-show`, { remark: '约好 9 点半面试，电话三次未接' }) })
-  await fresh('面试未通过', A, async (s) => { const id = await apply(s, A, 2); await ack(A, id, 0); await A.site.post(`/tenant/applications/${id}/result`, { pass: false, remark: '色弱，不符合目检岗位要求' }) })
-  await fresh('取消报名', A, async (s) => { const id = await apply(s, A, 1); await A.site.post(`/tenant/applications/${id}/cancel`, { reason: '本人来电说已在别处上班' }) })
-  await fresh('待面试（已约明天面试）', B, async (s) => ack(B, await apply(s, B, 0)))
-  await fresh('待面试（驻场还没知悉）', B, (s) => apply(s, B, 1))
-  await fresh('私域待匹配', B, async () => undefined)
-  await fresh('待面试（已约明天面试）', C, async (s) => ack(C, await apply(s, C, 0)))
+  await inflight(A, B, C)
   const pub = []
   for (let i = 0; i < 3; i++) { const s = await step('公域求职者（自然注册）', () => newSeeker(null)); if (s) pub.push(s) }
 

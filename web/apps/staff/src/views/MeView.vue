@@ -5,6 +5,7 @@ import { showConfirmDialog, showToast } from 'vant'
 import { useDict } from '@shitu/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
+import { advanceWording } from '@/utils/advance'
 
 /** 驻场「我的」：成员身份、所属公司、退出登录（成员接口不返回手机号，故不展示） */
 const auth = useAuthStore()
@@ -12,6 +13,7 @@ const router = useRouter()
 const { label } = useDict()
 const me = computed(() => auth.me)
 const inbox = useInboxStore()
+const adv = computed(() => advanceWording(me.value?.roles))
 if (auth.operational) void inbox.refresh()
 
 async function onLogout() {
@@ -66,7 +68,7 @@ async function onLogout() {
           <van-icon name="arrow" class="chev" />
         </router-link>
         <router-link to="/advance" class="lrow">
-          <div class="lt"><b>预支初审</b><span>求职者薪资预支的驻场初审</span></div>
+          <div class="lt"><b>{{ adv.title }}</b><span>{{ adv.entryDesc }}</span></div>
           <van-icon name="arrow" class="chev" />
         </router-link>
         <router-link to="/incidents" class="lrow">
@@ -94,5 +96,5 @@ async function onLogout() {
 .list { padding: 0; overflow: hidden; }
 .list .lrow { text-decoration: none; color: inherit; border-left: 0; border-right: 0; border-top: 0; }
 .logout { color: var(--danger); border-color: var(--danger-line); }
-.foot { text-align: center; padding: 6px 0 16px; }
+.foot { text-align: center; padding: 6px 0 8px; }
 </style>

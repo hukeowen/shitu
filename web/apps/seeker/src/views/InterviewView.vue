@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type MyApplication } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
 import { telHref } from '@/utils/format'
+import { APP_TAG_CLASS } from '@/utils/status'
 import { amapLink } from '@/utils/map'
 import { formatServerTime, formatShort, untilText } from '@/utils/time'
 
-/** S-24 面试确认信息（C-408）：驻场「知悉」后推送的时间、地点、路线、证件清单 */
+/**
+ * S-24 面试确认信息（C-408）：驻场「知悉」后推送的时间、地点、路线、证件清单。
+ * 只有「待面试」展示面试须知（倒计时、证件清点、取消提示）；面试已通过 / 已入职 / 已结束的报名
+ * 展示与状态相符的摘要，面试时间只作为过去的事实。
+ */
 const route = useRoute()
 const router = useRouter()
 const { label } = useDict()
@@ -35,17 +40,68 @@ const nav = computed(() => (n.value ? amapLink({ address: n.value.address, name:
 const tel = computed(() => telHref(n.value?.contactPhone))
 const until = computed(() => untilText(n.value?.interviewAt))
 const checked = ref<Record<string, boolean>>({})
+
+const pendingInterview = computed(() => app.value?.status === 'PENDING_INTERVIEW')
+const title = computed(() => {
+  const s = app.value?.status
+  if (!s || s === 'PENDING_INTERVIEW') return '面试确认信息'
+  if (s === 'PENDING_CONFIRM') return '面试已通过'
+  if (s === 'EMPLOYED') return '已入职'
+  return '报名详情'
+})
+watch(title, (t) => (document.title = t), { immediate: true })
+/** 非待面试状态的一句话结论 */
+const summary = computed(() => {
+  const s = app.value?.status
+  if (s === 'PENDING_CONFIRM') return { t: '面试已通过', d: '驻场老师正在为你办理入职，请留意电子合同的签署通知。' }
+  if (s === 'EMPLOYED') return { t: '已入职', d: '你已通过面试并办理入职，在岗信息请到「我的工作」查看。' }
+  if (s === 'TIMEOUT') return { t: label('ApplicationStatus', 'TIMEOUT'), d: '驻场未在时限内处理，本次报名已自动作废，你可以重新匹配岗位。' }
+  return { t: s ? label('ApplicationStatus', s) : '', d: '本次报名已结束，可重新进入 AI 问薪匹配岗位。' }
+})
 </script>
 
 <template>
   <div class="iv">
-    <AppBar title="面试确认信息" fallback="/reports" />
+    <AppBar :title="title" fallback="/reports" />
     <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
     <div v-else-if="loadError || !app" class="page-state">
       <van-empty image="error" :description="loadError">
         <van-button round size="small" @click="router.replace('/reports')">返回我的报备</van-button>
       </van-empty>
     </div>
+    <!-- 面试已通过 / 已入职 / 已结束：状态摘要，不出现倒计时、证件清点与取消提示 -->
+    <div v-else-if="!pendingInterview" class="pad stack">
+      <section class="acard hero-card" :class="{ ok: app.status === 'PENDING_CONFIRM' || app.status === 'EMPLOYED', off: app.status !== 'PENDING_CONFIRM' && app.status !== 'EMPLOYED' }">
+        <div class="row-b" style="margin-bottom: 12px">
+          <span class="tag" :class="APP_TAG_CLASS[app.status]"><i class="dot"></i>{{ label('ApplicationStatus', app.status) }}</span>
+          <span class="mono t-xs" style="color: rgba(255, 255, 255, .5)">{{ app.applicationId }}</span>
+        </div>
+        <div class="h-t">{{ app.jobTitle || '岗位' }}</div>
+        <div class="h-s">{{ [app.projectName, app.companyName].filter(Boolean).join(' · ') }}</div>
+        <div class="h-time">
+          <div class="h-v2">{{ summary.t }}</div>
+          <div class="h-d">{{ summary.d }}</div>
+        </div>
+      </section>
+
+      <section class="acard">
+        <div class="acard-hd"><h4>报名记录</h4></div>
+        <dl>
+          <div class="kv"><dt>报名时间</dt><dd class="num">{{ formatServerTime(app.createdAt) }}</dd></div>
+          <div v-if="n" class="kv"><dt>面试时间</dt><dd class="num">{{ formatServerTime(n.interviewAt) }}</dd></div>
+          <div v-if="n?.address || app.address" class="kv"><dt>面试地点</dt><dd>{{ n?.address || app.address }}</dd></div>
+          <div v-if="n?.contactName" class="kv"><dt>驻场老师</dt><dd>{{ n.contactName }}</dd></div>
+          <div v-if="app.endedAt && app.status !== 'EMPLOYED' && app.status !== 'PENDING_CONFIRM'" class="kv"><dt>结束时间</dt><dd class="num">{{ formatServerTime(app.endedAt) }}</dd></div>
+          <div v-if="app.endReason" class="kv"><dt>原因</dt><dd>{{ app.endReason }}</dd></div>
+        </dl>
+      </section>
+
+      <van-button v-if="app.status === 'PENDING_CONFIRM'" type="primary" block class="btn-cta" @click="router.push('/contracts')">查看我的合同</van-button>
+      <van-button v-else-if="app.status === 'EMPLOYED'" type="primary" block class="btn-cta" @click="router.push('/work')">查看我的工作</van-button>
+      <van-button block class="btn-cta" @click="router.replace('/reports')">返回我的报备</van-button>
+      <div class="page-bottom-gap"></div>
+    </div>
+
     <div v-else-if="!n" class="page-state">
       <van-empty description="驻场老师还没有推送面试信息，请留意站内消息和短信">
         <van-button round size="small" @click="router.replace('/reports')">返回我的报备</van-button>
@@ -55,7 +111,7 @@ const checked = ref<Record<string, boolean>>({})
     <div v-else class="pad stack">
       <section class="acard hero-card">
         <div class="row-b" style="margin-bottom: 12px">
-          <span class="tag tag-temp">{{ label('ApplicationStatus', app.status) }}</span>
+          <span class="tag" :class="APP_TAG_CLASS[app.status]">{{ label('ApplicationStatus', app.status) }}</span>
           <span class="mono t-xs" style="color: rgba(255, 255, 255, .5)">{{ app.applicationId }}</span>
         </div>
         <div class="h-t">{{ app.jobTitle }}</div>
@@ -116,6 +172,10 @@ const checked = ref<Record<string, boolean>>({})
 .h-l { font-size: 11px; color: rgba(255, 255, 255, .5); }
 .h-v { font-size: 22px; margin-top: 2px; }
 .h-u { font-size: 11.5px; color: var(--signal-300); margin-top: 3px; }
+.hero-card.ok { background: linear-gradient(160deg, #14513a, #0d1117); }
+.hero-card.off { background: linear-gradient(160deg, #3a4350, #0d1117); }
+.h-v2 { font-size: 18px; font-weight: 700; }
+.h-d { font-size: 12px; color: rgba(255, 255, 255, .62); margin-top: 4px; line-height: 1.65; text-wrap: pretty; }
 .map { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; height: 80px; border-radius: var(--r-md); border: 1px solid var(--line); color: var(--signal); font-size: 13px; font-weight: 600; text-decoration: none; background: repeating-linear-gradient(135deg, var(--surface-3) 0 10px, var(--surface-2) 10px 20px); }
 .doc { display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 2px 0; width: 100%; text-align: left; }
 .doc .box { width: 16px; height: 16px; border: 1.5px solid var(--ink-300); border-radius: 4px; flex: none; display: grid; place-items: center; font-size: 11px; color: #fff; }

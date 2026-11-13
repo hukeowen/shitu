@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import RowActions from '@/components/RowActions.vue'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, useDict, type PayslipAppealRow, type PayslipAppealStatus } from '@shitu/api-client'
 import { fmtDateTime, fmtYuan } from '@/utils/format'
@@ -56,6 +58,10 @@ async function submit(accept: boolean) {
     dlg.saving = false
   }
 }
+
+/** 只有待处理的申诉有操作；已处理页签不渲染操作列 */
+const rowActions = (r: PayslipAppealRow): RowAction[] => (r.status === 'OPEN' ? [{ key: 'handle', label: '处理', type: 'primary' }] : [])
+const opsWidth = computed(() => opsColWidth(rows.value.map(rowActions)))
 </script>
 
 <template>
@@ -78,19 +84,19 @@ async function submit(accept: boolean) {
         </div>
       </div>
       <el-table v-loading="loading" :data="rows" row-key="id">
-        <el-table-column label="提交时间" width="150">
+        <el-table-column label="提交时间" min-width="156">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="员工" width="170">
+        <el-table-column label="员工" min-width="190">
           <template #default="{ row }">
-            <b>{{ row.seekerName }}</b><span v-if="row.employeeNo" class="t-xs"> · {{ row.employeeNo }}</span>
-            <div class="t-xs">{{ row.projectName || '—' }}</div>
+            <div class="nowrap"><b>{{ row.seekerName }}</b><span v-if="row.employeeNo" class="t-xs mono"> · {{ row.employeeNo }}</span></div>
+            <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName || '—' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="工资月份" width="100">
+        <el-table-column label="工资月份" min-width="100">
           <template #default="{ row }"><span class="mono">{{ row.payMonth }}</span></template>
         </el-table-column>
-        <el-table-column label="实发" width="110" align="right">
+        <el-table-column label="实发" min-width="110" align="right">
           <template #default="{ row }"><b class="num">{{ fmtYuan(row.netPay) }}</b></template>
         </el-table-column>
         <el-table-column label="申诉内容" min-width="300">
@@ -100,14 +106,11 @@ async function submit(accept: boolean) {
             <div v-if="row.reply" class="reply"><b>处理说明</b>{{ row.reply }}<span class="t-xs"> · {{ row.handledByName }} {{ fmtDateTime(row.handledAt) }}</span></div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" min-width="100">
           <template #default="{ row }"><span class="tag" :class="TAG[row.status as PayslipAppealStatus]">{{ label('PayslipAppealStatus', row.status) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="100" align="right" fixed="right">
-          <template #default="{ row }">
-            <el-button v-if="row.status === 'OPEN'" size="small" type="primary" @click="openHandle(row)">处理</el-button>
-            <span v-else class="t-xs">—</span>
-          </template>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="openHandle(row)" /></template>
         </el-table-column>
         <template #empty><el-empty :description="loadError ? '加载失败' : '暂无工资申诉'" :image-size="80" /></template>
       </el-table>

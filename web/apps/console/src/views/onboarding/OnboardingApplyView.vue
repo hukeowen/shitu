@@ -69,7 +69,7 @@ function back() {
 <template>
   <AuthShell wide>
     <div class="box">
-      <div class="eyebrow">ONBOARDING · 入驻申请</div>
+      <div class="eyebrow">新公司入驻</div>
       <h2>劳务公司入驻申请</h2>
       <p class="t-sm sub">
         手机号 <b class="mono strong">{{ onboarding.phoneMasked || '—' }}</b> 尚未加入任何公司。提交后你将成为该公司的<b class="strong">老板</b>账号，审核通过后即可使用全部功能。

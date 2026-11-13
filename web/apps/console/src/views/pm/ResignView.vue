@@ -3,9 +3,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, tenantApi, type MemberView, type ResignRow } from '@shitu/api-client'
 import DictTag from '@/components/DictTag.vue'
+import RowActions from '@/components/RowActions.vue'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { fmtDateTime } from '@/utils/format'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { shNow, ymd } from '@/utils/time'
 
 /**
@@ -54,6 +56,15 @@ onMounted(async () => {
   // 成员列表只有老板 / 项目经理可查，用于显示发起人姓名
   if (meStore.hasRole('PM', 'OWNER')) members.value = await tenantApi.members().catch(() => [])
 })
+
+/** 行操作：只有项目经理能审核；没有可用操作（只读角色、已通过 / 已驳回页签、空列表）时不渲染操作列 */
+function rowActions(r: ResignRow): RowAction[] {
+  if (!isPm.value) return []
+  if (r.status === 'PENDING') return [{ key: 'approve', label: '确认离职', type: 'primary' }, { key: 'reject', label: '驳回', type: 'danger', plain: true }]
+  if (r.status === 'SCHEDULED') return [{ key: 'reject', label: '撤销离职', type: 'danger', plain: true }]
+  return []
+}
+const opsWidth = computed(() => opsColWidth(list.value.map(rowActions)))
 
 async function approve(r: ResignRow) {
   const future = r.resignDate > ymd(shNow())
@@ -122,7 +133,7 @@ async function reject(r: ResignRow) {
       <el-button @click="load">刷新</el-button>
     </div>
 
-    <div class="grid g-32">
+    <div class="grid g-1">
       <div class="card">
         <div class="toolbar">
           <div class="filter-tabs">
@@ -137,63 +148,58 @@ async function reject(r: ResignRow) {
           <el-button size="small" @click="load">重试</el-button>
         </el-alert>
         <el-table v-loading="loading" :data="list" row-key="id">
-          <el-table-column label="员工" min-width="120">
+          <el-table-column label="员工" min-width="150">
             <template #default="{ row }">
-              <b class="strong">{{ row.name }}</b>
-              <div class="t-xs mono">{{ row.employmentId }}</div>
+              <b class="strong ellip" :title="row.name">{{ row.name }}</b>
+              <div class="t-xs mono ellip" :title="row.employmentId">{{ row.employmentId }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="项目" min-width="140">
-            <template #default="{ row }"><span class="t-sm">{{ projectName(row.projectId) }}</span></template>
+          <el-table-column label="项目" min-width="150">
+            <template #default="{ row }"><span class="t-sm clamp-2" :title="projectName(row.projectId)">{{ projectName(row.projectId) }}</span></template>
           </el-table-column>
-          <el-table-column label="最后工作日" width="110">
+          <el-table-column label="最后工作日" min-width="116">
             <template #default="{ row }"><span class="mono t-sm strong">{{ row.resignDate }}</span></template>
           </el-table-column>
           <el-table-column label="离职原因" min-width="160">
-            <template #default="{ row }"><span class="t-sm">{{ row.reason || '—' }}</span></template>
+            <template #default="{ row }"><span class="t-sm clamp-2" :title="row.reason ?? ''">{{ row.reason || '—' }}</span></template>
           </el-table-column>
-          <el-table-column label="发起" width="130">
+          <el-table-column label="发起" min-width="150">
             <template #default="{ row }">
-              <div class="t-sm">{{ memberName(row.requestedBy) }}</div>
+              <div class="t-sm ellip">{{ memberName(row.requestedBy) }}</div>
               <div class="mono t-xs">{{ fmtDateTime(row.createdAt) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="90">
+          <el-table-column label="状态" min-width="96">
             <template #default="{ row }">
               <DictTag type="ResignStatus" :value="row.status" />
-              <div v-if="row.approvedBy" class="t-xs">{{ memberName(row.approvedBy) }}</div>
+              <div v-if="row.approvedBy" class="t-xs ellip">{{ memberName(row.approvedBy) }}</div>
             </template>
           </el-table-column>
-          <el-table-column v-if="isPm && (status === 'PENDING' || status === 'SCHEDULED')" label="操作" width="170" align="right" fixed="right">
+          <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
             <template #default="{ row }">
-              <template v-if="row.status === 'PENDING'">
-                <el-button size="small" type="danger" plain :disabled="busy === row.id" @click="reject(row)">驳回</el-button>
-                <el-button size="small" type="primary" :loading="busy === row.id" @click="approve(row)">确认离职</el-button>
-              </template>
-              <el-button v-else size="small" type="danger" plain :loading="busy === row.id" @click="reject(row)">撤销离职</el-button>
+              <RowActions :actions="rowActions(row)" :loading="busy === row.id" @act="(k) => (k === 'approve' ? approve(row) : reject(row))" />
             </template>
           </el-table-column>
           <template #empty><el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无离职申请'" /></template>
         </el-table>
       </div>
 
-      <div class="grid" style="gap: 14px; align-content: start">
+      <div class="grid g-2 grid--top">
         <div class="card">
           <div class="card__hd"><h3>离职后系统自动执行</h3></div>
           <div class="card__bd">
-            <dl class="kv"><dt>当前归属（bound）</dt><dd>清空</dd></dl>
+            <dl class="kv"><dt>当前归属</dt><dd>清空</dd></dl>
             <dl class="kv"><dt>公域 / 私域</dt><dd><span class="tag tag--public">公域</span></dd></dl>
             <dl class="kv"><dt>匹配范围</dt><dd>恢复为全平台</dd></dl>
             <dl class="kv"><dt>增长技术服务费</dt><dd>停止计费</dd></dl>
             <dl class="kv"><dt>人才流转费</dt><dd>停止计费</dd></dl>
             <dl class="kv"><dt>薪酬预支</dt><dd>欠款从最后一笔工资抵扣，扣不完记平台失信</dd></dl>
             <dl class="kv"><dt>劳动合同</dt><dd>变更为「已终止」</dd></dl>
-            <dl class="kv"><dt>来源归属（source）</dt><dd>保持不变</dd></dl>
+            <dl class="kv"><dt>来源归属</dt><dd>保持不变</dd></dl>
           </div>
         </div>
-        <div class="card"><div class="card__bd">
-          <div class="eyebrow">发起离职</div>
-          <p class="t-sm" style="margin-top: 6px; line-height: 1.8">在「人员管理」对在岗员工点击「离职」发起申请（驻场 / 项目经理均可）。在职不久即离职的员工，建议先流转至人才经纪人尝试内部调岗。</p>
+        <div class="card"><div class="card__hd"><h3>发起离职</h3></div><div class="card__bd">
+        <p class="t-sm" style="line-height: 1.8">在「人员管理」对在岗员工点击「离职」发起申请（驻场 / 项目经理均可）。在职不久即离职的员工，建议先流转至人才经纪人尝试内部调岗。</p>
         </div></div>
       </div>
     </div>

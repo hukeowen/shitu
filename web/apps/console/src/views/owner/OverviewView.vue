@@ -86,7 +86,7 @@ function signed(n: number) {
       <div class="card">
         <div class="card__hd"><h3>各项目在岗人数分布</h3><span class="tag">{{ distTotal }} 人</span></div>
         <div class="card__bd">
-          <div v-if="distTotal" class="stack">
+          <div v-if="dist.length > 1" class="stack">
             <i v-for="d in dist" :key="d.name" :style="{ flex: d.n, background: d.color }" :title="`${d.name} ${d.n}`" />
           </div>
           <div v-for="d in dist" :key="d.name" class="hbar">
@@ -101,25 +101,25 @@ function signed(n: number) {
       <div class="card">
         <div class="card__hd"><h3>项目明细</h3><span class="t-xs">{{ projects.length }} 个项目</span></div>
         <el-table :data="projects" row-key="projectId" size="small" max-height="420">
-          <el-table-column label="项目" min-width="160">
-            <template #default="{ row }"><b>{{ row.name }}</b><div class="t-xs">{{ row.city || '—' }}</div></template>
+          <el-table-column label="项目" min-width="170">
+            <template #default="{ row }"><b class="clamp-2" :title="row.name">{{ row.name }}</b><div class="t-xs ellip">{{ row.city || '—' }}</div></template>
           </el-table-column>
-          <el-table-column label="项目经理 / 驻场" min-width="130">
-            <template #default="{ row }"><span class="t-sm">{{ row.managers || '未分配' }}</span></template>
+          <el-table-column label="项目经理 / 驻场" min-width="140">
+            <template #default="{ row }"><span class="t-sm clamp-2" :title="row.managers ?? ''">{{ row.managers || '未分配' }}</span></template>
           </el-table-column>
-          <el-table-column label="在岗" width="110" align="right">
+          <el-table-column label="在岗" min-width="96" align="right">
             <template #default="{ row }">
               <b class="num">{{ row.employed }}</b>
-              <div class="bar" style="margin-top: 3px"><i class="sig" :style="{ width: `${Math.round((row.employed / maxEmployed) * 100)}%` }" /></div>
+              <div class="bar mini"><i class="sig" :style="{ width: `${Math.round((row.employed / maxEmployed) * 100)}%` }" /></div>
             </template>
           </el-table-column>
-          <el-table-column label="当月入职" width="86" align="right">
+          <el-table-column label="当月入职" min-width="86" align="right">
             <template #default="{ row }"><span class="num" style="color: var(--ok)">{{ row.hiredThisMonth }}</span></template>
           </el-table-column>
-          <el-table-column label="当月离职" width="86" align="right">
+          <el-table-column label="当月离职" min-width="86" align="right">
             <template #default="{ row }"><span class="num">{{ row.resignedThisMonth }}</span></template>
           </el-table-column>
-          <el-table-column label="净增" width="70" align="right">
+          <el-table-column label="净增" min-width="70" align="right">
             <template #default="{ row }">
               <span class="num" :style="{ color: row.hiredThisMonth - row.resignedThisMonth > 0 ? 'var(--ok)' : row.hiredThisMonth - row.resignedThisMonth < 0 ? 'var(--danger)' : undefined }">{{ signed(row.hiredThisMonth - row.resignedThisMonth) }}</span>
             </template>
@@ -129,15 +129,16 @@ function signed(n: number) {
       </div>
     </div>
 
-    <div class="grid g-3" style="margin-top: 14px">
+    <div class="grid g-3 grid--top" style="margin-top: 14px">
       <div class="card">
         <div class="card__hd"><h3>权限管控</h3><span class="tag tag--info">老板视图</span></div>
         <div class="card__bd t-sm perm">
           <div><span class="y">✓</span>查看公司整体与项目聚合统计</div>
           <div><span class="y">✓</span>查看渠道转化报表、费用账单、流转账本</div>
-          <div><span class="y">✓</span>预支登记拨款、工资表导入</div>
+          <div><span class="y">✓</span>预支登记拨款、工资表导入、公司通用知识库</div>
+          <div><span class="y">✓</span>只读查看岗位、待办清单与 24h 响应监控（姓名脱敏）</div>
           <div class="divider" style="margin: 8px 0" />
-          <div><span class="n">✕</span>查看单个求职者姓名 / 手机号 / 证件号</div>
+          <div><span class="n">✕</span>查看求职者完整手机号 / 证件号</div>
           <div><span class="n">✕</span>查看求职者 AI 画像与简历详情</div>
         </div>
       </div>
@@ -163,7 +164,7 @@ function signed(n: number) {
             <dl class="kv"><dt>流转费应付</dt><dd class="num" style="color: var(--danger)">{{ fmtYuan(bill.transferPayable) }}</dd></dl>
             <dl class="kv"><dt>流转费应收</dt><dd class="num" style="color: var(--ok)">{{ fmtYuan(bill.transferReceivable) }}</dd></dl>
             <div class="divider" />
-            <dl class="kv"><dt><b class="strong">应付合计</b></dt><dd class="num" style="font-size: 18px; color: var(--signal)">{{ fmtYuan(bill.payable) }}</dd></dl>
+            <dl class="kv"><dt><b class="strong">应付合计</b></dt><dd class="num total">{{ fmtYuan(bill.payable) }}</dd></dl>
             <div class="t-xs" style="margin-top: 6px">应收与应付不轧差，应收流转费单独结算到账。</div>
           </template>
           <div v-else class="t-sm dim">暂无账单 · 每月最后一天自动生成</div>
@@ -181,6 +182,9 @@ function signed(n: number) {
 .hv { text-align: right; font-size: 13px; font-weight: 600; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
 .perm { line-height: 2; }
+/* 在岗数下面的小条：固定宽度并靠右，和右对齐的数字同一条边 */
+.bar.mini { width: 56px; max-width: 100%; margin: 4px 0 0 auto; }
+.kv dd.total { font-size: 18px; font-weight: 650; color: var(--signal); }
 .quick .el-button { margin-left: 0; }
 .perm .y { color: var(--ok); margin-right: 8px; }
 .perm .n { color: var(--danger); margin-right: 8px; }

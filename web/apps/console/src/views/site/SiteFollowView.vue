@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage, tenantApi, type SiteApplication, type SiteWorkbench, type TimeoutReleases } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
+import { appOpsWidth } from '@/components/site/appActions'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -47,6 +48,8 @@ const counts = computed(() => {
   return c
 })
 const rows = computed(() => (bucket.value ? windowed.value.filter((a) => bucketOf(a) === bucket.value) : windowed.value))
+/** 操作列宽度按当前角色实际可用的按钮计算；只读角色（老板）没有操作，不显示该列 */
+const opsWidth = computed(() => appOpsWidth(rows.value))
 
 async function load() {
   loading.value = true
@@ -131,7 +134,7 @@ function barClass(a: SiteApplication) {
       <template v-else>本月还没有人因超时被释放（上月 {{ timeouts.releasedLastMonth }} 人）。</template>
     </div>
 
-    <div class="grid g-32" style="margin-top: 14px">
+    <div class="grid g-1" style="margin-top: 14px">
       <div class="card">
         <div class="toolbar">
           <div class="filter-tabs">
@@ -148,28 +151,31 @@ function barClass(a: SiteApplication) {
         </el-alert>
         <el-alert v-if="truncated" type="warning" title="报名较多，每个状态仅显示响应窗口最紧的 100 条" show-icon :closable="false" />
         <el-table v-loading="loading" :data="rows" row-key="applicationId">
-          <el-table-column label="求职者" min-width="120">
-            <template #default="{ row }"><PersonCell :name="row.seekerName" accent :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
+          <el-table-column label="求职者" min-width="170">
+            <template #default="{ row }"><PersonCell :name="row.seekerName" accent mono :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
           </el-table-column>
           <el-table-column label="阶段" min-width="170">
             <template #default="{ row }">
               <DictTag type="ApplicationStatus" :value="row.status" pill />
-              <div class="t-xs">{{ stageText(row) }}</div>
+              <div class="t-xs clamp-2" :title="stageText(row)">{{ stageText(row) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="岗位" min-width="140">
-            <template #default="{ row }"><span class="t-sm">{{ row.jobTitle }}</span><div class="t-xs">{{ row.projectName }}</div></template>
+          <el-table-column label="岗位" min-width="160">
+            <template #default="{ row }">
+              <div class="t-sm clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
+              <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
+            </template>
           </el-table-column>
-          <el-table-column label="剩余" width="104">
+          <el-table-column label="剩余" min-width="112">
             <template #default="{ row }"><CountdownTag :deadline="row.responseDeadline" :now="now" /></template>
           </el-table-column>
-          <el-table-column label="窗口进度" width="130">
+          <el-table-column label="窗口进度" min-width="136">
             <template #default="{ row }">
               <div class="bar"><i :class="barClass(row)" :style="{ width: `${used(row)}%` }" /></div>
               <div class="t-xs mono" style="margin-top: 3px">截止 {{ fmtDateTime(row.responseDeadline).slice(5) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="操作" min-width="200" align="right" fixed="right">
+          <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
             <template #default="{ row }"><AppActionButtons :app="row" @action="(a, r) => dialogs?.run(a, r)" /></template>
           </el-table-column>
           <template #empty><el-empty :image-size="70" :description="loadError ? '加载失败' : '没有进行中的响应窗口'" /></template>
@@ -179,7 +185,7 @@ function barClass(a: SiteApplication) {
         </div>
       </div>
 
-      <div class="grid" style="gap: 14px; align-content: start">
+      <div class="grid g-2 grid--top">
         <div class="card">
           <div class="card__hd"><h3>机制说明</h3></div>
           <div class="card__bd">
@@ -195,7 +201,7 @@ function barClass(a: SiteApplication) {
         <div class="card">
           <div class="card__hd"><h3>释放后的权益保留</h3></div>
           <div class="card__bd">
-            <p class="t-sm" style="line-height: 1.8">释放只清空当前归属（bound），<b class="strong">来源归属（source）永久不变</b>。该用户后续入职任意公司，本公司仍得人才流转费 8 元/人/天。</p>
+            <p class="t-sm" style="line-height: 1.8">释放只清空当前归属，<b class="strong">来源归属永久不变</b>。该用户后续入职任意公司，本公司仍得人才流转费 8 元/人/天。</p>
           </div>
         </div>
       </div>

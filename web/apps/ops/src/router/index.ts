@@ -43,6 +43,8 @@ children.push({
   meta: { title: '题库版本', proto: 'P-12', group: '匹配引擎', roles: QUIZ_ROLES, activeMenu: '/engine/quiz' },
 })
 children.push({ path: '/forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } })
+// 未知地址：在后台框架内显示「页面不存在」，不再悄悄跳回工作台
+children.push({ path: '/:pathMatch(.*)*', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在' } })
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -54,7 +56,6 @@ const router = createRouter({
       redirect: HOME_PATH,
       children,
     },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
 

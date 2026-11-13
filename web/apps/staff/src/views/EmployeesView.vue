@@ -76,6 +76,9 @@ async function onRefresh() {
   })
 }
 
+/** 以全角右括号等结尾的岗位名自带半个字的空白，收紧后与其他行的分隔间距一致 */
+const endsFullWidth = (s?: string) => !!s && /[）】」』》〉]$/.test(s)
+
 const absShow = ref(false)
 const absRow = shallowRef<StaffRow | null>(null)
 function openAbsence(r: StaffRow) {
@@ -114,7 +117,11 @@ function back() {
             <div class="avatar avatar--o">{{ r.name.slice(0, 1) }}</div>
             <div class="flex1">
               <div class="name">{{ r.name }}<span v-if="r.employeeNo" class="mono no">{{ r.employeeNo }}</span></div>
-              <div class="t-xs ellipsis">{{ r.jobTitle ?? '—' }} · {{ r.projectName ?? '—' }}</div>
+              <div class="t-xs sub">
+                <span :class="{ tight: endsFullWidth(r.jobTitle) }">{{ r.jobTitle ?? '—' }}</span>
+                <i aria-hidden="true">·</i>
+                <span>{{ r.projectName ?? '—' }}</span>
+              </div>
             </div>
             <span v-if="r.source !== 'OWN'" class="tag tag-public">{{ label('StaffSource', r.source) }}</span>
           </div>
@@ -125,7 +132,7 @@ function back() {
           </div>
           <div class="ft">
             <a v-if="r.phone" :href="`tel:${r.phone}`" class="tel mono" @click.stop>{{ fmtPhone(r.phone) }}</a>
-            <span v-else class="t-xs">—</span>
+            <span v-else class="t-xs">手机号仅驻场可见</span>
             <span class="go">请假 / 旷工<van-icon name="arrow" /></span>
           </div>
         </div>
@@ -145,7 +152,10 @@ function back() {
 .item:active { background: var(--surface-3); }
 .name { font-size: 14.5px; font-weight: 700; color: var(--ink-900); }
 .no { font-size: 11.5px; font-weight: 500; color: var(--ink-400); margin-left: 6px; }
-.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.sub { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 2px; }
+.sub span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub span.tight { margin-right: -.45em; }
+.sub i { flex: none; font-style: normal; }
 .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; padding: 8px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
 .meta span { display: block; font-size: 11px; color: var(--ink-400); }
 .meta b { display: block; font-size: 13px; color: var(--ink-900); margin-top: 2px; }

@@ -105,7 +105,7 @@ function onApply() {
           <span v-if="!card && (fromRec || rec)" class="tag tag-private" style="flex: none">顾问推荐</span>
           <div v-if="card" class="match" :class="scoreClass(card.matchScore)">
             <div class="mv">{{ fmtScore(card.matchScore) }}%</div>
-            <div class="ml">MATCH</div>
+            <div class="ml">匹配度</div>
           </div>
         </div>
         <div class="job-sal big">{{ fmtSalary(job.salaryMin, job.salaryMax) }}<small>元 / 月（综合收入）</small></div>
@@ -198,7 +198,7 @@ function onApply() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8.5v5m0 3.2v.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9" /></svg>
           岗位信息有问题？投诉该岗位
         </button>
-        <div class="bottom-bar-gap"></div>
+        <div class="bottom-bar-gap" :class="{ tall: !job.canApply && !!job.cannotApplyReason }"></div>
       </div>
 
       <div class="bottom-bar">
@@ -235,5 +235,5 @@ function onApply() {
 .ask-entry .chev { color: var(--ink-300); }
 .complain { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: transparent; font-size: 12.5px; color: var(--ink-500); }
 .complain:active { background: var(--surface-3); }
-.why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; }
+.why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; line-height: 1.5; text-wrap: balance; }
 </style>

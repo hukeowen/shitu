@@ -214,7 +214,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       </el-empty>
     </div>
 
-    <div v-else class="layout">
+    <div v-else class="layout" :class="{ ro: readonly }">
       <div class="left">
         <div class="card meta">
           <div class="card__bd row">
@@ -240,7 +240,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               <span class="mono qn">Q{{ i + 1 }}</span>
               <span class="tag" :class="q.matchRole === 'HARD_FILTER' ? 'tag--danger' : 'tag--signal'">{{ q.matchRole === 'HARD_FILTER' ? '硬过滤' : '软打分' }}</span>
               <span class="tag tag--ink">{{ QUESTION_TYPES.find((t) => t.value === q.questionType)?.label }}</span>
-              <span class="mono t-xs">{{ q.profileField }}</span>
+              <span class="t-sm qfield" :title="q.profileField">{{ fieldMeta(q.profileField)?.label ?? q.profileField }}</span>
             </div>
             <div v-if="!readonly" class="qops">
               <el-button size="small" :disabled="i === 0" @click="move(qs, i, -1)">上移</el-button>
@@ -257,14 +257,16 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                   </el-select>
                 </el-form-item>
                 <el-form-item label="画像字段">
-                  <el-select v-model="q.profileField" style="width: 230px" @change="onFieldChange(q)">
+                  <el-select v-model="q.profileField" style="width: 180px" @change="onFieldChange(q)">
                     <el-option
                       v-for="f in FIELDS"
                       :key="f.field"
                       :value="f.field"
-                      :label="`${f.label}（${f.field}）`"
+                      :label="f.label"
                       :disabled="f.field !== q.profileField && usedFields.has(f.field)"
-                    />
+                    >
+                      <span class="opt-l">{{ f.label }}</span><span class="opt-c mono">{{ f.field }}</span>
+                    </el-option>
                   </el-select>
                 </el-form-item>
                 <el-form-item label="匹配作用">
@@ -285,8 +287,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             <div class="opts">
               <div class="orow ohd" :class="`k-${fieldMeta(q.profileField)?.kind ?? 'enum'}`">
                 <span>编码</span><span>选项文字</span><span>副标题</span>
-                <template v-if="fieldMeta(q.profileField)?.kind === 'range'"><span>min（元）</span><span>max（元）</span></template>
-                <span v-else>画像值 value</span>
+                <template v-if="fieldMeta(q.profileField)?.kind === 'range'"><span>最低（元）</span><span>最高（元）</span></template>
+                <span v-else>{{ fieldMeta(q.profileField)?.kind === 'number' ? '年限（年）' : '画像值' }}</span>
                 <span>{{ q.profileField === 'locked_region' ? '需选城市' : '' }}</span>
                 <span />
               </div>
@@ -295,12 +297,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 <el-input v-model="o.label" :disabled="readonly" maxlength="40" placeholder="选项文字" />
                 <el-input v-model="o.sub" :disabled="readonly" maxlength="20" placeholder="选填" />
                 <template v-if="fieldMeta(q.profileField)?.kind === 'range'">
-                  <el-input-number v-model="o.min" :disabled="readonly" :min="0" :max="100000" :step="500" controls-position="right" />
-                  <el-input-number v-model="o.max" :disabled="readonly" :min="0" :max="100000" :step="500" controls-position="right" />
+                  <el-input-number v-model="o.min" :disabled="readonly" :controls="!readonly" :min="0" :max="100000" :step="500" controls-position="right" />
+                  <el-input-number v-model="o.max" :disabled="readonly" :controls="!readonly" :min="0" :max="100000" :step="500" controls-position="right" />
                 </template>
                 <el-input v-else-if="fieldMeta(q.profileField)?.kind === 'number'" v-model="o.value" :disabled="readonly" maxlength="2" placeholder="年限，如 1" class="mono" />
                 <el-select v-else v-model="o.value" :disabled="readonly" filterable allow-create clearable placeholder="选择画像值">
-                  <el-option v-for="v in fieldMeta(q.profileField)?.values?.() ?? []" :key="v.value" :value="v.value" :label="`${v.label}（${v.value}）`" />
+                  <el-option v-for="v in fieldMeta(q.profileField)?.values?.() ?? []" :key="v.value" :value="v.value" :label="v.label">
+                    <span class="opt-l">{{ v.label }}</span><span class="opt-c mono">{{ v.value }}</span>
+                  </el-option>
                 </el-select>
                 <span class="cc">
                   <el-checkbox v-if="q.profileField === 'locked_region'" v-model="o.needRegion" :disabled="readonly" />
@@ -372,8 +376,21 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .fdesc { margin: -6px 0 12px 76px; }
 .opts { margin-top: 4px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 10px 10px; background: var(--surface-2); }
 .orow { display: grid; gap: 8px; align-items: center; padding: 4px 0; }
-.orow.k-enum, .orow.k-number { grid-template-columns: 64px minmax(160px, 2fr) minmax(90px, 1fr) minmax(150px, 1.4fr) 64px 84px; }
-.orow.k-range { grid-template-columns: 64px minmax(160px, 2fr) minmax(90px, 1fr) 120px 120px 0 84px; }
+.orow.k-enum, .orow.k-number { grid-template-columns: 56px minmax(150px, 1.6fr) minmax(120px, 1.1fr) minmax(180px, 1.5fr) 64px 76px; }
+.orow.k-range { grid-template-columns: 56px minmax(140px, 1.4fr) minmax(130px, 1.2fr) minmax(108px, .8fr) minmax(108px, .8fr) 76px; }
+.orow.k-range > :nth-last-child(2) { display: none; } /* 薪资题没有「需选城市」列 */
+.ro .orow.k-enum, .ro .orow.k-number { grid-template-columns: 56px minmax(150px, 1.6fr) minmax(120px, 1.1fr) minmax(180px, 1.5fr) 64px 0; }
+.ro .orow.k-range { grid-template-columns: 56px minmax(140px, 1.4fr) minmax(130px, 1.2fr) minmax(108px, .8fr) minmax(108px, .8fr) 0; }
+.orow :deep(.el-select) { width: 100%; }
+.qfield { color: var(--ink-500); }
+.opt-l { margin-right: 10px; }
+.opt-c { float: right; font-size: 11.5px; color: var(--ink-400); }
+/* 只读版本：内容清晰可读 */
+.ro :deep(.el-input.is-disabled .el-input__wrapper), .ro :deep(.el-select__wrapper.is-disabled) { background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; cursor: default; }
+.ro :deep(.el-input.is-disabled .el-input__inner) { color: var(--ink-800); -webkit-text-fill-color: var(--ink-800); cursor: default; }
+.ro :deep(.el-select__wrapper.is-disabled .el-select__selected-item) { color: var(--ink-800); }
+.ro :deep(.el-select__wrapper.is-disabled .el-select__suffix) { display: none; }
+.ro :deep(.el-input-number.is-disabled .el-input__inner) { text-align: left; }
 .ohd { font-size: 11.5px; color: var(--ink-500); font-weight: 600; padding-bottom: 2px; }
 .orow :deep(.el-input-number) { width: 100%; }
 .cc { display: flex; justify-content: center; }

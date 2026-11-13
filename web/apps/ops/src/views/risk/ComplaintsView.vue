@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
+import { useCompanyNames } from '@/composables/useCompanyNames'
 import { useFileUrls } from '@/composables/useFileUrls'
 import { fmtDateTime } from '@/utils/format'
 
@@ -25,6 +26,7 @@ interface ComplaintRow {
 }
 const AUTO_OFFLINE_AT = 3
 const files = useFileUrls()
+const { companyName } = useCompanyNames()
 
 const router = useRouter()
 const { label, options } = useDict()
@@ -102,17 +104,20 @@ function toCredit(companyId: string) {
       </div>
       <el-table v-loading="loading" :data="rows" class="ops-table" row-key="id">
         <el-table-column label="#" width="70"><template #default="{ row }"><span class="mono dim">{{ row.id }}</span></template></el-table-column>
-        <el-table-column label="岗位 / 公司" min-width="200">
+        <el-table-column label="岗位" min-width="170">
           <template #default="{ row }">
             <span class="strong">{{ row.title }}</span>
-            <div class="t-xs">
-              <span class="mono">{{ row.jobId }}</span> ·
-              <span class="link-cell mono" @click="toCredit(row.companyId)">{{ row.companyId }}</span>
-            </div>
+            <div class="t-xs mono">{{ row.jobId }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="类别" width="140"><template #default="{ row }"><span class="tag">{{ label('ComplaintCategory', row.category) }}</span></template></el-table-column>
-        <el-table-column label="投诉内容" min-width="240">
+        <el-table-column label="公司" min-width="170">
+          <template #default="{ row }">
+            <span class="link-cell" :class="{ mono: !companyName(row.companyId) }" @click="toCredit(row.companyId)">{{ companyName(row.companyId) || row.companyId }}</span>
+            <div v-if="companyName(row.companyId)" class="t-xs mono">{{ row.companyId }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="类别" width="130"><template #default="{ row }"><span class="tag">{{ label('ComplaintCategory', row.category) }}</span></template></el-table-column>
+        <el-table-column label="投诉内容" min-width="220">
           <template #default="{ row }">
             <div class="t-sm content">{{ row.content }}</div>
             <div v-if="row.images?.length" class="imgs">
@@ -129,13 +134,19 @@ function toCredit(companyId: string) {
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90"><template #default="{ row }"><StatusTag type="ComplaintStatus" :value="row.status" /></template></el-table-column>
-        <el-table-column label="处理" min-width="180">
+        <el-table-column label="处理说明" min-width="170">
           <template #default="{ row }">
             <template v-if="row.status !== 'PENDING'">
-              <div class="t-sm content">{{ row.handleRemark }}</div>
+              <div class="t-sm content">{{ row.handleRemark || '—' }}</div>
               <div class="t-xs mono">{{ fmtDateTime(row.handledAt) }}</div>
             </template>
-            <el-button v-else size="small" type="primary" @click="openHandle(row)">核实处理</el-button>
+            <span v-else class="dim">待核实</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" class-name="ops-col" width="110" align="right" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 'PENDING'" size="small" type="primary" @click="openHandle(row)">核实处理</el-button>
+            <span v-else class="dim">—</span>
           </template>
         </el-table-column>
         <template #empty>
@@ -149,6 +160,7 @@ function toCredit(companyId: string) {
       <template v-if="dlg.row">
         <dl class="kv-grid one">
           <div class="kv"><dt>岗位</dt><dd>{{ dlg.row.title }} <span class="mono dim">{{ dlg.row.jobId }}</span></dd></div>
+          <div class="kv"><dt>公司</dt><dd>{{ companyName(dlg.row.companyId) }} <span class="mono dim">{{ dlg.row.companyId }}</span></dd></div>
           <div class="kv"><dt>类别</dt><dd>{{ label('ComplaintCategory', dlg.row.category) }}</dd></div>
           <div class="kv block"><dt>投诉内容</dt><dd>{{ dlg.row.content || '（未填写说明）' }}</dd></div>
           <div v-if="dlg.row.images?.length" class="kv block"><dt>图片凭证</dt><dd>

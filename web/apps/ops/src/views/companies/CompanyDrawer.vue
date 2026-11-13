@@ -7,7 +7,7 @@ import FileThumbs from '@/components/FileThumbs.vue'
 import FileViewButton from '@/components/FileViewButton.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { promptRemark } from '@/composables/useRemark'
-import { daysUntil, fmtDate, fmtDateTime } from '@/utils/format'
+import { daysUntil, fmtDate, fmtDateTime, fmtPenaltyLevel } from '@/utils/format'
 
 const props = defineProps<{ companyId: string | null }>()
 const emit = defineEmits<{ close: []; changed: [] }>()
@@ -157,11 +157,11 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
             </dd>
           </div>
           <div class="kv"><dt>诚信分</dt><dd class="mono">{{ c.creditScore ?? '—' }}</dd></div>
-          <div class="kv"><dt>处罚等级</dt><dd class="mono">{{ c.penaltyLevel ?? '—' }}</dd></div>
+          <div class="kv"><dt>处罚等级</dt><dd>{{ fmtPenaltyLevel(c.penaltyLevel) }}</dd></div>
           <div v-if="c.auditRemark && c.status !== 'REJECTED'" class="kv full"><dt>审核备注</dt><dd>{{ c.auditRemark }}</dd></div>
         </dl>
 
-        <div class="sec-title">营业执照 / 资质文件 <small>点击图片放大，PDF 在新标签页打开</small></div>
+        <div class="sec-title">营业执照 / 资质文件 <small>点击图片放大，PDF 在新标签页打开，无法预览的文件可下载</small></div>
         <FileThumbs :keys="c.licenseFiles" />
 
         <div class="sec-title">成员 <small>{{ detail.members.length }} 人</small></div>
@@ -173,7 +173,7 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
             <template #default="{ row }"><span class="t-sm">{{ projectNames(row) }}</span></template>
           </el-table-column>
           <el-table-column label="状态" width="80"><template #default="{ row }"><StatusTag type="MemberStatus" :value="row.status" /></template></el-table-column>
-          <el-table-column label="最近登录" width="130"><template #default="{ row }"><span class="mono t-xs">{{ fmtDateTime(row.lastLoginAt) }}</span></template></el-table-column>
+          <el-table-column label="最近登录" width="140"><template #default="{ row }"><span class="mono t-xs">{{ fmtDateTime(row.lastLoginAt) }}</span></template></el-table-column>
           <template #empty><span class="dim t-sm">暂无成员</span></template>
         </el-table>
 

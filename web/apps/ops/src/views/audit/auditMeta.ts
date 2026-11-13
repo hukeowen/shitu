@@ -1,0 +1,197 @@
+/**
+ * 审计日志的动作 / 对象类型中文名。
+ * 来源：后端所有 AuditLogger.log / logForCompany / logAs 调用处的 action、targetType 字面量；
+ * 后端新增动作而这里未登记时，界面回退显示原始代码。
+ */
+export const AUDIT_ACTION_GROUPS: { group: string; items: Record<string, string> }[] = [
+  {
+    group: '登录与账号',
+    items: {
+      OPS_LOGIN: '平台账号登录',
+      OPS_LOGIN_FAILED: '平台账号登录失败',
+      TENANT_LOGIN: '公司后台登录',
+      SEEKER_LOGIN: '求职者登录',
+      SEEKER_REGISTER: '求职者注册',
+      OPS_ADMIN_BOOTSTRAP: '初始化超级管理员',
+      OPS_ADMIN_CREATE: '新建平台账号',
+      OPS_ADMIN_ENABLE: '启用平台账号',
+      OPS_ADMIN_DISABLE: '停用平台账号',
+      OPS_ADMIN_RESET_PASSWORD: '重置平台账号密码',
+      OPS_ADMIN_CHANGE_PASSWORD: '修改平台账号密码',
+      MEMBER_CREATE: '新增公司成员',
+      MEMBER_UPDATE: '修改公司成员',
+      MEMBER_ENABLE: '启用公司成员',
+      MEMBER_DISABLE: '停用公司成员',
+      ROLE_CHANGE: '成员角色变更',
+    },
+  },
+  {
+    group: '公司与合同',
+    items: {
+      COMPANY_APPLY: '提交入驻申请',
+      COMPANY_RESUBMIT: '重新提交入驻申请',
+      COMPANY_APPROVE: '入驻审核通过',
+      COMPANY_REJECT: '入驻审核驳回',
+      COMPANY_STATUS_CHANGE: '公司状态变更',
+      COMPANY_CLOSE: '公司注销清退',
+      CLIENT_CONTRACT_SUBMIT: '提交甲方合同',
+      CLIENT_CONTRACT_APPROVE: '合同备案通过',
+      CLIENT_CONTRACT_REJECT: '合同备案驳回',
+      PROJECT_CREATE: '新建项目',
+      PROJECT_UPDATE: '修改项目',
+      PROJECT_CLOSE: '关闭项目',
+      ROSTER_IMPORT: '导入花名册',
+      CHANNEL_CODE_CREATE: '新建渠道码',
+      CHANNEL_CODE_ENABLE: '启用渠道码',
+      CHANNEL_CODE_DISABLE: '停用渠道码',
+    },
+  },
+  {
+    group: '岗位',
+    items: {
+      JOB_CREATE: '发布岗位',
+      JOB_UPDATE: '修改岗位',
+      JOB_APPROVE: '岗位审核通过',
+      JOB_REJECT: '岗位审核驳回',
+      JOB_PAUSE: '暂停招聘',
+      JOB_RESUME: '恢复招聘',
+      JOB_OFFLINE: '岗位下架',
+      JOB_FORCE_OFFLINE: '岗位强制下架',
+      JOB_QUOTA_ADJUST: '调整招聘名额',
+    },
+  },
+  {
+    group: '报名与入离职',
+    items: {
+      INTERVIEW_INFO_PUSH: '推送面试信息',
+      INTERVIEW_PASS: '面试通过',
+      INTERVIEW_FAIL: '面试未通过',
+      ARRIVAL_CONFIRM: '确认到厂',
+      ONBOARD_CONFIRM: '确认入职',
+      NO_SHOW_MARK: '标记爽约',
+      APPLICATION_CANCEL: '取消报名',
+      INTERNAL_TRANSFER: '内部调岗',
+      ABSENCE_MARK: '标记缺勤',
+      ABSENCE_CLEAR: '撤销缺勤标记',
+      RESIGN_REQUEST: '提交离职申请',
+      RESIGN_APPROVE: '离职审核通过',
+      RESIGN_REJECT: '离职审核驳回',
+      RESIGN_SCHEDULE: '离职待生效',
+      RESIGN_CANCEL: '撤销待生效离职',
+      RESIGN_EFFECTIVE: '离职生效',
+      INCIDENT_REPORT: '上报现场事件',
+      INCIDENT_CLOSE: '关闭现场事件',
+    },
+  },
+  {
+    group: '经纪人与归属',
+    items: {
+      BROKER_CONTACT: '经纪人联系求职者',
+      BROKER_RECOMMEND: '经纪人推荐岗位',
+      BROKER_TRANSFER: '转交经纪人',
+      USER_RELEASE: '释放求职者至公域',
+      ATTRIBUTION_QUERY: '查询归属',
+      ATTRIBUTION_DISPUTE_ADD: '登记归属争议',
+      ATTRIBUTION_DISPUTE_RESOLVE: '处理归属争议',
+    },
+  },
+  {
+    group: '工资与预支',
+    items: {
+      PAYROLL_IMPORT: '导入工资条',
+      PAYSLIP_APPEAL_RESOLVE: '工资条申诉成立',
+      PAYSLIP_APPEAL_REJECT: '工资条申诉驳回',
+      ADVANCE_SITE_APPROVE: '预支驻场审核通过',
+      ADVANCE_SITE_REJECT: '预支驻场审核驳回',
+      ADVANCE_PM_APPROVE: '预支项目经理审核通过',
+      ADVANCE_PM_REJECT: '预支项目经理审核驳回',
+      ADVANCE_PAYOUT: '登记预支拨款',
+    },
+  },
+  {
+    group: '计费与对账',
+    items: {
+      BILLING_RULE_ADD: '新增计费规则',
+      BILL_DISPUTE: '提出账单异议',
+      BILL_DISPUTE_ACCEPT: '账单异议成立',
+      BILL_DISPUTE_REJECT: '账单异议驳回',
+      BILL_SETTLE: '账单结清',
+    },
+  },
+  {
+    group: '风控与合规',
+    items: {
+      COMPLAINT_VERIFY: '投诉核实属实',
+      COMPLAINT_REJECT: '投诉不成立',
+      CREDIT_ADJUST: '调整诚信分',
+      PENALTY: '处罚',
+      FEE_RIGHTS_REVOKE: '取消流转费权益',
+      KYC_REVIEW_DECIDE: '实名复核裁定',
+      KYC_UNBIND: '解绑实名',
+      KYC_FRAUD_SUSPECT: '标记实名疑似冒用',
+      BLACKLIST_ADD: '加入黑名单',
+      BLACKLIST_LIFT: '解除黑名单',
+      BLACKLIST_AUTO_ADD: '系统自动加入黑名单',
+      BLACKLIST_AUTO_LIFT: '系统自动解除黑名单',
+      FEEDBACK_REPLY: '回复问题反馈',
+    },
+  },
+  {
+    group: '引擎与系统配置',
+    items: {
+      QUIZ_DRAFT_CREATE: '新建题库草稿',
+      QUIZ_DRAFT_SAVE: '保存题库草稿',
+      QUIZ_PUBLISH: '发布题库',
+      ENGINE_DRAFT_CREATE: '新建引擎参数草稿',
+      ENGINE_PUBLISH: '发布引擎参数',
+      KB_ENTRY_CREATE: '新增知识库条目',
+      KB_ENTRY_DELETE: '删除知识库条目',
+      NOTIFY_TEMPLATE_UPDATE: '修改通知模板',
+      HOLIDAY_SAVE: '保存节假日',
+      HOLIDAY_DELETE: '删除节假日',
+      SYS_PARAM_UPDATE: '修改系统参数',
+    },
+  },
+]
+
+export const AUDIT_ACTIONS: Record<string, string> = Object.assign({}, ...AUDIT_ACTION_GROUPS.map((g) => g.items))
+
+/** 对象类型（键统一大写；后端个别写成小写，如 kb_entry） */
+export const AUDIT_TARGETS: Record<string, string> = {
+  OPS_ADMIN: '平台账号',
+  MEMBER: '公司成员',
+  USER: '求职者',
+  COMPANY: '公司',
+  CLIENT_CONTRACT: '甲方合同',
+  PROJECT: '项目',
+  JOB: '岗位',
+  APPLICATION: '报名',
+  EMPLOYMENT: '任职记录',
+  BROKER_CASE: '经纪人跟进',
+  CHANNEL_CODE: '渠道码',
+  ROSTER_BATCH: '花名册导入批次',
+  PAYROLL_BATCH: '工资条导入批次',
+  PAYSLIP: '工资条',
+  ADVANCE: '预支申请',
+  BILL: '月账单',
+  BILLING_RULE: '计费规则',
+  COMPLAINT: '投诉',
+  FEEDBACK: '问题反馈',
+  INCIDENT: '现场事件',
+  ATTRIBUTION_DISPUTE: '归属争议',
+  KYC_REVIEW: '实名复核',
+  BLACKLIST: '黑名单',
+  QUIZ_VERSION: '题库版本',
+  ENGINE_CONFIG: '引擎参数版本',
+  KB_ENTRY: '知识库条目',
+  NOTIFY_TEMPLATE: '通知模板',
+  HOLIDAY: '节假日',
+  SYS_PARAM: '系统参数',
+}
+
+export const auditActionLabel = (code?: string | null): string | undefined => (code ? AUDIT_ACTIONS[code] : undefined)
+export const auditTargetLabel = (code?: string | null): string | undefined => (code ? AUDIT_TARGETS[code.toUpperCase()] : undefined)
+
+/** 筛选下拉：对象类型按后端实际写入的大小写传参 */
+const RAW_TARGET_CODE: Record<string, string> = { KB_ENTRY: 'kb_entry' }
+export const AUDIT_TARGET_OPTIONS = Object.entries(AUDIT_TARGETS).map(([code, label]) => ({ value: RAW_TARGET_CODE[code] ?? code, label }))

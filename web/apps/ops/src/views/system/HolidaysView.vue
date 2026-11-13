@@ -124,7 +124,7 @@ async function remove(r: HolidayRow) {
           <template #default="{ row }"><span class="tag" :class="row.isWorkday ? 'tag--warn' : 'tag--ok'">{{ row.isWorkday ? '调休上班' : '放假' }}</span></template>
         </el-table-column>
         <el-table-column label="名称" min-width="200" prop="name" />
-        <el-table-column v-if="canEdit" label="操作" width="90" align="right">
+        <el-table-column v-if="canEdit" label="操作" class-name="ops-col" width="90" align="right">
           <template #default="{ row }"><el-button size="small" link type="danger" @click="remove(row)">删除</el-button></template>
         </el-table-column>
         <template #empty><el-empty :description="loadError ? '加载失败' : '暂无记录'" :image-size="70" /></template>

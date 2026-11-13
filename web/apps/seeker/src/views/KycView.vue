@@ -338,11 +338,11 @@ const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value
 </template>
 
 <style scoped>
-.kyc { min-height: 100vh; background: var(--surface); }
+.kyc { min-height: 100vh; background: var(--surface-2); }
 .h2 { font-family: var(--f-dis); font-size: 24px; font-weight: 700; color: var(--ink-900); }
 .id { letter-spacing: .05em; }
 .diff { border-color: var(--danger-line); background: var(--danger-bg); color: var(--danger); font-size: 12.5px; line-height: 1.7; margin-bottom: 12px; }
-.privacy { background: var(--surface-2); }
+.privacy { background: var(--surface); }
 .blk { text-align: left; }
 .blk.danger { border-color: var(--danger-line); background: var(--danger-bg); text-align: center; padding: 22px 16px; }
 .blk.danger .big-ic { color: var(--danger); }

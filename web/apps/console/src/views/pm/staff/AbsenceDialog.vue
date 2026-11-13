@@ -139,11 +139,11 @@ async function revoke(rec: DutyAbsenceView) {
       </div>
       <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" />
       <el-table v-loading="loading" :data="records" size="small" max-height="260" row-key="id">
-        <el-table-column label="日期" width="110"><template #default="{ row: r }"><span class="mono">{{ r.absenceDate }}</span></template></el-table-column>
-        <el-table-column label="类型" width="80"><template #default="{ row: r }"><DictTag type="AbsenceType" :value="r.absenceType" /></template></el-table-column>
+        <el-table-column label="日期" min-width="110"><template #default="{ row: r }"><span class="mono">{{ r.absenceDate }}</span></template></el-table-column>
+        <el-table-column label="类型" min-width="80"><template #default="{ row: r }"><DictTag type="AbsenceType" :value="r.absenceType" /></template></el-table-column>
         <el-table-column label="备注" min-width="120"><template #default="{ row: r }"><span class="t-sm">{{ r.remark || '—' }}</span></template></el-table-column>
-        <el-table-column label="标记时间" width="130"><template #default="{ row: r }"><span class="mono t-xs">{{ fmtDateTime(r.createdAt) }}</span></template></el-table-column>
-        <el-table-column label="" width="70" align="right">
+        <el-table-column label="标记时间" min-width="146"><template #default="{ row: r }"><span class="mono t-xs">{{ fmtDateTime(r.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="操作" width="72" class-name="ops-col">
           <template #default="{ row: r }"><el-button link type="danger" size="small" @click="revoke(r)">撤销</el-button></template>
         </el-table-column>
         <template #empty><span class="t-xs">本月无缺勤记录</span></template>

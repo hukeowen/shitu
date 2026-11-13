@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict, type BillStatus, type DailyBillingResult, type MonthlyBill } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
+import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmAction } from '@/composables/useRemark'
 import { usePagedList } from '@/composables/usePagedList'
 import { BILLING_SUPER_ROLES } from '@/router/menu'
@@ -14,6 +15,7 @@ import BillDrawer from './BillDrawer.vue'
 const auth = useAuthStore()
 const canIssue = computed(() => auth.hasAnyRole(BILLING_SUPER_ROLES))
 const { options } = useDict()
+const { companyName } = useCompanyNames()
 
 const status = ref<BillStatus | ''>('')
 const month = ref('')
@@ -126,25 +128,33 @@ async function doIssue() {
       </div>
 
       <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" row-key="billId" :row-class-name="rowClass" @row-dblclick="(r: MonthlyBill) => (drawerId = r.billId)">
-        <el-table-column label="账单" min-width="170">
+        <el-table-column label="账单" min-width="160">
           <template #default="{ row }">
             <span class="link-cell mono" @click="drawerId = row.billId">{{ row.billId }}</span>
             <div class="t-xs mono">{{ row.billMonth }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="公司" width="110"><template #default="{ row }"><span class="mono t-sm">{{ row.companyId }}</span></template></el-table-column>
-        <el-table-column label="服务费" min-width="110" align="right"><template #default="{ row }"><span class="mono">{{ fmtMoney(row.serviceFee) }}</span></template></el-table-column>
+        <el-table-column label="公司" min-width="170">
+          <template #default="{ row }">
+            <template v-if="companyName(row.companyId)">
+              <span class="strong">{{ companyName(row.companyId) }}</span>
+              <div class="t-xs mono">{{ row.companyId }}</div>
+            </template>
+            <span v-else class="mono t-sm">{{ row.companyId }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="服务费" min-width="100" align="right"><template #default="{ row }"><span class="mono">{{ fmtMoney(row.serviceFee) }}</span></template></el-table-column>
         <el-table-column label="应付流转费" min-width="110" align="right"><template #default="{ row }"><span class="mono">{{ fmtMoney(row.transferPayable) }}</span></template></el-table-column>
-        <el-table-column label="应付合计" min-width="120" align="right"><template #default="{ row }"><span class="mono strong">{{ fmtMoney(row.payable) }}</span></template></el-table-column>
+        <el-table-column label="应付合计" min-width="110" align="right"><template #default="{ row }"><span class="mono strong">{{ fmtMoney(row.payable) }}</span></template></el-table-column>
         <el-table-column label="应收流转费" min-width="110" align="right"><template #default="{ row }"><span class="mono dim">{{ fmtMoney(row.transferReceivable) }}</span></template></el-table-column>
         <el-table-column label="状态" width="100"><template #default="{ row }"><StatusTag type="BillStatus" :value="row.status" /></template></el-table-column>
-        <el-table-column label="异议截止 / 结算截止" min-width="160">
+        <el-table-column label="异议截止 / 结算截止" min-width="150">
           <template #default="{ row }">
             <span class="mono t-sm">{{ fmtDate(row.disputeDeadline) }}</span>
             <div class="t-xs mono">{{ fmtDate(row.settleDeadline) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="90" align="right" fixed="right">
           <template #default="{ row }">
             <el-button size="small" :type="row.status === 'DISPUTED' ? 'primary' : 'default'" @click="drawerId = row.billId">
               {{ row.status === 'DISPUTED' ? '复核' : '详情' }}

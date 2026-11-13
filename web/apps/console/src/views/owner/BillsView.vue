@@ -5,7 +5,9 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, tenantApi, type MonthlyBill } from '@shitu/api-client'
 import DictTag from '@/components/DictTag.vue'
+import RowActions from '@/components/RowActions.vue'
 import { fmtDate, fmtYuan } from '@/utils/format'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { parseLocal } from '@/utils/time'
 import BillDetailDrawer from './BillDetailDrawer.vue'
 
@@ -47,6 +49,23 @@ function canDispute(b: MonthlyBill | null): boolean {
   end.setHours(23, 59, 59, 999)
   return shNowMs() <= end.getTime()
 }
+
+/** 某个截止日是否已过（截止日当天不算过期） */
+function overdue(date?: string | null): boolean {
+  const end = date ? parseLocal(date.slice(0, 10)) : null
+  if (!end) return false
+  end.setHours(23, 59, 59, 999)
+  return shNowMs() > end.getTime()
+}
+/** 结算截止已过且账单还没结清才标红；异议截止过了只是不能再提异议，置灰即可 */
+const settleOverdue = (b: MonthlyBill) => b.status !== 'SETTLED' && overdue(b.settleDeadline)
+
+function rowActions(b: MonthlyBill): RowAction[] {
+  const a: RowAction[] = [{ key: 'detail', label: '明细', link: true }]
+  if (canDispute(b)) a.push({ key: 'dispute', label: '提出异议', link: true })
+  return a
+}
+const opsWidth = computed(() => opsColWidth(list.value.map(rowActions)))
 
 async function dispute(b: MonthlyBill) {
   let content = ''
@@ -118,12 +137,12 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <div class="stat">
           <div class="stat-l">人才流转费（应收）</div>
           <div class="stat-v" style="color: var(--ok)">{{ fmtYuan(selected.transferReceivable) }}</div>
-          <div class="stat-d">流出人员 · 8 元/人/天 · 平台另行结算</div>
+          <div class="stat-d">流出人员 · 8 元/人/天 <span class="nowrap">· 平台另行结算</span></div>
         </div>
         <div class="stat stat--signal">
           <div class="stat-l">本月应付合计</div>
           <div class="stat-v">{{ fmtYuan(selected.payable) }}</div>
-          <div class="stat-d">服务费 + 应付流转费 · 结算截止 {{ fmtDate(selected.settleDeadline) }}</div>
+          <div class="stat-d">服务费 + 应付流转费 <span class="nowrap">· 结算截止 {{ fmtDate(selected.settleDeadline) }}</span></div>
         </div>
       </div>
       <div class="note note--info" style="margin-top: 10px">
@@ -135,7 +154,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
     <div class="card" style="margin-top: 14px">
       <div class="card__hd"><h3>月度账单</h3><span class="t-xs">每月最后一天自动生成，平台下发后进入 5 个工作日异议期</span></div>
       <el-table v-loading="loading" :data="list" row-key="billId" :row-class-name="rowClass" @row-click="(r: MonthlyBill) => (selectedId = r.billId)">
-        <el-table-column label="账单月份" width="110">
+        <el-table-column label="账单月份" min-width="110">
           <template #default="{ row }"><b class="mono">{{ row.billMonth }}</b></template>
         </el-table-column>
         <el-table-column label="增长服务费" min-width="120" align="right">
@@ -150,22 +169,21 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <el-table-column label="应付合计" min-width="120" align="right">
           <template #default="{ row }"><b class="num">{{ fmtYuan(row.payable) }}</b></template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" min-width="96">
           <template #default="{ row }"><DictTag type="BillStatus" :value="row.status" /></template>
         </el-table-column>
-        <el-table-column label="异议截止" width="110">
+        <el-table-column label="异议截止" min-width="124">
           <template #default="{ row }">
-            <span class="mono t-sm" :style="{ color: canDispute(row) ? 'var(--warn)' : undefined }">{{ fmtDate(row.disputeDeadline) }}</span>
+            <span class="mono t-sm" :class="{ dim: row.disputeDeadline && !canDispute(row) }" :title="canDispute(row) ? '异议期内，可提出异议' : undefined">{{ fmtDate(row.disputeDeadline) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="结算截止" width="110">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDate(row.settleDeadline) }}</span></template>
-        </el-table-column>
-        <el-table-column label="操作" width="160" align="right">
+        <el-table-column label="结算截止" min-width="124">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click.stop="openDetail(row)">明细</el-button>
-            <el-button v-if="canDispute(row)" size="small" link type="warning" @click.stop="dispute(row)">提出异议</el-button>
+            <span class="mono t-sm" :style="{ color: settleOverdue(row) ? 'var(--danger)' : undefined }" :title="settleOverdue(row) ? '已过结算截止日' : undefined">{{ fmtDate(row.settleDeadline) }}</span>
           </template>
+        </el-table-column>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => (k === 'detail' ? openDetail(row) : dispute(row))" /></template>
         </el-table-column>
         <template #empty>
           <el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无账单 · 每月最后一天自动生成'" />

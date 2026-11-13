@@ -4,7 +4,8 @@ import { useDict, type MatchResultCard } from '@shitu/api-client'
 import { dormChips, fmtSalary, fmtScore, scoreClass } from '@/utils/format'
 
 /** S-16 匹配结果岗位卡：匹配度、薪资、吃住、班次、地点、剩余名额、推荐理由 */
-const props = defineProps<{ job: MatchResultCard; top?: boolean }>()
+/** viewOnly：已有进行中的报名 / 已在岗时只能查看岗位，不出现「报名」字样 */
+const props = defineProps<{ job: MatchResultCard; top?: boolean; viewOnly?: boolean }>()
 const emit = defineEmits<{ open: [jobId: string] }>()
 const { label } = useDict()
 
@@ -24,7 +25,7 @@ const chips = computed(() => {
         <b>{{ job.title }}</b>
         <div class="match" :class="scoreClass(job.matchScore)">
           <div class="mv">{{ fmtScore(job.matchScore) }}%</div>
-          <div class="ml">MATCH</div>
+          <div class="ml">匹配度</div>
         </div>
       </div>
       <div class="job-sal">{{ fmtSalary(job.salaryMin, job.salaryMax) }}<small>元 / 月（综合）</small></div>
@@ -39,7 +40,7 @@ const chips = computed(() => {
     </div>
     <div class="job-ft">
       <span class="co">{{ job.address || job.city }}<template v-if="job.companyName"> · {{ job.companyName }}</template></span>
-      <span class="go" :class="{ pri: top }">查看并报名</span>
+      <span class="go" :class="{ pri: top && !viewOnly }">{{ viewOnly ? '查看岗位' : '查看并报名' }}</span>
     </div>
   </article>
 </template>

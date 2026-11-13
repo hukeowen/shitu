@@ -116,7 +116,7 @@ function back() {
       <section class="acard">
         <div class="acard-hd"><h4>专属码说明</h4></div>
         <ul class="tips t-sm">
-          <li>求职者扫描此码并<b>首次注册</b>，即成为本公司<span class="tag tag-private">{{ label('DomainTag', 'PRIVATE') }}</span>用户，来源归属永久锁定为本公司。</li>
+          <li>求职者扫描此码并<b>首次注册</b>，即成为<span class="nowrap">本公司<span class="tag tag-private">{{ label('DomainTag', 'PRIVATE') }}</span>用户</span>，来源归属永久锁定为本公司。</li>
           <li>私域用户享有 <b>24 小时专属响应窗口</b>，请在窗口内及时联系跟进，超时系统将自动释放至公域。</li>
           <li>已注册的老用户扫码不会改变其归属。</li>
         </ul>

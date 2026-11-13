@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
+import { appOpsWidth } from '@/components/site/appActions'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -26,6 +27,7 @@ const loading = ref(false)
 const todoError = ref('')
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
 
+const opsWidth = computed(() => appOpsWidth(todo.value))
 const urgent = computed(() => todo.value.filter((a) => (remainMs(a.responseDeadline, now.value) ?? Infinity) < 6 * 3600_000).length)
 
 async function load() {
@@ -56,7 +58,7 @@ function go(path: string, query?: Record<string, string>) {
     <div class="page-hd">
       <div>
         <h2>驻场工作台</h2>
-        <p>{{ meStore.me?.company.shortName || meStore.me?.company.name }}· {{ meStore.me?.name }}</p>
+        <p>{{ meStore.me?.company.shortName || meStore.me?.company.name }} · {{ meStore.me?.name }}</p>
       </div>
       <span class="spacer" />
       <el-button @click="load">刷新</el-button>
@@ -92,7 +94,7 @@ function go(path: string, query?: Record<string, string>) {
       </div>
     </div>
 
-    <div class="grid g-32" style="margin-top: 14px">
+    <div class="grid g-1" style="margin-top: 14px">
       <div class="card">
         <div class="card__hd">
           <h3>今日待办</h3>
@@ -103,35 +105,35 @@ function go(path: string, query?: Record<string, string>) {
         </div>
         <el-alert v-if="todoError" type="error" :title="todoError" show-icon :closable="false" />
         <el-table v-loading="loading" :data="todo" row-key="applicationId">
-          <el-table-column label="求职者" min-width="110">
-            <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" /></template>
+          <el-table-column label="求职者" min-width="170">
+            <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" mono :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
           </el-table-column>
-          <el-table-column label="手机号" width="124">
-            <template #default="{ row }"><span class="mono t-sm">{{ row.phone ? fmtPhone(row.phone) : '—' }}</span></template>
-          </el-table-column>
-          <el-table-column label="应聘岗位" min-width="150">
+          <el-table-column label="应聘岗位" min-width="190">
             <template #default="{ row }">
-              <div class="t-sm">{{ row.jobTitle }}</div>
-              <div class="t-xs">{{ stageText(row) }}</div>
+              <div class="t-sm clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
+              <div class="t-xs clamp-2" :title="stageText(row)">{{ stageText(row) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="面试时间" width="110">
-            <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.interviewAt).slice(5) }}</span></template>
+          <el-table-column label="面试时间" min-width="116">
+            <template #default="{ row }">
+              <span v-if="row.interviewAt" class="mono t-sm">{{ fmtDateTime(row.interviewAt).slice(5) }}</span>
+              <span v-else class="t-xs">—</span>
+            </template>
           </el-table-column>
-          <el-table-column label="状态" width="90">
+          <el-table-column label="状态" min-width="96">
             <template #default="{ row }"><DictTag type="ApplicationStatus" :value="row.status" pill /></template>
           </el-table-column>
-          <el-table-column label="响应剩余" width="96">
+          <el-table-column label="响应剩余" min-width="112">
             <template #default="{ row }"><CountdownTag :deadline="row.responseDeadline" :now="now" /></template>
           </el-table-column>
-          <el-table-column label="操作" min-width="190" align="right">
+          <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
             <template #default="{ row }"><AppActionButtons :app="row" @action="(a, r) => dialogs?.run(a, r)" /></template>
           </el-table-column>
           <template #empty><el-empty :image-size="70" :description="todoError ? '加载失败' : '暂无待办，干得漂亮'" /></template>
         </el-table>
       </div>
 
-      <div class="grid" style="gap: 14px; align-content: start">
+      <div class="grid g-2 grid--top">
         <div class="card">
           <div class="card__hd"><h3>快捷操作</h3></div>
           <div class="card__bd grid g-2" style="gap: 8px">

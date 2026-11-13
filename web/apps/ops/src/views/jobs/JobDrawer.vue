@@ -5,7 +5,7 @@ import { errorMessage, isApiError, opsApi, useDict, type JobAuditRecord, type Jo
 import FileViewButton from '@/components/FileViewButton.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { promptRemark } from '@/composables/useRemark'
-import { fmtDate, fmtDateTime, fmtSalary, yesNo } from '@/utils/format'
+import { fmtDate, fmtDateTime, fmtOperator, fmtSalary, yesNo } from '@/utils/format'
 
 const props = defineProps<{ jobId: string | null }>()
 const emit = defineEmits<{ close: []; changed: [] }>()
@@ -109,7 +109,7 @@ async function forceOffline() {
 </script>
 
 <template>
-  <el-drawer v-model="visible" size="780px" destroy-on-close>
+  <el-drawer v-model="visible" size="780px" destroy-on-close class="ops-drawer">
     <template #header>
       <div class="dh">
         <h3>{{ j?.title ?? '岗位详情' }}</h3>
@@ -134,10 +134,10 @@ async function forceOffline() {
 
         <div class="weight">
           <div>
-            <div class="stat-l">平台权重 matchWeight <span class="tag tag--temp">平台可见</span></div>
+            <div class="stat-l">平台匹配权重 <span class="tag tag--temp">仅平台可见</span></div>
             <div class="stat-v">{{ detail.matchWeight }}</div>
           </div>
-          <div class="t-xs">真实匹配权重仅平台可见（R-14），劳务公司后台不展示</div>
+          <div class="t-xs">真实匹配权重仅平台可见，劳务公司后台不展示</div>
         </div>
 
         <div class="sec-title">基本信息</div>
@@ -211,7 +211,7 @@ async function forceOffline() {
         <ul v-if="detail.audits.length" class="tl">
           <li v-for="(a, i) in detail.audits" :key="i" :class="AUDIT_ACTION[a.action]?.cls">
             <div class="tl-t">{{ AUDIT_ACTION[a.action]?.text ?? a.action }}</div>
-            <div class="tl-m">{{ fmtDateTime(a.createdAt) }} · 操作人 {{ a.operatorId }}</div>
+            <div class="tl-m">{{ fmtDateTime(a.createdAt) }} · 操作人 {{ fmtOperator(a.operatorId) }}</div>
             <div v-if="a.remark" class="tl-r">{{ a.remark }}</div>
           </li>
         </ul>

@@ -5,7 +5,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, tenantApi, useDict, type JobStatus, type JobTenantAction, type JobView, type ProjectView } from '@shitu/api-client'
 import DictTag from '@/components/DictTag.vue'
 import { useMeStore } from '@/stores/me'
+import RowActions from '@/components/RowActions.vue'
 import { fmtDateTime, salaryRange } from '@/utils/format'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import JobDetailDrawer from './JobDetailDrawer.vue'
 
 /** T-302 / T-303 岗位管理（原型 v-jobs）。按钮严格按后端 allowedActions 显示 */
@@ -140,6 +142,26 @@ function openDetail(j: JobView) {
   detail.visible = true
 }
 
+/** 行操作：详情始终可见；编辑 / 暂停或恢复平铺，名额与下架收进「更多」。列宽按当前角色实际可见的按钮计算 */
+function rowActions(j: JobView): RowAction[] {
+  const rework = j.status === 'REJECTED' || j.status === 'FORCE_OFFLINE'
+  const a: RowAction[] = [{ key: 'DETAIL', label: '详情', link: true }]
+  if (has(j, 'EDIT')) a.push({ key: 'EDIT', label: rework ? '修改重提' : '编辑', type: rework ? 'primary' : 'default' })
+  if (has(j, 'RESUME')) a.push({ key: 'RESUME', label: '恢复招聘', type: 'primary', plain: true })
+  if (has(j, 'PAUSE')) a.push({ key: 'PAUSE', label: '暂停' })
+  if (has(j, 'QUOTA')) a.push({ key: 'QUOTA', label: '调整名额', more: true })
+  if (has(j, 'OFFLINE')) a.push({ key: 'OFFLINE', label: '下架', type: 'danger', more: true })
+  return a
+}
+const OPS_MAX = 3
+const opsWidth = computed(() => opsColWidth(list.value.map(rowActions), OPS_MAX))
+function onAct(key: string, j: JobView) {
+  if (key === 'DETAIL') openDetail(j)
+  else if (key === 'EDIT') router.push({ path: '/pm/jobs/edit', query: { id: j.jobId } })
+  else if (key === 'QUOTA') openQuota(j)
+  else confirmAction(j, key as 'PAUSE' | 'RESUME' | 'OFFLINE')
+}
+
 function rowClass({ row }: { row: JobView }) {
   if (row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE') return 'row-danger'
   if (row.status === 'PAUSED' || row.status === 'OFFLINE') return 'row-dim'
@@ -172,47 +194,50 @@ function rowClass({ row }: { row: JobView }) {
     <div class="card" style="margin-top: 14px">
       <div class="toolbar">
         <div class="filter-tabs">
-          <button :class="{ on: filter.status === '' }" @click="setStatus('')">全部<span class="mono n">{{ counts[''] ?? '' }}</span></button>
+          <button :class="{ on: filter.status === '' }" @click="setStatus('')">全部<span class="n">{{ counts[''] ?? '' }}</span></button>
           <button v-for="o in options('JobStatus')" :key="o.value" :class="{ on: filter.status === o.value }" @click="setStatus(o.value as JobStatus)">
-            {{ o.label }}<span class="mono n">{{ counts[o.value] ?? '' }}</span>
+            {{ o.label }}<span class="n">{{ counts[o.value] ?? '' }}</span>
           </button>
         </div>
-        <span class="spacer" />
-        <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 190px" @change="onProject">
-          <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
-        </el-select>
-        <el-input v-model="filter.keyword" placeholder="岗位名称" clearable style="width: 180px" @keyup.enter="search" @clear="search" />
-        <el-button @click="search">查询</el-button>
+        <div class="tb-fields">
+          <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 190px" @change="onProject">
+            <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
+          </el-select>
+          <div class="tb-group">
+            <el-input v-model="filter.keyword" placeholder="岗位名称" clearable style="width: 180px" @keyup.enter="search" @clear="search" />
+            <el-button @click="search">查询</el-button>
+          </div>
+        </div>
       </div>
       <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false">
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="list" row-key="jobId" :row-class-name="rowClass">
-        <el-table-column label="岗位名称" min-width="180">
+        <el-table-column label="岗位名称" min-width="220">
           <template #default="{ row }">
-            <el-button link class="title" @click="openDetail(row)">{{ row.title }}</el-button>
-            <div class="t-xs">{{ label('JobType', row.jobType) }}{{ row.mealProvided || row.dormProvided ? ' · ' : '' }}{{ row.mealProvided ? '包吃' : '' }}{{ row.dormProvided ? '包住' : '' }}</div>
+            <button type="button" class="name-link clamp-2" :title="row.title" @click="openDetail(row)">{{ row.title }}</button>
+            <div class="t-xs ellip">{{ [label('JobType', row.jobType), row.mealProvided ? '包吃' : '', row.dormProvided ? '包住' : ''].filter(Boolean).join(' · ') }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="所属项目" min-width="150">
+        <el-table-column label="所属项目" min-width="170">
           <template #default="{ row }">
-            <div class="t-sm strong">{{ row.projectName }}</div>
-            <div class="t-xs">{{ row.clientName }}</div>
+            <div class="t-sm strong clamp-2" :title="row.projectName">{{ row.projectName }}</div>
+            <div class="t-xs ellip" :title="row.clientName">{{ row.clientName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="薪资（元/月）" width="120">
+        <el-table-column label="薪资（元/月）" min-width="130">
           <template #default="{ row }"><span class="mono t-sm">{{ salaryRange(row.salaryMin, row.salaryMax) }}</span></template>
         </el-table-column>
-        <el-table-column label="班次" width="80">
-          <template #default="{ row }"><span class="t-sm">{{ label('ShiftType', row.shiftType) }}</span></template>
+        <el-table-column label="班次" min-width="90">
+          <template #default="{ row }"><span class="t-sm nowrap">{{ label('ShiftType', row.shiftType) }}</span></template>
         </el-table-column>
-        <el-table-column label="名额 占用/总数" width="110" align="center">
+        <el-table-column label="名额 占用/总数" min-width="124" align="center">
           <template #default="{ row }">
             <span class="num">{{ row.quotaOccupied }} / {{ row.quotaTotal }}</span>
-            <div class="t-xs">剩余 {{ row.quotaRemaining }}</div>
+            <div class="t-xs nowrap">剩余 {{ row.quotaRemaining }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" min-width="110">
+        <el-table-column label="状态" min-width="120">
           <template #default="{ row }">
             <DictTag type="JobStatus" :value="row.status" pill />
             <el-tooltip v-if="row.auditRemark && (row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE')" :content="row.auditRemark" placement="top">
@@ -220,20 +245,11 @@ function rowClass({ row }: { row: JobView }) {
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="上架时间" width="150">
+        <el-table-column label="上架时间" min-width="156">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.postedAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="270" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }">
-            <el-button v-if="has(row, 'EDIT')" size="small" :type="row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE' ? 'primary' : 'default'" @click="router.push({ path: '/pm/jobs/edit', query: { id: row.jobId } })">
-              {{ row.status === 'REJECTED' || row.status === 'FORCE_OFFLINE' ? '修改重提' : '编辑' }}
-            </el-button>
-            <el-button v-if="has(row, 'QUOTA')" size="small" @click="openQuota(row)">名额</el-button>
-            <el-button v-if="has(row, 'PAUSE')" size="small" @click="confirmAction(row, 'PAUSE')">暂停</el-button>
-            <el-button v-if="has(row, 'RESUME')" size="small" type="primary" plain @click="confirmAction(row, 'RESUME')">恢复招聘</el-button>
-            <el-button v-if="has(row, 'OFFLINE')" size="small" type="danger" plain @click="confirmAction(row, 'OFFLINE')">下架</el-button>
-            <el-button size="small" link type="primary" @click="openDetail(row)">详情</el-button>
-          </template>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" :max="OPS_MAX" @act="(k) => onAct(k, row)" /></template>
         </el-table-column>
         <template #empty>
           <el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无岗位'">
@@ -295,8 +311,5 @@ function rowClass({ row }: { row: JobView }) {
 </template>
 
 <style scoped>
-.title { font-weight: 700; color: var(--ink-900); font-size: 13px; padding: 0; height: auto; }
-.title:hover { color: var(--signal); }
-.n { font-size: 10.5px; opacity: .7; margin-left: 4px; }
-.remark { font-size: 11.5px; color: var(--danger); margin-top: 2px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.remark { font-size: 11.5px; color: var(--danger); margin-top: 2px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

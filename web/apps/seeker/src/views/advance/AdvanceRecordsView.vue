@@ -107,7 +107,6 @@ function logRef(e: DebtLogEntry): string {
                 <div class="row-b t-xs">
                   <span>已抵扣 <b class="num strong">{{ fmtYuan(a.repaidAmount || 0) }}</b> / {{ fmtYuan(a.amount) }}</span>
                   <span v-if="OUTSTANDING.includes(a.status)" class="owe-t">待抵扣 {{ fmtYuan(unpaid(a)) }}</span>
-                  <span v-else class="ok-t">已还清</span>
                 </div>
                 <div class="bar" style="margin-top: 5px"><i :class="a.status === 'REPAID' ? 'ok' : 'sig'" :style="{ width: `${Math.round(repaidRatio(a) * 100)}%` }"></i></div>
               </div>

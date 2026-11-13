@@ -131,10 +131,10 @@ const TAG: Record<FeedbackStatus, string> = { OPEN: 'tag-warn', REPLIED: 'tag-ok
 </template>
 
 <style scoped>
-.fb { min-height: 100vh; background: var(--surface-2); }
+.fb { min-height: var(--page-h-tabbar); background: var(--surface-2); }
 .hd { padding: calc(18px + env(safe-area-inset-top)) 18px 20px; color: #fff; background: linear-gradient(160deg, #1E2834 0%, #10151C 100%); }
 .hd h1 { margin: 0; font-family: var(--f-dis); font-size: 20px; font-weight: 700; }
-.hd p { margin: 6px 0 0; font-size: 13px; color: rgba(255, 255, 255, .62); line-height: 1.6; }
+.hd p { margin: 6px 0 0; font-size: 13px; color: rgba(255, 255, 255, .62); line-height: 1.6; text-wrap: pretty; }
 .lbl { font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); font-size: 13px; color: var(--ink-700); }

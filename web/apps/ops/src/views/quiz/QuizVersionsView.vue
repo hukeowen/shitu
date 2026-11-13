@@ -34,7 +34,11 @@ async function load() {
 }
 onMounted(load)
 
-/** 答题漏斗：打开答题页 → 提交答案 → 匹配到岗位 → 报名（按人去重） */
+/**
+ * 答题漏斗：打开答题页 → 提交答案 → 匹配到岗位 → 报名，四步都是按人去重的人数。
+ * 「打开答题页」来自单独的打开记录，后三步来自匹配会话，两者不是同一批人的逐级筛选：
+ * 打开记录不完整时会出现「提交人数 > 打开人数」，此时不计算转化率，并明确提示原因。
+ */
 const funnelDays = ref(7)
 const funnel = ref<QuizFunnel | null>(null)
 async function loadFunnel() {
@@ -54,13 +58,20 @@ const funnelSteps = computed(() => {
     { label: '匹配到岗位', n: f.matched },
     { label: '报名', n: f.applied },
   ]
-  const top = Math.max(f.opened, f.submitted, 1)
-  return steps.map((s, i) => ({
-    ...s,
-    width: Math.max(4, Math.round((s.n / top) * 100)),
-    rate: i === 0 || steps[i - 1].n === 0 ? '' : Math.min(100, Math.round((s.n / steps[i - 1].n) * 100)) + '%',
-  }))
+  const top = Math.max(...steps.map((s) => s.n), 1)
+  return steps.map((s, i) => {
+    const prev = i === 0 ? null : steps[i - 1].n
+    // 超过上一步说明两步的统计来源不一致，不显示（也不截断成 100%）转化率
+    const over = prev != null && s.n > prev
+    return {
+      ...s,
+      width: s.n === 0 ? 0 : Math.max(2, Math.round((s.n / top) * 100)),
+      over,
+      rate: prev == null ? '' : over ? '高于上一步，不计转化率' : prev === 0 ? '' : `上一步的 ${Math.round((s.n / prev) * 100)}%`,
+    }
+  })
 })
+const funnelOver = computed(() => funnelSteps.value.some((s) => s.over))
 
 const active = computed(() => rows.value.find((v) => v.status === 'ACTIVE') ?? null)
 const draft = computed(() => rows.value.find((v) => v.status === 'DRAFT') ?? null)
@@ -145,7 +156,7 @@ async function publish(v: QuizView) {
       </div>
     </div>
 
-    <div class="card" style="margin-bottom: 14px">
+    <div class="card fn-card">
       <div class="card__hd">
         <h3>答题漏斗</h3>
         <el-radio-group v-model="funnelDays" size="small" @change="loadFunnel">
@@ -158,10 +169,13 @@ async function publish(v: QuizView) {
         <div v-for="s in funnelSteps" v-else :key="s.label" class="fn-row">
           <span class="fn-l">{{ s.label }}</span>
           <div class="fn-bar"><i :style="{ width: s.width + '%' }" /></div>
-          <b class="num fn-n">{{ s.n }}</b>
-          <span class="fn-r t-xs">{{ s.rate ? '上一步的 ' + s.rate : '' }}</span>
+          <b class="num fn-n">{{ s.n }}<small> 人</small></b>
+          <span class="fn-r t-xs" :class="{ warn: s.over }">{{ s.rate }}</span>
         </div>
-        <div class="t-xs" style="margin-top: 8px">按人去重。「打开答题页」从功能上线之日起才有记录，之前的日期会偏低。</div>
+        <div v-if="funnel && funnelOver" class="notice notice--warn fn-note">
+          「提交答案」人数高于「打开答题页」：打开人数取自答题页的打开记录，这项记录在功能上线后才开始积累，且不经答题页直接提交的不会计入，所以会偏低。这两步之间的转化率暂不可比，后三步之间的转化率不受影响。
+        </div>
+        <div class="t-xs fn-foot">四步均为统计期内按人去重的人数{{ funnel ? `（${funnel.from} 起）` : '' }}。</div>
       </div>
     </div>
 
@@ -190,7 +204,7 @@ async function publish(v: QuizView) {
         <el-table-column label="发布时间" width="160">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.publishedAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="240" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="240" align="right" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="open(row)">{{ row.status === 'DRAFT' ? '编辑' : '查看' }}</el-button>
             <el-button
@@ -222,13 +236,7 @@ async function publish(v: QuizView) {
       </el-table>
     </div>
 
-    <div class="grid g-2 below">
-      <div class="card">
-        <div class="card__hd"><h3>答题漏斗</h3><span class="tag">待埋点</span></div>
-        <div class="card__bd">
-          <el-empty :image-size="56" description="各题进入 / 放弃人数需 C 端答题埋点，后续版本接入" />
-        </div>
-      </div>
+    <div class="below">
       <div class="card">
         <div class="card__hd"><h3>硬性约束</h3></div>
         <div class="card__bd">
@@ -236,7 +244,7 @@ async function publish(v: QuizView) {
             <li>题目总数 <b>1–{{ MAX_QUESTIONS }}</b> 道，每题 <b>2–8</b> 个选项，选项编码与文字不能重复</li>
             <li>全部为<b>判断题 / 选择题</b>，禁止文字输入</li>
             <li><b>硬过滤题必须排在软打分题之前</b></li>
-            <li>必须包含「进厂意愿 accept_factory」与「地域锁定 locked_region」两道题；每个画像字段最多出现一次</li>
+            <li>必须包含「进厂意愿」与「地域锁定」两道题；每个画像字段最多出现一次</li>
             <li>发布 / 回滚立即对全平台生效，仅超级管理员可操作；匹配快照记录每次匹配使用的题库版本</li>
           </ul>
         </div>
@@ -246,12 +254,18 @@ async function publish(v: QuizView) {
 </template>
 
 <style scoped>
-.fn-row { display: grid; grid-template-columns: 90px 1fr 60px 110px; align-items: center; gap: 12px; padding: 6px 0; }
+.fn-row { display: grid; grid-template-columns: 90px 1fr 72px 170px; align-items: center; gap: 12px; padding: 6px 0; }
+.fn-n small { font-size: 12px; font-weight: 400; color: var(--ink-400); }
+.fn-r { white-space: nowrap; }
+.fn-r.warn { color: var(--warn); }
+.fn-note { margin-top: 10px; }
+.fn-foot { margin-top: 8px; }
 .fn-l { font-size: 13px; color: var(--ink-700); }
 .fn-bar { height: 14px; background: var(--surface-2); border-radius: 7px; overflow: hidden; }
 .fn-bar i { display: block; height: 100%; background: var(--signal); border-radius: 7px; }
 .fn-n { text-align: right; font-size: 15px; }
 .stats { margin-bottom: 14px; }
+.fn-card { margin-bottom: 14px; }
 .stat-v.sm { font-size: 18px; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .below { margin-top: 14px; }
 .rules { margin: 0; padding-left: 18px; line-height: 1.9; color: var(--ink-700); }

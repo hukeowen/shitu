@@ -99,6 +99,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ErrorCode.SYS_FORBIDDEN, null, TraceIdFilter.current()));
     }
 
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> mediaType(org.springframework.web.HttpMediaTypeNotSupportedException e) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ApiResponse.fail(ErrorCode.SYS_BAD_REQUEST, "请求格式不支持", TraceIdFilter.current()));
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> method(HttpRequestMethodNotSupportedException e) {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)

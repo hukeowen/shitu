@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict, type NotifyChannel, type NotifyTemplateView } from '@shitu/api-client'
 import DictTags from '@/components/DictTags.vue'
 import { confirmAction } from '@/composables/useRemark'
-import { fmtDateTime } from '@/utils/format'
+import { fmtDateTime, fmtOperator } from '@/utils/format'
 
 /** P-16 通知模板：文案、渠道（站内信 / 短信）、是否遵守免打扰、启停；保存即生效，无需发版 */
 const { options } = useDict()
@@ -65,9 +65,6 @@ function open(t: NotifyTemplateView) {
   })
   saved = snap()
   saveError.value = ''
-  preview.title = ''
-  preview.content = ''
-  void runPreview()
 }
 function onBeforeClose() {
   void close()
@@ -111,36 +108,42 @@ const localError = computed(() => {
   return ''
 })
 
-// ---------- 预览（防抖）
-const preview = reactive({ title: '', content: '', loading: false, error: '' })
-let timer: ReturnType<typeof setTimeout> | undefined
-let seq = 0
-async function runPreview() {
-  if (!editing.value) return
-  const my = ++seq
-  preview.loading = true
-  try {
-    const r = await opsApi.previewTemplate(editing.value.templateCode, form.title, form.content)
-    if (my !== seq) return
-    preview.title = r.title
-    preview.content = r.content
-    preview.error = ''
-  } catch (e) {
-    if (my !== seq) return
-    preview.error = errorMessage(e, '预览失败')
-  } finally {
-    if (my === seq) preview.loading = false
-  }
+// ---------- 预览：变量替换成示例值（本地即时渲染；后端预览接口只会把变量换成【变量名】，看不出实际效果）
+/** 模板变量的中文含义与示例值；未登记的变量预览时显示为【变量名】 */
+const VAR_META: Record<string, { label: string; sample: string }> = {
+  seekerName: { label: '求职者姓名', sample: '张伟' },
+  userName: { label: '用户姓名', sample: '张伟' },
+  name: { label: '姓名 / 名称', sample: '张伟' },
+  jobTitle: { label: '岗位名称', sample: '电子厂普工（长白班）' },
+  companyName: { label: '公司名称', sample: '苏州恒达人力资源有限公司' },
+  projectName: { label: '项目名称', sample: '昆山电子厂项目' },
+  amount: { label: '金额（元）', sample: '500.00' },
+  payable: { label: '应付金额（元）', sample: '1,280.00' },
+  month: { label: '月份', sample: '2026-10' },
+  result: { label: '处理结果', sample: '已通过' },
+  reason: { label: '原因', sample: '资料不完整，请补充后重新提交' },
+  level: { label: '处罚等级', sample: '二' },
+  days: { label: '天数', sample: '3' },
+  count: { label: '数量', sample: '5' },
+  remaining: { label: '剩余数量', sample: '2' },
+  stage: { label: '环节', sample: '驻场审核' },
+  termEnd: { label: '合同到期日', sample: '2026-12-31' },
+  disputeDeadline: { label: '异议截止日', sample: '2026-11-19' },
+  interviewAt: { label: '面试时间', sample: '2026-11-15 09:30' },
+  address: { label: '地址', sample: '昆山市开发区前进东路 88 号 1 号门' },
+  documents: { label: '需携带的证件', sample: '身份证原件、银行卡' },
+  signUrl: { label: '签署链接', sample: 'https://example.com/sign/abc123' },
+  question: { label: '问题', sample: '宿舍几人间？' },
+  answer: { label: '回答', sample: '4 人间，带空调和独立卫生间' },
+  reply: { label: '回复内容', sample: '您反馈的问题已处理，感谢支持' },
+  message: { label: '消息内容', sample: '请于明早 8 点前到厂门口集合' },
+  content: { label: '内容', sample: '请于明早 8 点前到厂门口集合' },
+  detail: { label: '详情', sample: '详见消息中心' },
 }
-watch(
-  () => [form.title, form.content],
-  () => {
-    if (!editing.value) return
-    clearTimeout(timer)
-    timer = setTimeout(runPreview, 350)
-  },
-)
-onBeforeUnmount(() => clearTimeout(timer))
+const varLabel = (v: string) => VAR_META[v]?.label ?? ''
+const render = (s: string) => s.replace(/\$\{([a-zA-Z][a-zA-Z0-9]*)}/g, (_, v: string) => VAR_META[v]?.sample ?? `【${v}】`)
+const preview = computed(() => ({ title: render(form.title), content: render(form.content) }))
+const noSampleVars = computed(() => [...usedVars.value].filter((v) => !VAR_META[v]))
 
 async function save() {
   if (!editing.value) return
@@ -215,10 +218,10 @@ const highlight = (s: string) =>
         <el-table-column label="状态" width="80">
           <template #default="{ row }"><span class="st-pill" :style="{ color: row.enabled ? 'var(--ok)' : 'var(--ink-400)' }"><i />{{ row.enabled ? '启用' : '停用' }}</span></template>
         </el-table-column>
-        <el-table-column label="更新" width="150">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.updatedAt) }}</span><div class="t-xs mono">{{ row.updatedBy ?? '' }}</div></template>
+        <el-table-column label="更新" width="160">
+          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.updatedAt) }}</span><div class="t-xs">{{ row.updatedBy ? fmtOperator(row.updatedBy) : '' }}</div></template>
         </el-table-column>
-        <el-table-column label="操作" width="80" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="80" align="right" fixed="right">
           <template #default="{ row }"><el-button size="small" @click="open(row)">编辑</el-button></template>
         </el-table-column>
         <template #empty>
@@ -240,7 +243,9 @@ const highlight = (s: string) =>
         <el-form label-position="top" @submit.prevent>
           <el-form-item label="可用变量（点击插入到光标处）">
             <div class="chips">
-              <button v-for="v in editing.variables" :key="v" type="button" class="chip" :class="{ used: usedVars.has(v) }" @mousedown.prevent @click="insertVar(v)">{{ '${' + v + '}' }}</button>
+              <button v-for="v in editing.variables" :key="v" type="button" class="chip" :class="{ used: usedVars.has(v) }" @mousedown.prevent @click="insertVar(v)">
+                <span v-if="varLabel(v)" class="chip-l">{{ varLabel(v) }}</span><span class="mono">{{ '${' + v + '}' }}</span>
+              </button>
               <span v-if="editing.variables.length === 0" class="t-xs">该模板没有变量</span>
             </div>
           </el-form-item>
@@ -248,19 +253,16 @@ const highlight = (s: string) =>
             <el-input ref="titleRef" v-model="form.title" :maxlength="TITLE_MAX" show-word-limit @focus="lastFocus = 'title'" />
           </el-form-item>
           <el-form-item label="内容" required>
-            <el-input ref="contentRef" v-model="form.content" type="textarea" :rows="5" :maxlength="CONTENT_MAX" show-word-limit @focus="lastFocus = 'content'" />
+            <el-input ref="contentRef" v-model="form.content" type="textarea" :autosize="{ minRows: 3, maxRows: 10 }" :maxlength="CONTENT_MAX" show-word-limit @focus="lastFocus = 'content'" />
           </el-form-item>
 
           <div class="preview">
             <div class="pv-hd">
               <span class="t-xs">预览（变量以示例值替换）</span>
-              <span v-if="preview.loading" class="t-xs">…</span>
             </div>
-            <div v-if="preview.error" class="t-sm err-t">{{ preview.error }}</div>
-            <template v-else>
-              <div class="pv-title">{{ preview.title }}</div>
-              <div class="pv-body">{{ preview.content }}</div>
-            </template>
+            <div class="pv-title">{{ preview.title || '（标题为空）' }}</div>
+            <div class="pv-body">{{ preview.content || '（内容为空）' }}</div>
+            <div v-if="noSampleVars.length" class="t-xs pv-foot">【】中的变量暂无示例值，发送时会替换为实际内容。</div>
           </div>
 
           <div class="grid g-2 opts">
@@ -300,14 +302,16 @@ const highlight = (s: string) =>
 .dh { display: flex; align-items: center; gap: 10px; }
 .dh h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-900); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font-family: var(--f-mono); font-size: 12px; padding: 2px 8px; border-radius: var(--r-xs); border: 1px dashed var(--signal-300); background: var(--surface); color: var(--signal-700); cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; line-height: 1.5; padding: 3px 9px; border-radius: 6px; border: 1px dashed var(--signal-300); background: var(--surface); color: var(--signal-700); cursor: pointer; }
+.chip-l { color: var(--ink-700); }
+.pv-foot { margin-top: 6px; }
 .chip:hover { background: var(--signal-50); }
 .chip.used { border-style: solid; background: var(--signal-50); }
 .preview { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); padding: 10px 14px; margin-bottom: 16px; }
 .pv-hd { display: flex; justify-content: space-between; margin-bottom: 6px; }
 .pv-title { font-weight: 700; color: var(--ink-900); font-size: 13.5px; }
 .pv-body { font-size: 13px; color: var(--ink-700); margin-top: 4px; white-space: pre-wrap; }
-.err-t { color: var(--danger); }
+
 .opts { column-gap: 20px; row-gap: 0; }
 .gap-t { margin-top: 10px; }
 </style>

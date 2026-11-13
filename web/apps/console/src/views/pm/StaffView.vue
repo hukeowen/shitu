@@ -3,9 +3,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { errorMessage, tenantApi, type StaffRow } from '@shitu/api-client'
 import DictTag from '@/components/DictTag.vue'
 import PersonCell from '@/components/PersonCell.vue'
+import RowActions from '@/components/RowActions.vue'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { fmtPhone } from '@/utils/format'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import AbsenceDialog from './staff/AbsenceDialog.vue'
 import ResignDialog from './staff/ResignDialog.vue'
 import TransferDialog from './staff/TransferDialog.vue'
@@ -79,6 +81,18 @@ function openDlg(d: { visible: boolean; row: StaffRow | null }, row: StaffRow) {
   d.row = row
   d.visible = true
 }
+/** 行操作：调岗仅项目经理；列宽按当前角色实际可见的按钮计算 */
+function rowActions(r: StaffRow): RowAction[] {
+  if (r.endDate) return [{ key: 'absence', label: '缺勤记录', link: true }]
+  const a: RowAction[] = []
+  if (isPm.value) a.push({ key: 'transfer', label: '调岗' })
+  a.push({ key: 'absence', label: '请假/旷工' }, { key: 'resign', label: '离职', type: 'danger', plain: true })
+  return a
+}
+const opsWidth = computed(() => opsColWidth(list.value.map(rowActions)))
+function onAct(key: string, row: StaffRow) {
+  openDlg(key === 'transfer' ? transfer : key === 'resign' ? resign : absence, row)
+}
 function rowClass({ row }: { row: StaffRow }) {
   return row.endDate ? 'row-dim' : ''
 }
@@ -109,61 +123,57 @@ const transferCount = computed(() => list.value.filter((r) => r.source === 'TRAN
           <button :class="{ on: filter.tab === 'left' }" @click="setTab('left')">已离职<span class="n">{{ totals.left ?? '' }}</span></button>
           <button :class="{ on: filter.tab === 'all' }" @click="setTab('all')">全部</button>
         </div>
-        <span class="spacer" />
-        <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 190px" @change="onProject">
-          <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
-        </el-select>
-        <el-input v-model="filter.keyword" placeholder="工号或完整手机号" clearable style="width: 180px" @keyup.enter="search" @clear="search" />
-        <el-button @click="search">查询</el-button>
+        <div class="tb-fields">
+          <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 190px" @change="onProject">
+            <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
+          </el-select>
+          <div class="tb-group">
+            <el-input v-model="filter.keyword" placeholder="工号或完整手机号" clearable style="width: 180px" @keyup.enter="search" @clear="search" />
+            <el-button @click="search">查询</el-button>
+          </div>
+        </div>
       </div>
       <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false">
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="list" row-key="employmentId" :row-class-name="rowClass">
         <el-table-column label="姓名" min-width="130">
-          <template #default="{ row }"><PersonCell :name="row.name" :sub="row.phone ? fmtPhone(row.phone) : undefined" :accent="row.source === 'OWN'" /></template>
+          <template #default="{ row }"><PersonCell :name="row.name" mono :sub="row.phone ? fmtPhone(row.phone) : undefined" :accent="row.source === 'OWN'" /></template>
         </el-table-column>
-        <el-table-column label="工号" width="120">
+        <el-table-column label="工号" min-width="96" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono t-sm">{{ row.employeeNo || '—' }}</span></template>
         </el-table-column>
-        <el-table-column label="岗位 / 项目" min-width="180">
+        <el-table-column label="岗位 / 项目" min-width="170">
           <template #default="{ row }">
-            <div class="t-sm strong">{{ row.jobTitle ?? '—' }}</div>
-            <div class="t-xs">{{ row.projectName }}</div>
+            <div class="t-sm strong clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
+            <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="96">
+        <el-table-column label="状态" min-width="84">
           <template #default="{ row }">
             <span class="st-pill" :style="{ color: row.endDate ? 'var(--ink-400)' : 'var(--ok)' }"><i />{{ row.endDate ? '已离职' : '在岗' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="来源归属" min-width="140">
+        <el-table-column label="来源归属" min-width="130">
           <template #default="{ row }">
-            <span v-if="row.source === 'TRANSFER'" class="t-sm"><b style="color: var(--signal)">流转自 {{ row.sourceCompanyName ?? '其他公司' }}</b></span>
+            <span v-if="row.source === 'TRANSFER'" class="t-sm clamp-2" :title="`流转自 ${row.sourceCompanyName ?? '其他公司'}`"><b style="color: var(--signal)">流转自 {{ row.sourceCompanyName ?? '其他公司' }}</b></span>
             <DictTag v-else type="StaffSource" :value="row.source" />
           </template>
         </el-table-column>
-        <el-table-column label="入职 / 离职" width="120">
+        <el-table-column label="入职 / 离职" min-width="116">
           <template #default="{ row }">
             <div class="mono t-sm">{{ row.startDate }}</div>
             <div v-if="row.endDate" class="mono t-xs">离 {{ row.endDate }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="在岗天数" width="86" align="center">
+        <el-table-column label="在岗天数" min-width="84" align="center">
           <template #default="{ row }"><span class="num">{{ row.dutyDays }}</span></template>
         </el-table-column>
-        <el-table-column label="本月缺勤" width="86" align="center">
+        <el-table-column label="本月缺勤" min-width="84" align="center">
           <template #default="{ row }"><span class="num" :style="{ color: row.absenceDaysThisMonth ? 'var(--warn)' : undefined }">{{ row.absenceDaysThisMonth }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="230" align="right" fixed="right">
-          <template #default="{ row }">
-            <template v-if="!row.endDate">
-              <el-button v-if="isPm" size="small" @click="openDlg(transfer, row)">调岗</el-button>
-              <el-button size="small" @click="openDlg(absence, row)">请假/旷工</el-button>
-              <el-button size="small" type="danger" plain @click="openDlg(resign, row)">离职</el-button>
-            </template>
-            <el-button v-else size="small" link @click="openDlg(absence, row)">缺勤记录</el-button>
-          </template>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => onAct(k, row)" /></template>
         </el-table-column>
         <template #empty><el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无人员'" /></template>
       </el-table>

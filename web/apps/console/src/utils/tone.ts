@@ -22,7 +22,7 @@ const TONES: Record<string, Record<string, Tone>> = {
     OFFLINE: 'muted',
     FORCE_OFFLINE: 'danger',
   },
-  ActorRole: { SITE: 'signal', BROKER: 'temp', PM: 'info', OWNER: 'ink' },
+  ActorRole: { SITE: 'signal', BROKER: 'temp', PM: 'info', OWNER: 'muted' },
   ApplicationStatus: {
     PENDING_INTERVIEW: 'temp',
     PENDING_CONFIRM: 'signal',

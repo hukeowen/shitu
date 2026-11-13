@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RowActions from '@/components/RowActions.vue'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { errorMessage, tenantApi, type ChannelItem, type MemberView, type ProjectView } from '@shitu/api-client'
@@ -77,7 +79,7 @@ function conv(c: ChannelItem) {
 function kindOf(c: ChannelItem) {
   if (c.kind === 'MEMBER') return { label: '成员码', tone: 'signal' }
   if (c.kind === 'PROJECT') return { label: '项目码', tone: 'info' }
-  return { label: '公司码', tone: 'ink' }
+  return { label: '公司码', tone: 'temp' }
 }
 
 // ---------------------------------------------------------------- 操作
@@ -166,6 +168,19 @@ onMounted(() => {
   loadMine()
   load()
 })
+
+/** 行操作统一为文字链：下载 / 复制链接 / 停用（危险色）或启用 */
+const rowActions = (c: ChannelItem): RowAction[] => [
+  { key: 'download', label: '下载', link: true },
+  { key: 'copy', label: '复制链接', link: true },
+  c.status === 'ACTIVE' ? { key: 'toggle', label: '停用', link: true, type: 'danger' } : { key: 'toggle', label: '启用', link: true },
+]
+const opsWidth = computed(() => opsColWidth(filtered.value.map(rowActions)))
+function onAct(key: string, c: ChannelItem) {
+  if (key === 'download') download(c)
+  else if (key === 'copy') copy(c)
+  else toggle(c)
+}
 </script>
 
 <template>
@@ -214,54 +229,51 @@ onMounted(() => {
     <div v-if="canManage" class="card">
       <div class="toolbar">
         <div class="filter-tabs">
-          <button :class="{ on: statusFilter === 'ACTIVE' }" @click="statusFilter = 'ACTIVE'">启用中 <span class="mono">{{ countOf('ACTIVE') }}</span></button>
-          <button :class="{ on: statusFilter === 'DISABLED' }" @click="statusFilter = 'DISABLED'">已停用 <span class="mono">{{ countOf('DISABLED') }}</span></button>
-          <button :class="{ on: statusFilter === 'ALL' }" @click="statusFilter = 'ALL'">全部 <span class="mono">{{ countOf('ALL') }}</span></button>
+          <button :class="{ on: statusFilter === 'ACTIVE' }" @click="statusFilter = 'ACTIVE'">启用中<span class="n">{{ countOf('ACTIVE') }}</span></button>
+          <button :class="{ on: statusFilter === 'DISABLED' }" @click="statusFilter = 'DISABLED'">已停用<span class="n">{{ countOf('DISABLED') }}</span></button>
+          <button :class="{ on: statusFilter === 'ALL' }" @click="statusFilter = 'ALL'">全部<span class="n">{{ countOf('ALL') }}</span></button>
         </div>
-        <span class="spacer" />
-        <el-input v-model="keyword" placeholder="名称 / 成员 / 项目 / 渠道码" clearable style="width: 220px" />
-        <el-button @click="load">刷新</el-button>
+        <div class="tb-fields">
+          <div class="tb-group">
+            <el-input v-model="keyword" placeholder="名称 / 成员 / 项目 / 渠道码" clearable style="width: 220px" />
+            <el-button @click="load">刷新</el-button>
+          </div>
+        </div>
       </div>
       <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" />
       <el-table v-loading="loading" :data="filtered" row-key="code" :row-class-name="({ row }) => (row.status === 'DISABLED' ? 'row-dim' : '')">
-        <el-table-column label="二维码" width="104">
+        <el-table-column label="二维码" min-width="104">
           <template #default="{ row }"><QrImage :url="row.url" :size="72" :dim="row.status !== 'ACTIVE'" /></template>
         </el-table-column>
-        <el-table-column label="名称" min-width="180">
+        <el-table-column label="名称" min-width="220">
           <template #default="{ row }">
-            <div class="row"><b>{{ row.name }}</b><span class="tag" :class="`tag--${kindOf(row).tone}`">{{ kindOf(row).label }}</span></div>
-            <div class="t-xs mono" style="margin-top: 3px">{{ row.code }}</div>
+            <div class="row"><b class="clamp-2" :title="row.name">{{ row.name }}</b><span class="tag" :class="`tag--${kindOf(row).tone}`">{{ kindOf(row).label }}</span></div>
+            <div class="t-xs mono ellip" style="margin-top: 3px" :title="row.code">{{ row.code }}</div>
           </template>
         </el-table-column>
         <el-table-column label="归属成员 / 项目" min-width="160">
           <template #default="{ row }">
-            <div class="t-sm">{{ row.memberName || '—' }}</div>
-            <div class="t-xs">{{ row.projectName || '' }}</div>
+            <div class="t-sm ellip">{{ row.memberName || '—' }}</div>
+            <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName || '' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="访问" width="80" align="right">
+        <el-table-column label="访问" min-width="80" align="right">
           <template #default="{ row }"><span class="num">{{ row.visits }}</span></template>
         </el-table-column>
-        <el-table-column label="注册" width="80" align="right">
+        <el-table-column label="注册" min-width="80" align="right">
           <template #default="{ row }"><span class="num">{{ row.registrations }}</span></template>
         </el-table-column>
-        <el-table-column label="转化" width="80" align="right">
+        <el-table-column label="转化" min-width="80" align="right">
           <template #default="{ row }"><span class="mono t-sm">{{ conv(row) }}</span></template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" min-width="110">
           <template #default="{ row }">
             <span class="tag" :class="row.status === 'ACTIVE' ? 'tag--ok' : 'tag--muted'">{{ row.status === 'ACTIVE' ? '启用' : '已停用' }}</span>
             <div class="t-xs">{{ fmtDate(row.createdAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230" align="right">
-          <template #default="{ row }">
-            <el-button size="small" link type="primary" @click="download(row)">下载</el-button>
-            <el-button size="small" link type="primary" @click="copy(row)">复制链接</el-button>
-            <el-button size="small" :type="row.status === 'ACTIVE' ? 'danger' : 'primary'" plain @click="toggle(row)">
-              {{ row.status === 'ACTIVE' ? '停用' : '启用' }}
-            </el-button>
-          </template>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => onAct(k, row)" /></template>
         </el-table-column>
         <template #empty>
           <el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无渠道码'">

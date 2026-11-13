@@ -35,11 +35,18 @@ export function fmtFull(d: Date): string {
   return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}（周${w}）${p2(d.getHours())}:${p2(d.getMinutes())}`
 }
 
-/** 剩余时间 → 「03:42」（时:分）；已过返回 null */
-export function fmtRemain(ms: number): string | null {
-  if (ms <= 0) return null
-  const totalMin = Math.floor(ms / 60000)
-  return `${p2(Math.floor(totalMin / 60))}:${p2(totalMin % 60)}`
+/** 时长 → 「19 小时 21 分」/「42 分」（向下取整到分钟，不足 1 分钟显示「不足 1 分」） */
+export function fmtDuration(ms: number): string {
+  const totalMin = Math.floor(Math.abs(ms) / 60000)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  if (h === 0) return m === 0 ? '不足 1 分' : `${m} 分`
+  return `${h} 小时 ${m} 分`
+}
+
+/** 倒计时文案（全端统一）：「剩 19 小时 21 分」/「已超时 1 小时 5 分」 */
+export function fmtCountdown(remainMs: number): string {
+  return remainMs > 0 ? `剩 ${fmtDuration(remainMs)}` : `已超时 ${fmtDuration(remainMs)}`
 }
 
 /** 下一个工作日（周一至周五）09:00 */

@@ -6,7 +6,7 @@ import AppBar from '@/components/AppBar.vue'
 import { CONTRACT_TAG_CLASS, daysLeft, termMonths, termText } from '@/utils/contract'
 import { formatServerTime } from '@/utils/time'
 
-/** S-28 合同详情（C-503）：编号、期限、岗位、签约主体、签署记录；PDF 下载即将上线 */
+/** S-28 合同详情（C-503）：编号、期限、岗位、签约主体、签署记录；接口没有合同文件地址，文件需联系驻场老师获取 */
 const route = useRoute()
 const router = useRouter()
 const { label } = useDict()
@@ -89,7 +89,7 @@ const partyB = computed(() => (kyc.value?.kycStatus === 'VERIFIED' ? kyc.value.r
       <section class="acard">
         <div class="acard-hd"><h4>岗位信息</h4></div>
         <dl>
-          <div class="kv"><dt>派遣岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
+          <div class="kv"><dt>岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
           <div class="kv"><dt>用工项目</dt><dd>{{ c.projectName || '—' }}</dd></div>
         </dl>
       </section>
@@ -115,8 +115,7 @@ const partyB = computed(() => (kyc.value?.kycStatus === 'VERIFIED' ? kyc.value.r
         </ul>
       </section>
 
-      <p class="t-xs" style="text-align: center; color: var(--ink-400)">需要纸质或 PDF 合同，请联系驻场老师提供</p>
-      <p class="t-xs" style="text-align: center">合同文件由电子签平台存证，PDF 下载功能即将开放</p>
+      <p class="t-xs" style="text-align: center; line-height: 1.7">合同文件由电子签平台存证，如需纸质或电子版请联系驻场老师</p>
       <div class="page-bottom-gap"></div>
     </div>
   </div>

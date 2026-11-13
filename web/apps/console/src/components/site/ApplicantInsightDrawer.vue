@@ -36,7 +36,7 @@ watch(open, (v) => {
       <el-alert v-if="error" type="error" :title="error" show-icon :closable="false" />
       <template v-else-if="data && app">
         <div class="t-xs">报名岗位</div>
-        <div class="job"><b>{{ app.jobTitle }}</b><span class="t-xs"> · {{ app.projectName }}</span></div>
+        <div class="job"><b>{{ app.jobTitle }}</b><div class="t-xs">{{ app.projectName }}</div></div>
 
         <h4>画像标签</h4>
         <div v-if="data.profileTags.length" class="chips"><span v-for="t in data.profileTags" :key="t" class="tag">{{ t }}</span></div>

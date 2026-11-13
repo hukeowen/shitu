@@ -5,7 +5,7 @@ import { showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, useDict, type MyPayslipAppeal, type Payslip, type PayslipAppealItem, type PayslipAppealStatus } from '@shitu/api-client'
 import { formatServerTime } from '@/utils/time'
 import AppBar from '@/components/AppBar.vue'
-import { fmtAmount, fmtMonth, fmtYuan } from '@/utils/format'
+import { fmtAmount, fmtMinus, fmtMonth, fmtYuan } from '@/utils/format'
 import { totalDeduct } from '@/utils/payslip'
 
 /** S-42 工资条明细（C-701）：应发、社保、个税、其他扣款、预支抵扣（高亮单列）、实发；S-43 工资申诉（C-702）发给发薪公司 */
@@ -114,27 +114,27 @@ const hasAdvance = computed(() => Number(slip.value?.advanceDeduct ?? 0) > 0)
       </section>
 
       <section class="acard okc">
-        <div class="acard-hd"><h4 class="ok-h">应发项</h4><span class="num ok-v">{{ fmtAmount(slip.grossPay) }}</span></div>
-        <div class="row-b"><span class="strong">应发合计</span><span class="num big ok-v">{{ fmtAmount(slip.grossPay) }}</span></div>
+        <!-- 后端工资条没有应发分项，只展示合计一行（不重复「应发项 / 应发合计」） -->
+        <div class="acard-hd" style="margin-bottom: 0"><h4 class="ok-h">应发合计</h4><span class="num big ok-v">{{ fmtAmount(slip.grossPay) }}</span></div>
         <p class="t-xs" style="margin-top: 6px">含基本工资、加班费、补贴与奖金，明细以劳务公司工资表为准</p>
       </section>
 
       <section class="acard dc">
-        <div class="acard-hd"><h4 class="d-h">扣款项</h4><span class="num d-v">−{{ fmtAmount(deduct) }}</span></div>
+        <div class="acard-hd"><h4 class="d-h">扣款项</h4><span class="num d-v">{{ fmtMinus(deduct) }}</span></div>
         <dl>
-          <div class="kv"><dt>社会保险（个人部分）</dt><dd class="num">−{{ fmtAmount(slip.socialInsurance) }}</dd></div>
-          <div class="kv"><dt>个人所得税</dt><dd class="num">−{{ fmtAmount(slip.incomeTax) }}</dd></div>
-          <div class="kv"><dt>其他扣款</dt><dd class="num">−{{ fmtAmount(slip.otherDeduct) }}</dd></div>
+          <div class="kv"><dt>社会保险（个人部分）</dt><dd class="num">{{ fmtMinus(slip.socialInsurance) }}</dd></div>
+          <div class="kv"><dt>个人所得税</dt><dd class="num">{{ fmtMinus(slip.incomeTax) }}</dd></div>
+          <div class="kv"><dt>其他扣款</dt><dd class="num">{{ fmtMinus(slip.otherDeduct) }}</dd></div>
         </dl>
         <div class="advrow" :class="{ on: hasAdvance }">
           <div class="row-b">
             <span class="strong adv-t">薪资预支抵扣</span>
-            <span class="num adv-t">−{{ fmtAmount(slip.advanceDeduct) }}</span>
+            <span class="num adv-t">{{ fmtMinus(slip.advanceDeduct) }}</span>
           </div>
           <p class="t-xs adv-d">{{ hasAdvance ? '发薪日系统自动抵扣已到账的薪资预支，不足部分结转下月' : '本月无预支抵扣' }}</p>
         </div>
         <div class="divider" style="margin: 10px 0 8px"></div>
-        <div class="row-b"><span class="strong">扣款合计</span><span class="num big d-v">−{{ fmtAmount(deduct) }}</span></div>
+        <div class="row-b"><span class="strong">扣款合计</span><span class="num big d-v">{{ fmtMinus(deduct) }}</span></div>
       </section>
 
       <section class="acard netc">

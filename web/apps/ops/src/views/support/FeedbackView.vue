@@ -77,7 +77,7 @@ async function submit(close: boolean) {
           <button v-for="t in TABS" :key="t.key" :class="{ on: tab === t.key }" @click="tab = t.key">{{ t.label }}</button>
         </div>
       </div>
-      <el-table v-loading="loading" :data="rows" row-key="id">
+      <el-table v-loading="loading" :data="rows" class="ops-table" row-key="id">
         <el-table-column label="提交时间" width="150">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
         </el-table-column>
@@ -100,7 +100,7 @@ async function submit(close: boolean) {
         <el-table-column label="状态" width="100">
           <template #default="{ row }"><span class="tag" :class="TAG[row.status as FeedbackStatus]">{{ label('FeedbackStatus', row.status) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="100" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="100" align="right" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'OPEN'" size="small" type="primary" @click="openReply(row)">处理</el-button>
             <span v-else class="t-xs">—</span>

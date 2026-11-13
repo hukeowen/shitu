@@ -1425,6 +1425,8 @@ export interface PrivatePendingRow {
   deadline: string
   channelCode?: string
   channelMemberName?: string
+  /** 渠道码名称（公司码 / 项目码 / 成员码创建时起的名字） */
+  channelName?: string
   /** 已在流转池（不可重复转交） */
   inBrokerPool: boolean
 }

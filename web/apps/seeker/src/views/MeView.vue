@@ -65,6 +65,15 @@ const workDesc = computed(() => {
   return '尚未入职 · 所属公司在这里展示'
 })
 const pendingRecs = computed(() => journey.pendingRecs.length)
+/** 专属顾问推荐入口的说明：只有专属顾问跟进中的求职者才说「正在挑选」 */
+const recDesc = computed(() => {
+  if (pendingRecs.value) return `${pendingRecs.value} 个岗位待你确认`
+  if (journey.recs.length) return `顾问推荐过 ${journey.recs.length} 个岗位`
+  const p = profile.value
+  const busy = p?.status === 'PENDING_INTERVIEW' || p?.status === 'PENDING_CONFIRM' || p?.status === 'EMPLOYED'
+  if (p?.boundCompanyName && p.domainTag === 'PRIVATE' && !busy) return '专属顾问为你人工挑选的岗位'
+  return '暂无推荐 · 顾问挑选岗位后在这里展示'
+})
 const pendingSign = computed(() => contracts.value?.some((c) => c.status === 'PENDING_SIGN') ?? false)
 
 const rows = [
@@ -152,7 +161,7 @@ async function onLogout() {
           <div class="ic ic--sig">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.9" /><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" /></svg>
           </div>
-          <div class="lt"><b>专属顾问推荐</b><span>{{ pendingRecs ? `${pendingRecs} 个岗位待你确认` : '人才经纪人为你挑选的岗位' }}</span></div>
+          <div class="lt"><b>专属顾问推荐</b><span>{{ recDesc }}</span></div>
           <i v-if="pendingRecs" class="badge num">{{ pendingRecs }}</i>
           <van-icon name="arrow" class="chev" />
         </router-link>

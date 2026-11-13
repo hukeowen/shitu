@@ -101,31 +101,51 @@ const hover = ref<number | null>(null)
       <div class="grid fees">
         <div class="card">
           <div class="card__hd">
-            <h3>昨日计费</h3>
-            <span class="t-xs mono">{{ data ? fmtDate(data.yesterday.date) : '' }}</span>
+            <h3>计费</h3>
+            <span class="t-xs">按日结结果统计，金额单位：元</span>
           </div>
           <div class="card__bd">
-            <div class="grid g-2 fee-grid">
+            <div class="period">
+              <b>昨日</b><span class="t-xs mono">{{ data ? fmtDate(data.yesterday.date) : '' }}</span>
+            </div>
+            <div class="fee-grid">
               <div class="fee">
                 <div class="stat-l">增长技术服务费</div>
-                <div class="fee-v">{{ fmtMoney(data?.yesterday.serviceFee) }}<small>元</small></div>
+                <div class="fee-v">{{ fmtMoney(data?.yesterday.serviceFee) }}</div>
               </div>
               <div class="fee">
-                <div class="stat-l">人才流转费</div>
-                <div class="fee-v">{{ fmtMoney(data?.yesterday.transferFee) }}<small>元</small></div>
-                <div class="stat-d">流转 {{ fmtNum(data?.yesterday.transferCount) }} 人·天</div>
+                <div class="stat-l">人才流转费总额</div>
+                <div class="fee-v">{{ fmtMoney(data?.yesterday.transferFee) }}</div>
+                <div class="stat-d">{{ fmtNum(data?.yesterday.transferCount) }} 人·天</div>
               </div>
               <div class="fee">
-                <div class="stat-l">平台流转收入</div>
-                <div class="fee-v">{{ fmtMoney(data?.yesterday.platformTake) }}<small>元</small></div>
-                <div class="stat-d">抽佣 {{ fmtMoney(data?.yesterday.transferCommission) }} · 全额 {{ fmtMoney(data?.yesterday.transferFullIncome) }}</div>
-              </div>
-              <div class="fee hl">
-                <div class="stat-l">本月累计服务费</div>
-                <div class="fee-v">{{ fmtMoney(data?.monthServiceFee) }}<small>元</small></div>
-                <div class="stat-d">截至昨日日结 · 流转抽佣 {{ fmtMoney(data?.monthTransferCommission) }} · 流转全额 {{ fmtMoney(data?.monthTransferFullIncome) }}</div>
+                <div class="stat-l">其中平台收入</div>
+                <div class="fee-v">{{ fmtMoney(data?.yesterday.platformTake) }}</div>
               </div>
             </div>
+            <dl class="split">
+              <div><dt>平台抽佣</dt><dd>{{ fmtMoney(data?.yesterday.transferCommission) }}</dd></div>
+              <div><dt>全额归平台</dt><dd>{{ fmtMoney(data?.yesterday.transferFullIncome) }}</dd></div>
+            </dl>
+
+            <div class="period second">
+              <b>本月累计</b><span class="t-xs">截至昨日日结</span>
+            </div>
+            <div class="fee-grid">
+              <div class="fee hl">
+                <div class="stat-l">增长技术服务费</div>
+                <div class="fee-v">{{ fmtMoney(data?.monthServiceFee) }}</div>
+              </div>
+              <div class="fee">
+                <div class="stat-l">流转费平台抽佣</div>
+                <div class="fee-v">{{ fmtMoney(data?.monthTransferCommission) }}</div>
+              </div>
+              <div class="fee">
+                <div class="stat-l">流转费全额归平台</div>
+                <div class="fee-v">{{ fmtMoney(data?.monthTransferFullIncome) }}</div>
+              </div>
+            </div>
+            <p class="t-xs fee-note">平台抽佣：与来源公司分成后平台得到的部分；全额归平台：来源为平台或来源公司已注销的流转费。</p>
           </div>
         </div>
 
@@ -144,7 +164,8 @@ const hover = ref<number | null>(null)
                 </g>
                 <g v-for="(b, i) in chart.bars" :key="b.p.d" @mouseenter="hover = i" @mouseleave="hover = null">
                   <rect :x="b.x - chart.bw * 0.18" :y="PAD.t" :width="chart.bw" :height="H - PAD.t - PAD.b" fill="transparent" />
-                  <rect :x="b.x" :y="b.y" :width="b.w" :height="Math.max(b.h, b.p.registrations > 0 ? 1 : 0)" rx="2" class="bar" :class="{ on: hover === i }" />
+                  <!-- 0 人的日子不画柱子；类名不能叫 bar（主题里 .bar 带固定高度，会把柱子撑成色块压住日期） -->
+                  <rect v-if="b.p.registrations > 0" :x="b.x" :y="b.y" :width="b.w" :height="Math.max(b.h, 1)" rx="2" class="col" :class="{ on: hover === i }" />
                   <text v-if="i % 2 === 1" :x="b.x + b.w / 2" :y="H - 6" text-anchor="middle" class="ax">{{ b.label }}</text>
                 </g>
               </svg>
@@ -166,15 +187,24 @@ const hover = ref<number | null>(null)
 .stat-d.warn { color: var(--warn); font-weight: 600; }
 .fees { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
 @media (max-width: 1180px) { .fees { grid-template-columns: 1fr; } }
-.fee-grid { row-gap: 18px; }
-.fee-v { font-family: var(--f-dis); font-size: 22px; font-weight: 700; color: var(--ink-900); margin-top: 4px; font-variant-numeric: tabular-nums; }
-.fee-v small { font-size: 12px; font-weight: 400; color: var(--ink-400); margin-left: 3px; }
+.period { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.period b { font-size: 13.5px; font-weight: 600; color: var(--ink-900); }
+.period.second { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.fee-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fee .stat-l { white-space: nowrap; }
+.fee .stat-d { white-space: nowrap; }
+.fee-v { font-family: var(--f-dis); font-size: 22px; font-weight: 650; color: var(--ink-900); margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.split { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 10px 0 0; font-size: 12.5px; }
+.split > div { display: flex; gap: 8px; white-space: nowrap; }
+.split dt { color: var(--ink-500); }
+.split dd { margin: 0; color: var(--ink-800); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fee-note { margin: 14px 0 0; line-height: 1.7; }
 .fee.hl .fee-v { color: var(--signal-700); }
 .chart { position: relative; }
 .chart svg { width: 100%; height: 180px; display: block; }
 .grid-l { stroke: var(--line); stroke-width: 1; }
 .ax { font-size: 10px; fill: var(--ink-400); font-family: var(--f-mono); }
-.bar { fill: var(--signal); opacity: .85; }
-.bar.on { opacity: 1; fill: var(--signal-700); }
+.col { fill: var(--signal); opacity: .85; }
+.col.on { opacity: 1; fill: var(--signal-700); }
 .tip { position: absolute; top: 0; right: 0; font-size: 12px; color: var(--ink-600); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 2px 8px; }
 </style>

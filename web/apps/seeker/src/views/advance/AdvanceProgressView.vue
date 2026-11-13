@@ -107,7 +107,7 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
           </dl>
           <template v-if="!inReview(row)">
             <div class="bar" style="margin-top: 10px"><i :class="row.status === 'REPAID' ? 'ok' : 'sig'" :style="{ width: `${pct}%` }"></i></div>
-            <div class="t-xs" style="margin-top: 5px">已还 {{ pct }}%</div>
+            <div class="t-xs" style="margin-top: 5px">已抵扣 {{ pct }}%</div>
           </template>
           <template v-if="ledger.length">
             <div class="divider" style="margin: 12px 0 4px"></div>

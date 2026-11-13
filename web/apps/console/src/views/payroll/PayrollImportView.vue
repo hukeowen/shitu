@@ -176,7 +176,7 @@ async function doImport() {
       <span class="spacer" />
     </div>
 
-    <div class="grid g-32">
+    <div class="grid g-32 grid--top">
       <div class="card">
         <div class="card__hd"><h3>上传工资表</h3><span class="t-xs">.xlsx · 第一行为表头 · 单次最多 5000 行 · 5MB 以内</span></div>
         <div class="card__bd">
@@ -235,17 +235,17 @@ async function doImport() {
               <el-button v-if="failed.length" size="small" @click="downloadFailed">下载失败行</el-button>
             </div>
             <el-table :data="shownRows" size="small" max-height="360" row-key="rowNo" :row-class-name="rowClass">
-              <el-table-column label="行号" width="70"><template #default="{ row }"><span class="mono">{{ row.rowNo }}</span></template></el-table-column>
-              <el-table-column label="员工" width="170">
-                <template #default="{ row }"><span class="mono t-sm">{{ row.phoneMasked || '—' }}</span><span v-if="row.employeeNo" class="t-xs"> · {{ row.employeeNo }}</span></template>
+              <el-table-column label="行号" min-width="70"><template #default="{ row }"><span class="mono">{{ row.rowNo }}</span></template></el-table-column>
+              <el-table-column label="员工" min-width="190">
+                <template #default="{ row }"><span class="nowrap"><span class="mono t-sm">{{ row.phoneMasked || '—' }}</span><span v-if="row.employeeNo" class="t-xs mono"> · {{ row.employeeNo }}</span></span></template>
               </el-table-column>
-              <el-table-column label="结果" width="80">
+              <el-table-column label="结果" min-width="80">
                 <template #default="{ row }"><span class="tag" :class="row.success ? 'tag--ok' : 'tag--danger'">{{ row.success ? '成功' : '失败' }}</span></template>
               </el-table-column>
-              <el-table-column label="预支抵扣" width="110" align="right">
+              <el-table-column label="预支抵扣" min-width="110" align="right">
                 <template #default="{ row }"><span class="num" :style="{ color: toNum(row.advanceDeduct) > 0 ? 'var(--signal-700)' : undefined }">{{ row.success ? fmtYuan(row.advanceDeduct) : '—' }}</span></template>
               </el-table-column>
-              <el-table-column label="实发" width="120" align="right">
+              <el-table-column label="实发" min-width="120" align="right">
                 <template #default="{ row }"><b class="num">{{ row.success ? fmtYuan(row.netPay) : '—' }}</b></template>
               </el-table-column>
               <el-table-column label="工资条 / 失败原因" min-width="220">
@@ -294,14 +294,14 @@ async function doImport() {
       <div class="card__hd"><h3>导入记录</h3><el-button size="small" @click="loadBatches">刷新</el-button></div>
       <el-alert v-if="batchesError" type="error" :title="batchesError" show-icon :closable="false" />
       <el-table v-loading="batchesLoading" :data="batches" row-key="batchId">
-        <el-table-column label="批次" min-width="160"><template #default="{ row }"><span class="mono t-sm">{{ row.batchId }}</span></template></el-table-column>
-        <el-table-column label="工资月份" width="100"><template #default="{ row }"><b class="mono">{{ row.payMonth }}</b></template></el-table-column>
-        <el-table-column label="成功人数" width="90" align="center"><template #default="{ row }"><span class="num">{{ row.headcount }}</span></template></el-table-column>
+        <el-table-column label="批次" min-width="170" show-overflow-tooltip><template #default="{ row }"><span class="mono t-sm">{{ row.batchId }}</span></template></el-table-column>
+        <el-table-column label="工资月份" min-width="100"><template #default="{ row }"><b class="mono">{{ row.payMonth }}</b></template></el-table-column>
+        <el-table-column label="成功人数" min-width="90" align="center"><template #default="{ row }"><span class="num">{{ row.headcount }}</span></template></el-table-column>
         <el-table-column label="应发合计" min-width="120" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.grossTotal) }}</span></template></el-table-column>
         <el-table-column label="预支抵扣" min-width="110" align="right"><template #default="{ row }"><span class="num" style="color: var(--signal-700)">{{ fmtYuan(row.advanceDeductTotal) }}</span></template></el-table-column>
         <el-table-column label="实发合计" min-width="120" align="right"><template #default="{ row }"><b class="num">{{ fmtYuan(row.netTotal) }}</b></template></el-table-column>
-        <el-table-column label="操作人" width="100"><template #default="{ row }"><span class="t-sm">{{ memberName(row.operatorId) }}</span></template></el-table-column>
-        <el-table-column label="导入时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="操作人" min-width="100"><template #default="{ row }"><span class="t-sm nowrap">{{ memberName(row.operatorId) }}</span></template></el-table-column>
+        <el-table-column label="导入时间" min-width="156"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
         <template #empty><el-empty :image-size="70" :description="batchesError ? '加载失败' : '暂无导入记录'" /></template>
       </el-table>
     </div>

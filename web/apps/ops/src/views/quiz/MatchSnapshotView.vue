@@ -63,14 +63,14 @@ const scopeText = (v: string) => label('MatchScope', v)
 
     <div class="card">
       <div class="toolbar">
-        <el-input v-model="input" clearable placeholder="匹配会话 ID（sessionId）" class="mono" style="width: 340px" @keyup.enter="submit" @clear="submit" />
+        <el-input v-model="input" clearable placeholder="匹配会话 ID" class="mono" style="width: 340px" @keyup.enter="submit" @clear="submit" />
         <el-button type="primary" :loading="loading" @click="submit">查询</el-button>
         <span class="t-xs">sessionId 来自 C 端匹配结果 / 审计日志</span>
       </div>
 
       <div v-if="loading && !snap" v-loading="true" class="box" />
       <el-empty v-else-if="error" :image-size="64" :description="error" />
-      <el-empty v-else-if="!snap" :image-size="64" description="输入 sessionId 查询匹配快照" />
+      <el-empty v-else-if="!snap" :image-size="64" description="输入匹配会话 ID 查询匹配快照" />
 
       <div v-else-if="s" class="card__bd">
         <div class="sec-title">会话</div>

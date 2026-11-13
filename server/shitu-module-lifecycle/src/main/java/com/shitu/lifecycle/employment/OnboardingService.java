@@ -135,6 +135,7 @@ public class OnboardingService {
         }
         lifecycle.transition(a.getUserId(), pass ? LifecycleEvent.INTERVIEW_PASS : LifecycleEvent.INTERVIEW_FAIL,
                 ctx(p, ActorRole.SITE, ActorRole.PM), p.subjectId(), remark);
+        outbox.publish(pass ? "INTERVIEW_PASSED" : "INTERVIEW_FAILED", "APPLICATION", applicationId, Map.of("userId", a.getUserId()));
         audit.log(pass ? "INTERVIEW_PASS" : "INTERVIEW_FAIL", "APPLICATION", applicationId,
                 remark == null ? null : Map.of("remark", remark));
     }

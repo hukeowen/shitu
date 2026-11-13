@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RowActions from '@/components/RowActions.vue'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, useDict, type IncidentRow, type IncidentSeverity, type IncidentStatus } from '@shitu/api-client'
@@ -90,6 +92,10 @@ async function submitClose() {
     dlg.saving = false
   }
 }
+
+/** 结案仅项目经理 / 老板，且只有处理中的记录可结案；没有可结案的记录时不渲染操作列 */
+const rowActions = (r: IncidentRow): RowAction[] => (canClose.value && r.status === 'OPEN' ? [{ key: 'close', label: '结案', type: 'primary' }] : [])
+const opsWidth = computed(() => opsColWidth(rows.value.map(rowActions)))
 </script>
 
 <template>
@@ -113,13 +119,13 @@ async function submitClose() {
         </div>
       </div>
       <el-table v-loading="loading" :data="rows" row-key="id">
-        <el-table-column label="发生时间" width="150">
+        <el-table-column label="发生时间" min-width="156">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.occurredAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="项目 / 人员" width="200">
+        <el-table-column label="项目 / 人员" min-width="200">
           <template #default="{ row }">
-            <b>{{ row.personName }}</b> <span class="tag" :class="SEV_TAG[row.severity as IncidentSeverity]">{{ label('IncidentSeverity', row.severity) }}</span>
-            <div class="t-xs">{{ row.projectName }}</div>
+            <div class="nowrap"><b>{{ row.personName }}</b> <span class="tag" :class="SEV_TAG[row.severity as IncidentSeverity]">{{ label('IncidentSeverity', row.severity) }}</span></div>
+            <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
           </template>
         </el-table-column>
         <el-table-column label="事发经过" min-width="300">
@@ -129,14 +135,11 @@ async function submitClose() {
             <div v-if="row.handleNote" class="reply"><b>处理结论</b>{{ row.handleNote }}<span class="t-xs"> · {{ row.closedByName }} {{ fmtDateTime(row.closedAt) }}</span></div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" min-width="100">
           <template #default="{ row }"><span class="tag" :class="row.status === 'OPEN' ? 'tag--warn' : 'tag--ok'">{{ label('IncidentStatus', row.status) }}</span></template>
         </el-table-column>
-        <el-table-column v-if="canClose" label="操作" width="100" align="right" fixed="right">
-          <template #default="{ row }">
-            <el-button v-if="row.status === 'OPEN'" size="small" type="primary" @click="openClose(row)">结案</el-button>
-            <span v-else class="t-xs">—</span>
-          </template>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="openClose(row)" /></template>
         </el-table-column>
         <template #empty><el-empty :description="loadError ? '加载失败' : '暂无工伤记录'" :image-size="80" /></template>
       </el-table>

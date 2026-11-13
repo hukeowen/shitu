@@ -103,7 +103,7 @@ onMounted(() => list.load())
             <span v-else class="dim">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="90" align="right" fixed="right">
           <template #default="{ row }">
             <el-button size="small" :type="row.status === 'PENDING_AUDIT' ? 'primary' : 'default'" @click="open(row)">
               {{ row.status === 'PENDING_AUDIT' ? '审核' : '详情' }}

@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, type SysParamRow } from '@shitu/api-client'
 import { ADMIN_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
-import { fmtDateTime } from '@/utils/format'
+import { fmtDateTime, fmtOperator } from '@/utils/format'
 
 /** 系统参数：业务规则里可调的数值（时限、次数、金额等）。只能改值，每次修改写原因并进审计日志。 */
 const auth = useAuthStore()
@@ -149,12 +149,12 @@ async function save() {
             <template #default="{ row }">
               <template v-if="row.updatedBy">
                 <div class="t-sm">{{ row.updateRemark || '—' }}</div>
-                <div class="t-xs">{{ row.updatedByName || row.updatedBy }} · <span class="mono">{{ fmtDateTime(row.updatedAt) }}</span></div>
+                <div class="t-xs">{{ row.updatedByName || fmtOperator(row.updatedBy) }} · <span class="mono">{{ fmtDateTime(row.updatedAt) }}</span></div>
               </template>
               <span v-else class="t-xs">初始值，未修改过</span>
             </template>
           </el-table-column>
-          <el-table-column v-if="canEdit" label="操作" width="90" align="right">
+          <el-table-column v-if="canEdit" label="操作" class-name="ops-col" width="90" align="right">
             <template #default="{ row }"><el-button size="small" @click="openEdit(row)">修改</el-button></template>
           </el-table-column>
         </el-table>

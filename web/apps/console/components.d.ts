@@ -59,6 +59,7 @@ declare module 'vue' {
     QrImage: typeof import('./src/components/QrImage.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    RowActions: typeof import('./src/components/RowActions.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

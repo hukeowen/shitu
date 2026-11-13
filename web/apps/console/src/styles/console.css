@@ -138,3 +138,30 @@ a { color: inherit; text-decoration: none; }
 
 /* 栅格里的按钮：去掉 Element 相邻按钮的左外边距，保证对齐 */
 .grid > .el-button + .el-button { margin-left: 0; }
+
+/* ---------- 表格单元格：编号 / 时间不折行，长名称两行截断 ---------- */
+.el-table .cell .mono, .el-table .cell .num, .el-table .cell .st-pill { white-space: nowrap; }
+.clamp-2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.ellip { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person > div:last-child { min-width: 0; }
+.person b, .person .t-xs { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.el-table th.el-table__cell .cell { white-space: nowrap; }
+/* 文字链式的名称（点开详情） */
+.name-link { appearance: none; background: none; border: 0; padding: 0; margin: 0; font-family: inherit; text-align: left; cursor: pointer; font-weight: 600; color: var(--ink-900); font-size: 13.5px; line-height: 1.5; }
+.name-link:hover { color: var(--signal); }
+.name-link:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: var(--r-xs); }
+
+/* ---------- 工具栏右侧的筛选区：整体换行，查询按钮始终跟着最后一个输入框 ---------- */
+.tb-fields { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.tb-group { display: flex; align-items: center; flex-wrap: nowrap; gap: 10px; }
+.tb-fields .el-button + .el-button, .tb-group .el-button + .el-button { margin-left: 0; }
+
+/* ---------- 需要顶对齐的并排卡片（内容高度差异大时不拉伸留白） ---------- */
+.grid--top { align-items: start; }
+
+/* 说明卡片里的规则列表 */
+.rules { margin: 0; padding: 0; list-style: none; line-height: 1.95; }
+
+/* 键值列表里的金额与数字：和其它金额同一字重 */
+.kv dd.num { font-weight: 600; }
+.g-1 { grid-template-columns: minmax(0, 1fr); }

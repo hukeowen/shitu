@@ -44,7 +44,7 @@ onMounted(() => pending.refresh())
         </p>
       </div>
       <div class="spacer" />
-      <el-button v-if="canPending" size="small" :loading="pending.loading" @click="pending.refresh()">刷新待办</el-button>
+      <el-button v-if="canPending" :loading="pending.loading" @click="pending.refresh()">刷新</el-button>
     </div>
 
     <template v-if="canPending">

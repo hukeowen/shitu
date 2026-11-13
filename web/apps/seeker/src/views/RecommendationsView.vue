@@ -40,7 +40,20 @@ async function onRefresh() {
 
 const list = computed(() => journey.recs)
 const company = computed(() => auth.profile?.boundCompanyName || '')
-const appliedLock = computed(() => auth.profile?.status === 'PENDING_INTERVIEW' || auth.profile?.status === 'PENDING_CONFIRM')
+const status = computed(() => auth.profile?.status)
+const appliedLock = computed(() => status.value === 'PENDING_INTERVIEW' || status.value === 'PENDING_CONFIRM')
+const lockNote = computed(() =>
+  status.value === 'PENDING_CONFIRM' ? '你已通过面试、正在办理入职，暂时不能报名其他岗位。' : '你已有进行中的报名，面试结果出来前不能报名其他岗位。',
+)
+/** 只有「有专属顾问跟进、且没有进行中的报名 / 未在岗」的用户，空列表才是「正在挑选」 */
+const picking = computed(() => !!company.value && auth.profile?.domainTag === 'PRIVATE' && !appliedLock.value && status.value !== 'EMPLOYED')
+const emptyText = computed<{ t: string; d: string }>(() => {
+  if (picking.value) return { t: '专属顾问正在为你挑选岗位', d: '有推荐时会通过站内消息通知你，请保持手机畅通' }
+  if (status.value === 'EMPLOYED') return { t: '暂无顾问推荐', d: '你已入职在岗。顾问推荐只在求职期间、AI 问薪没有匹配到合适岗位时出现。' }
+  if (status.value === 'PENDING_CONFIRM') return { t: '暂无顾问推荐', d: '你已通过面试、正在办理入职，这期间顾问不会推荐新的岗位。' }
+  if (appliedLock.value) return { t: '暂无顾问推荐', d: '你已有进行中的报名，面试结果出来前顾问不会推荐新的岗位。' }
+  return { t: '暂无顾问推荐', d: '当你由某家劳务公司的专属顾问服务、且 AI 问薪没有匹配到合适岗位时，顾问会人工为你挑选岗位，并在这里展示。' }
+})
 
 const DECISION: Record<MyRecommendation['decision'], { t: string; cls: string }> = {
   PENDING: { t: '待你确认', cls: 'tag-warn' },
@@ -102,7 +115,7 @@ async function decline(r: MyRecommendation) {
           </div>
         </section>
 
-        <div v-if="appliedLock" class="note note--warn">你已有进行中的报名，面试结果出来前不能报名其他岗位。</div>
+        <div v-if="appliedLock && list.length" class="note note--warn">{{ lockNote }}</div>
 
         <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
         <div v-else-if="loadError" class="page-state">
@@ -111,8 +124,9 @@ async function decline(r: MyRecommendation) {
           </van-empty>
         </div>
         <div v-else-if="!list.length" class="page-state">
-          <van-empty description="专属顾问正在为你挑选岗位">
-            <p class="t-xs">有推荐时会通过站内消息通知你，请保持手机畅通</p>
+          <van-empty :description="emptyText.t">
+            <p class="t-xs empty-d">{{ emptyText.d }}</p>
+            <van-button v-if="!picking && !appliedLock && status !== 'EMPLOYED'" round type="primary" size="small" style="margin-top: 14px" @click="router.push('/match')">去 AI 问薪</van-button>
           </van-empty>
         </div>
 
@@ -137,7 +151,7 @@ async function decline(r: MyRecommendation) {
           </article>
         </template>
 
-        <div class="note note--info">
+        <div v-if="list.length || picking" class="note note--info">
           推荐岗位与 AI 问薪结果一样，需先同意求职告知书并完成实名认证才能报名。都不满意时，顾问可为你开放全平台岗位匹配，届时可匹配全平台岗位。
         </div>
         <div class="page-bottom-gap"></div>
@@ -148,7 +162,8 @@ async function decline(r: MyRecommendation) {
 
 <style scoped>
 .recs { min-height: 100vh; background: var(--surface-2); }
-.body { min-height: 70vh; align-content: start; }
+.body { min-height: 50vh; align-content: start; }
+.empty-d { max-width: 280px; margin: 0 auto; line-height: 1.7; }
 .page-state { padding-top: 30px; }
 .intro { background: linear-gradient(160deg, #7A3410, #2B1408); border: 0; color: #fff; }
 .intro .t-xs { color: rgba(255, 255, 255, .6); margin-top: 2px; }

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteComponent, type RouteRecordRaw } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { refreshSession } from '@shitu/api-client'
 import AppLayout from '@/layout/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -63,8 +64,12 @@ const router = createRouter({
       component: () => import('@/views/onboarding/OnboardingStatusView.vue'),
       meta: { title: '入驻进度' },
     },
-    { path: '/', component: AppLayout, children },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    {
+      path: '/',
+      component: AppLayout,
+      // 未知地址：在后台框架内显示「页面不存在」，不再悄悄跳回首页
+      children: [...children, { path: ':pathMatch(.*)*', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在', notFound: true } }],
+    },
   ],
 })
 
@@ -108,7 +113,11 @@ router.beforeEach(async (to) => {
 
   if (!me.operational) return to.path === '/onboarding/status' ? true : '/onboarding/status'
   if (to.path === '/onboarding/status' || to.path === '/') return homePath(me)
-  if (!canAccess(me, to.meta.access)) return homePath(me)
+  // 页面存在但当前角色无权访问：仍回到该角色的首页，并给出提示
+  if (!canAccess(me, to.meta.access)) {
+    ElMessage.warning('没有访问该页面的权限')
+    return homePath(me)
+  }
   return true
 })
 

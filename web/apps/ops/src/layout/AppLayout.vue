@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { logout, useDict } from '@shitu/api-client'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
@@ -45,6 +45,36 @@ async function onCommand(cmd: string) {
   }
 }
 
+/** 面包屑：分组与页面同名（工作台）时只显示一次 */
+const crumbs = computed(() => {
+  const group = (route.meta.group as string | undefined) ?? APP_TITLE
+  const title = route.meta.title as string | undefined
+  return title && title !== group ? [group, title] : [group]
+})
+
+/** 侧栏导航超出一屏时，在上 / 下边缘显示渐隐提示还有内容可滚动 */
+const navEl = ref<HTMLElement | null>(null)
+const navMore = ref({ up: false, down: false })
+function updateNavHint() {
+  const el = navEl.value
+  if (!el) return
+  navMore.value = { up: el.scrollTop > 4, down: el.scrollTop + el.clientHeight < el.scrollHeight - 4 }
+}
+let navObserver: ResizeObserver | undefined
+onMounted(() => {
+  updateNavHint()
+  if (navEl.value && typeof ResizeObserver !== 'undefined') {
+    navObserver = new ResizeObserver(updateNavHint)
+    navObserver.observe(navEl.value)
+  }
+  window.addEventListener('resize', updateNavHint)
+})
+onBeforeUnmount(() => {
+  navObserver?.disconnect()
+  window.removeEventListener('resize', updateNavHint)
+})
+watch(menu, () => nextTick(updateNavHint))
+
 onMounted(() => pending.refresh())
 </script>
 
@@ -58,9 +88,10 @@ onMounted(() => pending.refresh())
         </svg>
         <b>{{ APP_TITLE }}</b>
       </div>
-      <nav class="nav">
+      <div class="nav-wrap" :class="{ 'more-up': navMore.up, 'more-down': navMore.down }">
+      <nav ref="navEl" class="nav" @scroll.passive="updateNavHint">
         <template v-for="g in menu" :key="g.key">
-          <div class="grp">{{ g.title }}</div>
+          <div v-if="!(g.items.length === 1 && g.items[0].title === g.title)" class="grp">{{ g.title }}</div>
           <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="item" active-class="is-active" :class="{ 'is-active': route.meta.activeMenu === it.path }">
             <span class="it-t">{{ it.title }}</span>
             <span v-if="badgeOf(it) > 0" class="bdg">{{ badgeOf(it) > 99 ? '99+' : badgeOf(it) }}</span>
@@ -68,6 +99,7 @@ onMounted(() => pending.refresh())
           </router-link>
         </template>
       </nav>
+      </div>
       <div class="side-user">
         <div class="avatar">{{ avatarChar }}</div>
         <div class="su">
@@ -79,8 +111,7 @@ onMounted(() => pending.refresh())
     <section class="main">
       <header class="top">
         <el-breadcrumb separator="/">
-          <el-breadcrumb-item>{{ route.meta.group ?? APP_TITLE }}</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ route.meta.title }}</el-breadcrumb-item>
+          <el-breadcrumb-item v-for="c in crumbs" :key="c">{{ c }}</el-breadcrumb-item>
         </el-breadcrumb>
         <div class="spacer" />
         <el-dropdown trigger="click" @command="onCommand">
@@ -115,14 +146,19 @@ onMounted(() => pending.refresh())
 <style scoped>
 .shell { display: flex; min-height: 100vh; }
 .side { width: 236px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 10px; height: 60px; flex: none; padding: 0 20px; }
+.brand { display: flex; align-items: center; gap: 10px; height: 56px; flex: none; padding: 0 20px; }
 .brand b { font-size: 16px; font-weight: 650; color: var(--ink-900); letter-spacing: -.01em; }
-.nav { flex: 1; overflow: auto; padding: 4px 12px 24px; }
-.grp { padding: 18px 12px 6px; font-size: 12px; font-weight: 500; color: var(--ink-400); }
-.item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 2px; border-radius: 8px; font-size: 14px; color: var(--ink-600); text-decoration: none; transition: background .14s, color .14s; }
+.nav-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.nav-wrap::before, .nav-wrap::after { content: ""; position: absolute; left: 0; right: 8px; height: 28px; pointer-events: none; opacity: 0; transition: opacity .18s; z-index: 1; }
+.nav-wrap::before { top: 0; background: linear-gradient(to bottom, var(--surface), rgba(255, 255, 255, 0)); }
+.nav-wrap::after { bottom: 0; height: 36px; background: linear-gradient(to top, var(--surface) 10%, rgba(255, 255, 255, 0)); box-shadow: 0 -1px 0 var(--line) inset; }
+.nav-wrap.more-up::before, .nav-wrap.more-down::after { opacity: 1; }
+.nav { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 12px 16px; }
+.grp { padding: 12px 12px 4px; font-size: 12px; line-height: 18px; font-weight: 500; color: var(--ink-400); }
+.item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; margin-bottom: 1px; border-radius: 8px; font-size: 14px; line-height: 22px; color: var(--ink-600); text-decoration: none; transition: background .14s, color .14s; }
 .item:hover { background: var(--surface-2); color: var(--ink-900); }
 .item.is-active { background: var(--signal-50); color: var(--signal-700); font-weight: 600; }
-.side-user { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.side-user { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--line); }
 .su { flex: 1; min-width: 0; }
 .su b { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .su span { font-size: 12px; color: var(--ink-400); }

@@ -41,7 +41,7 @@ export function stageText(s: AdvanceStatus): string {
     case 'PM_APPROVED': return '终审通过 · 等待拨款'
     case 'PAID': return '已到账 · 待发薪日抵扣'
     case 'PARTIALLY_REPAID': return '部分抵扣 · 余额结转下月'
-    case 'REPAID': return '已还清'
+    case 'REPAID': return '发薪日工资已全部抵扣'
     case 'REJECTED': return '已驳回 · 已退回本次机会'
   }
 }

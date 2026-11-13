@@ -149,20 +149,20 @@ onMounted(() => list.load())
     <div class="card">
       <div class="toolbar">
         <el-input v-model="keyword" clearable placeholder="用户名 / 姓名" style="width: 220px" @keyup.enter="list.search()" @clear="list.search()" />
-        <el-button @click="list.search()">查询</el-button>
+        <el-button type="primary" @click="list.search()">查询</el-button>
         <div class="spacer" />
         <el-button type="primary" @click="openCreate">新建账号</el-button>
       </div>
 
       <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" row-key="adminId">
-        <el-table-column label="用户名" min-width="140">
+        <el-table-column label="用户名" min-width="130">
           <template #default="{ row }">
             <span class="mono strong">{{ row.username }}</span>
             <span v-if="isSelf(row)" class="tag tag--signal ml">我</span>
           </template>
         </el-table-column>
-        <el-table-column label="姓名" prop="displayName" min-width="110" />
-        <el-table-column label="角色" min-width="200">
+        <el-table-column label="姓名" prop="displayName" min-width="100" show-overflow-tooltip />
+        <el-table-column label="角色" min-width="180">
           <template #default="{ row }"><DictTags type="OpsRole" :values="row.roles" highlight="SUPER" /></template>
         </el-table-column>
         <el-table-column label="状态" width="90">
@@ -180,7 +180,7 @@ onMounted(() => list.load())
         <el-table-column label="创建时间" width="150">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="210" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="190" align="right" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" size="small" :disabled="acting === row.adminId" @click="resetPassword(row)">重置密码</el-button>

@@ -469,6 +469,7 @@ export const opsApi = {
   addBillingRule: (req: { effectiveFrom: string; serviceUnitPrice: number; transferUnitPrice: number; supplyShare: number; freeMonths: number }) =>
     post<number>('/ops/billing/rules', req),
   /** 存量基数与免费期 P-03 */
+  companyNames: () => get<Array<{ companyId: string; name: string }>>('/ops/companies/names'),
   stockBases: (companyId?: string) => get<Record<string, unknown>[]>('/ops/stock-bases', { companyId }),
   /** 归属治理 P-08 */
   attributionDisputes: (userId?: string) => get<AttributionDispute[]>('/ops/attribution/disputes', { userId }),
@@ -516,7 +517,7 @@ export const opsApi = {
 
   engineVersions: () => get<EngineVersion[]>('/ops/engine/versions'),
   engineVersion: (id: number) => get<EngineVersion>(`/ops/engine/versions/${id}`),
-  engineDraft: (config?: Record<string, unknown>) => post<EngineVersion>('/ops/engine/drafts', config ?? null),
+  engineDraft: (config?: Record<string, unknown>) => post<EngineVersion>('/ops/engine/drafts', config),
   engineUpdate: (id: number, config: Record<string, unknown>) => put<EngineVersion>(`/ops/engine/versions/${id}`, config),
   engineDelete: (id: number) => del<void>(`/ops/engine/versions/${id}`),
   enginePublish: (id: number) => post<EngineVersion>(`/ops/engine/versions/${id}/publish`),

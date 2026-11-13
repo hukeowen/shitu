@@ -44,6 +44,9 @@ const scopeText = computed(() => {
   return label('MatchScope', o.scope)
 })
 const results = computed(() => outcome.value?.results ?? [])
+/** 已有进行中的报名 / 已在岗：结果只读（与岗位详情页禁用「报名面试」保持一致） */
+const employed = computed(() => profile.value?.status === 'EMPLOYED')
+const viewOnly = computed(() => locked.value || employed.value)
 
 // S-17 私域匹配度不足：已转专属顾问（人才经纪人），推荐结果在「专属顾问推荐」查看（T-203）
 const journey = useJourney()
@@ -94,7 +97,7 @@ const BROKER_TAG: Record<BrokerProgress['status'], { text: string; cls: string }
   RECOMMENDED: { text: '已推荐岗位', cls: 'tag-ok' },
   APPLIED: { text: '已报名', cls: 'tag-ok' },
   RELEASED: { text: '已开放全平台', cls: 'tag-warn' },
-  CLOSED: { text: '已结束', cls: 'tag-mute' },
+  CLOSED: { text: '已结束', cls: 'tag-muted' },
 }
 const brokerTag = computed(() => (brokerCase.value ? BROKER_TAG[brokerCase.value.status] : { text: '处理中', cls: 'tag-info' }))
 
@@ -126,7 +129,7 @@ function rematch() {
   <div class="result">
     <AppBar title="匹配结果" fallback="/" :on-back="() => router.replace('/')">
       <template #right>
-        <span v-if="!locked && outcome" class="re" @click="rematch">重新匹配</span>
+        <span v-if="!viewOnly && outcome" class="re" @click="rematch">重新匹配</span>
       </template>
     </AppBar>
 
@@ -137,8 +140,8 @@ function rematch() {
       </van-empty>
     </div>
     <div v-else-if="!outcome" class="page-state">
-      <van-empty description="还没有匹配结果，先完成 AI 问薪吧">
-        <van-button v-if="!locked" round type="primary" size="small" @click="router.replace('/match')">开始 AI 问薪</van-button>
+      <van-empty :description="viewOnly ? `还没有匹配结果。${lockText}` : '还没有匹配结果，先完成 AI 问薪吧'">
+        <van-button v-if="!viewOnly" round type="primary" size="small" @click="router.replace('/match')">开始 AI 问薪</van-button>
       </van-empty>
     </div>
 
@@ -147,16 +150,16 @@ function rematch() {
       <div class="pad-x hd">
         <div class="row-b">
           <div>
-            <div class="h-t">为你锁定 {{ results.length }} 个岗位</div>
-            <div class="t-xs">匹配范围：{{ scopeText }} · 从中选 1 个报名</div>
+            <div class="h-t">{{ viewOnly ? `上次匹配到 ${results.length} 个岗位` : `为你锁定 ${results.length} 个岗位` }}</div>
+            <div class="t-xs">匹配范围：{{ scopeText }} · {{ viewOnly ? '当前仅可查看' : '从中选 1 个报名' }}</div>
           </div>
           <span class="tag" :class="isPrivateScope ? 'tag-private' : 'tag-public'">{{ label('DomainTag', isPrivateScope ? 'PRIVATE' : 'PUBLIC') }}</span>
         </div>
       </div>
 
       <div class="pad stack">
-        <section v-if="locked" class="note note--warn">
-          <b>{{ lockText }}。</b>你可以查看岗位信息，报名进度请到「我的报备」查看。
+        <section v-if="viewOnly" class="note note--warn">
+          <b>{{ lockText }}。</b>{{ employed ? '以下为上次的匹配结果，仅可查看岗位信息，不能报名。' : '以下岗位仅可查看、不能报名，报名进度请到「我的报备」查看。' }}
         </section>
 
         <section v-if="portrait.length" class="acard portrait">
@@ -166,13 +169,14 @@ function rematch() {
           </div>
         </section>
 
-        <JobCard v-for="(j, i) in results" :key="j.jobId" :job="j" :top="i === 0" @open="openJob" />
+        <JobCard v-for="(j, i) in results" :key="j.jobId" :job="j" :top="i === 0" :view-only="viewOnly" @open="openJob" />
 
         <div class="note note--info">
-          <b>{{ results.length < 3 ? '只显示匹配度达标的岗位，是刻意的。' : '只显示 3 个，是刻意的。' }}</b>平台不提供岗位列表浏览 —— 岗位只在完成 AI 问薪后以结果形式出现，匹配度 ≥80% 才推荐给你。都不满意可重新匹配，次数不限。
+          <b>{{ results.length < 3 ? '只显示匹配度达标的岗位，是刻意的。' : '只显示 3 个，是刻意的。' }}</b>平台不提供岗位列表浏览 —— 岗位只在完成 AI 问薪后以结果形式出现，匹配度 ≥80% 才推荐给你。<template v-if="!viewOnly">都不满意可重新匹配，次数不限。</template>
         </div>
-        <van-button v-if="!locked" block class="btn-cta" @click="rematch">都不满意，重新匹配</van-button>
+        <van-button v-if="!viewOnly" block class="btn-cta" @click="rematch">都不满意，重新匹配</van-button>
         <van-button v-else-if="appliedLock" block class="btn-cta" @click="router.push('/reports')">查看我的报备</van-button>
+        <van-button v-else-if="employed" block class="btn-cta" @click="router.push('/work')">查看我的工作</van-button>
         <div class="page-bottom-gap"></div>
       </div>
     </template>
@@ -205,8 +209,8 @@ function rematch() {
         </section>
         <router-link to="/recommendations" class="acard recl">
           <div class="flex1">
-            <b class="recl-t">{{ journey.pendingRecs.length ? `顾问已为你推荐 ${journey.pendingRecs.length} 个岗位` : '专属顾问正在为你挑选岗位' }}</b>
-            <div class="t-xs">{{ journey.pendingRecs.length ? '确认后即可按正常流程报名' : '有推荐时会通过站内消息通知你' }}</div>
+            <b class="recl-t">{{ journey.pendingRecs.length ? `顾问已为你推荐 ${journey.pendingRecs.length} 个岗位` : viewOnly ? '暂无顾问推荐' : '专属顾问正在为你挑选岗位' }}</b>
+            <div class="t-xs">{{ journey.pendingRecs.length ? (viewOnly ? '当前仅可查看' : '确认后即可按正常流程报名') : viewOnly ? lockText : '有推荐时会通过站内消息通知你' }}</div>
           </div>
           <span class="recl-a">{{ journey.pendingRecs.length ? '去看看' : '查看' }} ›</span>
         </router-link>
@@ -215,7 +219,7 @@ function rematch() {
         </div>
       </template>
 
-      <van-button v-if="!locked" block class="btn-cta" :type="isPrivateScope ? 'default' : 'primary'" @click="rematch">调整条件重新匹配</van-button>
+      <van-button v-if="!viewOnly" block class="btn-cta" :type="isPrivateScope ? 'default' : 'primary'" @click="rematch">调整条件重新匹配</van-button>
       <van-button v-if="isPrivateScope" type="primary" block class="btn-cta" @click="router.replace('/')">返回首页等待联系</van-button>
       <div class="page-bottom-gap"></div>
     </div>

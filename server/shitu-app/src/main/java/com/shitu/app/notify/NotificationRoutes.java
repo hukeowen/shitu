@@ -177,6 +177,10 @@ public class NotificationRoutes implements OutboxHandler {
                         Map.of("seekerName", seekerName(text(p, "userId"))), "/broker/pool");
                 case "ARRIVAL_CONFIRMED" -> notifications.send(outboxId, "ARRIVAL_CONFIRMED",
                         List.of(Recipient.seeker(text(p, "userId"))), Map.of(), "/reports");
+                case "INTERVIEW_PASSED" -> notifications.send(outboxId, "INTERVIEW_PASSED",
+                        List.of(Recipient.seeker(text(p, "userId"))), Map.of(), "/reports");
+                case "INTERVIEW_FAILED" -> notifications.send(outboxId, "INTERVIEW_FAILED",
+                        List.of(Recipient.seeker(text(p, "userId"))), Map.of(), "/match");
                 case "CONTRACT_SIGN_REQUIRED" -> notifications.send(outboxId, "CONTRACT_SIGN_REQUIRED",
                         List.of(Recipient.seeker(text(p, "userId"))), Map.of("signUrl", text(p, "signUrl")), "/contracts");
                 case "CONTRACT_SIGNED" -> {

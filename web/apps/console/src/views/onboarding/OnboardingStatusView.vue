@@ -99,8 +99,9 @@ async function doLogout() {
       <BrandMark />
       <b class="brand">{{ APP_TITLE }}</b>
       <span class="spacer" />
-      <span class="t-sm">{{ meStore.me?.name }}</span>
-      <el-button size="small" @click="doLogout">退出登录</el-button>
+      <span class="mn">{{ meStore.me?.name }}</span>
+      <span class="sep" />
+      <el-button size="small" @click="doLogout">退出</el-button>
     </header>
 
     <main v-if="company" class="body">
@@ -110,7 +111,7 @@ async function doLogout() {
           <p>{{ company.name }}</p>
         </div>
         <span class="spacer" />
-        <el-button size="small" :loading="refreshing" @click="refresh">刷新状态</el-button>
+        <el-button :loading="refreshing" @click="refresh">刷新状态</el-button>
       </div>
 
       <div class="card">
@@ -167,10 +168,13 @@ async function doLogout() {
 </template>
 
 <style scoped>
-.wrap { min-height: 100vh; background: var(--surface-2); }
-.top { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 22px; background: var(--chrome); color: #fff; }
-.top .brand { font-family: var(--f-dis); font-size: 16px; }
-.top .t-sm { color: rgba(255,255,255,.7); }
-.body { max-width: 880px; margin: 0 auto; padding: 24px 22px 60px; }
+/* 顶栏与 AppLayout 的 header 同一套：白底、60px 高、同样的字号与分隔线 */
+.wrap { min-height: 100vh; background: var(--paper); }
+.top { height: 60px; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 14px; padding: 0 28px; background: rgba(255, 255, 255, .92); backdrop-filter: saturate(1.4) blur(8px); border-bottom: 1px solid var(--line); }
+.top .brand { margin-left: -4px; font-size: 16px; font-weight: 650; color: var(--ink-900); letter-spacing: -.01em; }
+.top .mn { font-size: 13.5px; font-weight: 600; color: var(--ink-900); }
+.top .sep { width: 1px; height: 18px; background: var(--line); }
+.top .spacer { flex: 1; }
+.body { max-width: 880px; margin: 0 auto; padding: 24px 28px 64px; }
 .headline { margin-top: 22px; }
 </style>

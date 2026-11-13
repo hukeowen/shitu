@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RowActions from '@/components/RowActions.vue'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
@@ -137,6 +139,20 @@ async function close(p: ProjectView) {
 function location(p: ProjectView) {
   return [p.province, p.city, p.district].filter(Boolean).join(' · ')
 }
+
+/** 行操作：只有进行中的项目可编辑 / 结束；没有有效合同且有合同权限时多一个「上传合同」 */
+function rowActions(p: ProjectView): RowAction[] {
+  if (!canManage.value || p.status !== 'ACTIVE') return []
+  const a: RowAction[] = [{ key: 'edit', label: '编辑' }, { key: 'close', label: '结束', type: 'danger', plain: true }]
+  if (!p.contractEffective && meStore.can('CLIENT_CONTRACT_MANAGE')) a.unshift({ key: 'contract', label: '上传合同', link: true })
+  return a
+}
+const opsWidth = computed(() => opsColWidth(list.value.map(rowActions)))
+function onAct(key: string, p: ProjectView) {
+  if (key === 'contract') emit('goContracts')
+  else if (key === 'edit') openEdit(p)
+  else close(p)
+}
 </script>
 
 <template>
@@ -148,41 +164,37 @@ function location(p: ProjectView) {
           {{ o.label }}
         </button>
       </div>
-      <span class="spacer" />
-      <el-input v-model="filter.keyword" placeholder="项目 / 甲方名称" clearable style="width: 200px" @keyup.enter="load" @clear="load" />
-      <el-button @click="load">查询</el-button>
-      <el-button v-if="canManage" type="primary" @click="openCreate">+ 新建项目</el-button>
+      <div class="tb-fields">
+        <div class="tb-group">
+          <el-input v-model="filter.keyword" placeholder="项目 / 甲方名称" clearable style="width: 200px" @keyup.enter="load" @clear="load" />
+          <el-button @click="load">查询</el-button>
+          <el-button v-if="canManage" type="primary" @click="openCreate">+ 新建项目</el-button>
+        </div>
+      </div>
     </div>
     <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" />
     <el-table v-loading="loading" :data="list" row-key="projectId" :row-class-name="({ row }) => (row.status === 'CLOSED' ? 'row-dim' : '')">
       <el-table-column label="项目名称" min-width="180">
-        <template #default="{ row }"><b>{{ row.name }}</b><div class="t-xs">创建于 {{ fmtDate(row.createdAt) }}</div></template>
+        <template #default="{ row }"><b class="clamp-2" :title="row.name">{{ row.name }}</b><div class="t-xs nowrap">创建于 {{ fmtDate(row.createdAt) }}</div></template>
       </el-table-column>
-      <el-table-column label="甲方企业" prop="clientName" min-width="200" />
+      <el-table-column label="甲方企业" prop="clientName" min-width="200" show-overflow-tooltip />
       <el-table-column label="地点" min-width="220">
         <template #default="{ row }">
-          <div class="t-sm strong">{{ location(row) }}</div>
-          <div class="t-xs">{{ row.address }}</div>
+          <div class="t-sm strong nowrap">{{ location(row) }}</div>
+          <div class="t-xs clamp-2" :title="row.address ?? ''">{{ row.address }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="合同" width="130">
+      <el-table-column label="合同" min-width="130">
         <template #default="{ row }">
           <span v-if="row.contractEffective" class="tag tag--ok">合同有效</span>
           <span v-else class="tag tag--warn">无有效合同</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="90">
+      <el-table-column label="状态" min-width="90">
         <template #default="{ row }"><DictTag type="ProjectStatus" :value="row.status" /></template>
       </el-table-column>
-      <el-table-column v-if="canManage" label="操作" width="200" align="right">
-        <template #default="{ row }">
-          <template v-if="row.status === 'ACTIVE'">
-            <el-button v-if="!row.contractEffective && meStore.can('CLIENT_CONTRACT_MANAGE')" size="small" link type="primary" @click="emit('goContracts')">上传合同</el-button>
-            <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" plain @click="close(row)">结束</el-button>
-          </template>
-          <span v-else class="t-xs">—</span>
-        </template>
+      <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+        <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => onAct(k, row)" /></template>
       </el-table-column>
       <template #empty>
         <el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无项目'">
@@ -198,15 +210,19 @@ function location(p: ProjectView) {
         </el-form-item>
         <el-form-item label="甲方企业" prop="clientId">
           <ClientSelect :key="dialog.seq" v-model="form.clientId" :disabled="!!dialog.editing" :initial-name="dialog.editing?.clientName" @change="onClientChange" />
-          <div v-if="dialog.editing" class="t-xs" style="margin-top: 4px">项目创建后不能更换甲方企业</div>
-          <div v-if="clientHint === 'ok'" class="tag tag--ok" style="margin-top: 6px">该甲方已有有效合同，可发布岗位</div>
-          <div v-else-if="clientHint === 'missing'" class="note note--warn" style="margin-top: 6px; width: 100%">该甲方暂无审核通过且在有效期内的合作合同：项目可以创建，但需上传合同并审核通过后才能发布岗位。</div>
+          <div v-if="dialog.editing || clientHint" class="hints">
+            <div v-if="dialog.editing" class="t-xs">项目创建后不能更换甲方企业</div>
+            <span v-if="clientHint === 'ok'" class="tag tag--ok">该甲方已有有效合同，可发布岗位</span>
+            <div v-else-if="clientHint === 'missing'" class="note note--warn">该甲方暂无审核通过且在有效期内的合作合同：项目可以创建，但需上传合同并审核通过后才能发布岗位。</div>
+          </div>
         </el-form-item>
-        <div class="grid g-3" style="gap: 0 10px">
-          <el-form-item label="省份" label-width="86px"><el-input v-model="form.province" maxlength="20" placeholder="选填" /></el-form-item>
-          <el-form-item label="城市" prop="city" label-width="50px"><el-input v-model="form.city" maxlength="20" placeholder="如：苏州" /></el-form-item>
-          <el-form-item label="区县" label-width="50px"><el-input v-model="form.district" maxlength="20" placeholder="如：昆山" /></el-form-item>
-        </div>
+        <el-form-item label="所在地区" prop="city">
+          <div class="region">
+            <el-input v-model="form.province" maxlength="20" placeholder="省份（选填）" />
+            <el-input v-model="form.city" maxlength="20" placeholder="城市，如：苏州" />
+            <el-input v-model="form.district" maxlength="20" placeholder="区县，如：昆山" />
+          </div>
+        </el-form-item>
         <el-form-item label="详细地址" prop="address">
           <el-input v-model="form.address" maxlength="200" placeholder="厂区地址，求职者端用于展示与通勤计算" />
         </el-form-item>
@@ -218,3 +234,9 @@ function location(p: ProjectView) {
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.hints { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; margin-top: 8px; line-height: 1.5; }
+.hints .note { width: 100%; }
+.region { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+</style>

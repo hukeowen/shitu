@@ -55,7 +55,7 @@ onMounted(() => list.load())
     </div>
 
     <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" :row-class-name="rowClass" row-key="jobId" @row-dblclick="(r: JobView) => (drawerId = r.jobId)">
-      <el-table-column label="岗位" min-width="200">
+      <el-table-column label="岗位" min-width="180">
         <template #default="{ row }">
           <span class="link-cell" @click="drawerId = row.jobId">{{ row.title }}</span>
           <div class="t-xs"><span class="mono">{{ row.jobId }}</span> · {{ label('JobType', row.jobType) }}</div>
@@ -67,19 +67,19 @@ onMounted(() => list.load())
           <div class="t-xs mono">{{ row.companyId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="项目 / 城市" min-width="140">
+      <el-table-column label="项目 / 城市" min-width="120">
         <template #default="{ row }">
           {{ row.projectName ?? '—' }}
           <div class="t-xs">{{ row.city ?? '' }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="关联甲方" min-width="140">
-        <template #default="{ row }"><span class="t-sm">{{ row.clientName ?? row.clientId }}</span></template>
+      <el-table-column label="关联甲方" min-width="130" class-name="nowrap-col" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.clientName ?? row.clientId }}</template>
       </el-table-column>
       <el-table-column label="薪资（元/月）" width="120">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtSalary(row.salaryMin, row.salaryMax) }}</span></template>
       </el-table-column>
-      <el-table-column label="名额" width="90" align="right">
+      <el-table-column label="名额" width="80" align="right">
         <template #default="{ row }">
           <span class="mono">{{ row.quotaRemaining }}</span><span class="t-xs"> / {{ row.quotaTotal }}</span>
         </template>
@@ -87,10 +87,10 @@ onMounted(() => list.load())
       <el-table-column label="状态" width="100">
         <template #default="{ row }"><StatusTag type="JobStatus" :value="row.status" /></template>
       </el-table-column>
-      <el-table-column label="提交时间" width="140">
+      <el-table-column label="提交时间" width="150">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.submittedAt) }}</span></template>
       </el-table-column>
-      <el-table-column label="操作" width="90" align="right" fixed="right">
+      <el-table-column label="操作" class-name="ops-col" width="84" align="right" fixed="right">
         <template #default="{ row }">
           <el-button size="small" :type="row.status === 'PENDING_AUDIT' ? 'primary' : 'default'" @click="drawerId = row.jobId">
             {{ row.status === 'PENDING_AUDIT' ? '审核' : '详情' }}

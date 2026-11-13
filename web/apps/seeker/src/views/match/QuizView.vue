@@ -37,7 +37,8 @@ const q = computed<QuizQuestion | undefined>(() => questions.value[step.value])
 const picked = computed(() => (q.value ? match.answers[q.value.seq] : undefined))
 const isLast = computed(() => step.value >= total.value - 1)
 const allAnswered = computed(() => questions.value.every((x) => !!match.answers[x.seq]))
-const kindText = computed(() => (q.value?.questionType === 'JUDGE' ? '判断题 · 切割大方向' : '选择题 · 细化需求'))
+/** 题型提示用求职者能看懂的话（不说「判断题 / 切割方向」；JUDGE 题也可能有 3 个选项） */
+const kindText = computed(() => (q.value?.questionType === 'JUDGE' ? '先确定大方向' : '选一个最符合的'))
 
 /** 已回答的题（S-13「已回答 · 可返回修改」） */
 const answeredChips = computed(() =>
@@ -285,10 +286,11 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 
 <style scoped>
 .quiz { min-height: 100vh; background: var(--surface-2); }
+.stem { text-wrap: pretty; }
 .exit { font-size: 12.5px; color: var(--ink-400); padding: 4px 0 4px 8px; }
 .ask { align-items: flex-start; gap: 10px; margin-bottom: 16px; }
 .ai { width: 30px; height: 30px; border-radius: 9px; background: var(--ink-900); display: grid; place-items: center; flex: none; }
-.kind { font-family: var(--f-mono); font-size: 11px; color: var(--signal); margin-bottom: 5px; }
+.kind { font-size: 11.5px; font-weight: 600; color: var(--signal); margin-bottom: 5px; }
 .stem { font-weight: 700; }
 .sub { display: block; font-size: 11.5px; font-weight: 500; color: var(--ink-400); margin-top: 2px; }
 .qopt.sel .sub { color: var(--signal-700); opacity: .8; }

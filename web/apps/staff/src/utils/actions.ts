@@ -51,12 +51,5 @@ export function splitActions(app: SiteApplication): { main: ActionBtn[]; more: A
   }
 }
 
-/** 合同状态徽标配色（中文名取字典 ContractStatus） */
-export const CONTRACT_TAG: Record<string, string> = {
-  PENDING_SIGN: 'tag-warn',
-  EFFECTIVE: 'tag-ok',
-  EXPIRED: 'tag-muted',
-  DISSOLVED: 'tag-muted',
-  TERMINATED: 'tag-muted',
-  VOIDED: 'tag-muted',
-}
+/** 合同状态徽标配色：统一定义在 utils/status */
+export { CONTRACT_TAG } from '@/utils/status'

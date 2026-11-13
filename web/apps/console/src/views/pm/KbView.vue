@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RowActions from '@/components/RowActions.vue'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -252,6 +254,13 @@ onMounted(async () => {
   loadPending()
   members.value = await tenantApi.members().catch(() => [])
 })
+
+/** 条目操作：公司通用条目只有老板能改，项目经理看到的是提示文字；列宽按实际内容计算 */
+const entryActions = (r: KbEntry): RowAction[] =>
+  writable(r) ? [{ key: 'edit', label: '编辑', link: true }, { key: 'remove', label: '删除', link: true, type: 'danger' }] : []
+const entryOpsWidth = computed(() => Math.max(opsColWidth(entries.value.map(entryActions)), entries.value.some((r) => !writable(r)) ? 112 : 0))
+const PENDING_ACTIONS: RowAction[] = [{ key: 'answer', label: '补充答案', type: 'primary' }, { key: 'ignore', label: '忽略' }]
+const pendingOpsWidth = computed(() => (pending.value.length ? opsColWidth([PENDING_ACTIONS]) : 0))
 </script>
 
 <template>
@@ -280,18 +289,19 @@ onMounted(async () => {
           <button :class="{ on: tab === 'entries' }" @click="tab = 'entries'">问答条目<span class="n">{{ entries.length }}</span></button>
           <button :class="{ on: tab === 'pending' }" @click="tab = 'pending'">待补充问题<span class="n">{{ pending.length }}</span></button>
         </div>
-        <span class="spacer" />
-        <template v-if="tab === 'entries'">
+        <div v-if="tab === 'entries'" class="tb-fields">
           <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 180px">
             <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
           </el-select>
           <el-select v-model="filter.jobId" placeholder="全部岗位" clearable filterable :disabled="!filter.projectId" style="width: 180px">
             <el-option v-for="j in filterJobs" :key="j.jobId" :label="j.title" :value="j.jobId" />
           </el-select>
-          <el-input v-model="filter.keyword" placeholder="搜索问题 / 答案" clearable style="width: 180px" @keyup.enter="load" @clear="load" />
-          <el-button @click="load">查询</el-button>
-        </template>
-        <el-button v-else @click="loadPending">刷新</el-button>
+          <div class="tb-group">
+            <el-input v-model="filter.keyword" placeholder="搜索问题 / 答案" clearable style="width: 180px" @keyup.enter="load" @clear="load" />
+            <el-button @click="load">查询</el-button>
+          </div>
+        </div>
+        <div v-else class="tb-fields"><el-button @click="loadPending">刷新</el-button></div>
       </div>
 
       <template v-if="tab === 'entries'">
@@ -306,28 +316,25 @@ onMounted(async () => {
               <div class="a t-xs">答：{{ row.answer }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="适用范围" min-width="170">
+          <el-table-column label="适用范围" min-width="220">
             <template #default="{ row }">
-              <span v-if="scopeOf(row) === 'COMPANY'" class="tag tag--ink">公司通用</span>
-              <template v-else-if="scopeOf(row) === 'PROJECT'"><span class="tag tag--info">项目</span> <span class="t-sm">{{ row.projectName }}</span></template>
+              <span v-if="scopeOf(row) === 'COMPANY'" class="tag tag--temp">公司通用</span>
+              <div v-else-if="scopeOf(row) === 'PROJECT'" class="scope"><span class="tag tag--info">项目</span><span class="t-sm clamp-2" :title="row.projectName ?? ''">{{ row.projectName }}</span></div>
               <template v-else>
-                <span class="tag tag--signal">岗位</span> <span class="t-sm">{{ row.jobTitle }}</span>
-                <div class="t-xs">{{ row.projectName }}</div>
+                <div class="scope"><span class="tag tag--signal">岗位</span><span class="t-sm clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle }}</span></div>
+                <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="更新" width="150">
+          <el-table-column label="更新" min-width="156">
             <template #default="{ row }">
               <div class="t-sm">{{ memberName(row.updatedBy) }}</div>
               <div class="mono t-xs">{{ fmtDateTime(row.updatedAt) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="130" align="right">
+          <el-table-column v-if="entryOpsWidth" label="操作" :width="entryOpsWidth" fixed="right" class-name="ops-col">
             <template #default="{ row }">
-              <template v-if="writable(row)">
-                <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
-                <el-button size="small" link type="danger" @click="remove(row)">删除</el-button>
-              </template>
+              <RowActions v-if="writable(row)" :actions="entryActions(row)" @act="(k) => (k === 'edit' ? openEdit(row) : remove(row))" />
               <span v-else class="t-xs">仅老板可改</span>
             </template>
           </el-table-column>
@@ -343,13 +350,13 @@ onMounted(async () => {
           <el-table-column label="求职者提问" min-width="280">
             <template #default="{ row }"><b class="q">{{ row.question }}</b></template>
           </el-table-column>
-          <el-table-column label="岗位" min-width="170">
+          <el-table-column label="岗位" min-width="190">
             <template #default="{ row }">
-              <div class="t-sm">{{ row.jobTitle }}</div>
-              <div class="t-xs">{{ projectName(row.projectId) }}</div>
+              <div class="t-sm clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle }}</div>
+              <div class="t-xs ellip" :title="projectName(row.projectId)">{{ projectName(row.projectId) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="提问次数" width="150">
+          <el-table-column label="提问次数" min-width="150">
             <template #default="{ row }">
               <div class="row" style="gap: 8px">
                 <div class="bar" style="flex: 1"><i class="warn" :style="{ width: `${Math.round((row.askedTimes / pendingMax) * 100)}%` }" /></div>
@@ -357,14 +364,11 @@ onMounted(async () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="最近提问" width="140">
+          <el-table-column label="最近提问" min-width="156">
             <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.lastAskedAt) }}</span></template>
           </el-table-column>
-          <el-table-column label="操作" width="160" align="right">
-            <template #default="{ row }">
-              <el-button size="small" type="primary" @click="openAnswer(row)">补充答案</el-button>
-              <el-button size="small" @click="ignore(row)">忽略</el-button>
-            </template>
+          <el-table-column v-if="pendingOpsWidth" label="操作" :width="pendingOpsWidth" fixed="right" class-name="ops-col">
+            <template #default="{ row }"><RowActions :actions="PENDING_ACTIONS" @act="(k) => (k === 'answer' ? openAnswer(row) : ignore(row))" /></template>
           </el-table-column>
           <template #empty><el-empty :image-size="80" :description="pendingError ? '加载失败' : '没有待补充的问题'" /></template>
         </el-table>
@@ -432,6 +436,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.scope { display: flex; align-items: flex-start; gap: 6px; }
+.scope .tag { flex: none; margin-top: 1px; }
 .q { color: var(--ink-900); font-size: 13px; }
 .a { margin-top: 3px; line-height: 1.6; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

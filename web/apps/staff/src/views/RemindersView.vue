@@ -14,14 +14,16 @@ import {
 import AppActions from '@/components/AppActions.vue'
 import { useNow } from '@/composables/useNow'
 import { splitActions } from '@/utils/actions'
-import { fmtPhone, fmtRemain, fmtTime, parseLocal } from '@/utils/time'
+import { PRIVATE_PENDING_TAG, STAGE_TAG, STAGE_TEXT, URGENT_MS, countdownTag } from '@/utils/status'
+import { fmtCountdown, fmtPhone, fmtTime, parseLocal } from '@/utils/time'
 
 /**
  * M-12 24 小时响应提醒（按剩余时长排序，< 4 小时标红）+ M-09 私域待匹配一键流转至人才经纪人。
  * 合并三类 24h 窗口：私域待匹配（扫码注册未报名）、新报名待知悉、面试通过待确权。
  */
-type Kind = 'private' | 'ack' | 'confirm'
-type FilterKey = 'all' | Kind
+/** arrived：尚未知悉但已到厂（少见），只出现在「全部」里，徽标与待办页一致显示「已到厂」 */
+type Kind = 'private' | 'ack' | 'arrived' | 'confirm'
+type FilterKey = 'all' | 'private' | 'ack' | 'confirm'
 interface Item {
   key: string
   kind: Kind
@@ -32,10 +34,9 @@ interface Item {
 const FILTERS: { key: FilterKey; title: string }[] = [
   { key: 'all', title: '全部' },
   { key: 'private', title: '私域待匹配' },
-  { key: 'ack', title: '待知悉' },
-  { key: 'confirm', title: '待确权' },
+  { key: 'ack', title: STAGE_TEXT.ack },
+  { key: 'confirm', title: STAGE_TEXT.confirm },
 ]
-const URGENT_MS = 4 * 3600_000
 const APP_PAGE = 50
 
 const route = useRoute()
@@ -97,7 +98,7 @@ const ts = (v?: string) => parseLocal(v)?.getTime() ?? null
 const items = computed<Item[]>(() => {
   const list: Item[] = [
     ...privates.value.map((p) => ({ key: `p-${p.userId}`, kind: 'private' as const, deadline: ts(p.deadline), p })),
-    ...acks.value.map((a) => ({ key: `a-${a.applicationId}`, kind: 'ack' as const, deadline: ts(a.responseDeadline), a })),
+    ...acks.value.map((a) => ({ key: `a-${a.applicationId}`, kind: a.arrivedAt ? ('arrived' as const) : ('ack' as const), deadline: ts(a.responseDeadline), a })),
     ...confirms.value.map((a) => ({ key: `c-${a.applicationId}`, kind: 'confirm' as const, deadline: ts(a.responseDeadline), a })),
   ]
   return list.sort((x, y) => (x.deadline ?? Infinity) - (y.deadline ?? Infinity))
@@ -109,17 +110,26 @@ const urgentCount = computed(() => items.value.filter((i) => i.deadline != null 
 function remain(i: Item) {
   if (i.deadline == null) return null
   const ms = i.deadline - now.value
-  const t = fmtRemain(ms)
-  if (!t) return { text: '已超时', cls: 'tag-danger', urgent: true }
-  return { text: `剩 ${t}`, cls: ms < URGENT_MS ? 'tag-danger' : 'tag-warn', urgent: ms < URGENT_MS }
+  return { text: fmtCountdown(ms), cls: countdownTag(ms), urgent: ms < URGENT_MS }
 }
 const KIND_TAG: Record<Kind, { text: string; cls: string }> = {
-  private: { text: '私域待匹配', cls: 'tag-private' },
-  ack: { text: '待知悉', cls: 'tag-temp' },
-  confirm: { text: '待确权', cls: 'tag-info' },
+  private: { text: '私域待匹配', cls: PRIVATE_PENDING_TAG },
+  ack: { text: STAGE_TEXT.ack, cls: STAGE_TAG.ack },
+  arrived: { text: STAGE_TEXT.arrived, cls: STAGE_TAG.arrived },
+  confirm: { text: STAGE_TEXT.confirm, cls: STAGE_TAG.confirm },
 }
 const nowDate = computed(() => new Date(now.value))
 const initial = (n: string) => (n === '未实名' ? '?' : n.slice(0, 1))
+/**
+ * 私域来源的可读文案。接口目前只返回渠道码与（成员码的）成员姓名，没有渠道类型 / 名称：
+ * 有成员姓名 → 成员「姓名」的专属码；只有码 → 「扫码注册」+ 小字渠道码；都没有 → 本公司渠道。
+ */
+function sourceOf(p: PrivatePendingRow): { text: string; code?: string } {
+  if (p.channelMemberName) return { text: `成员「${p.channelMemberName}」的专属码` }
+  if (p.channelName) return { text: `扫「${p.channelName}」注册` }
+  if (p.channelCode) return { text: '扫码注册', code: p.channelCode }
+  return { text: '本公司渠道' }
+}
 
 // ---------- M-09 一键流转 ----------
 async function transfer(p: PrivatePendingRow) {
@@ -218,7 +228,7 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
               </div>
               <dl class="dl">
                 <div class="kv"><dt>注册时间</dt><dd class="num">{{ fmtTime(i.p.registeredAt, nowDate) }}</dd></div>
-                <div class="kv"><dt>来源</dt><dd>{{ i.p.channelMemberName ? `${i.p.channelMemberName} 的专属码` : i.p.channelCode ? `渠道码 ${i.p.channelCode}` : '本公司渠道' }}</dd></div>
+                <div class="kv"><dt>来源</dt><dd>{{ sourceOf(i.p).text }}<span v-if="sourceOf(i.p).code" class="mono src-code">{{ sourceOf(i.p).code }}</span></dd></div>
                 <div class="kv"><dt>当前状态</dt><dd>尚未报名 · 待跟进匹配</dd></div>
               </dl>
               <div class="acts">
@@ -241,6 +251,7 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
               </router-link>
               <p class="t-xs desc">
                 <template v-if="i.kind === 'ack'">{{ fmtTime(i.a.createdAt, nowDate) }} 报名 · 尚未推送面试信息</template>
+                <template v-else-if="i.kind === 'arrived'">已到厂 · 待录入面试结果</template>
                 <template v-else-if="i.a.contract?.status === 'PENDING_SIGN'">已确权 · 合同{{ label('ContractStatus', 'PENDING_SIGN') }}</template>
                 <template v-else>面试已通过 · 待入职确权</template>
               </p>
@@ -266,14 +277,14 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
 </template>
 
 <style scoped>
-.rem { min-height: 100vh; }
+.rem { min-height: calc(100vh - var(--tabbar-h, 0px)); }
 .sticky { position: sticky; top: calc(46px + env(safe-area-inset-top)); z-index: 20; }
 .atabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .atabs::-webkit-scrollbar { height: 0; }
 .atabs button { flex: none; padding: 5px 12px; border-radius: 20px; border: 0; font-size: 12.5px; color: var(--ink-500); background: var(--surface-3); font-weight: 500; }
 .atabs button.on { background: var(--ink-900); color: #fff; font-weight: 600; }
 .atabs .n { margin-left: 4px; font-size: 11px; opacity: .8; }
-.pr { min-height: calc(100vh - 140px); }
+.pr { min-height: calc(100vh - 140px - var(--tabbar-h, 0px)); }
 .sum.hot { border-color: var(--danger-line); background: var(--danger-bg); }
 .big { display: block; font-size: 22px; font-weight: 700; color: var(--ink-900); margin-top: 2px; }
 .big small { font-size: 11px; font-weight: 500; color: var(--ink-400); }
@@ -288,6 +299,7 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
 .dl { margin-top: 6px; }
 .dl .kv { padding: 6px 0; font-size: 12.5px; }
 .desc { margin-top: 8px; }
+.src-code { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--ink-400); }
 .acts { display: flex; gap: 8px; margin-top: 12px; }
 .act { flex: 1; min-width: 0; padding: 0 6px; border-radius: var(--r-sm); font-weight: 600; }
 .act--main { flex: 1.8; }

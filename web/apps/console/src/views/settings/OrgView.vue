@@ -11,8 +11,11 @@ import {
   type TenantRole,
 } from '@shitu/api-client'
 import DictTag from '@/components/DictTag.vue'
+import RowActions from '@/components/RowActions.vue'
+import { buildRoleMatrix, MATRIX_ROLES } from '@/router/roleMatrix'
 import { useMeStore } from '@/stores/me'
 import { fmtDateTime, PHONE_RE } from '@/utils/format'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 
 /** T-502 组织与权限（原型 A-19）：老板可增删改；项目经理只读 */
 const meStore = useMeStore()
@@ -139,25 +142,29 @@ async function toggleStatus(m: MemberView) {
   }
 }
 
-// ---------------------------------------------------------------- 权限矩阵（原型 A-19，与后端 TenantPermissions 一致）
-type Cell = boolean | string
-const MATRIX: { cap: string; strong?: boolean; v: [Cell, Cell, Cell, Cell] }[] = [
-  { cap: '查看完整手机号', v: [true, false, false, false] },
-  { cap: '查看用工档案', v: [true, true, true, false] },
-  { cap: '查看 AI 画像', v: [true, true, false, false] },
-  { cap: '到厂确认 / 入职确权', v: [true, false, true, false] },
-  { cap: '标记爽约', v: [true, false, false, false] },
-  { cap: '取消报名', v: [true, false, true, false] },
-  { cap: '流转至经纪人', v: [true, false, true, false] },
-  { cap: '释放至公域', strong: true, v: [true, true, false, false] },
-  { cap: '岗位管理 / 知识库', v: [false, false, true, false] },
-  { cap: '离职审核', v: [false, false, true, false] },
-  { cap: '预支审批', v: ['初审', false, '终审', false] },
-  { cap: '项目 / 甲方合同管理', v: [false, false, true, true] },
-  { cap: '渠道二维码管理', v: [false, false, true, true] },
-  { cap: '组织与权限（成员管理）', v: [false, false, false, true] },
-  { cap: '数据总览 / 费用账单', v: [false, false, false, true] },
-]
+// ---------------------------------------------------------------- 行操作
+const isSelf = (m: MemberView) => m.memberId === meStore.me?.memberId
+/** 自己这一行不能停用（否则公司可能没有可登录的老板）；编辑自己时也不能去掉老板角色 */
+function rowActions(m: MemberView): RowAction[] {
+  if (!canManage.value) return []
+  const a: RowAction[] = [{ key: 'edit', label: '编辑' }]
+  if (!isSelf(m)) a.push(m.status === 'NORMAL' ? { key: 'toggle', label: '停用', type: 'danger', plain: true } : { key: 'toggle', label: '启用', type: 'primary', plain: true })
+  return a
+}
+const opsWidth = computed(() => opsColWidth(members.value.map(rowActions)))
+const editingSelf = computed(() => !!dialog.editing && isSelf(dialog.editing))
+
+// ---------------------------------------------------------------- 权限矩阵：与菜单 / 路由守卫同源（router/roleMatrix.ts），区分 可操作 / 只读 / 无
+const matrix = computed(() => buildRoleMatrix(meStore.me))
+/** 同一分组的第一行合并单元格显示分组名 */
+function matrixSpan({ rowIndex, columnIndex }: { rowIndex: number; columnIndex: number }) {
+  if (columnIndex !== 0) return { rowspan: 1, colspan: 1 }
+  const rows = matrix.value
+  if (rowIndex > 0 && rows[rowIndex - 1].group === rows[rowIndex].group) return { rowspan: 0, colspan: 0 }
+  let n = 1
+  while (rowIndex + n < rows.length && rows[rowIndex + n].group === rows[rowIndex].group) n++
+  return { rowspan: n, colspan: 1 }
+}
 
 onMounted(() => {
   load()
@@ -185,31 +192,34 @@ onMounted(() => {
 
     <div class="card">
       <div class="toolbar">
-        <b class="strong" style="font-size: 14px">成员列表</b>
-        <span class="spacer" />
-        <el-select v-model="filter.role" placeholder="全部角色" clearable style="width: 140px" @change="load">
-          <el-option v-for="o in roleOptions" :key="o.value" :label="o.label" :value="o.value" />
-        </el-select>
-        <el-input v-model="filter.keyword" placeholder="姓名 / 手机号" clearable style="width: 200px" @keyup.enter="load" @clear="load" />
-        <el-button @click="load">查询</el-button>
+        <b class="strong" style="font-size: 15px">成员列表</b>
+        <div class="tb-fields">
+          <el-select v-model="filter.role" placeholder="全部角色" clearable style="width: 140px" @change="load">
+            <el-option v-for="o in roleOptions" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+          <div class="tb-group">
+            <el-input v-model="filter.keyword" placeholder="姓名 / 手机号" clearable style="width: 200px" @keyup.enter="load" @clear="load" />
+            <el-button @click="load">查询</el-button>
+          </div>
+        </div>
       </div>
       <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false">
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="members" row-key="memberId" :row-class-name="({ row }) => (row.status === 'DISABLED' ? 'row-dim' : '')">
-        <el-table-column label="成员" min-width="160">
+        <el-table-column label="成员" min-width="190">
           <template #default="{ row }">
             <div class="row">
               <div class="av">{{ row.name.slice(0, 1) }}</div>
-              <div>
+              <div class="nowrap">
                 <b>{{ row.name }}</b>
-                <span v-if="row.memberId === meStore.me?.memberId" class="tag tag--info" style="margin-left: 6px">我</span>
+                <span v-if="isSelf(row)" class="tag tag--info" style="margin-left: 6px">我</span>
                 <div class="t-xs mono">{{ row.phoneMasked }}</div>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="角色" min-width="170">
+        <el-table-column label="角色" min-width="180">
           <template #default="{ row }">
             <div class="row-wrap"><DictTag v-for="r in row.roles" :key="r" type="ActorRole" :value="r" /></div>
           </template>
@@ -218,22 +228,17 @@ onMounted(() => {
           <template #default="{ row }">
             <span v-if="row.roles.includes('OWNER') && !row.projects.length" class="t-sm">全公司</span>
             <span v-else-if="!row.projects.length" class="t-xs">未分配</span>
-            <span v-else class="t-sm">{{ projectNames(row) }}</span>
+            <span v-else class="t-sm clamp-2" :title="projectNames(row)">{{ projectNames(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" min-width="90">
           <template #default="{ row }"><DictTag type="MemberStatus" :value="row.status" /></template>
         </el-table-column>
-        <el-table-column label="最近登录" width="150">
+        <el-table-column label="最近登录" min-width="156">
           <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.lastLoginAt) }}</span></template>
         </el-table-column>
-        <el-table-column v-if="canManage" label="操作" width="150" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }">
-            <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" :type="row.status === 'NORMAL' ? 'danger' : 'primary'" plain @click="toggleStatus(row)">
-              {{ row.status === 'NORMAL' ? '停用' : '启用' }}
-            </el-button>
-          </template>
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => (k === 'edit' ? openEdit(row) : toggleStatus(row))" /></template>
         </el-table-column>
         <template #empty><el-empty :description="loadError ? '加载失败' : '暂无成员'" :image-size="80" /></template>
       </el-table>
@@ -243,25 +248,30 @@ onMounted(() => {
     <div class="card" style="margin-top: 14px">
       <div class="card__hd">
         <h3>角色权限矩阵</h3>
-        <span class="t-xs">预支审批：驻场初审 + 项目经理终审</span>
+        <span class="legend t-xs"><span><i class="yes">✓</i>可操作</span><span><i class="ro">只读</i>可查看不可改</span><span><i class="no">—</i>无权限</span></span>
       </div>
-      <el-table :data="MATRIX" size="small">
-        <el-table-column label="能力" min-width="200">
-          <template #default="{ row }"><span :class="row.strong ? 'strong' : 't-sm'">{{ row.cap }}</span></template>
+      <el-table :data="matrix" size="small" :span-method="matrixSpan" row-key="cap">
+        <el-table-column label="分类" min-width="100">
+          <template #default="{ row }"><span class="t-sm dim">{{ row.group }}</span></template>
         </el-table-column>
-        <el-table-column v-for="(r, i) in TENANT_ROLES" :key="r" align="center" width="120">
+        <el-table-column label="能力" min-width="240">
+          <template #default="{ row }"><span class="t-sm">{{ row.cap }}</span></template>
+        </el-table-column>
+        <el-table-column v-for="(r, i) in MATRIX_ROLES" :key="r" align="center" min-width="140">
           <template #header><DictTag type="ActorRole" :value="r" /></template>
           <template #default="{ row }">
-            <span v-if="typeof row.v[i] === 'string'" class="t-xs strong">{{ row.v[i] }}</span>
-            <span v-else-if="row.v[i]" class="yes">✓</span>
-            <span v-else class="no">✕</span>
+            <template v-if="row.cells[i].level === 'op'">
+              <span class="yes">✓</span><span v-if="row.cells[i].text" class="t-xs cell-note">{{ row.cells[i].text }}</span>
+            </template>
+            <span v-else-if="row.cells[i].level === 'ro'" class="ro">只读</span>
+            <span v-else class="no">—</span>
           </template>
         </el-table-column>
       </el-table>
-      <div class="card__ft t-xs">老板仅可查看聚合统计，不接触求职者个人隐私；项目经理可见用工档案（自动隐藏手机号 / 证件号）。</div>
+      <div class="card__ft t-xs">矩阵与左侧菜单、页面访问规则同源。预支审批为双级：驻场初审 + 项目经理终审，老板可查看并登记拨款；完整手机号仅驻场可见，其余角色看到的是脱敏信息。</div>
     </div>
 
-    <el-dialog v-model="dialog.visible" :title="dialog.editing ? '编辑成员' : '新增成员'" width="520px" :close-on-click-modal="false">
+    <el-dialog v-model="dialog.visible" :title="dialog.editing ? '编辑成员' : '新增成员'" width="560px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="86px">
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" maxlength="20" placeholder="成员真实姓名" />
@@ -274,9 +284,10 @@ onMounted(() => {
           </template>
         </el-form-item>
         <el-form-item label="角色" prop="roles">
-          <el-checkbox-group v-model="form.roles">
-            <el-checkbox v-for="o in roleOptions" :key="o.value" :value="o.value">{{ o.label }}</el-checkbox>
+          <el-checkbox-group v-model="form.roles" class="role-grid">
+            <el-checkbox v-for="o in roleOptions" :key="o.value" :value="o.value" :disabled="editingSelf && o.value === 'OWNER' && form.roles.includes('OWNER')">{{ o.label }}</el-checkbox>
           </el-checkbox-group>
+          <div v-if="editingSelf" class="t-xs" style="line-height: 1.5">不能去掉自己的老板角色，也不能停用自己；如需交接，请先把另一位成员设为老板，再由对方操作。</div>
         </el-form-item>
         <el-form-item label="负责项目">
           <el-select v-model="form.projectIds" multiple filterable placeholder="选择负责的项目" style="width: 100%" no-data-text="暂无项目，请先在「项目与甲方」中创建">
@@ -299,6 +310,13 @@ onMounted(() => {
 
 <style scoped>
 .av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); color: var(--ink-700); font-weight: 700; font-size: 12px; flex: none; }
-.yes { color: var(--ok); font-weight: 700; }
-.no { color: var(--danger); }
+.yes { color: var(--ok); font-weight: 700; font-style: normal; }
+.ro { display: inline-block; padding: 0 7px; border-radius: 6px; background: var(--info-bg); color: var(--info); font-size: 12px; font-weight: 500; line-height: 20px; font-style: normal; }
+.no { color: var(--ink-300); font-style: normal; }
+.cell-note { margin-left: 6px; color: var(--ink-500); }
+.legend { display: inline-flex; flex-wrap: wrap; gap: 4px 16px; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* 角色两列排布，四个角色正好两行，不会单独掉一个到下一行 */
+.role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; width: 100%; }
+.role-grid :deep(.el-checkbox) { margin-right: 0; }
 </style>

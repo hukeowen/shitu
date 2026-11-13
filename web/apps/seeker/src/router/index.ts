@@ -19,7 +19,7 @@ const router = createRouter({
     },
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录 / 注册', guestOnly: true } },
     { path: '/reports', component: () => import('@/views/ReportsView.vue'), meta: { tabbar: true, auth: true, title: '我的报备', proto: 'S-25' } },
-    { path: '/reports/:applicationId', component: () => import('@/views/InterviewView.vue'), meta: { auth: true, title: '面试确认信息', proto: 'S-24' } },
+    { path: '/reports/:applicationId', component: () => import('@/views/InterviewView.vue'), meta: { auth: true, title: '报名详情', proto: 'S-24' } },
     // AI 问薪（C-301~C-306）：匹配是岗位的唯一入口（R-01）
     { path: '/match', component: () => import('@/views/match/MatchIntroView.vue'), meta: { auth: true, title: 'AI 问薪', proto: 'S-11' } },
     { path: '/match/quiz', component: () => import('@/views/match/QuizView.vue'), meta: { auth: true, title: 'AI 问薪', proto: 'S-12' } },
@@ -49,7 +49,8 @@ const router = createRouter({
     { path: '/ledger', component: () => import('@/views/LedgerView.vue'), meta: { auth: true, title: '我的台账', proto: 'S-32' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, auth: true, title: '我的', proto: 'S-26' } },
     { path: '/feedback', component: () => import('@/views/FeedbackView.vue'), meta: { tabbar: true, auth: true, title: '问题反馈', proto: 'S-39' } },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    // 兜底：不存在的地址给出「页面不存在」，不再悄悄显示首页
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在' } },
   ],
   scrollBehavior: (_to, _from, saved) => saved ?? { top: 0 },
 })

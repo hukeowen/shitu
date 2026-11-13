@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, type SiteApplication } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
+import { appOpsWidth } from '@/components/site/appActions'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -27,6 +28,7 @@ const recent = ref<SiteApplication[]>([])
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
 
 const signing = (a: SiteApplication) => a.contract?.status === 'PENDING_SIGN' || a.allowedActions.includes('RESEND_CONTRACT')
+const opsWidth = computed(() => appOpsWidth(list.value))
 const waitingSign = computed(() => list.value.filter(signing).length)
 
 async function copySign(url: string) {
@@ -78,26 +80,26 @@ onMounted(load)
       <div class="stat"><div class="stat-l">待发起签约</div><div class="stat-v">{{ list.length - waitingSign }}</div><div class="stat-d">请尽快确权</div></div>
     </div>
 
-    <div class="grid g-32" style="margin-top: 14px">
+    <div class="grid g-1" style="margin-top: 14px">
       <div class="card">
         <div class="card__hd"><h3>待确权</h3><span class="t-xs">到厂确认 → 面试通过 → <b class="strong">入职确权</b> → 电子签约 → 已入职在岗</span></div>
         <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false">
           <el-button size="small" @click="load">重试</el-button>
         </el-alert>
         <el-table v-loading="loading" :data="list" row-key="applicationId">
-          <el-table-column label="求职者" min-width="120">
-            <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
+          <el-table-column label="求职者" min-width="170">
+            <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" mono :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
           </el-table-column>
-          <el-table-column label="入职岗位" min-width="170">
+          <el-table-column label="入职岗位" min-width="180">
             <template #default="{ row }">
-              <div class="t-sm strong">{{ row.jobTitle }}</div>
-              <div class="t-xs">{{ row.projectName }}</div>
+              <div class="t-sm strong clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
+              <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="来源" width="74">
+          <el-table-column label="来源" min-width="76">
             <template #default="{ row }"><span class="tag" :class="row.fromPublic ? 'tag--public' : 'tag--private'">{{ row.fromPublic ? '公域' : '私域' }}</span></template>
           </el-table-column>
-          <el-table-column label="签约进度" width="150">
+          <el-table-column label="签约进度" min-width="160">
             <template #default="{ row }">
               <template v-if="row.contract">
                 <DictTag type="ContractStatus" :value="row.contract.status" />
@@ -118,17 +120,17 @@ onMounted(load)
               <span v-else class="tag tag--muted">未发起</span>
             </template>
           </el-table-column>
-          <el-table-column label="响应剩余" width="100">
+          <el-table-column label="响应剩余" min-width="112">
             <template #default="{ row }"><CountdownTag :deadline="row.responseDeadline" :now="now" /></template>
           </el-table-column>
-          <el-table-column label="操作" min-width="170" align="right" fixed="right">
+          <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
             <template #default="{ row }"><AppActionButtons :app="row" @action="(a, r) => dialogs?.run(a, r)" /></template>
           </el-table-column>
           <template #empty><el-empty :image-size="70" :description="loadError ? '加载失败' : '暂无待确权人员'" /></template>
         </el-table>
       </div>
 
-      <div class="grid" style="gap: 14px; align-content: start">
+      <div class="grid g-2 grid--top">
         <div class="card">
           <div class="card__hd"><h3>确权后系统自动执行</h3></div>
           <div class="card__bd">
@@ -144,9 +146,9 @@ onMounted(load)
         <div class="card">
           <div class="card__hd"><h3>最近入职</h3><span class="t-xs">已完成签约</span></div>
           <el-table :data="recent" size="small" row-key="applicationId">
-            <el-table-column label="员工" min-width="80"><template #default="{ row }"><b>{{ row.seekerName }}</b></template></el-table-column>
-            <el-table-column label="岗位" min-width="120"><template #default="{ row }"><span class="t-sm">{{ row.jobTitle }}</span></template></el-table-column>
-            <el-table-column label="报名时间" width="110"><template #default="{ row }"><span class="mono t-xs">{{ fmtDateTime(row.createdAt).slice(5) }}</span></template></el-table-column>
+            <el-table-column label="员工" min-width="90"><template #default="{ row }"><b class="nowrap">{{ row.seekerName }}</b></template></el-table-column>
+            <el-table-column label="岗位" min-width="150" show-overflow-tooltip><template #default="{ row }"><span class="t-sm">{{ row.jobTitle }}</span></template></el-table-column>
+            <el-table-column label="报名时间" min-width="110"><template #default="{ row }"><span class="mono t-xs">{{ fmtDateTime(row.createdAt).slice(5) }}</span></template></el-table-column>
             <template #empty><span class="t-xs">暂无</span></template>
           </el-table>
         </div>

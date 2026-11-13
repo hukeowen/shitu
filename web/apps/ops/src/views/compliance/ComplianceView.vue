@@ -7,7 +7,7 @@ import StatusTag from '@/components/StatusTag.vue'
 import { promptRemark } from '@/composables/useRemark'
 import { ATTRIBUTION_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
-import { fmtDateTime } from '@/utils/format'
+import { fmtDateTime, fmtOperator } from '@/utils/format'
 
 /** P-14 实名与合规：人工复核队列（身份证占用申诉 / 失信申诉 / 低置信度 / 疑似冒用）+ 平台黑名单 */
 const router = useRouter()
@@ -243,9 +243,9 @@ onMounted(() => {
                   <el-table-column label="引流公司" min-width="200">
                     <template #default="{ row: a }">{{ a.sourceCompanyName ?? '自然注册' }}<span v-if="a.channelCode" class="t-xs mono"> · 渠道码 {{ a.channelCode }}</span></template>
                   </el-table-column>
-                  <el-table-column label="注册时间" width="140"><template #default="{ row: a }"><span class="mono t-sm">{{ fmtDateTime(a.registeredAt) }}</span></template></el-table-column>
+                  <el-table-column label="注册时间" width="150"><template #default="{ row: a }"><span class="mono t-sm">{{ fmtDateTime(a.registeredAt) }}</span></template></el-table-column>
                   <el-table-column label="提交次数" width="90" align="right"><template #default="{ row: a }"><span class="num">{{ a.attempts }}</span></template></el-table-column>
-                  <el-table-column label="最近提交" width="140"><template #default="{ row: a }"><span class="mono t-sm">{{ fmtDateTime(a.lastAt) }}</span></template></el-table-column>
+                  <el-table-column label="最近提交" width="150"><template #default="{ row: a }"><span class="mono t-sm">{{ fmtDateTime(a.lastAt) }}</span></template></el-table-column>
                 </el-table>
                 <div class="notice notice--info note">确认刷单后，除证件持有人外，其余账号的引流公司各扣一次诚信分。同一个人换号重新注册也会进这里，核实后标记误报即可。</div>
               </div>
@@ -294,8 +294,8 @@ onMounted(() => {
             <span v-else class="dim t-sm">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="提交时间" width="140"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
-        <el-table-column label="状态 / 操作" width="170" align="right" fixed="right">
+        <el-table-column label="提交时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="状态 / 操作" class-name="ops-col" width="170" align="right" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'PENDING'">
               <template v-if="row.reviewType === 'FRAUD_SUSPECT'">
@@ -370,7 +370,7 @@ onMounted(() => {
         <el-table-column label="原因" width="130"><template #default="{ row }"><span class="tag tag--danger">{{ label('BlacklistReason', row.reasonCode) }}</span></template></el-table-column>
         <el-table-column label="事实说明" min-width="240"><template #default="{ row }"><div class="t-sm pre">{{ row.detail }}</div></template></el-table-column>
         <el-table-column label="拉黑" width="150">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span><div class="t-xs mono">{{ row.createdBy ?? '系统' }}</div></template>
+          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span><div class="t-xs">{{ fmtOperator(row.createdBy) }}</div></template>
         </el-table-column>
         <el-table-column label="状态" width="130">
           <template #default="{ row }">
@@ -378,7 +378,7 @@ onMounted(() => {
             <template v-else><span class="tag">已解除</span><div class="t-xs mono">{{ fmtDateTime(row.liftedAt) }}</div></template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="90" align="right" fixed="right">
           <template #default="{ row }"><el-button v-if="row.status === 'ACTIVE'" size="small" @click="lift(row)">解除</el-button></template>
         </el-table-column>
         <template #empty>

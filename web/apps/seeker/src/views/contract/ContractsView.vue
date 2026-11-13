@@ -80,7 +80,7 @@ function open(c: LaborContractView) {
               <dl>
                 <div class="kv"><dt>签署时间</dt><dd class="num">{{ c.signedAt ? formatServerTime(c.signedAt, false) : '待签署' }}</dd></div>
                 <div class="kv"><dt>合同期限</dt><dd class="num">{{ termText(c) }}</dd></div>
-                <div class="kv"><dt>派遣岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
+                <div class="kv"><dt>岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
               </dl>
               <div class="row" style="gap: 9px; margin-top: 12px">
                 <van-button v-if="c.status === 'PENDING_SIGN'" type="primary" size="small" class="flex1 b" @click.stop="open(c)">去签署</van-button>
@@ -89,7 +89,7 @@ function open(c: LaborContractView) {
             </article>
 
             <div class="note note--info">
-              <b>状态联动：</b>入职签约 → 新合同「{{ label('ContractStatus', 'EFFECTIVE') }}」；离职 → 「{{ label('ContractStatus', 'TERMINATED') }}」；跨公司流转后<b>历史合同全部保留</b>，不因归属变更而删除。
+              <b>合同会一直保留。</b>签约入职后合同显示「{{ label('ContractStatus', 'EFFECTIVE') }}」，离职后变为「{{ label('ContractStatus', 'TERMINATED') }}」；即使以后换了公司，以前签过的合同也都能在这里查到。
             </div>
             <div class="page-bottom-gap"></div>
           </div>
@@ -107,5 +107,5 @@ function open(c: LaborContractView) {
 .ct.dim { opacity: .82; }
 .ct-t { font-size: 15px; font-weight: 700; color: var(--ink-900); }
 .no { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.b { border-radius: 9px !important; height: 36px !important; }
+.b { border-radius: 9px !important; height: 36px !important; font-weight: 600; }
 </style>

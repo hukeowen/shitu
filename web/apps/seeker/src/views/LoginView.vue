@@ -216,7 +216,7 @@ function openDoc(kind: 'user' | 'privacy') {
 .copy { flex: 1; min-width: 0; }
 .lhero h1 { margin: 0; font-family: var(--f-dis); font-size: 30px; line-height: 1.25; font-weight: 800; letter-spacing: .02em; }
 .lhero h1 em { font-style: normal; color: #C9490A; }
-.lhero p { margin: 8px 0 0; font-size: 14px; color: rgba(31, 22, 15, .7); line-height: 1.6; }
+.lhero p { margin: 8px 0 0; font-size: 14px; color: rgba(31, 22, 15, .7); line-height: 1.6; text-wrap: balance; }
 .art { flex: none; width: 112px; height: 112px; }
 .points { position: relative; z-index: 1; display: flex; gap: 8px; padding: 18px 22px 0; flex-wrap: wrap; }
 .points span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-800); padding: 6px 10px 6px 6px; border-radius: 999px; background: rgba(255,255,255,.62); }
@@ -228,7 +228,7 @@ function openDoc(kind: 'user' | 'privacy') {
 @keyframes rise { from { transform: translateY(24px); opacity: .4 } to { transform: none; opacity: 1 } }
 @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
 h2 { margin: 0; font-family: var(--f-dis); font-size: 21px; font-weight: 700; color: var(--ink-900); line-height: 1.3; }
-.sub { margin: 6px 0 4px; font-size: 13px; line-height: 1.6; color: var(--ink-500); }
+.sub { margin: 6px 0 4px; font-size: 13px; line-height: 1.6; color: var(--ink-500); text-wrap: pretty; }
 .field { margin-top: 18px; }
 .lbl { font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
 .line { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 8px 0 16px; border-radius: 16px; background: var(--surface-2);

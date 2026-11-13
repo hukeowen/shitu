@@ -12,6 +12,14 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
+/** 左侧品牌区的说明文案 */
+const POINTS = [
+  { t: '入驻与岗位审核', d: '核验营业执照与派遣许可，合同备案后岗位才能上架' },
+  { t: '计费与对账', d: '按日结算服务费与流转费，月账单下发、异议复核、登记结算' },
+  { t: '风控与合规', d: '投诉核实、诚信分与处罚、实名复核与黑名单' },
+  { t: '全程留痕', d: '登录、审核、处罚、参数发布等关键操作全部写入审计日志' },
+]
+
 const step = ref<'login' | 'change'>('login')
 const formRef = ref<FormInstance>()
 const captchaInput = ref<InputInstance>()
@@ -120,35 +128,27 @@ onMounted(() => {
   <div class="login">
     <section class="hero">
       <div class="brand">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--signal)" />
           <path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
         </svg>
         <b>{{ APP_TITLE }}</b>
       </div>
-      <div class="glow g1" />
-      <div class="glow g2" />
+
       <div class="slogan">
-        <div class="pill"><i />平台运营中台</div>
-        <h1>治理 · 审核<br /><em>每一步都留痕</em></h1>
-        <p>入驻与岗位审核、合同备案、计费对账、风控处罚、实名复核，关键操作全部进入审计日志。</p>
-
-        <div class="console" aria-hidden="true">
-          <div class="c-hd"><span /><span /><span /><b class="mono">audit.log</b></div>
-          <div class="c-body mono">
-            <p><time>09:12:04</time><em class="ok">APPROVE</em>公司入驻 · 仕兔演示劳务</p>
-            <p><time>09:15:31</time><em class="ok">APPROVE</em>岗位上架 · SMT 操作工</p>
-            <p><time>09:21:08</time><em class="warn">PENALTY</em>二级处罚 · 限流 30 天</p>
-            <p><time>09:26:47</time><em class="info">PUBLISH</em>匹配引擎参数 v3</p>
-            <p class="cur"><time>09:30:12</time><em class="ok">LOGIN</em>admin<i class="caret" /></p>
-          </div>
-        </div>
-
-        <div class="guards">
-          <span><b>内网</b>域名访问</span><span><b>IP</b>白名单</span><span><b>全量</b>操作审计</span>
-        </div>
+        <h1>平台治理与审核，<br /><em>每一步都有记录</em></h1>
+        <p>面向平台运营、财务与风控团队的工作台。</p>
+        <ul class="points">
+          <li v-for="p in POINTS" :key="p.t">
+            <span class="ck" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </span>
+            <div><b>{{ p.t }}</b><span>{{ p.d }}</span></div>
+          </li>
+        </ul>
       </div>
-      <div class="foot mono">仕兔平台运营中台 · 仅限内网访问</div>
+
+      <div class="foot">仅限内网访问 · 已启用 IP 白名单 · 关键操作全程审计</div>
     </section>
 
     <section class="panel">
@@ -174,7 +174,7 @@ onMounted(() => {
                 </button>
               </div>
             </el-form-item>
-            <el-button type="primary" native-type="submit" class="btn" :loading="submitting">登 录</el-button>
+            <el-button type="primary" native-type="submit" class="btn" :loading="submitting">登录</el-button>
           </el-form>
         </template>
 
@@ -196,74 +196,41 @@ onMounted(() => {
 <style scoped>
 .login { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(460px, 1fr); background: var(--paper); }
 
-/* ------------------------------------------------------------ 品牌区 */
+/* ------------------------------------------------------------ 品牌区（浅色，与后台主题一致） */
 .hero {
-  position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; padding: 36px 48px; color: #fff; overflow: hidden;
-  background: linear-gradient(155deg, #141A22 0%, #0E1217 60%, #181310 100%);
+  position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 40px; padding: 40px 56px; overflow: hidden;
+  background: linear-gradient(160deg, var(--surface) 0%, var(--signal-50) 100%); border-right: 1px solid var(--line);
 }
-.hero::before {
-  content: ""; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px) 0 0 / 32px 32px;
-  mask-image: radial-gradient(ellipse 75% 65% at 35% 45%, #000 30%, transparent 75%);
-}
-.glow { position: absolute; border-radius: 50%; filter: blur(80px); z-index: -1; pointer-events: none; }
-.g1 { width: 460px; height: 460px; right: -180px; bottom: -200px; background: rgba(232, 89, 12, .32); }
-.g2 { width: 320px; height: 320px; left: -120px; top: -100px; background: rgba(76, 110, 160, .2); }
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand b { font-family: var(--f-dis); font-size: 18px; letter-spacing: .02em; }
-.env { font-family: var(--f-mono); font-size: 9px; letter-spacing: .12em; border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.55); padding: 1px 6px; border-radius: 4px; }
-.pill { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: .14em; color: var(--signal-300);
-  padding: 5px 12px 5px 10px; border-radius: 999px; background: rgba(232,89,12,.12); border: 1px solid rgba(232,89,12,.28); }
-.pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 4px rgba(232,89,12,.25); }
-.slogan h1 { margin: 20px 0 0; font-family: var(--f-dis); font-size: 42px; line-height: 1.22; font-weight: 700; }
-.slogan h1 em { font-style: normal; background: linear-gradient(90deg, #FF9A5C, #E8590C); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.slogan p { margin: 14px 0 0; max-width: 460px; font-size: 14px; line-height: 1.8; color: rgba(255,255,255,.6); }
-
-.console { margin: 34px 0 26px; max-width: 470px; border-radius: 14px; overflow: hidden; background: rgba(8, 11, 15, .72);
-  border: 1px solid rgba(255,255,255,.1); box-shadow: 0 30px 60px -24px rgba(0,0,0,.7); backdrop-filter: blur(10px); }
-.c-hd { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.06); }
-.c-hd span { width: 9px; height: 9px; border-radius: 50%; }
-.c-hd span:nth-child(1) { background: #FF6B57; }
-.c-hd span:nth-child(2) { background: #F5B33E; }
-.c-hd span:nth-child(3) { background: #3DD68C; }
-.c-hd b { margin-left: 8px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,.45); }
-.c-body { padding: 12px 16px 14px; font-size: 12px; line-height: 2; }
-.c-body p { margin: 0; display: flex; gap: 10px; align-items: center; color: rgba(255,255,255,.72); white-space: nowrap; overflow: hidden; }
-.c-body time { color: rgba(255,255,255,.35); }
-.c-body em { font-style: normal; font-size: 10.5px; letter-spacing: .06em; padding: 0 6px; border-radius: 4px; line-height: 18px; }
-.c-body .ok { color: #3DD68C; background: rgba(61,214,140,.12); }
-.c-body .warn { color: #FFB25C; background: rgba(255,178,92,.12); }
-.c-body .info { color: #8FB7FF; background: rgba(143,183,255,.12); }
-.c-body .cur { color: #fff; }
-.caret { width: 7px; height: 14px; background: var(--signal); animation: blink 1.1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0 } }
-@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
-.guards { display: flex; flex-wrap: wrap; gap: 8px; }
-.guards span { font-size: 12px; color: rgba(255,255,255,.62); padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); }
-.guards b { color: #fff; margin-right: 4px; font-weight: 600; }
-.foot { font-size: 10.5px; letter-spacing: .12em; color: rgba(255,255,255,.32); }
+.brand b { font-size: 18px; font-weight: 650; color: var(--ink-900); letter-spacing: -.01em; }
+.slogan { max-width: 520px; }
+.slogan h1 { margin: 0; font-size: 34px; line-height: 1.35; font-weight: 650; letter-spacing: -.01em; color: var(--ink-900); }
+.slogan h1 em { font-style: normal; color: var(--signal); }
+.slogan p { margin: 14px 0 0; font-size: 15px; line-height: 1.8; color: var(--ink-500); }
+.points { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 12px; }
+.points li { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--sh-1); }
+.ck { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--signal-50); color: var(--signal); }
+.points b { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink-900); }
+.points li span:not(.ck) { display: block; margin-top: 2px; font-size: 13px; line-height: 1.6; color: var(--ink-500); }
+.foot { font-size: 12.5px; color: var(--ink-400); }
 
 /* ------------------------------------------------------------ 表单区 */
-.panel { display: grid; place-items: center; padding: 48px 24px; background: radial-gradient(rgba(16,20,26,.07) 1px, transparent 1px) 0 0 / 22px 22px, var(--paper); }
-.box { width: 100%; max-width: 420px; background: var(--surface); border-radius: 20px; padding: 40px 40px 32px;
-  box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 30px 70px -30px rgba(13,17,23,.35), 0 0 0 1px rgba(13,17,23,.06); }
+.panel { display: grid; place-items: center; padding: 48px 24px; background: var(--paper); }
+.box { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 40px 40px 32px; box-shadow: var(--sh-2); }
 .hi { font-size: 13px; color: var(--signal-700); font-weight: 600; }
-h2 { margin: 6px 0 8px; font-family: var(--f-dis); font-size: 28px; color: var(--ink-900); }
+h2 { margin: 6px 0 8px; font-size: 24px; font-weight: 650; letter-spacing: -.01em; color: var(--ink-900); }
 .sub { margin: 0 0 24px; font-size: 13px; color: var(--ink-500); line-height: 1.7; }
 .notice { margin-bottom: 16px; }
 .form { margin-top: 4px; }
 .box :deep(.el-form-item__label) { font-weight: 600; color: var(--ink-700); padding-bottom: 6px; }
-.box :deep(.el-input__wrapper) { height: 46px; border-radius: 12px; background: var(--surface-2); box-shadow: 0 0 0 1px transparent inset; transition: box-shadow .15s, background .15s; }
-.box :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px var(--line-2) inset; }
-.box :deep(.el-input__wrapper.is-focus) { background: var(--surface); box-shadow: 0 0 0 1.5px var(--signal) inset, 0 0 0 4px rgba(232,89,12,.12); }
+.box :deep(.el-input__wrapper) { height: 44px; border-radius: 10px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2) inset; transition: box-shadow .15s; }
+.box :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px var(--ink-300) inset; }
+.box :deep(.el-input__wrapper.is-focus) { box-shadow: 0 0 0 1px var(--signal) inset, 0 0 0 3px var(--signal-50); }
 .box :deep(.el-form-item.is-error .el-input__wrapper) { box-shadow: 0 0 0 1.5px var(--el-color-danger) inset; }
 .cap-row { display: flex; gap: 10px; width: 100%; }
-.cap { flex: none; width: 124px; height: 46px; padding: 0; border: 0; border-radius: 12px; background: var(--surface-2); cursor: pointer; overflow: hidden; display: grid; place-items: center; }
+.cap { flex: none; width: 124px; height: 44px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-2); cursor: pointer; overflow: hidden; display: grid; place-items: center; }
 .cap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.btn, .box :deep(.el-button--primary) { width: 100%; height: 48px; margin-top: 10px; border: 0; border-radius: 12px; font-size: 16px; font-weight: 700; letter-spacing: .2em;
-  background: linear-gradient(135deg, #F07A3A 0%, #E8590C 55%, #C9490A 100%); box-shadow: 0 12px 24px -12px rgba(232,89,12,.8); }
-.btn:hover { filter: brightness(1.05); }
+.btn, .box :deep(.el-button--primary) { width: 100%; height: 44px; margin-top: 10px; border-radius: 10px; font-size: 15px; font-weight: 600; }
 .switch { margin-top: 14px; }
-@media (max-width: 1100px) { .console { display: none; } }
 @media (max-width: 900px) { .login { grid-template-columns: 1fr; } .hero { display: none; } }
 </style>

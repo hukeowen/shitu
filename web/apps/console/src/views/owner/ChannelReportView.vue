@@ -65,11 +65,18 @@ onMounted(async () => {
   members.value = await tenantApi.members().catch(() => [])
 })
 
+/** fg = 色块上的数字颜色：浅灰底配深色字，其余深色底配白字 */
 const STAGES = [
-  { key: 'visits', label: '访问', color: 'var(--ink-300)' },
-  { key: 'registrations', label: '注册', color: 'var(--ink-700)' },
-  { key: 'applied', label: '报名', color: 'var(--signal-700)' },
-  { key: 'hired', label: '入职', color: 'var(--signal)' },
+  { key: 'visits', label: '访问', color: 'var(--ink-300)', fg: 'var(--ink-800)' },
+  { key: 'registrations', label: '注册', color: 'var(--ink-700)', fg: '#fff' },
+  { key: 'applied', label: '报名', color: 'var(--signal-700)', fg: '#fff' },
+  { key: 'hired', label: '入职', color: 'var(--signal)', fg: '#fff' },
+] as const
+const SORTS = [
+  { key: 'hired', label: '入职' },
+  { key: 'registrations', label: '注册' },
+  { key: 'visits', label: '访问' },
+  { key: 'rate', label: '注册→入职' },
 ] as const
 </script>
 
@@ -99,38 +106,37 @@ const STAGES = [
       <div class="toolbar">
         <el-input v-model="keyword" placeholder="搜索渠道名称 / 渠道码 / 归属人 / 项目" clearable style="width: 280px" />
         <span class="spacer" />
-        <span class="t-xs">排序</span>
-        <el-radio-group v-model="sortKey" size="small">
-          <el-radio-button value="hired">入职</el-radio-button>
-          <el-radio-button value="registrations">注册</el-radio-button>
-          <el-radio-button value="visits">访问</el-radio-button>
-          <el-radio-button value="rate">注册→入职</el-radio-button>
-        </el-radio-group>
+        <div class="tb-group">
+          <span class="t-xs nowrap">排序</span>
+          <div class="filter-tabs">
+            <button v-for="s in SORTS" :key="s.key" type="button" :class="{ on: sortKey === s.key }" @click="sortKey = s.key">{{ s.label }}</button>
+          </div>
+        </div>
       </div>
       <el-table v-loading="loading" :data="shown" row-key="code">
-        <el-table-column label="渠道" min-width="170">
+        <el-table-column label="渠道" min-width="190">
           <template #default="{ row }">
-            <b>{{ row.name }}</b>
-            <div class="mono t-xs">{{ row.code }}</div>
+            <b class="clamp-2" :title="row.name">{{ row.name }}</b>
+            <div class="mono t-xs ellip" :title="row.code">{{ row.code }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="归属" min-width="130">
+        <el-table-column label="归属" min-width="150">
           <template #default="{ row }">
-            <div class="t-sm">{{ memberName(row.memberId) || '公司' }}</div>
-            <div class="t-xs">{{ projectName(row.projectId) || '不限项目' }}</div>
+            <div class="t-sm ellip">{{ memberName(row.memberId) || '公司' }}</div>
+            <div class="t-xs ellip" :title="projectName(row.projectId)">{{ projectName(row.projectId) || '不限项目' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="访问" width="80" align="right"><template #default="{ row }"><span class="num">{{ row.visits }}</span></template></el-table-column>
-        <el-table-column label="注册" width="80" align="right">
+        <el-table-column label="访问" min-width="80" align="right"><template #default="{ row }"><span class="num">{{ row.visits }}</span></template></el-table-column>
+        <el-table-column label="注册" min-width="80" align="right">
           <template #default="{ row }"><span class="num">{{ row.registrations }}</span><div class="t-xs">{{ pct(row.registrations, row.visits) }}</div></template>
         </el-table-column>
-        <el-table-column label="报名" width="80" align="right">
+        <el-table-column label="报名" min-width="80" align="right">
           <template #default="{ row }"><span class="num">{{ row.applied }}</span><div class="t-xs">{{ pct(row.applied, row.registrations) }}</div></template>
         </el-table-column>
-        <el-table-column label="入职" width="80" align="right">
+        <el-table-column label="入职" min-width="80" align="right">
           <template #default="{ row }"><b class="num" style="color: var(--ok)">{{ row.hired }}</b><div class="t-xs">{{ pct(row.hired, row.applied) }}</div></template>
         </el-table-column>
-        <el-table-column label="注册→入职" width="100" align="right">
+        <el-table-column label="注册→入职" min-width="104" align="right">
           <template #default="{ row }"><b class="num">{{ pct(row.hired, row.registrations) }}</b></template>
         </el-table-column>
         <el-table-column label="漏斗" min-width="180">
@@ -153,7 +159,7 @@ const STAGES = [
             <div class="fn-h t-sm"><span class="strong">{{ r.name }}</span><span class="num">{{ pct(r.hired, r.registrations) }}</span></div>
             <div class="fn-b">
               <template v-for="s in STAGES" :key="s.key">
-                <div v-if="r[s.key] > 0" :style="{ flex: r[s.key], background: s.color }" class="mono">{{ r[s.key] }}</div>
+                <div v-if="r[s.key] > 0" :style="{ flex: r[s.key], background: s.color, color: s.fg }" class="mono" :title="`${s.label} ${r[s.key]}`">{{ r[s.key] }}</div>
               </template>
             </div>
           </div>
@@ -180,9 +186,9 @@ const STAGES = [
 .mini { display: flex; flex-direction: column; gap: 2px; }
 .mini i { display: block; height: 4px; border-radius: 2px; }
 .fn { margin-bottom: 14px; }
-.fn-h { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.fn-h { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .fn-b { display: flex; gap: 2px; height: 24px; border-radius: 3px; overflow: hidden; }
-.fn-b > div { display: grid; place-items: center; color: #fff; font-size: 11px; min-width: 22px; }
+.fn-b > div { display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 600; min-width: 24px; }
 .legend { display: flex; gap: 14px; margin-top: 6px; font-size: 11.5px; color: var(--ink-500); }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 </style>

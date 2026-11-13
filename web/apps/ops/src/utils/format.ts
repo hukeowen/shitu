@@ -64,3 +64,22 @@ export function fmtMoney(v?: number | string | null): string {
   if (!Number.isFinite(n)) return String(v)
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+/** 操作人展示：系统动作（定时任务、种子数据）后端记为 SYSTEM，界面统一显示「系统」 */
+export function fmtOperator(v?: string | null, fallback = '系统'): string {
+  if (!v) return fallback
+  return v.toUpperCase() === 'SYSTEM' ? '系统' : v
+}
+
+/** 处罚等级：0 无 / 1–3 级 */
+export function fmtPenaltyLevel(lv?: number | string | null): string {
+  if (lv == null || lv === '') return '—'
+  return ['无', '一级', '二级', '三级'][Number(lv)] ?? `${lv} 级`
+}
+
+/** 比例（0–1 小数）→ 百分比文本，如 0.8 → 80% */
+export function fmtPct(v?: number | string | null): string {
+  if (v == null || v === '') return '—'
+  const n = Number(v)
+  return Number.isFinite(n) ? `${Math.round(n * 10000) / 100}%` : String(v)
+}

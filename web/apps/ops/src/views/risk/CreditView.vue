@@ -4,13 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
+import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmAction } from '@/composables/useRemark'
 import { PENDING_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
-import { fmtDate, fmtDateTime } from '@/utils/format'
+import { fmtDate, fmtDateTime, fmtOperator } from '@/utils/format'
 import { PENALTY_LEVELS, creditRuleLabel, penaltyLabel, truthy } from './riskMeta'
 
 /** P-07 诚信与处罚：诚信分、变更记录、三级处罚、人工调分（留痕） */
+const { companyName } = useCompanyNames()
 interface CreditCompany {
   companyId: string
   name: string
@@ -249,7 +251,7 @@ async function submitPenalty() {
           <div>
             <div class="sec-title">诚信分变更记录 <small>最近 200 条</small></div>
             <el-table :data="detail?.logs ?? []" class="ops-table" size="small" max-height="420">
-              <el-table-column label="时间" width="140"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+              <el-table-column label="时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
               <el-table-column label="变动" width="70" align="right">
                 <template #default="{ row }"><span class="mono strong" :class="row.delta < 0 ? 'neg' : 'pos'">{{ row.delta > 0 ? '+' : '' }}{{ row.delta }}</span></template>
               </el-table-column>
@@ -258,7 +260,7 @@ async function submitPenalty() {
                 <template #default="{ row }">
                   <span class="tag">{{ creditRuleLabel(row.ruleCode) }}</span>
                   <div v-if="row.remark" class="t-sm rm">{{ row.remark }}</div>
-                  <div class="t-xs mono">{{ row.operatorId ?? '系统' }}<template v-if="row.refId"> · {{ row.refType }} {{ row.refId }}</template></div>
+                  <div class="t-xs">{{ fmtOperator(row.operatorId) }}<template v-if="row.refId"> · <span class="mono">{{ row.refId }}</span></template></div>
                 </template>
               </el-table-column>
               <template #empty><el-empty :image-size="48" description="暂无变更" /></template>
@@ -270,7 +272,7 @@ async function submitPenalty() {
             <ul v-else class="tl">
               <li v-for="(p, i) in detail?.penalties" :key="i" :class="p.level === 3 ? 'fail' : 'now'">
                 <div class="tl-t"><span class="tag" :class="PENALTY_LEVELS[p.level]?.cls">{{ penaltyLabel(p.level) }}</span></div>
-                <div class="tl-m">{{ fmtDate(p.startDate) }} ~ {{ p.endDate ? fmtDate(p.endDate) : p.level === 2 ? '—' : '长期' }} · {{ p.createdBy ?? '' }}</div>
+                <div class="tl-m">{{ fmtDate(p.startDate) }} ~ {{ p.endDate ? fmtDate(p.endDate) : p.level === 2 ? '—' : '长期' }} · {{ fmtOperator(p.createdBy) }}</div>
                 <div class="tl-r">{{ p.reason }}</div>
               </li>
             </ul>
@@ -281,15 +283,18 @@ async function submitPenalty() {
 
     <div class="card below">
       <div class="card__hd"><h3>全平台处罚记录</h3><span class="t-xs">最近 200 条</span></div>
-      <el-table v-loading="penLoading" :data="allPenalties" class="ops-table" size="small" max-height="360">
+      <el-table v-loading="penLoading" :data="allPenalties" class="ops-table" max-height="420">
         <el-table-column label="时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
-        <el-table-column v-if="allPenalties.some((p) => p.companyId)" label="公司" width="110">
-          <template #default="{ row }"><span class="link-cell mono" @click="companyId = row.companyId; load()">{{ row.companyId }}</span></template>
+        <el-table-column v-if="allPenalties.some((p) => p.companyId)" label="公司" min-width="170">
+          <template #default="{ row }">
+            <span class="link-cell" :class="{ mono: !companyName(row.companyId) }" @click="companyId = row.companyId; load()">{{ companyName(row.companyId) || row.companyId }}</span>
+            <div v-if="companyName(row.companyId)" class="t-xs mono">{{ row.companyId }}</div>
+          </template>
         </el-table-column>
         <el-table-column label="等级" width="150"><template #default="{ row }"><span class="tag" :class="PENALTY_LEVELS[row.level]?.cls">{{ penaltyLabel(row.level) }}</span></template></el-table-column>
         <el-table-column label="期间" width="200"><template #default="{ row }"><span class="mono t-sm">{{ fmtDate(row.startDate) }} ~ {{ row.endDate ? fmtDate(row.endDate) : '—' }}</span></template></el-table-column>
         <el-table-column label="原因" min-width="240"><template #default="{ row }"><span class="t-sm">{{ row.reason }}</span></template></el-table-column>
-        <el-table-column label="操作人" width="110"><template #default="{ row }"><span class="mono t-sm">{{ row.createdBy ?? '—' }}</span></template></el-table-column>
+        <el-table-column label="操作人" width="130" class-name="nowrap-col" show-overflow-tooltip><template #default="{ row }"><span class="t-sm">{{ fmtOperator(row.createdBy) }}</span></template></el-table-column>
         <template #empty><el-empty :image-size="48" description="暂无处罚记录" /></template>
       </el-table>
     </div>

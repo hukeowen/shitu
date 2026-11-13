@@ -21,9 +21,12 @@ export function useMatchSession() {
   const locked = computed(() => !!profile.value && !profile.value.canStartMatching)
   /** 报名后的锁定（待面试 / 待确权） */
   const appliedLock = computed(() => profile.value?.status === 'PENDING_INTERVIEW' || profile.value?.status === 'PENDING_CONFIRM')
-  const lockText = computed(() =>
-    appliedLock.value ? '你已报名岗位，面试结果出来前不能重新匹配' : '当前状态暂不能发起匹配',
-  )
+  const lockText = computed(() => {
+    if (profile.value?.status === 'PENDING_CONFIRM') return '你已通过面试，办理入职期间不能重新匹配'
+    if (appliedLock.value) return '你已报名岗位，面试结果出来前不能重新匹配'
+    if (profile.value?.status === 'EMPLOYED') return '你已入职在岗，当前不能发起匹配'
+    return '当前状态暂不能发起匹配'
+  })
 
   return { auth, match, profile, locked, appliedLock, lockText }
 }

@@ -80,17 +80,20 @@ async function save() {
     <div class="toolbar">
       <div style="width: 260px"><ClientSelect v-model="clientFilter" :allow-create="false" @change="load" /></div>
       <el-button v-if="clientFilter" link @click="(clientFilter = ''), load()">清除筛选</el-button>
-      <span class="spacer" />
-      <el-button @click="load">刷新</el-button>
-      <el-button type="primary" @click="openUpload">+ 上传合同</el-button>
+      <div class="tb-fields">
+        <div class="tb-group">
+          <el-button @click="load">刷新</el-button>
+          <el-button type="primary" @click="openUpload">+ 上传合同</el-button>
+        </div>
+      </div>
     </div>
     <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" />
     <el-table v-loading="loading" :data="list" row-key="contractId">
-      <el-table-column label="甲方企业" prop="clientName" min-width="200" />
-      <el-table-column label="有效期" min-width="200">
+      <el-table-column label="甲方企业" prop="clientName" min-width="200" show-overflow-tooltip />
+      <el-table-column label="有效期" min-width="210">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span></template>
       </el-table-column>
-      <el-table-column label="审核" width="100">
+      <el-table-column label="审核" min-width="100">
         <template #default="{ row }"><DictTag type="ClientContractStatus" :value="row.auditStatus" /></template>
       </el-table-column>
       <el-table-column label="审核意见" min-width="180">
@@ -99,16 +102,16 @@ async function save() {
           <div v-if="row.auditedAt" class="t-xs">{{ fmtDateTime(row.auditedAt) }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="当前有效" width="100">
+      <el-table-column label="当前有效" min-width="100">
         <template #default="{ row }">
           <span v-if="row.effective" class="tag tag--ok">生效中</span>
           <span v-else class="tag tag--muted">未生效</span>
         </template>
       </el-table-column>
-      <el-table-column label="提交时间" width="150">
+      <el-table-column label="提交时间" min-width="156">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
       </el-table-column>
-      <el-table-column label="文件" width="80" align="right">
+      <el-table-column label="文件" min-width="80" align="right">
         <template #default="{ row }"><FileLink :file-key="row.fileKey" /></template>
       </el-table-column>
       <template #empty>

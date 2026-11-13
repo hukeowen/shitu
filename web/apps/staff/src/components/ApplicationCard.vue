@@ -2,21 +2,20 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useDict, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
-import { CONTRACT_TAG, splitActions } from '@/utils/actions'
-import { fmtPhone, fmtRemain, fmtTime, parseLocal } from '@/utils/time'
+import { splitActions } from '@/utils/actions'
+import { APPLICATION_TAG, CONTRACT_TAG, STAGE_TAG, STAGE_TEXT, URGENT_MS, appStage, countdownTag } from '@/utils/status'
+import { fmtCountdown, fmtPhone, fmtTime, parseLocal } from '@/utils/time'
 
 /**
- * M-02 / M-03 待办卡片：来源 / 状态 / 24h 倒计时、姓名（脱敏）与完整手机号（仅驻场）、岗位、到厂与签约状态；
+ * M-02 / M-03 待办卡片：来源 / 阶段（待知悉 / 待面试 / 已到厂 / 待确权，互斥，只显示一个）/ 24h 倒计时、姓名（脱敏）与完整手机号（仅驻场）、岗位、到厂与签约状态；
  * 操作按钮完全由后端 allowedActions 决定（主按钮 + 「更多」）。
  */
 const props = defineProps<{ app: SiteApplication; now: number; detailLink?: boolean }>()
 const emit = defineEmits<{ action: [app: SiteApplication, action: SiteApplicationAction]; more: [app: SiteApplication] }>()
 const { label } = useDict()
 
-const URGENT_MS = 4 * 3600_000
-
 const domain = computed(() => (props.app.fromPublic ? 'PUBLIC' : 'PRIVATE'))
-const acked = computed(() => !!props.app.acknowledgedAt)
+const stage = computed(() => appStage(props.app))
 const acts = computed(() => splitActions(props.app))
 
 const remainMs = computed(() => {
@@ -26,20 +25,17 @@ const remainMs = computed(() => {
 const countdown = computed(() => {
   if (remainMs.value == null) return null
   if (props.app.status !== 'PENDING_INTERVIEW' && props.app.status !== 'PENDING_CONFIRM') return null
-  const t = fmtRemain(remainMs.value)
-  if (!t) return { text: '已超时', cls: 'tag-danger' }
-  return { text: `剩 ${t}`, cls: remainMs.value < URGENT_MS ? 'tag-danger' : 'tag-warn' }
+  return { text: fmtCountdown(remainMs.value), cls: countdownTag(remainMs.value) }
 })
 const urgent = computed(() => remainMs.value != null && remainMs.value < URGENT_MS && !!countdown.value && acts.value.main.length > 0)
 
 const contract = computed(() => props.app.contract)
 const statusText = computed(() => {
   const a = props.app
-  if (a.status === 'PENDING_INTERVIEW') {
-    if (a.arrivedAt) return '已到厂 · 待录入面试结果'
-    return acked.value ? '面试信息已推送 · 待到厂' : '已报名 · 待你知悉并推送面试信息'
-  }
-  if (a.status === 'PENDING_CONFIRM') {
+  if (stage.value === 'arrived') return '已到厂 · 待录入面试结果'
+  if (stage.value === 'interview') return '面试信息已推送 · 待到厂'
+  if (stage.value === 'ack') return '已报名 · 待你知悉并推送面试信息'
+  if (stage.value === 'confirm') {
     if (contract.value?.status === 'PENDING_SIGN') return '已确权 · 等待求职者电子签署'
     return '面试已通过 · 待入职确权'
   }
@@ -57,9 +53,8 @@ const avatarChar = computed(() => (props.app.seekerName === '未实名' ? '?' : 
     <div class="top">
       <div class="row tags">
         <span class="tag" :class="domain === 'PUBLIC' ? 'tag-public' : 'tag-private'"><i class="dot" />{{ label('DomainTag', domain) }}</span>
-        <span class="tag tag-temp">{{ label('ApplicationStatus', app.status) }}</span>
-        <span v-if="app.arrivedAt && app.status === 'PENDING_INTERVIEW'" class="tag tag-ok">已到厂</span>
-        <span v-else-if="acked && app.status === 'PENDING_INTERVIEW'" class="tag tag-ok">已推送</span>
+        <span v-if="stage" class="tag" :class="STAGE_TAG[stage]">{{ STAGE_TEXT[stage] }}</span>
+        <span v-else class="tag" :class="APPLICATION_TAG[app.status] ?? 'tag-muted'">{{ label('ApplicationStatus', app.status) }}</span>
         <span v-if="contract && app.status === 'PENDING_CONFIRM'" class="tag" :class="CONTRACT_TAG[contract.status] ?? 'tag-muted'">合同{{ label('ContractStatus', contract.status) }}</span>
       </div>
       <span v-if="countdown" class="tag num" :class="countdown.cls">{{ countdown.text }}</span>

@@ -1,0 +1,26 @@
+/*
+ * 运营中台在 PC 主题层（ui-tokens/desktop.css）之上的补充：表格细节、抽屉留白等。
+ * 必须在 desktop.css 之后引入。
+ */
+
+/* ---------- 表格 ---------- */
+/* 时间、编号等等宽内容不折行；确实需要折行的加 .wrap */
+.el-table .cell .mono:not(.wrap) { white-space: nowrap; }
+.el-table .nowrap-col .cell { white-space: nowrap; }
+
+/* 固定列表头与其他表头同色（Element 给固定列单独设了背景） */
+.el-table .el-table__header-wrapper tr th.el-table-fixed-column--right,
+.el-table .el-table__header-wrapper tr th.el-table-fixed-column--left,
+.el-table.is-scrolling-none th.el-table-fixed-column--right,
+.el-table.is-scrolling-none th.el-table-fixed-column--left { background-color: var(--surface-2); }
+
+/* 操作列：不折行，按钮之间留固定间距（包在 tooltip 的 span 里的按钮也一样） */
+.el-table .ops-col .cell { white-space: nowrap; }
+.el-table .ops-col .cell > * + *,
+.el-table .ops-col .cell > .el-button + .el-button { margin-left: 12px; }
+
+/* 双行单元格里的次要信息 */
+.el-table .cell .sub { font-size: 12px; color: var(--ink-400); line-height: 1.5; }
+
+/* ---------- 抽屉 ---------- */
+.ops-drawer .el-drawer__body { padding-top: 18px; }

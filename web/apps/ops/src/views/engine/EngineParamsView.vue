@@ -7,7 +7,7 @@ import StatusTag from '@/components/StatusTag.vue'
 import { confirmAction } from '@/composables/useRemark'
 import { ENGINE_PUBLISH_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
-import { fmtDateTime } from '@/utils/format'
+import { fmtDateTime, fmtOperator } from '@/utils/format'
 import { DEFAULTS, FACTORS, diff, normalize, toPayload, validate, weightSum, type EngineConfig } from './engineMeta'
 
 /** P-13 匹配引擎参数：版本化（草稿 → 发布，可回滚），结构化编辑 + 与生效版本对比 */
@@ -237,7 +237,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               <StatusTag type="VersionStatus" :value="v.status" variant="tag" />
             </div>
             <div class="t-xs mono">{{ v.publishedAt ? `${fmtDateTime(v.publishedAt)} 发布` : `${fmtDateTime(v.createdAt)} 创建` }}</div>
-            <div v-if="v.publishedBy" class="t-xs mono">{{ v.publishedBy }}</div>
+            <div v-if="v.publishedBy" class="t-xs">{{ fmtOperator(v.publishedBy) }}</div>
           </button>
         </div>
       </div>
@@ -245,14 +245,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       <div class="main">
         <div v-if="!current || !form" class="card"><el-empty :image-size="64" description="请选择版本" /></div>
         <template v-else>
-          <div class="card bar">
-            <div class="bar-l">
+          <div class="card vhead">
+            <div class="vhead-l">
               <h3>v{{ current.versionId }}</h3>
               <StatusTag type="VersionStatus" :value="current.status" variant="tag" />
               <span v-if="dirty" class="tag tag--signal">未保存</span>
               <span v-if="readonly" class="t-xs">只读 · {{ current.status === 'ACTIVE' ? '如需调整请新建草稿' : '归档版本可回滚' }}</span>
             </div>
-            <div class="bar-r">
+            <div class="vhead-r">
               <template v-if="current.status === 'DRAFT'">
                 <el-button :disabled="acting || saving" @click="remove(current)">删除草稿</el-button>
                 <el-button :disabled="!dirty" @click="discard">撤销修改</el-button>
@@ -283,7 +283,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 <div class="factors">
                   <div v-for="f in FACTORS" :key="f.key" class="factor">
                     <label>{{ f.label }}</label>
-                    <el-input-number v-model="form.factorWeights[f.key]" :min="0" :max="100" :step="1" :precision="0" :disabled="readonly" controls-position="right" />
+                    <el-input-number v-model="form.factorWeights[f.key]" :min="0" :max="100" :step="1" :precision="0" :disabled="readonly" :controls="!readonly" controls-position="right" />
                   </div>
                 </div>
                 <div class="wbar">
@@ -304,9 +304,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                       <tr v-for="(t, i) in form.distanceScore" :key="i">
                         <td>
                           <span v-if="i === form.distanceScore.length - 1" class="above">以上（不限）</span>
-                          <el-input-number v-else :model-value="t.maxKm ?? undefined" @update:model-value="(v: number | undefined) => (t.maxKm = v ?? null)" :min="1" :step="5" :precision="0" size="small" :disabled="readonly" controls-position="right" />
+                          <el-input-number v-else :model-value="t.maxKm ?? undefined" @update:model-value="(v: number | undefined) => (t.maxKm = v ?? null)" :min="1" :step="5" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" />
                         </td>
-                        <td><el-input-number v-model="t.score" :min="0" :max="100" :step="5" :precision="0" size="small" :disabled="readonly" controls-position="right" /></td>
+                        <td><el-input-number v-model="t.score" :min="0" :max="100" :step="5" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></td>
                         <td><el-button v-if="!readonly && form.distanceScore.length > 1" link size="small" type="danger" @click="form.distanceScore.splice(i, 1)">删除</el-button></td>
                       </tr>
                     </tbody>
@@ -324,9 +324,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                       <tr v-for="(t, i) in form.decay" :key="i">
                         <td>
                           <span v-if="i === form.decay.length - 1" class="above">以上（不限）</span>
-                          <el-input-number v-else :model-value="t.maxDays ?? undefined" @update:model-value="(v: number | undefined) => (t.maxDays = v ?? null)" :min="1" :step="1" :precision="0" size="small" :disabled="readonly" controls-position="right" />
+                          <el-input-number v-else :model-value="t.maxDays ?? undefined" @update:model-value="(v: number | undefined) => (t.maxDays = v ?? null)" :min="1" :step="1" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" />
                         </td>
-                        <td><el-input-number v-model="t.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></td>
+                        <td><el-input-number v-model="t.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></td>
                         <td><el-button v-if="!readonly && form.decay.length > 1" link size="small" type="danger" @click="form.decay.splice(i, 1)">删除</el-button></td>
                       </tr>
                     </tbody>
@@ -346,15 +346,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 <div class="card__bd">
                   <template v-if="form.lowConversion">
                     <div class="fields">
-                      <label>挂岗满（天）<el-input-number v-model="form.lowConversion.minPostedDays" :min="0" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                      <label>且转化率 ≤<el-input-number v-model="form.lowConversion.maxConversionRate" :min="0" :max="1" :step="0.01" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
-                      <label>乘以系数<el-input-number v-model="form.lowConversion.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                      <label>挂岗满（天）<el-input-number v-model="form.lowConversion.minPostedDays" :min="0" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                      <label>且转化率 ≤<el-input-number v-model="form.lowConversion.maxConversionRate" :min="0" :max="1" :step="0.01" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                      <label>乘以系数<el-input-number v-model="form.lowConversion.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                     </div>
                     <div class="fields">
                       <label>与挂岗衰减合并方式
                         <el-radio-group v-model="form.combineDecayAndConversion" size="small" :disabled="readonly">
-                          <el-radio-button value="MIN">取较小值 MIN</el-radio-button>
-                          <el-radio-button value="MULTIPLY">相乘 MULTIPLY</el-radio-button>
+                          <el-radio-button value="MIN">取较小值</el-radio-button>
+                          <el-radio-button value="MULTIPLY">相乘</el-radio-button>
                         </el-radio-group>
                       </label>
                     </div>
@@ -371,8 +371,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                     <thead><tr><th>诚信分 ≥</th><th>系数 0–2</th><th /></tr></thead>
                     <tbody>
                       <tr v-for="(t, i) in form.credit" :key="i">
-                        <td><el-input-number v-model="t.minScore" :min="0" :max="100" :precision="0" size="small" :disabled="readonly" controls-position="right" @blur="sortCredit" /></td>
-                        <td><el-input-number v-model="t.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></td>
+                        <td><el-input-number v-model="t.minScore" :min="0" :max="100" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" @blur="sortCredit" /></td>
+                        <td><el-input-number v-model="t.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></td>
                         <td><el-button v-if="!readonly && form.credit.length > 1" link size="small" type="danger" @click="form.credit.splice(i, 1)">删除</el-button></td>
                       </tr>
                     </tbody>
@@ -389,8 +389,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 </div>
                 <div class="card__bd">
                   <div v-if="form.penalty" class="fields">
-                    <label>二级（限流）<el-input-number v-model="form.penalty.level2" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
-                    <label>三级（封禁）<el-input-number v-model="form.penalty.level3" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                    <label>二级（限流）<el-input-number v-model="form.penalty.level2" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                    <label>三级（封禁）<el-input-number v-model="form.penalty.level3" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                   </div>
                   <div v-else class="t-xs">未启用：处罚不影响匹配权重</div>
                 </div>
@@ -405,15 +405,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                     <el-switch :model-value="form.quota != null" :disabled="readonly" active-text="名额将满降权" @update:model-value="(v: string | number | boolean) => toggle('quota', !!v)" />
                   </div>
                   <div v-if="form.quota" class="fields">
-                    <label>剩余名额 ≤<el-input-number v-model="form.quota.lowRemaining" :min="0" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                    <label>乘以系数<el-input-number v-model="form.quota.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                    <label>剩余名额 ≤<el-input-number v-model="form.quota.lowRemaining" :min="0" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                    <label>乘以系数<el-input-number v-model="form.quota.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                   </div>
                   <div class="fields">
                     <el-switch :model-value="form.newJobBoost != null" :disabled="readonly" active-text="新岗位加权" @update:model-value="(v: string | number | boolean) => toggle('newJobBoost', !!v)" />
                   </div>
                   <div v-if="form.newJobBoost" class="fields">
-                    <label>上架 ≤（天）<el-input-number v-model="form.newJobBoost.maxDays" :min="0" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                    <label>乘以系数<el-input-number v-model="form.newJobBoost.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                    <label>上架 ≤（天）<el-input-number v-model="form.newJobBoost.maxDays" :min="0" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                    <label>乘以系数<el-input-number v-model="form.newJobBoost.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                   </div>
                 </div>
               </div>
@@ -424,9 +424,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               <div class="card__hd"><h3>结果展示</h3></div>
               <div class="card__bd">
                 <div class="fields">
-                  <label>展示阈值（匹配分 ≥）<el-input-number v-model="form.displayThreshold" :min="0" :max="100" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                  <label>结果条数（1–20）<el-input-number v-model="form.resultCount" :min="1" :max="20" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                  <label>公域同公司上限（≤ 结果条数）<el-input-number v-model="form.maxPerCompanyPublic" :min="1" :max="form.resultCount" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
+                  <label>展示阈值（匹配分 ≥）<el-input-number v-model="form.displayThreshold" :min="0" :max="100" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                  <label>结果条数（1–20）<el-input-number v-model="form.resultCount" :min="1" :max="20" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
+                  <label>公域同公司上限（≤ 结果条数）<el-input-number v-model="form.maxPerCompanyPublic" :min="1" :max="form.resultCount" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                 </div>
               </div>
             </div>
@@ -461,15 +461,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .vrow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
 .vrow b { color: var(--ink-900); font-size: 13px; }
 .main { min-width: 0; }
-.bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 12px; flex-wrap: wrap; }
-.bar-l { display: flex; align-items: center; gap: 8px; }
-.bar-l h3 { margin: 0; font-size: 16px; font-family: var(--f-mono); color: var(--ink-900); }
-.bar-r { display: flex; gap: 6px; }
+.vhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 12px; flex-wrap: wrap; }
+.vhead-l { display: flex; align-items: center; gap: 8px; }
+.vhead-l h3 { margin: 0; font-size: 16px; font-family: var(--f-mono); color: var(--ink-900); }
+.vhead-r { display: flex; gap: 6px; }
 .gap { margin-bottom: 12px; }
 .errs { margin: 4px 0 0; padding-left: 18px; }
 .fs { border: 0; margin: 0; padding: 0; min-width: 0; }
 .sec { margin-bottom: 12px; }
-.grid.g-2 { gap: 12px; }
+.grid.g-2 { gap: 12px; align-items: start; }
 .grid.g-2 .sec { margin-bottom: 0; }
 .grid.g-2 { margin-bottom: 12px; }
 .sum { font-size: 12.5px; }
@@ -497,4 +497,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .fields { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 8px; }
 .fields label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-600); }
 .fields :deep(.el-input-number) { width: 130px; }
+/* 只读版本：数值清晰可读，不显示步进箭头 */
+.fs:disabled :deep(.el-input.is-disabled .el-input__wrapper) { background: var(--surface-2); box-shadow: 0 0 0 1px var(--line) inset; cursor: default; }
+.fs:disabled :deep(.el-input.is-disabled .el-input__inner) { color: var(--ink-900); -webkit-text-fill-color: var(--ink-900); font-weight: 600; cursor: default; text-align: left; }
+.fs:disabled :deep(.el-input-number.is-disabled) { cursor: default; }
+.fs:disabled :deep(.el-radio-button.is-active .el-radio-button__inner) { background: var(--signal-50); color: var(--signal-700); border-color: var(--signal-300); box-shadow: none; }
 </style>

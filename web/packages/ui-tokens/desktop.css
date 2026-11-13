@@ -111,16 +111,16 @@ html, body { font-size: 14px; line-height: 1.55; color: var(--ink-700); backgrou
 /* ---------- 标签 ---------- */
 .tag { height: 22px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 0; background: var(--muted-bg); color: var(--ink-600); }
 .tag--ok, .tag--warn, .tag--danger, .tag--info, .tag--signal, .tag--temp, .tag--private, .tag--public, .tag--muted { border: 0; }
-.tag--ink { background: var(--ink-800); color: #fff; }
+.tag--ink { background: var(--surface-3); color: var(--ink-800); font-weight: 600; }
 .tag--lg { height: 26px; padding: 0 10px; font-size: 13px; }
 .st-pill { font-size: 13px; font-weight: 500; }
 
 /* ---------- 提示条 ---------- */
 .note { border: 1px solid var(--private-line); border-radius: 10px; padding: 12px 16px; font-size: 13.5px; line-height: 1.7; color: var(--ink-700); background: var(--signal-50); }
-.note--info { border-color: var(--info-line); }
-.note--warn { border-color: var(--warn-line); }
-.note--ok { border-color: var(--ok-line); }
-.note--danger { border-color: var(--danger-line); }
+.note--info { border-color: var(--info-line); background: var(--info-bg); }
+.note--warn { border-color: var(--warn-line); background: var(--warn-bg); }
+.note--ok { border-color: var(--ok-line); background: var(--ok-bg); }
+.note--danger { border-color: var(--danger-line); background: var(--danger-bg); }
 .notice { border: 0; border-radius: 10px; padding: 11px 14px; font-size: 13.5px; line-height: 1.65; }
 
 /* ---------- 工具栏与筛选页签 ---------- */
@@ -140,7 +140,7 @@ html, body { font-size: 14px; line-height: 1.55; color: var(--ink-700); backgrou
 .tl-t { font-size: 13.5px; }
 .tl-m { font-family: var(--f-cn); font-size: 12.5px; }
 .codeblk { background: #101828; border-radius: 10px; }
-.bar { height: 8px; border-radius: 4px; }
+.bar { border-radius: 4px; }
 .bar > i { border-radius: 4px; background: var(--ink-400); }
 .person .av { width: 30px; height: 30px; font-size: 12.5px; }
 
@@ -157,6 +157,8 @@ html, body { font-size: 14px; line-height: 1.55; color: var(--ink-700); backgrou
   --el-table-row-hover-bg-color: #FAFBFC; --el-table-text-color: var(--ink-700); font-size: 13.5px; }
 .card .el-table, .ops-table.el-table { font-size: 13.5px; }
 .el-table th.el-table__cell, .card .el-table th.el-table__cell, .ops-table.el-table th.el-table__cell { font-size: 12.5px; font-weight: 500; color: var(--ink-500); background: var(--surface-2); }
+.el-table .el-table__header-wrapper tr th.el-table-fixed-column--right, .el-table .el-table__header-wrapper tr th.el-table-fixed-column--left,
+.el-table .el-table__fixed-header-wrapper tr th { background: var(--surface-2); }
 .el-table .el-table__cell { padding: 11px 0; }
 .el-table--small .el-table__cell { padding: 8px 0; }
 .el-table .cell { padding: 0 12px; line-height: 1.5; }
@@ -166,7 +168,9 @@ html, body { font-size: 14px; line-height: 1.55; color: var(--ink-700); backgrou
 .el-dialog { --el-dialog-border-radius: 14px; --el-dialog-padding-primary: 24px; box-shadow: var(--sh-3); }
 .el-dialog__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
 .el-drawer { --el-drawer-padding-primary: 24px; }
-.el-drawer__header { margin-bottom: 0; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.el-drawer__header { margin-bottom: 0; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+.el-drawer__body { padding: 20px 24px 24px; }
+.el-drawer__footer { padding: 14px 24px; border-top: 1px solid var(--line); }
 .el-drawer__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
 .el-message-box { --el-messagebox-border-radius: 14px; padding: 22px 24px; }
 .el-message-box__title { font-weight: 600; }

@@ -7,7 +7,7 @@ import AppActions from '@/components/AppActions.vue'
 import ApplicationCard from '@/components/ApplicationCard.vue'
 import QrImage from '@/components/QrImage.vue'
 import { useNow } from '@/composables/useNow'
-import { CONTRACT_TAG } from '@/utils/actions'
+import { APPLICATION_TAG, CONTRACT_TAG } from '@/utils/status'
 import { copyText } from '@/utils/clipboard'
 import { fmtFull, parseLocal } from '@/utils/time'
 
@@ -116,14 +116,15 @@ function back() {
           <div v-for="(m, i) in insight.matchRecords" :key="i" class="rec">
             <div class="rec-hd"><span class="num t-xs">{{ full(m.matchedAt) }}</span><span v-if="m.source" class="tag tag-ok">本次报名</span></div>
             <div v-for="j in m.jobs" :key="j.jobId" class="rec-job">
-              <span :class="{ strong: j.appliedJob }">{{ j.title }}</span><b class="num">{{ Number(j.matchScore).toFixed(0) }}%</b>
+              <span class="rec-title" :class="{ strong: j.appliedJob }">{{ j.title }}</span>
+              <span class="rec-score">匹配度 <b class="num">{{ Number(j.matchScore).toFixed(0) }}%</b></span>
             </div>
           </div>
         </template>
         <div class="sub-hd">在本公司的历史报名</div>
         <div v-if="insight.history.length === 0" class="t-xs">这是第一次报名本公司岗位</div>
         <div v-for="h in insight.history" :key="h.applicationId" class="his">
-          <div><span class="strong">{{ h.jobTitle }}</span> <span class="tag tag-muted">{{ label('ApplicationStatus', h.status) }}</span></div>
+          <div><span class="strong">{{ h.jobTitle }}</span> <span class="tag" :class="APPLICATION_TAG[h.status] ?? 'tag-muted'">{{ label('ApplicationStatus', h.status) }}</span></div>
           <div class="t-xs num">{{ full(h.createdAt) }}<template v-if="h.endReason"> · {{ label('LifecycleEvent', h.endReason) }}</template></div>
         </div>
       </section>
@@ -154,8 +155,11 @@ function back() {
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .sub-hd { margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ink-600); }
 .rec { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 6px; }
-.rec-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.rec-job { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; }
+.rec-hd { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 20px; margin-bottom: 4px; }
+.rec-job { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 22px; font-size: 13px; line-height: 1.4; padding: 2px 0; }
+.rec-title { flex: 1; min-width: 0; }
+.rec-score { flex: none; font-size: 11.5px; color: var(--ink-400); white-space: nowrap; }
+.rec-score b { font-size: 13px; color: var(--ink-900); margin-left: 2px; }
 .strong { font-weight: 700; color: var(--ink-900); }
 .his { padding: 7px 0; border-top: 1px dashed var(--line); line-height: 1.7; font-size: 13px; }
 </style>

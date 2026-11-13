@@ -346,10 +346,10 @@ const preview = computed(() => {
             <div class="card__bd">
               <div class="grid g-3 tight">
                 <el-form-item label="月综合薪资下限（元）" prop="salaryMin">
-                  <el-input-number v-model="form.salaryMin" :min="1" :max="99999" :step="100" :controls="false" placeholder="5800" style="width: 100%" />
+                  <el-input-number v-model="form.salaryMin" :min="1" :max="99999" :step="100" :controls="false" placeholder="最低，如 5800" class="num-left" style="width: 100%" />
                 </el-form-item>
                 <el-form-item label="月综合薪资上限（元）" prop="salaryMax">
-                  <el-input-number v-model="form.salaryMax" :min="1" :max="99999" :step="100" :controls="false" placeholder="6800" style="width: 100%" />
+                  <el-input-number v-model="form.salaryMax" :min="1" :max="99999" :step="100" :controls="false" placeholder="最高，如 6800" class="num-left" style="width: 100%" />
                 </el-form-item>
                 <el-form-item label="班次" prop="shiftType">
                   <el-select v-model="form.shiftType" placeholder="选择班次" style="width: 100%">
@@ -462,7 +462,8 @@ const preview = computed(() => {
                 <div class="pv-main">
                   <b class="pv-title">{{ form.title || '岗位名称' }}</b>
                   <div class="t-xs" style="margin-top: 2px">{{ project?.name ?? '所属项目' }} · {{ meStore.me?.company.shortName || meStore.me?.company.name }}</div>
-                  <div class="pv-salary">{{ form.salaryMin || form.salaryMax ? salaryRange(form.salaryMin, form.salaryMax) : '— –  —' }}<small> 元/月</small></div>
+                  <div v-if="form.salaryMin || form.salaryMax" class="pv-salary">{{ salaryRange(form.salaryMin, form.salaryMax) }}<small> 元/月</small></div>
+                  <div v-else class="pv-salary pv-salary--empty">薪资待填写</div>
                   <div class="row-wrap" style="margin-top: 8px"><span v-for="c in preview" :key="c" class="tag">{{ c }}</span></div>
                 </div>
                 <div class="pv-ft"><span class="t-xs">{{ form.interviewAddress || '面试地址' }}</span><span class="tag tag--signal">报名面试</span></div>
@@ -485,6 +486,9 @@ const preview = computed(() => {
 .pv-main { padding: 12px; }
 .pv-title { font-size: 15px; color: var(--ink-900); }
 .pv-salary { font-family: var(--f-dis); font-size: 22px; font-weight: 700; color: var(--signal); margin-top: 6px; }
+.pv-salary--empty { font-size: 15px; font-weight: 500; color: var(--ink-400); }
+/* 数字输入框与其它输入框一致：内容和占位提示都靠左 */
+.num-left :deep(.el-input__inner) { text-align: left; }
 .pv-salary small { font-family: var(--f-cn); font-size: 11px; color: var(--ink-400); font-weight: 500; }
 .pv-ft { padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 </style>

@@ -97,7 +97,7 @@ async function submitResolve() {
       <el-table-column label="状态" width="100">
         <template #default="{ row }"><span class="tag" :class="row.status === 'OPEN' ? 'tag--warn' : 'tag--ok'">{{ row.status === 'OPEN' ? '待处理' : '已结案' }}</span></template>
       </el-table-column>
-      <el-table-column label="操作" width="100" align="right">
+      <el-table-column label="操作" class-name="ops-col" width="100" align="right">
         <template #default="{ row }">
           <el-button v-if="row.status === 'OPEN'" size="small" @click="openResolve(row)">写结论</el-button>
           <span v-else class="t-xs">—</span>

@@ -61,6 +61,7 @@ class Sprint4FlowIT extends FlowItSupport {
         data(call(post("/api/v1/tenant/resign-requests/" + rejectId + "/decide"), c.pm(), Map.of("approve", false, "remark", "再沟通")));
         assertThat(user(u1).get("user_status")).isEqualTo("EMPLOYED");
 
+        resign.executeScheduled(); // 先清掉库里其他用例、往日运行留下的到期申请，下面的断言只看本用例
         long id = data(call(post("/api/v1/tenant/employments/" + empId + "/resign"), c.site(),
                 Map.of("resignDate", LocalDate.now().plusDays(1).toString(), "reason", "回老家"))).asLong();
         assertThat(data(call(get("/api/v1/tenant/resign-requests?status=PENDING"), c.pm(), null)).toString()).contains(empId);

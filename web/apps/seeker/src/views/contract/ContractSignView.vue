@@ -125,7 +125,7 @@ const months = computed(() => (c.value ? termMonths(c.value) : null))
           <div class="acard-hd"><h4>合同摘要</h4></div>
           <dl>
             <div class="kv"><dt>签约公司</dt><dd>{{ c.companyName || '—' }}</dd></div>
-            <div class="kv"><dt>派遣岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
+            <div class="kv"><dt>岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
             <div v-if="c.projectName" class="kv"><dt>用工项目</dt><dd>{{ c.projectName }}</dd></div>
             <div class="kv"><dt>合同期限</dt><dd class="num">{{ termText(c) }}<template v-if="months">（{{ months }} 个月）</template></dd></div>
             <div class="kv"><dt>发起时间</dt><dd class="num">{{ formatServerTime(c.createdAt) }}</dd></div>

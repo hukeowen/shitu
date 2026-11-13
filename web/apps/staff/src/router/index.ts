@@ -18,12 +18,12 @@ const router = createRouter({
     { path: '/messages', component: () => import('@/views/MessagesView.vue'), meta: { title: '消息通知' } },
     { path: '/reminders', component: () => import('@/views/RemindersView.vue'), meta: { tabbar: true, title: '24h 提醒', proto: 'M-12' } },
     { path: '/private-pending', redirect: { path: '/reminders', query: { f: 'private' } } },
-    { path: '/advance', component: () => import('@/views/AdvanceReviewView.vue'), meta: { title: '预支初审', proto: 'M-11' } },
+    { path: '/advance', component: () => import('@/views/AdvanceReviewView.vue'), meta: { title: '预支审批', proto: 'M-11' } },
     { path: '/advance/:id', component: () => import('@/views/AdvanceDetailView.vue'), meta: { title: '预支详情', proto: 'M-11' } },
     { path: '/employees', component: () => import('@/views/EmployeesView.vue'), meta: { title: '在岗人员', proto: 'M-15' } },
     { path: '/incidents', component: () => import('@/views/IncidentsView.vue'), meta: { title: '工伤上报', proto: 'T-405' } },
     { path: '/me', component: () => import('@/views/MeView.vue'), meta: { tabbar: true, title: '我的', allowInactive: true } },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    { path: '/:pathMatch(.*)*', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在', allowInactive: true } },
   ],
   scrollBehavior: (_to, _from, saved) => saved ?? { top: 0 },
 })
@@ -39,6 +39,8 @@ router.beforeEach(async (to) => {
   if (!auth.isLoggedIn) return { path: '/login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath }, replace: true }
   // 公司审核中 / 驳回 / 封禁等：只显示状态提示页（TenantMe.operational = false）
   if (auth.me && !auth.operational && !to.meta.allowInactive) return { path: '/notice', replace: true }
+  // 公司状态正常时没有「状态提示页」可看，直接回工作台
+  if (to.path === '/notice' && auth.me && auth.operational) return { path: '/', replace: true }
   return true
 })
 

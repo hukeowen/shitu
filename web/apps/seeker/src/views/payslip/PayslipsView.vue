@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, type Payslip } from '@shitu/api-client'
-import { fmtAmount, fmtMonth, fmtYuan } from '@/utils/format'
+import { fmtMinus, fmtMinusYuan, fmtMonth, fmtYuan } from '@/utils/format'
 import { totalDeduct } from '@/utils/payslip'
 
 /** S-41 我的工资（C-701）：按月展示实发；最新一月置顶展示应发 / 扣款 / 实发，预支抵扣单独提醒 */
@@ -55,8 +55,8 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
         <div class="amt num">{{ fmtYuan(latest.netPay) }}</div>
         <div class="hstats">
           <div><span>应发</span><b class="num">{{ fmtYuan(latest.grossPay) }}</b></div>
-          <div><span>扣款</span><b class="num ded">−{{ fmtYuan(totalDeduct(latest)) }}</b></div>
-          <div><span>预支抵扣</span><b class="num ded">−{{ fmtYuan(latest.advanceDeduct) }}</b></div>
+          <div><span>扣款合计<template v-if="Number(latest.advanceDeduct) > 0">（含预支）</template></span><b class="num ded">{{ fmtMinusYuan(totalDeduct(latest)) }}</b></div>
+          <div><span>其中预支抵扣</span><b class="num ded">{{ fmtMinusYuan(latest.advanceDeduct) }}</b></div>
         </div>
       </template>
       <template v-else>
@@ -85,7 +85,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
             <div class="acard-hd"><h4 class="adv-h">预支抵扣</h4><span class="tag tag-warn">{{ fmtMonth(latest!.payMonth) }}</span></div>
             <div class="row-b">
               <span class="t-sm adv-t">本月工资已自动抵扣薪资预支</span>
-              <span class="num adv-v">−{{ fmtAmount(latest!.advanceDeduct) }}</span>
+              <span class="num adv-v">{{ fmtMinus(latest!.advanceDeduct) }}</span>
             </div>
             <div class="t-xs adv-t" style="margin-top: 6px">无需主动还款，不产生任何利息或手续费 · 查看明细 ›</div>
           </button>
@@ -124,7 +124,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
 .amt { font-family: var(--f-dis); font-size: 38px; font-weight: 700; line-height: 1.1; margin-top: 2px; }
 .hdesc { font-size: 12px; color: rgba(255, 255, 255, .55); margin-top: 10px; }
 .hstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed rgba(255, 255, 255, .2); }
-.hstats span { display: block; font-size: 11px; color: rgba(255, 255, 255, .55); }
+.hstats span { display: block; font-size: 11px; color: rgba(255, 255, 255, .55); white-space: nowrap; }
 .hstats b { display: block; font-size: 14.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hstats b.ded { color: var(--signal-300); }
 .body { margin-top: -10px; position: relative; z-index: 2; }

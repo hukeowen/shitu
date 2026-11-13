@@ -6,9 +6,14 @@ import { errorMessage, isApiError, tenantApi, useDict, type SiteApplication, typ
 import { useNow } from '@/composables/useNow'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
-import { fmtTime } from '@/utils/time'
+import { advanceWording, canReview } from '@/utils/advance'
+import { fetchInterviewBuckets, type InterviewBuckets } from '@/utils/status'
+import { fmtPhone, fmtTime } from '@/utils/time'
 
-/** M-01 驻场工作台：24h 超时告警、待办数字（待知悉 / 待面试 / 待确权 / 私域待匹配）、今日待办、消息入口 */
+/**
+ * M-01 驻场工作台：24h 超时告警、待办数字（待知悉 / 待面试 / 待确权 / 私域待匹配）、今日待办、消息入口。
+ * 待知悉 / 待面试 / 已到厂三个数字与待办页签同源（utils/status 的分桶，互斥不重复计数）。
+ */
 const auth = useAuthStore()
 const inbox = useInboxStore()
 const router = useRouter()
@@ -54,14 +59,18 @@ const todayList = shallowRef<SiteApplication[]>([])
 const todayLoaded = ref(false)
 const refreshing = ref(false)
 
-/** 待我初审的预支（按 allowedActions） */
+/** 待知悉 / 待面试 / 已到厂分桶（仅驻场 / 项目经理可拉取） */
+const buckets = shallowRef<InterviewBuckets | null>(null)
+const adv = computed(() => advanceWording(me.value?.roles))
+
+/** 待我审批的预支：驻场 = 待初审，项目经理 = 待终审（按 allowedActions） */
 const advTodo = ref<number | null>(null)
 
 async function loadData() {
   void inbox.refresh()
   void tenantApi
-    .advances('SUBMITTED')
-    .then((r) => (advTodo.value = r.filter((a) => a.allowedActions.includes('SITE_APPROVE')).length))
+    .advances()
+    .then((r) => (advTodo.value = r.filter(canReview).length))
     .catch(() => (advTodo.value = null))
   const tasks: Promise<unknown>[] = [
     tenantApi
@@ -76,10 +85,15 @@ async function loadData() {
   ]
   if (canApps.value) {
     tasks.push(
-      tenantApi
-        .applications({ status: 'PENDING_INTERVIEW', unacknowledged: true, page: 1, pageSize: 3, sort: 'DEADLINE' })
-        .then((r) => (todayList.value = r.records))
-        .catch(() => (todayList.value = []))
+      fetchInterviewBuckets()
+        .then((b) => {
+          buckets.value = b
+          todayList.value = b.ack.slice(0, 3)
+        })
+        .catch(() => {
+          buckets.value = null
+          todayList.value = []
+        })
         .finally(() => (todayLoaded.value = true)),
     )
   }
@@ -99,6 +113,11 @@ if (!auth.me) void reload()
 else if (auth.operational) void loadData()
 
 const n = (v: number | undefined) => (wb.value ? String(v ?? 0) : '—')
+/** 分桶可用时以分桶为准；否则退回工作台接口（pendingInterview 含未知悉，需扣除） */
+const ackCount = computed(() => buckets.value?.ack.length ?? wb.value?.pendingAck)
+const interviewCount = computed(() => buckets.value?.interview.length ?? (wb.value ? Math.max(0, wb.value.pendingInterview - wb.value.pendingAck) : undefined))
+const arrivedCount = computed(() => buckets.value?.arrived.length)
+const nb = (v: number | undefined) => (buckets.value ? String(v ?? 0) : n(v))
 
 interface Kpi {
   key: string
@@ -110,8 +129,8 @@ interface Kpi {
   open?: boolean
 }
 const kpis = computed<Kpi[]>(() => [
-  { key: 'ack', title: '待知悉', value: n(wb.value?.pendingAck), to: '/todo?tab=ack' },
-  { key: 'interview', title: '待面试', value: n(wb.value?.pendingInterview), to: '/todo?tab=interview' },
+  { key: 'ack', title: '待知悉', value: nb(ackCount.value), to: '/todo?tab=ack' },
+  { key: 'interview', title: '待面试', value: nb(interviewCount.value), to: '/todo?tab=interview' },
   { key: 'confirm', title: '待确权', value: n(wb.value?.pendingConfirm), to: '/todo?tab=confirm' },
   { key: 'private', title: '私域待匹配', value: n(wb.value?.privatePending), to: '/reminders?f=private', open: true },
 ])
@@ -140,10 +159,10 @@ interface Entry {
   open?: boolean
 }
 const entries = computed<Entry[]>(() => [
-  { key: 'interview', title: '待面试', desc: '已报名待面试', icon: 'calendar-o', to: '/todo?tab=interview', count: wb.value?.pendingInterview },
-  { key: 'confirm', title: '待确权', desc: '已到厂待确权', icon: 'passed', to: '/todo?tab=confirm', count: wb.value?.pendingConfirm },
-  { key: 'arrive', title: '今日到厂', desc: '待录面试结果', icon: 'location-o', to: '/todo?tab=arrived', count: wb.value?.arrivedToday },
-  { key: 'advance', title: '预支初审', desc: '待你初审', icon: 'balance-o', to: '/advance', count: advTodo.value ?? undefined, open: true },
+  { key: 'interview', title: '待面试', desc: '已知悉待到厂', icon: 'calendar-o', to: '/todo?tab=interview', count: interviewCount.value },
+  { key: 'confirm', title: '待确权', desc: '面试通过待确权', icon: 'passed', to: '/todo?tab=confirm', count: wb.value?.pendingConfirm },
+  { key: 'arrive', title: '已到厂', desc: '待录面试结果', icon: 'location-o', to: '/todo?tab=arrived', count: arrivedCount.value },
+  { key: 'advance', title: adv.value.title, desc: adv.value.tileDesc, icon: 'balance-o', to: '/advance', count: advTodo.value ?? undefined, open: true },
   { key: 'private', title: '私域待匹配', desc: '24h 内跟进', icon: 'friends-o', to: '/reminders?f=private', count: wb.value?.privatePending, open: true },
   { key: 'absence', title: '请假 / 旷工', desc: '按人按日标记', icon: 'notes-o', to: '/employees', open: true },
 ])
@@ -181,7 +200,7 @@ const nowDate = computed(() => new Date(now.value))
         </div>
         <div class="hero-meta kpis">
           <button v-for="k in kpis" :key="k.key" type="button" class="kpi" @click="goKpi(k)">
-            {{ k.title }}<b class="num">{{ k.value }}<small v-if="wb"> 人</small></b>
+            {{ k.title }}<b class="num">{{ k.value }}<small v-if="k.value !== '—'"> 人</small></b>
           </button>
         </div>
       </header>
@@ -238,7 +257,7 @@ const nowDate = computed(() => new Date(now.value))
               <div class="avatar avatar--sm" :class="a.fromPublic ? 'avatar--t' : 'avatar--o'">{{ a.seekerName.slice(0, 1) }}</div>
               <div class="lt">
                 <b>{{ a.seekerName }} · {{ a.jobTitle ?? '—' }}</b>
-                <span>{{ fmtTime(a.createdAt, nowDate) }} 报名<template v-if="a.phone"> · {{ a.phone }}</template></span>
+                <span>{{ fmtTime(a.createdAt, nowDate) }} 报名<template v-if="a.phone"> · <span class="num">{{ fmtPhone(a.phone) }}</span></template></span>
               </div>
               <span class="tag" :class="a.fromPublic ? 'tag-public' : 'tag-private'">{{ label('DomainTag', a.fromPublic ? 'PUBLIC' : 'PRIVATE') }}</span>
             </router-link>

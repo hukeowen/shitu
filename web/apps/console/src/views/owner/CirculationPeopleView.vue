@@ -35,6 +35,15 @@ onMounted(load)
 const outActive = computed(() => rows.value.filter((r) => r.direction === 'RECEIVABLE' && r.active))
 const inActive = computed(() => rows.value.filter((r) => r.direction === 'PAYABLE' && r.active))
 const ended = computed(() => rows.value.filter((r) => !r.active))
+const TABS = computed<{ key: Tab; label: string; n: number }[]>(() => [
+  { key: 'out', label: '流出 · 我收钱', n: outActive.value.length },
+  { key: 'in', label: '流入 · 我付钱', n: inActive.value.length },
+  { key: 'ended', label: '已停止计费', n: ended.value.length },
+])
+function setTab(t: Tab) {
+  tab.value = t
+  counterpart.value = ''
+}
 const base = computed(() => (tab.value === 'out' ? outActive.value : tab.value === 'in' ? inActive.value : ended.value))
 
 /** 对手方筛选只对流入的人有意义（流出不返回去向公司） */
@@ -95,16 +104,15 @@ function exportCsv() {
 
     <div class="card">
       <div class="toolbar">
-        <el-radio-group v-model="tab" @change="counterpart = ''">
-          <el-radio-button value="out">流出 · 我收钱（{{ outActive.length }}）</el-radio-button>
-          <el-radio-button value="in">流入 · 我付钱（{{ inActive.length }}）</el-radio-button>
-          <el-radio-button value="ended">已停止计费（{{ ended.length }}）</el-radio-button>
-        </el-radio-group>
-        <span class="spacer" />
-        <el-select v-if="tab !== 'out'" v-model="counterpart" clearable placeholder="全部来源公司" style="width: 180px">
-          <el-option v-for="c in counterparts" :key="c.value" :value="c.value" :label="c.label" />
-        </el-select>
-        <el-input v-model="keyword" clearable :placeholder="tab === 'out' ? '用户编号' : '姓名 / 用户编号'" style="width: 180px" />
+        <div class="filter-tabs">
+          <button v-for="t in TABS" :key="t.key" type="button" :class="{ on: tab === t.key }" @click="setTab(t.key)">{{ t.label }}<span class="n">{{ t.n }}</span></button>
+        </div>
+        <div class="tb-fields">
+          <el-select v-if="tab !== 'out'" v-model="counterpart" clearable placeholder="全部来源公司" style="width: 180px">
+            <el-option v-for="c in counterparts" :key="c.value" :value="c.value" :label="c.label" />
+          </el-select>
+          <el-input v-model="keyword" clearable :placeholder="tab === 'out' ? '用户编号' : '姓名 / 用户编号'" style="width: 180px" />
+        </div>
       </div>
 
       <div v-if="tab === 'out'" class="banner ok">
@@ -120,23 +128,23 @@ function exportCsv() {
       </div>
 
       <el-table v-loading="loading" :data="list" :row-key="(r: CirculationPerson) => `${r.direction}-${r.userId}-${r.firstDate}`" max-height="620">
-        <el-table-column v-if="tab === 'ended'" label="方向" width="110">
+        <el-table-column v-if="tab === 'ended'" label="方向" min-width="110">
           <template #default="{ row }"><span class="tag" :class="row.direction === 'PAYABLE' ? 'tag--danger' : 'tag--ok'">{{ row.direction === 'PAYABLE' ? '流入 · 我付' : '流出 · 我收' }}</span></template>
         </el-table-column>
-        <el-table-column v-if="tab !== 'out'" label="姓名" width="90"><template #default="{ row }">{{ row.name ?? '—' }}</template></el-table-column>
-        <el-table-column label="用户编号" min-width="150"><template #default="{ row }"><span class="mono t-sm">{{ row.userId }}</span></template></el-table-column>
-        <el-table-column v-if="tab !== 'out'" label="来源归属（付给谁）" min-width="160">
+        <el-table-column v-if="tab !== 'out'" label="姓名" min-width="96"><template #default="{ row }"><span class="nowrap">{{ row.name ?? '—' }}</span></template></el-table-column>
+        <el-table-column label="用户编号" min-width="160" show-overflow-tooltip><template #default="{ row }"><span class="mono t-sm">{{ row.userId }}</span></template></el-table-column>
+        <el-table-column v-if="tab !== 'out'" label="来源归属（付给谁）" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">{{ row.counterpartCompanyName ?? row.counterpartCompanyId ?? '—' }}</template>
         </el-table-column>
-        <el-table-column v-if="tab !== 'out'" label="我司岗位" min-width="140"><template #default="{ row }">{{ row.jobTitle ?? '—' }}</template></el-table-column>
-        <el-table-column label="计费起始日" width="116"><template #default="{ row }"><span class="mono t-sm">{{ row.firstDate }}</span></template></el-table-column>
-        <el-table-column label="最近计费日" width="116"><template #default="{ row }"><span class="mono t-sm">{{ row.lastDate }}</span></template></el-table-column>
-        <el-table-column label="计费天数" width="90" align="right"><template #default="{ row }"><span class="num">{{ row.days }}</span></template></el-table-column>
-        <el-table-column :label="tab === 'out' ? '日收' : tab === 'in' ? '日付' : '日金额'" width="90" align="right"><template #default="{ row }"><span class="mono">{{ fmtYuan(row.dailyAmount) }}</span></template></el-table-column>
-        <el-table-column label="本月" width="110" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.monthAmount) }}</span></template></el-table-column>
-        <el-table-column label="累计" width="120" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.totalAmount) }}</span></template></el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }"><span class="tag" :class="row.active ? 'tag--ok' : 'tag--mute'">{{ row.active ? '计费中' : '已停止计费' }}</span></template>
+        <el-table-column v-if="tab !== 'out'" label="我司岗位" min-width="170" show-overflow-tooltip><template #default="{ row }">{{ row.jobTitle ?? '—' }}</template></el-table-column>
+        <el-table-column label="计费起始日" min-width="120"><template #default="{ row }"><span class="mono t-sm">{{ row.firstDate }}</span></template></el-table-column>
+        <el-table-column label="最近计费日" min-width="120"><template #default="{ row }"><span class="mono t-sm">{{ row.lastDate }}</span></template></el-table-column>
+        <el-table-column label="计费天数" min-width="90" align="right"><template #default="{ row }"><span class="num">{{ row.days }}</span></template></el-table-column>
+        <el-table-column :label="tab === 'out' ? '日收' : tab === 'in' ? '日付' : '日金额'" min-width="96" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.dailyAmount) }}</span></template></el-table-column>
+        <el-table-column label="本月" min-width="116" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.monthAmount) }}</span></template></el-table-column>
+        <el-table-column label="累计" min-width="124" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.totalAmount) }}</span></template></el-table-column>
+        <el-table-column label="状态" min-width="110">
+          <template #default="{ row }"><span class="tag" :class="row.active ? 'tag--ok' : 'tag--muted'">{{ row.active ? '计费中' : '已停止计费' }}</span></template>
         </el-table-column>
         <template #empty>
           <el-empty :image-size="56" :description="keyword || counterpart ? '没有符合条件的人员' : tab === 'out' ? '目前没有我司引入、在别的公司任职的人' : tab === 'in' ? '目前没有其他来源的人在我司任职' : '没有已停止计费的记录'" />
@@ -157,8 +165,7 @@ function exportCsv() {
 </template>
 
 <style scoped>
-.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-.banner { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.7; color: var(--ink-600); }
+.banner { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.7; color: var(--ink-600); }
 .banner span { flex: 1; min-width: 0; }
 .banner > b { flex: none; font-size: 15px; }
 .banner.ok { background: var(--ok-bg); border-bottom-color: var(--ok-line); color: var(--ok); }

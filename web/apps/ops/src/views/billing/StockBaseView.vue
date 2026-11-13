@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { errorMessage, opsApi } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
-import { fmtDate, fmtDateTime, fmtNum } from '@/utils/format'
+import { fmtDate, fmtDateTime, fmtNum, fmtOperator } from '@/utils/format'
 
 /** P-03 花名册与存量基数：免费期倒计时、到期自动锁定的存量基数、锁定记录、当前在岗人数 */
 interface StockRow {
@@ -122,7 +122,7 @@ function rowClass({ row }: { row: StockRow }) {
         </el-table-column>
         <el-table-column label="锁定记录" min-width="160">
           <template #default="{ row }">
-            <template v-if="row.lockedAt"><span class="mono t-sm">{{ fmtDateTime(row.lockedAt) }}</span><div class="t-xs mono">{{ row.lockedBy ?? '系统自动' }}</div></template>
+            <template v-if="row.lockedAt"><span class="mono t-sm">{{ fmtDateTime(row.lockedAt) }}</span><div class="t-xs">{{ fmtOperator(row.lockedBy, '系统自动') }}</div></template>
             <span v-else class="dim">—</span>
           </template>
         </el-table-column>

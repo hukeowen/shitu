@@ -73,6 +73,14 @@ public class OpsRiskController {
                 + "FROM company WHERE company_id = ? OR name LIKE ? OR short_name LIKE ? ORDER BY company_id LIMIT 20", k, "%" + k + "%", "%" + k + "%")));
     }
 
+    @Operation(summary = "全部公司的 ID 与名称（所有平台角色可用：列表页把公司 ID 显示成名称）")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
+    @GetMapping("/companies/names")
+    public ApiResponse<List<Map<String, Object>>> names() {
+        return ApiResponse.ok(com.shitu.common.util.Rows.camel(jdbc.queryForList(
+                "SELECT company_id, COALESCE(short_name, name) AS name FROM company ORDER BY company_id LIMIT 5000")));
+    }
+
     @Operation(summary = "公司诚信分记录与处罚记录")
     @GetMapping("/companies/{companyId}/credit")
     public ApiResponse<Map<String, Object>> creditOf(@PathVariable String companyId) {

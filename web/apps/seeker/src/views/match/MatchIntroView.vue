@@ -100,8 +100,8 @@ function start() {
         <section class="acard">
           <div class="acard-hd"><h4>会问你什么</h4></div>
           <div class="stack-sm">
-            <div class="row"><span class="tag tag-ink">判断题</span><span class="t-sm">是否接受进厂 · 是否锁定地域</span></div>
-            <div class="row" style="align-items: flex-start"><span class="tag">选择题</span><span class="t-sm">期望工种 · 薪资 · 班次 · 住宿 · 从业经验</span></div>
+            <div class="row"><span class="tag tag-ink">先定方向</span><span class="t-sm">是否接受进厂 · 是否锁定地域</span></div>
+            <div class="row" style="align-items: flex-start"><span class="tag">再选细节</span><span class="t-sm">期望工种 · 薪资 · 班次 · 住宿 · 从业经验</span></div>
           </div>
           <div class="note note--info" style="margin-top: 11px">报名前可无限次重新匹配；<b>报名后不可再匹配、不可再报名</b>，直到面试结果产生。</div>
         </section>

@@ -3,12 +3,13 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { DomainTag } from '@shitu/ui-mobile'
-import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type MyApplication, type MyWork } from '@shitu/api-client'
+import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type KycView, type MyApplication, type MyWork } from '@shitu/api-client'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import QuadGrid from '@/components/QuadGrid.vue'
 import type { QuadItem } from '@/components/quad'
 import { useCountdown } from '@/composables/useCountdown'
 import { useJourney } from '@/composables/useJourney'
+import { useMatchSession } from '@/composables/useMatchSession'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
 import { termText } from '@/utils/contract'
@@ -56,7 +57,33 @@ const status = computed(() => profile.value?.status)
 const isPrivate = computed(() => profile.value?.domainTag === 'PRIVATE' || profile.value?.domainTag === 'TEMP_PRIVATE')
 const company = computed(() => profile.value?.boundCompanyName ?? '')
 const appliedLock = computed(() => status.value === 'PENDING_INTERVIEW' || status.value === 'PENDING_CONFIRM')
+/** 面试已通过、办理入职 / 待签合同：文案与「待面试」区分 */
+const onboarding = computed(() => status.value === 'PENDING_CONFIRM')
 const matchLocked = computed(() => !!profile.value && !profile.value.canStartMatching)
+
+/** 头部称呼：实名后用脱敏姓名（与「我的」一致），否则用脱敏手机号 */
+const kyc = ref<KycView | null>(null)
+watch(
+  () => (profile.value?.kycStatus === 'VERIFIED' ? profile.value.userId : ''),
+  (id) => {
+    kyc.value = null
+    if (id) void seekerApi.kyc().then((k) => (kyc.value = k)).catch(() => undefined)
+  },
+  { immediate: true },
+)
+const realName = computed(() => (kyc.value?.kycStatus === 'VERIFIED' && kyc.value.realNameMasked ? kyc.value.realNameMasked : ''))
+const displayName = computed(() => realName.value || profile.value?.phoneMasked || '')
+
+/** 「查看上次匹配结果」只在确实有上一次结果时展示 */
+const { match } = useMatchSession()
+const hasLastMatch = computed(() => !!match.outcome)
+watch(
+  () => !!profile.value && !matchLocked.value && status.value !== 'EMPLOYED',
+  (show) => {
+    if (show) void match.loadLatest().catch(() => undefined)
+  },
+  { immediate: true },
+)
 
 /** 当前报名（待面试 / 待确权 / 在岗时展示面试信息卡与在岗信息） */
 const ACTIVE: ApplicationStatus[] = ['PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED']
@@ -134,22 +161,31 @@ const ringDash = computed(() => {
 const scopeText = computed(() => {
   const p = profile.value
   if (!p) return ''
+  if (onboarding.value) return '办理入职中 · 不可再匹配'
   if (appliedLock.value) return `${label('DomainTag', p.domainTag)} · 不可再匹配`
   if (p.matchScope === 'OWN_COMPANY' && company.value) return `仅${company.value}岗位`
   return `匹配范围：${label('MatchScope', p.matchScope)}`
 })
 const appCompany = computed(() => app.value?.companyName || company.value || '—')
+/** 右上角徽标：面试通过后不再叫「报名中」 */
+const domainText = computed(() => (onboarding.value ? '面试已通过' : label('DomainTag', profile.value?.domainTag)))
+/** 待签合同卡：合同名里已带岗位名时不再重复一行岗位 */
+const signJob = computed(() => {
+  const c = pendingSign.value
+  return c?.jobTitle && !c.title.includes(c.jobTitle) ? c.jobTitle : ''
+})
 
 const quad = computed<QuadItem[]>(() => {
   const employed = status.value === 'EMPLOYED'
   let matchDesc = '7 题定岗'
-  if (appliedLock.value) matchDesc = '面试结果出来前不能重新匹配'
-  else if (matchLocked.value) matchDesc = '当前不可匹配'
+  if (onboarding.value) matchDesc = '办理入职期间不能重新匹配'
+  else if (appliedLock.value) matchDesc = '面试结果出来前不能重新匹配'
+  else if (matchLocked.value) matchDesc = employed ? '在岗期间不可匹配' : '当前不可匹配'
   else if (employed) matchDesc = '公司内部调岗'
   else if (isPrivate.value && company.value) matchDesc = `匹配${company.value}岗位`
   return [
     { key: 'match', title: 'AI 问薪', desc: matchDesc, off: matchLocked.value, pill: matchLocked.value ? '锁定' : undefined },
-    { key: 'reports', title: '我的报备', desc: '报名与面试进度' },
+    { key: 'reports', title: '我的报备', desc: onboarding.value ? '报名与入职进度' : '报名与面试进度' },
     { key: 'advance', title: '薪资预支', desc: employed ? '在岗员工可申请' : '需已入职在岗', off: !employed },
     { key: 'contracts', title: '我的合同', desc: '电子合同随时查看' },
   ]
@@ -157,9 +193,13 @@ const quad = computed<QuadItem[]>(() => {
 
 async function startMatch() {
   if (matchLocked.value) {
-    const msg = appliedLock.value
-      ? '面试结果出来前不能重新匹配，也不能报名其他岗位。如需更换岗位，请联系驻场老师在后台取消报名。'
-      : '当前状态暂不能发起匹配。'
+    const msg = onboarding.value
+      ? '你已通过面试，办理入职期间不能重新匹配，也不能报名其他岗位。如不想入职或信息有误，请联系驻场老师处理。'
+      : appliedLock.value
+        ? '面试结果出来前不能重新匹配，也不能报名其他岗位。如需更换岗位，请联系驻场老师在后台取消报名。'
+        : status.value === 'EMPLOYED'
+        ? '你已入职在岗，当前不能发起匹配。'
+        : '当前状态暂不能发起匹配。'
     try {
       await showConfirmDialog({ title: 'AI 问薪已锁定', message: msg, confirmButtonText: appliedLock.value ? '查看我的报备' : '知道了', showCancelButton: appliedLock.value, cancelButtonText: '知道了' })
       if (appliedLock.value) void router.push('/reports')
@@ -193,9 +233,9 @@ const progress = computed(() => {
     <template v-if="profile">
       <header class="hero" :class="heroClass(profile.domainTag)">
         <div class="hero-top">
-          <div class="avatar" :class="isPrivate ? 'avatar--o' : 'avatar--t'">我</div>
-          <div class="who"><b>{{ profile.phoneMasked }}</b><span>{{ company ? `${company} 为你服务` : '欢迎使用仕兔求职' }}</span></div>
-          <DomainTag :domain="profile.domainTag" :text="label('DomainTag', profile.domainTag)" />
+          <div class="avatar" :class="isPrivate ? 'avatar--o' : 'avatar--t'">{{ realName ? realName.slice(0, 1) : '我' }}</div>
+          <div class="who"><b>{{ displayName }}</b><span>{{ company ? `${company} 为你服务` : '欢迎使用仕兔求职' }}</span></div>
+          <DomainTag :domain="profile.domainTag" :text="domainText" />
           <button type="button" class="bell" aria-label="消息中心" @click="router.push('/messages')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 8.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5M10 20a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>
             <i v-if="inbox.unread > 0" class="badge num">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</i>
@@ -238,7 +278,7 @@ const progress = computed(() => {
                   <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(168,91,0,.18)" stroke-width="5" />
                   <circle cx="26" cy="26" r="22" fill="none" stroke="#A85B00" stroke-width="5" :stroke-dasharray="ringDash" stroke-linecap="round" />
                 </svg>
-                <div class="rv" style="color: var(--warn)">{{ cd.hours.value }}<small>H</small></div>
+                <div class="rv" style="color: var(--warn)">{{ cd.hours.value }}<small class="ru">小时</small></div>
               </div>
               <div class="flex1">
                 <div class="warn-t">{{ company }}专属跟进期 · <span class="num">{{ cd.text.value }}</span></div>
@@ -284,17 +324,23 @@ const progress = computed(() => {
         <template v-if="status === 'PENDING_CONFIRM'">
           <!-- 驻场已完成入职确权、合同待签：最显眼的入口 -->
           <button v-if="pendingSign" type="button" class="acard signc" @click="router.push('/contracts/sign')">
-            <div class="row" style="gap: 11px; align-items: flex-start">
+            <div class="row" style="gap: 11px">
               <div class="sign-ic">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" stroke="#fff" stroke-width="1.9" stroke-linejoin="round" /><path d="M14 3v5h5M8.5 15.5l2 2 4.5-4.5" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>
               </div>
               <div class="flex1">
                 <div class="sign-t">请签署劳动合同</div>
-                <div class="t-xs sign-d">{{ pendingSign.title }}<template v-if="pendingSign.companyName"> · {{ pendingSign.companyName }}</template></div>
-                <div class="t-xs sign-d">{{ pendingSign.jobTitle || '' }}<template v-if="pendingSign.jobTitle"> · </template>{{ termText(pendingSign) }}</div>
+                <div class="t-xs sign-d">签署后即正式入职</div>
               </div>
               <span class="tag tag-warn">待签署</span>
             </div>
+            <!-- 合同信息占满整行：不与右上角标签抢宽度，日期不折行，名称过长省略 -->
+            <dl class="sign-kv">
+              <div><dt>合同</dt><dd>{{ pendingSign.title }}</dd></div>
+              <div v-if="signJob"><dt>岗位</dt><dd>{{ signJob }}</dd></div>
+              <div v-if="pendingSign.companyName"><dt>签约公司</dt><dd>{{ pendingSign.companyName }}</dd></div>
+              <div><dt>合同期限</dt><dd class="num">{{ termText(pendingSign) }}</dd></div>
+            </dl>
             <div class="sign-btn">立即签署 ›</div>
           </button>
           <section class="acard okc">
@@ -322,7 +368,10 @@ const progress = computed(() => {
         </button>
 
         <!-- 报名后锁定说明 -->
-        <div v-if="appliedLock" class="note note--warn">
+        <div v-if="onboarding" class="note note--warn">
+          <b>办理入职期间不能重新匹配，也不能报名其他岗位。</b><br />如不想入职或信息有误，请联系驻场老师处理 —— 你无法自行取消。
+        </div>
+        <div v-else-if="appliedLock" class="note note--warn">
           <b>报名后不可再匹配、不可再报名。</b><br />如需更换岗位或取消面试，请联系驻场老师在后台操作取消 —— 你无法自行取消报名。
         </div>
 
@@ -331,7 +380,7 @@ const progress = computed(() => {
           <div class="cta-t">{{ isPrivate ? '先说说你想要什么活儿' : '还没找到活儿？' }}</div>
           <div class="t-sm" style="margin-top: 3px">7 道题，1 分钟，出 3 个岗位</div>
           <van-button type="primary" block class="btn-cta" style="margin-top: 12px" @click="startMatch">开始 AI 问薪</van-button>
-          <button type="button" class="last" @click="router.push('/match/result')">查看上次匹配结果 ›</button>
+          <button v-if="hasLastMatch" type="button" class="last" @click="router.push('/match/result')">查看上次匹配结果 ›</button>
         </section>
 
         <QuadGrid :items="quad" @tap="onQuad" />
@@ -397,7 +446,8 @@ const progress = computed(() => {
 </template>
 
 <style scoped>
-.member { min-height: 100vh; }
+.member { min-height: var(--page-h-tabbar); }
+.ru { font-family: inherit !important; letter-spacing: 0; margin-top: 2px; }
 .hero-top :deep(.tag-domain) { flex: none; }
 .bell { position: relative; flex: none; width: 32px; height: 32px; display: grid; place-items: center; color: rgba(255, 255, 255, .85); background: transparent; border: 0; padding: 0; }
 .bell .badge { position: absolute; top: 0; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--danger); color: #fff; font-size: 10px; font-style: normal; line-height: 16px; text-align: center; box-sizing: border-box; }
@@ -423,6 +473,10 @@ button.acard { display: block; width: 100%; text-align: left; font: inherit; }
 .sign-ic { width: 38px; height: 38px; border-radius: 11px; background: var(--signal); display: grid; place-items: center; flex: none; }
 .sign-t { font-size: 15.5px; font-weight: 700; color: var(--ink-900); }
 .sign-d { margin-top: 2px; color: var(--ink-500); }
+.sign-kv { margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--signal-300); display: grid; gap: 5px; }
+.sign-kv > div { display: flex; align-items: baseline; gap: 12px; font-size: 12.5px; }
+.sign-kv dt { flex: none; width: 4.2em; color: var(--ink-500); }
+.sign-kv dd { flex: 1; min-width: 0; color: var(--ink-900); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sign-btn { margin-top: 12px; height: 40px; border-radius: 10px; background: var(--signal); color: #fff; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
 .recb { display: flex !important; align-items: center; gap: 10px; border-color: var(--private-line); background: var(--private-bg); }
 .recb-t { font-size: 13.5px; font-weight: 700; color: var(--private); }

@@ -69,40 +69,40 @@ onMounted(() => list.load())
     </div>
 
     <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" row-key="contractId">
-      <el-table-column label="劳务公司" min-width="170">
+      <el-table-column label="劳务公司" min-width="156">
         <template #default="{ row }">
           <b class="strong">{{ row.companyName ?? '—' }}</b>
           <div class="t-xs mono">{{ row.companyId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="甲方" min-width="170">
+      <el-table-column label="甲方" min-width="140" class-name="nowrap-col" show-overflow-tooltip>
         <template #default="{ row }">{{ row.clientName ?? row.clientId }}</template>
       </el-table-column>
-      <el-table-column label="有效期" min-width="190">
+      <el-table-column label="有效期" min-width="200">
         <template #default="{ row }">
           <span class="mono t-sm">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span>
           <span v-if="(daysUntil(row.validTo) ?? 0) < 0" class="tag tag--danger ml">已过期</span>
         </template>
       </el-table-column>
-      <el-table-column label="备案状态" width="100">
+      <el-table-column label="备案状态" width="96">
         <template #default="{ row }"><StatusTag type="ClientContractStatus" :value="row.auditStatus" /></template>
       </el-table-column>
-      <el-table-column label="生效" width="80">
+      <el-table-column label="生效" width="76">
         <template #default="{ row }"><span class="tag" :class="{ 'tag--ok': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></template>
       </el-table-column>
-      <el-table-column label="提交时间" width="140">
+      <el-table-column label="提交时间" width="150">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
       </el-table-column>
-      <el-table-column label="审核说明" min-width="140">
+      <el-table-column label="审核说明" min-width="120">
         <template #default="{ row }">
           <span class="t-sm">{{ row.auditRemark || '—' }}</span>
           <div v-if="row.auditedAt" class="t-xs mono">{{ fmtDateTime(row.auditedAt) }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="合同" width="70">
+      <el-table-column label="合同" width="64">
         <template #default="{ row }"><FileViewButton :file-key="row.fileKey" /></template>
       </el-table-column>
-      <el-table-column label="操作" width="140" align="right" fixed="right">
+      <el-table-column label="操作" class-name="ops-col" width="136" align="right" fixed="right">
         <template #default="{ row }">
           <template v-if="row.auditStatus === 'PENDING'">
             <el-button size="small" type="danger" plain :disabled="acting === row.contractId" @click="reject(row)">驳回</el-button>

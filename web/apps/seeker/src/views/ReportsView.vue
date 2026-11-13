@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication } from '@shitu/api-client'
 import ComplaintPopup from '@/components/ComplaintPopup.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
+import { APP_TAG_CLASS } from '@/utils/status'
 import { formatServerTime, formatShort } from '@/utils/time'
 
 /**
- * S-25 我的报备（C-501）：全部 / 待面试 / 待确权 / 已入职 / 已取消 / 已超时（D-09）。
+ * S-25 我的报备（C-501）：全部 / 待面试 / 待签约入职（内部口径「待确权」）/ 已入职 / 已取消 / 已超时（D-09）。
  * 「已取消」含取消、面试未通过、爽约（单条卡片标签仍显示精确状态）。全部只读，取消需联系驻场（R-04）。
  */
 const router = useRouter()
@@ -23,16 +24,18 @@ const TAB_STATUSES: Record<Exclude<TabKey, 'ALL'>, ApplicationStatus[]> = {
 }
 const TAB_ORDER: TabKey[] = ['ALL', 'PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED', 'CANCELLED', 'TIMEOUT']
 
-const STATUS_TAG: Record<ApplicationStatus, string> = {
-  PENDING_INTERVIEW: 'tag-temp',
-  PENDING_CONFIRM: 'tag-temp',
-  EMPLOYED: 'tag-ok',
-  CANCELLED: 'tag-muted',
-  INTERVIEW_FAILED: 'tag-muted',
-  NO_SHOW: 'tag-warn',
-  TIMEOUT: 'tag-danger',
-}
 const ACTIVE: ApplicationStatus[] = ['PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED']
+/** 面试已通过的报名：面试信息只作为过去的事实展示，不再出现倒计时与面试须知 */
+const PASSED: ApplicationStatus[] = ['PENDING_CONFIRM', 'EMPLOYED']
+
+/** 页签横向滚动：滚到最右时收起右侧渐隐提示 */
+const tabsEl = ref<HTMLElement | null>(null)
+const tabsEnd = ref(false)
+function onTabsScroll() {
+  const el = tabsEl.value
+  if (el) tabsEnd.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4
+}
+onMounted(onTabsScroll)
 
 const list = ref<MyApplication[]>([])
 const loading = ref(true)
@@ -77,7 +80,8 @@ function rightMeta(a: MyApplication): string {
 }
 function stateText(a: MyApplication): string {
   if (a.status === 'PENDING_INTERVIEW') return a.notice ? '驻场已推送面试信息 · 待面试' : '已通知驻场 · 等待面试安排'
-  if (a.status === 'PENDING_CONFIRM') return '面试已通过 · 等待办理入职'
+  if (a.status === 'PENDING_CONFIRM') return '面试已通过 · 等待签约入职'
+  if (a.status === 'EMPLOYED') return '面试已通过 · 已入职'
   return label('ApplicationStatus', a.status)
 }
 function where(a: MyApplication) {
@@ -96,10 +100,12 @@ function openComplain(a: MyApplication) {
 <template>
   <div class="reports">
     <van-nav-bar title="我的报备" fixed placeholder safe-area-inset-top z-index="50" class="bar" />
-    <div class="atabs" role="tablist">
-      <button v-for="k in TAB_ORDER" :key="k" type="button" role="tab" :aria-selected="tab === k" :class="{ on: tab === k }" @click="tab = k">
-        {{ tabLabel(k) }} <span class="mono">{{ counts[k] }}</span>
-      </button>
+    <div class="atabs-wrap" :class="{ end: tabsEnd }">
+      <div ref="tabsEl" class="atabs" role="tablist" @scroll.passive="onTabsScroll">
+        <button v-for="k in TAB_ORDER" :key="k" type="button" role="tab" :aria-selected="tab === k" :class="{ on: tab === k }" @click="tab = k">
+          {{ tabLabel(k) }} <span class="mono">{{ counts[k] }}</span>
+        </button>
+      </div>
     </div>
 
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
@@ -113,7 +119,7 @@ function openComplain(a: MyApplication) {
         <template v-else-if="shown.length">
           <article v-for="a in shown" :key="a.applicationId" class="acard rep" :class="{ dim: !ACTIVE.includes(a.status), cur: a.status === 'PENDING_INTERVIEW' }">
             <div class="row-b" style="margin-bottom: 9px">
-              <span class="tag" :class="STATUS_TAG[a.status]"><i class="dot"></i>{{ label('ApplicationStatus', a.status) }}</span>
+              <span class="tag" :class="APP_TAG_CLASS[a.status]"><i class="dot"></i>{{ label('ApplicationStatus', a.status) }}</span>
               <span class="t-xs">{{ rightMeta(a) }}</span>
             </div>
             <div class="jt">{{ a.jobTitle || '岗位' }}</div>
@@ -123,11 +129,12 @@ function openComplain(a: MyApplication) {
               <div class="kv"><dt>报名单号</dt><dd class="num">{{ a.applicationId }}</dd></div>
               <div class="kv"><dt>报名时间</dt><dd class="num">{{ formatServerTime(a.createdAt) }}</dd></div>
               <div v-if="!a.notice && a.address" class="kv"><dt>面试地点</dt><dd>{{ a.address }}</dd></div>
+              <div v-if="a.notice && a.status !== 'PENDING_INTERVIEW'" class="kv"><dt>面试时间</dt><dd class="num">{{ formatServerTime(a.notice.interviewAt) }}</dd></div>
               <div class="kv"><dt>当前状态</dt><dd>{{ stateText(a) }}</dd></div>
               <div v-if="a.endReason" class="kv"><dt>原因</dt><dd>{{ a.endReason }}</dd></div>
             </dl>
 
-            <template v-if="a.notice && ACTIVE.includes(a.status)">
+            <template v-if="a.notice && a.status === 'PENDING_INTERVIEW'">
               <div class="ntc">
                 <div class="ntc-t">面试确认信息</div>
                 <InterviewNoticeCard :notice="a.notice" />
@@ -135,7 +142,11 @@ function openComplain(a: MyApplication) {
               <van-button block size="small" class="more" @click="router.push(`/reports/${a.applicationId}`)">查看完整面试须知</van-button>
             </template>
 
-            <div v-if="ACTIVE.includes(a.status)" class="t-xs ro">仅可查看 · 如需更换岗位，请联系驻场</div>
+            <van-button v-else-if="PASSED.includes(a.status)" block size="small" class="more" @click="router.push(`/reports/${a.applicationId}`)">查看报名详情</van-button>
+
+            <div v-if="a.status === 'PENDING_INTERVIEW'" class="t-xs ro">仅可查看 · 如需更换岗位，请联系驻场</div>
+            <div v-else-if="a.status === 'PENDING_CONFIRM'" class="t-xs ro">入职办理中 · 如有变动请联系驻场老师</div>
+            <template v-else-if="a.status === 'EMPLOYED'"></template>
             <div v-else-if="a.status !== 'TIMEOUT'" class="note note--info" style="margin-top: 10px">报名已结束，可重新进入 AI 问薪匹配。</div>
             <button type="button" class="cmp-link" @click="openComplain(a)">岗位与描述不符？投诉该岗位 ›</button>
           </article>
@@ -158,9 +169,9 @@ function openComplain(a: MyApplication) {
 </template>
 
 <style scoped>
-.reports { min-height: 100vh; background: var(--surface-2); }
+.reports { min-height: var(--page-h-tabbar); background: var(--surface-2); }
 .bar :deep(.van-nav-bar__title) { font-weight: 700; color: var(--ink-900); }
-.body { min-height: 60vh; align-content: start; }
+.body { min-height: 40vh; align-content: start; }
 .page-state { padding-top: 40px; }
 .rep.cur { border-color: var(--temp-line); }
 .rep.dim { opacity: .78; }

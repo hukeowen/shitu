@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage, seekerApi, useDict, type LedgerApplication, type SeekerLedger } from '@shitu/api-client'
+import { errorMessage, seekerApi, useDict, type ApplicationStatus, type LedgerApplication, type SeekerLedger } from '@shitu/api-client'
 import AppBar from '@/components/AppBar.vue'
 import { fmtMonth, fmtYuan } from '@/utils/format'
+import { APP_TAG_CLASS } from '@/utils/status'
 import { formatServerTime } from '@/utils/time'
 
 /** S-32 我的台账（C-506）：报名、面试、入职、工资四类记录，只读；明细分别跳到我的报备、工资条 */
@@ -53,9 +54,9 @@ const counts = computed<Record<Tab, number>>(() => ({
 }))
 
 const ACTIVE = ['PENDING_INTERVIEW', 'PENDING_CONFIRM']
+/** 与「我的报备」同一套状态配色（待面试 / 待签约入职为紫色） */
 function appTag(a: LedgerApplication) {
-  if (ACTIVE.includes(a.status)) return 'tag-info'
-  return a.interviewResult === 'PASS' ? 'tag-ok' : 'tag-mute'
+  return APP_TAG_CLASS[a.status as ApplicationStatus] ?? (a.interviewResult === 'PASS' ? 'tag-ok' : 'tag-muted')
 }
 function interviewText(a: LedgerApplication) {
   if (a.interviewResult === 'PASS') return '面试通过'
@@ -66,7 +67,7 @@ function interviewText(a: LedgerApplication) {
 function interviewTag(a: LedgerApplication) {
   if (a.interviewResult === 'PASS') return 'tag-ok'
   if (a.interviewResult === 'FAIL') return 'tag-danger'
-  return ACTIVE.includes(a.status) ? 'tag-info' : 'tag-mute'
+  return ACTIVE.includes(a.status) ? 'tag-temp' : 'tag-muted'
 }
 </script>
 
@@ -121,7 +122,7 @@ function interviewTag(a: LedgerApplication) {
           <section v-for="w in works" :key="w.employmentId" class="acard">
             <div class="row-b">
               <b class="ttl">{{ w.projectName || w.jobTitle || w.companyName }}</b>
-              <span class="tag" :class="w.endDate ? 'tag-mute' : 'tag-ok'">{{ w.endDate ? '已离职' : '在岗' }}</span>
+              <span class="tag" :class="w.endDate ? 'tag-muted' : 'tag-ok'">{{ w.endDate ? '已离职' : '在岗' }}</span>
             </div>
             <div class="t-sm sub">{{ w.companyName }}<template v-if="w.jobTitle && w.projectName"> · {{ w.jobTitle }}</template></div>
             <div class="t-xs num meta">{{ w.startDate }} 至 {{ w.endDate ?? '今' }} · 共 {{ w.days }} 天</div>

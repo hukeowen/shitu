@@ -75,6 +75,18 @@ export function fmtYuan(n: number | string | null | undefined, sign = false): st
   return `${v < 0 ? '−' : v > 0 ? '+' : ''}¥${s}`
 }
 
+/** 扣款金额：带减号的两位小数；0 显示为 0.00（不出现 −0.00） */
+export function fmtMinus(n: number | string | null | undefined): string {
+  const v = Math.abs(Number(n) || 0)
+  return v >= 0.005 ? `−${fmtAmount(v)}` : fmtAmount(0)
+}
+
+/** 扣款金额（带 ¥）：−¥982.50；0 显示为 ¥0.00 */
+export function fmtMinusYuan(n: number | string | null | undefined): string {
+  const v = Math.abs(Number(n) || 0)
+  return v >= 0.005 ? `−¥${fmtAmount(v)}` : `¥${fmtAmount(0)}`
+}
+
 /** 2026-07 → 2026 年 7 月 */
 export function fmtMonth(m: string | null | undefined): string {
   const r = /^(\d{4})-(\d{1,2})/.exec(m ?? '')

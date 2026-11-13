@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { errorMessage, useDict, type CompanyStatus } from '@shitu/api-client'
@@ -22,9 +22,17 @@ const copy = computed(() => {
       return { icon: 'warning-o', tone: 'danger', title: '公司入驻未通过', desc: '请联系公司管理员在电脑端公司后台修改资料后重新提交。' }
     case 'BANNED':
       return { icon: 'warning-o', tone: 'danger', title: '公司账号已被限制使用', desc: '如有疑问请联系公司管理员或平台客服。' }
+    case 'DEREGISTERED':
+      return { icon: 'info-o', tone: 'info', title: '公司已注销', desc: '公司账号已注销，业务功能不再可用。如有疑问请联系平台客服。' }
+    case 'BANKRUPT':
+      return { icon: 'info-o', tone: 'info', title: '公司已停止经营', desc: '公司已登记为停止经营，业务功能不再可用。如有疑问请联系平台客服。' }
     default:
       return { icon: 'info-o', tone: 'info', title: '公司暂不可使用业务功能', desc: '如有疑问请联系公司管理员。' }
   }
+})
+// 公司可正常使用（正常 / 限流）时不该停在本页：路由守卫已拦截，这里兜底（例如停留期间状态恢复）
+watchEffect(() => {
+  if (auth.me && auth.operational) void router.replace('/')
 })
 const remark = computed(() => company.value?.auditRemark || company.value?.statusRemark || '')
 
@@ -80,7 +88,7 @@ async function logout() {
 </template>
 
 <style scoped>
-.notice { min-height: 100vh; padding: calc(48px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+.notice { box-sizing: border-box; min-height: 100vh; padding: calc(48px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
 .box { text-align: center; margin-bottom: 20px; }
 .ic { width: 70px; height: 70px; margin: 0 auto 16px; border-radius: 22px; display: grid; place-items: center; border: 1px solid; }
 .warn .ic { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }

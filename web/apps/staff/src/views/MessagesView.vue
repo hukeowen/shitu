@@ -18,6 +18,7 @@ const error = ref(false)
 const errorText = ref('')
 const refreshing = ref(false)
 const markingAll = ref(false)
+const total = ref(0)
 let page = 0
 let seq = 0
 
@@ -28,6 +29,7 @@ async function loadMore() {
     if (my !== seq) return
     page += 1
     rows.value = [...rows.value, ...r.records]
+    total.value = r.total
     finished.value = rows.value.length >= r.total || r.records.length < PAGE_SIZE
   } catch (e) {
     if (my !== seq) return
@@ -45,6 +47,7 @@ function reset() {
   seq += 1
   page = 0
   rows.value = []
+  total.value = 0
   error.value = false
   finished.value = false
   loading.value = true
@@ -52,6 +55,13 @@ function reset() {
   void loadMore()
 }
 reset()
+
+/** 滚动到底会自动加载；同时给出可点的「加载更多」，不依赖滚动触发 */
+function manualLoad() {
+  if (loading.value || finished.value) return
+  loading.value = true
+  void loadMore()
+}
 
 function patchRead(ids: number[] | 'all') {
   rows.value = rows.value.map((m) => (ids === 'all' || ids.includes(m.id) ? { ...m, read: true } : m))
@@ -105,7 +115,8 @@ function back() {
         :finished="finished"
         :immediate-check="false"
         :error-text="`${errorText || '加载失败'}，点击重试`"
-        :finished-text="rows.length ? '没有更多了' : ''"
+        loading-text="加载中…"
+        :finished-text="rows.length ? `没有更多了 · 共 ${total} 条` : ''"
         @load="loadMore"
       >
         <div v-if="rows.length" class="list">
@@ -123,6 +134,9 @@ function back() {
           </button>
         </div>
         <van-empty v-else-if="finished && !error" description="暂无消息" />
+        <button v-if="rows.length && !finished && !loading && !error" type="button" class="more" @click="manualLoad">
+          加载更多（已显示 {{ rows.length }} / {{ total }} 条）
+        </button>
       </van-list>
     </van-pull-refresh>
   </div>
@@ -145,4 +159,5 @@ function back() {
 .tm { margin-left: auto; flex: none; }
 .ct { margin-top: 4px; font-size: 12.5px; color: var(--ink-500); line-height: 1.6; word-break: break-all; }
 .chev { color: var(--ink-300); margin-top: 4px; flex: none; }
+.more { display: block; width: 100%; padding: 4px 0 calc(18px + env(safe-area-inset-bottom)); border: 0; background: transparent; font-size: 13px; color: var(--signal-700); text-align: center; }
 </style>

@@ -5,7 +5,7 @@ import { errorMessage, opsApi, type BillingRuleRow } from '@shitu/api-client'
 import { confirmAction } from '@/composables/useRemark'
 import { BILLING_SUPER_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
-import { fmtDate, fmtDateTime, todayStr } from '@/utils/format'
+import { fmtDate, fmtDateTime, fmtMoney, fmtOperator, fmtPct, todayStr } from '@/utils/format'
 
 /** P-09 计费规则：版本化（生效日期），只能从明天及以后生效；新增仅超管 */
 const auth = useAuthStore()
@@ -36,7 +36,8 @@ function stateOf(r: BillingRuleRow): { label: string; cls: string } {
   if (current.value && r.version === current.value.version) return { label: '生效中', cls: 'tag--ok' }
   return { label: '已失效', cls: '' }
 }
-const pct = (v: number | string) => `${Math.round(Number(v) * 10000) / 100}%`
+const pct = fmtPct
+const toPct = (v: number | string) => Math.round(Number(v) * 10000) / 100
 
 // ---------- 新增
 function tomorrow(): string {
@@ -49,7 +50,8 @@ const dlg = reactive({
   visible: false,
   loading: false,
   error: '',
-  form: { effectiveFrom: '', serviceUnitPrice: 0.1, transferUnitPrice: 10, supplyShare: 0.8, freeMonths: 3 },
+  /** supplySharePct：界面按百分比录入（80 = 80%），提交时换算成后端的小数比例 */
+  form: { effectiveFrom: '', serviceUnitPrice: 0.1, transferUnitPrice: 10, supplySharePct: 80, freeMonths: 3 },
 })
 function openAdd() {
   const c = current.value
@@ -57,12 +59,13 @@ function openAdd() {
     effectiveFrom: tomorrow(),
     serviceUnitPrice: c ? Number(c.serviceUnitPrice) : 0.1,
     transferUnitPrice: c ? Number(c.transferUnitPrice) : 10,
-    supplyShare: c ? Number(c.supplyShare) : 0.8,
+    supplySharePct: c ? toPct(c.supplyShare) : 80,
     freeMonths: c ? c.freeMonths : 3,
   }
   dlg.error = ''
   dlg.visible = true
 }
+const platformPct = computed(() => Math.round((100 - (dlg.form.supplySharePct ?? 0)) * 100) / 100)
 const disableDate = (d: Date) => d.getTime() < new Date(`${tomorrow()}T00:00:00`).getTime()
 async function submit() {
   const f = dlg.form
@@ -72,14 +75,20 @@ async function submit() {
   }
   const ok = await confirmAction(
     '新增计费规则版本',
-    `自 ${f.effectiveFrom} 起：服务费 ${f.serviceUnitPrice} 元/人/天、流转费 ${f.transferUnitPrice} 元/人/天、供给方分成 ${pct(f.supplyShare)}、免费期 ${f.freeMonths} 个月。历史计费不受影响，确定新增？`,
+    `自 ${f.effectiveFrom} 起：服务费 ${fmtMoney(f.serviceUnitPrice)} 元/人/天、流转费 ${fmtMoney(f.transferUnitPrice)} 元/人/天、供给方分成 ${f.supplySharePct}%（平台抽佣 ${platformPct.value}%）、免费期 ${f.freeMonths} 个月。历史计费不受影响，确定新增？`,
     true,
   )
   if (!ok) return
   dlg.loading = true
   dlg.error = ''
   try {
-    const v = await opsApi.addBillingRule({ ...f })
+    const v = await opsApi.addBillingRule({
+      effectiveFrom: f.effectiveFrom,
+      serviceUnitPrice: f.serviceUnitPrice,
+      transferUnitPrice: f.transferUnitPrice,
+      supplyShare: Math.round((f.supplySharePct ?? 0) * 100) / 10000,
+      freeMonths: f.freeMonths,
+    })
     ElMessage.success(`已新增规则 v${v}`)
     dlg.visible = false
     await load()
@@ -105,12 +114,12 @@ async function submit() {
     <div class="grid g-4 stats">
       <div class="stat">
         <div class="stat-l">增长技术服务费</div>
-        <div class="stat-v">{{ current ? current.serviceUnitPrice : '—' }}<small class="u">元/人/天</small></div>
+        <div class="stat-v">{{ current ? fmtMoney(current.serviceUnitPrice) : '—' }}<small class="u">元/人/天</small></div>
         <div class="stat-d">按存量基数外的增量在岗人数计</div>
       </div>
       <div class="stat">
         <div class="stat-l">人才流转费</div>
-        <div class="stat-v">{{ current ? current.transferUnitPrice : '—' }}<small class="u">元/人/天</small></div>
+        <div class="stat-v">{{ current ? fmtMoney(current.transferUnitPrice) : '—' }}<small class="u">元/人/天</small></div>
         <div class="stat-d">接收方按流转人员在岗天数支付</div>
       </div>
       <div class="stat">
@@ -136,12 +145,12 @@ async function submit() {
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><span class="tag" :class="stateOf(row).cls">{{ stateOf(row).label }}</span></template>
         </el-table-column>
-        <el-table-column label="服务费（元/人/天）" min-width="140" align="right"><template #default="{ row }"><span class="mono">{{ row.serviceUnitPrice }}</span></template></el-table-column>
-        <el-table-column label="流转费（元/人/天）" min-width="140" align="right"><template #default="{ row }"><span class="mono">{{ row.transferUnitPrice }}</span></template></el-table-column>
+        <el-table-column label="服务费（元/人/天）" min-width="140" align="right"><template #default="{ row }"><span class="mono">{{ fmtMoney(row.serviceUnitPrice) }}</span></template></el-table-column>
+        <el-table-column label="流转费（元/人/天）" min-width="140" align="right"><template #default="{ row }"><span class="mono">{{ fmtMoney(row.transferUnitPrice) }}</span></template></el-table-column>
         <el-table-column label="供给方分成" width="110" align="right"><template #default="{ row }"><span class="mono">{{ pct(row.supplyShare) }}</span></template></el-table-column>
         <el-table-column label="免费期" width="90" align="right"><template #default="{ row }"><span class="mono">{{ row.freeMonths }} 个月</span></template></el-table-column>
         <el-table-column label="创建" min-width="160">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span><div class="t-xs mono">{{ row.createdBy ?? '系统' }}</div></template>
+          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span><div class="t-xs">{{ fmtOperator(row.createdBy) }}</div></template>
         </el-table-column>
         <template #empty>
           <el-empty v-if="error" :image-size="64" :description="error"><el-button size="small" @click="load">重试</el-button></el-empty>
@@ -165,8 +174,8 @@ async function submit() {
           <span class="unit">元/人/天</span>
         </el-form-item>
         <el-form-item label="供给方分成比例" required>
-          <el-input-number v-model="dlg.form.supplyShare" :min="0" :max="1" :step="0.05" :precision="2" />
-          <span class="unit">平台抽佣 {{ pct(1 - (dlg.form.supplyShare ?? 0)) }}</span>
+          <el-input-number v-model="dlg.form.supplySharePct" :min="0" :max="100" :step="5" :precision="0" />
+          <span class="unit">%　平台抽佣 {{ platformPct }}%</span>
         </el-form-item>
         <el-form-item label="新入驻免费期" required>
           <el-input-number v-model="dlg.form.freeMonths" :min="0" :max="24" :step="1" />

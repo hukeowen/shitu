@@ -1,7 +1,10 @@
 /* 驻场端通用样式：移植自 prototype/assets/css/app.css + core.css，仅使用 ui-tokens 变量 */
 html, body { background: var(--surface-2); min-height: 100%; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
 body { -webkit-tap-highlight-color: transparent; }
-#app { min-height: 100vh; max-width: 750px; margin: 0 auto; background: var(--surface-2); }
+:root { --tabbar-h: 0px; }
+/* 有底部标签栏的页面（App.vue 切换）：50px 为 Vant 标签栏高度 */
+:root.has-tabbar { --tabbar-h: calc(50px + env(safe-area-inset-bottom)); }
+#app { box-sizing: border-box; min-height: 100vh; padding-bottom: var(--tabbar-h); max-width: 750px; margin: 0 auto; background: var(--surface-2); }
 button { font: inherit; color: inherit; }
 h1, h2, h3, h4, p, ul, ol, dl, dd { margin: 0; padding: 0; }
 ul, ol { list-style: none; }
@@ -96,3 +99,7 @@ ul, ol { list-style: none; }
 
 .btn-cta { height: 46px !important; font-size: 15px !important; border-radius: 12px !important; font-weight: 600; }
 .page-bottom-gap { height: calc(16px + env(safe-area-inset-bottom)); }
+/* 标签栏已含安全区 */
+:root.has-tabbar .page-bottom-gap { height: 12px; }
+.nowrap { white-space: nowrap; }
+.t-muted { color: var(--ink-400); }

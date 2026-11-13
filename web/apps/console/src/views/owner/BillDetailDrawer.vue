@@ -82,28 +82,28 @@ function summary({ columns, data }: SummaryParam): string[] {
 
         <div class="form-sec" style="margin-top: 18px">每日计费明细<span class="t-xs" style="font-weight: 400">（{{ days.length }} 天{{ freeDays ? `，其中免费期 ${freeDays} 天` : '' }}）</span></div>
         <el-table :data="days" size="small" max-height="380" show-summary :summary-method="summary" row-key="bizDate">
-          <el-table-column label="日期" width="100" prop="bizDate">
+          <el-table-column label="日期" min-width="90" prop="bizDate">
             <template #default="{ row }"><span class="mono">{{ row.bizDate.slice(5) }}</span></template>
           </el-table-column>
-          <el-table-column label="" width="70">
+          <el-table-column label="" min-width="76">
             <template #default="{ row }"><span v-if="row.inFreePeriod" class="tag tag--ok">免费期</span></template>
           </el-table-column>
-          <el-table-column label="在岗" width="64" align="right" prop="employedCount">
+          <el-table-column label="在岗" min-width="64" align="right" prop="employedCount">
             <template #default="{ row }"><span class="num">{{ row.employedCount }}</span></template>
           </el-table-column>
-          <el-table-column label="存量" width="64" align="right" prop="stockBase">
+          <el-table-column label="存量" min-width="64" align="right" prop="stockBase">
             <template #default="{ row }"><span class="num dim">{{ row.stockBase }}</span></template>
           </el-table-column>
-          <el-table-column label="增量" width="64" align="right" prop="incrementCount">
+          <el-table-column label="增量" min-width="64" align="right" prop="incrementCount">
             <template #default="{ row }"><span class="num" style="color: var(--signal)">{{ row.incrementCount }}</span></template>
           </el-table-column>
-          <el-table-column label="服务费" min-width="96" align="right" prop="serviceFee">
+          <el-table-column label="服务费" min-width="104" align="right" prop="serviceFee">
             <template #default="{ row }"><span class="num">{{ fmtYuan(row.serviceFee) }}</span></template>
           </el-table-column>
-          <el-table-column label="流转应付" min-width="96" align="right" prop="transferPayable">
+          <el-table-column label="流转应付" min-width="104" align="right" prop="transferPayable">
             <template #default="{ row }"><span class="num">{{ fmtYuan(row.transferPayable) }}</span></template>
           </el-table-column>
-          <el-table-column label="流转应收" min-width="96" align="right" prop="transferReceivable">
+          <el-table-column label="流转应收" min-width="104" align="right" prop="transferReceivable">
             <template #default="{ row }"><span class="num">{{ fmtYuan(row.transferReceivable) }}</span></template>
           </el-table-column>
           <template #empty><span class="t-xs">暂无每日明细</span></template>
@@ -126,6 +126,9 @@ function summary({ columns, data }: SummaryParam): string[] {
 </template>
 
 <style scoped>
-.money { font-size: 20px; }
+.money { font-size: 20px; white-space: nowrap; }
+/* 合计行：与正文同字号并加粗，金额不折行 */
+:deep(.el-table__footer-wrapper td.el-table__cell) { background: var(--surface-2); border-top: 1px solid var(--line-2); }
+:deep(.el-table__footer-wrapper td.el-table__cell .cell) { font-size: 13.5px; font-weight: 650; color: var(--ink-900); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dispute { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 8px; }
 </style>

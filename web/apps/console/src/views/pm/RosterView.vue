@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RowActions from '@/components/RowActions.vue'
+import { opsColWidth, type RowAction } from '@/utils/rowActions'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox, genFileId, type UploadFile, type UploadInstance, type UploadRawFile } from 'element-plus'
 import { errorMessage, tenantApi, type MemberView, type RosterBatch, type RosterBatchResult } from '@shitu/api-client'
@@ -106,6 +108,10 @@ async function doImport() {
     importing.value = false
   }
 }
+
+/** 只有存在失败行的批次才有「下载失败行」；都成功时不渲染操作列 */
+const batchActions = (b: RosterBatch): RowAction[] => (b.failedRows > 0 ? [{ key: 'failed', label: '下载失败行', link: true }] : [])
+const batchOpsWidth = computed(() => opsColWidth(batches.value.map(batchActions)))
 </script>
 
 <template>
@@ -168,7 +174,7 @@ async function doImport() {
                 <el-button size="small" type="primary" plain :loading="downloading === result.batchId" @click="download(result.batchId)">下载失败行</el-button>
               </div>
               <el-table :data="failedRows" size="small" max-height="320" row-key="rowNo">
-                <el-table-column label="行号" width="80"><template #default="{ row }"><span class="mono">{{ row.rowNo }}</span></template></el-table-column>
+                <el-table-column label="行号" min-width="80"><template #default="{ row }"><span class="mono">{{ row.rowNo }}</span></template></el-table-column>
                 <el-table-column label="失败原因" min-width="260"><template #default="{ row }"><span class="t-sm" style="color: var(--danger)">{{ row.error || '—' }}</span></template></el-table-column>
               </el-table>
             </template>
@@ -195,17 +201,15 @@ async function doImport() {
       <div class="card__hd"><h3>导入记录</h3><el-button size="small" @click="loadBatches">刷新</el-button></div>
       <el-alert v-if="batchesError" type="error" :title="batchesError" show-icon :closable="false" />
       <el-table v-loading="batchesLoading" :data="batches" row-key="batchId">
-        <el-table-column label="批次" min-width="160"><template #default="{ row }"><span class="mono t-sm">{{ row.batchId }}</span></template></el-table-column>
-        <el-table-column label="导入时间" width="150"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
-        <el-table-column label="总行数" width="80" align="center"><template #default="{ row }"><span class="num">{{ row.totalRows }}</span></template></el-table-column>
-        <el-table-column label="成功" width="80" align="center"><template #default="{ row }"><span class="num" style="color: var(--ok)">{{ row.successRows }}</span></template></el-table-column>
-        <el-table-column label="失败" width="80" align="center"><template #default="{ row }"><span class="num" :style="{ color: row.failedRows ? 'var(--danger)' : undefined }">{{ row.failedRows }}</span></template></el-table-column>
-        <el-table-column label="计费口径" width="120"><template #default="{ row }"><span class="tag" :class="row.inFreePeriod ? 'tag--ok' : 'tag--warn'">{{ row.inFreePeriod ? '存量' : '增量' }}</span></template></el-table-column>
-        <el-table-column label="操作人" width="110"><template #default="{ row }"><span class="t-sm">{{ memberName(row.operatorId) }}</span></template></el-table-column>
-        <el-table-column label="" width="120" align="right">
-          <template #default="{ row }">
-            <el-button v-if="row.failedRows > 0" size="small" link type="primary" :loading="downloading === row.batchId" @click="download(row.batchId)">下载失败行</el-button>
-          </template>
+        <el-table-column label="批次" min-width="170" show-overflow-tooltip><template #default="{ row }"><span class="mono t-sm">{{ row.batchId }}</span></template></el-table-column>
+        <el-table-column label="导入时间" min-width="156"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="总行数" min-width="80" align="center"><template #default="{ row }"><span class="num">{{ row.totalRows }}</span></template></el-table-column>
+        <el-table-column label="成功" min-width="80" align="center"><template #default="{ row }"><span class="num" style="color: var(--ok)">{{ row.successRows }}</span></template></el-table-column>
+        <el-table-column label="失败" min-width="80" align="center"><template #default="{ row }"><span class="num" :style="{ color: row.failedRows ? 'var(--danger)' : undefined }">{{ row.failedRows }}</span></template></el-table-column>
+        <el-table-column label="计费口径" min-width="120"><template #default="{ row }"><span class="tag" :class="row.inFreePeriod ? 'tag--ok' : 'tag--warn'">{{ row.inFreePeriod ? '存量' : '增量' }}</span></template></el-table-column>
+        <el-table-column label="操作人" min-width="110"><template #default="{ row }"><span class="t-sm">{{ memberName(row.operatorId) }}</span></template></el-table-column>
+        <el-table-column v-if="batchOpsWidth" label="操作" :width="batchOpsWidth" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><RowActions :actions="batchActions(row)" :loading="downloading === row.batchId" @act="download(row.batchId)" /></template>
         </el-table-column>
         <template #empty><el-empty :image-size="70" :description="batchesError ? '加载失败' : '暂无导入记录'" /></template>
       </el-table>

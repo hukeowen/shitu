@@ -114,10 +114,12 @@ function toCredit(id: string) {
         <el-table-column label="投诉属实" width="90" align="right">
           <template #default="{ row }"><span class="mono" :class="row.complaintVerified > 0 ? 'warn-t' : 'dim'">{{ row.complaintVerified }}</span></template>
         </el-table-column>
-        <el-table-column label="公司诚信 / 处罚" min-width="170">
+        <el-table-column label="公司诚信 / 处罚" min-width="220">
           <template #default="{ row }">
-            <span class="mono">{{ row.creditScore }}</span>
-            <span v-if="row.penaltyLevel > 0" class="tag ml" :class="PENALTY_LEVELS[row.penaltyLevel]?.cls">{{ penaltyLabel(row.penaltyLevel) }}</span>
+            <span class="t-sm">诚信分 <b class="num">{{ row.creditScore }}</b></span>
+            <span class="dim"> · </span>
+            <span v-if="row.penaltyLevel > 0" class="tag" :class="PENALTY_LEVELS[row.penaltyLevel]?.cls">{{ penaltyLabel(row.penaltyLevel) }}</span>
+            <span v-else class="t-sm dim">无处罚</span>
             <span v-if="truthy(row.feeRightsRevoked)" class="tag tag--danger ml">收费权限已取消</span>
           </template>
         </el-table-column>

@@ -4,14 +4,20 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceRow } from '@shitu/api-client'
 import ReasonDialog from '@/components/ReasonDialog.vue'
-import { ADVANCE_TAG, canSiteReview, siteReview } from '@/utils/advance'
+import { useAuthStore } from '@/stores/auth'
+import { ADVANCE_TAG, advanceWording, approveText, canApprove, canReject, canReview, reviewAdvance } from '@/utils/advance'
 import { fmtTime, fmtYuan } from '@/utils/time'
 
-/** M-11 薪酬预支初审：本人发起 → 驻场初审 → 项目经理终审 → 拨款（驳回退回机会） */
+/**
+ * M-11 薪酬预支审批：本人发起 → 驻场初审 → 项目经理终审 → 拨款（驳回退回机会）。
+ * 驻场看到待初审（SUBMITTED），项目经理看到待终审（SITE_APPROVED）；能否处理完全按后端 allowedActions，文案随角色。
+ */
 type TabKey = 'todo' | 'all'
 const route = useRoute()
 const router = useRouter()
 const { label } = useDict()
+const auth = useAuthStore()
+const wording = computed(() => advanceWording(auth.me?.roles))
 const tab = ref<TabKey>(route.query.tab === 'all' ? 'all' : 'todo')
 watch(tab, (t) => void router.replace({ query: { ...route.query, tab: t === 'all' ? 'all' : undefined } }))
 
@@ -41,13 +47,13 @@ async function onRefresh() {
   }
 }
 
-const todo = computed(() => rows.value.filter(canSiteReview))
+const todo = computed(() => rows.value.filter(canReview))
 const shown = computed(() => (tab.value === 'todo' ? todo.value : rows.value))
 const nowDate = shNow()
 
 const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(a: AdvanceRow, approve: boolean) {
-  if (await siteReview(dialog.value, a, approve, fmtYuan(a.amount))) void load()
+  if (await reviewAdvance(dialog.value, a, approve, fmtYuan(a.amount))) void load()
 }
 
 function back() {
@@ -58,11 +64,11 @@ function back() {
 
 <template>
   <div class="adv">
-    <van-nav-bar title="预支初审" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
+    <van-nav-bar :title="wording.title" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
     <div class="sticky">
       <div class="atabs" role="tablist">
         <button type="button" role="tab" :aria-selected="tab === 'todo'" :class="{ on: tab === 'todo' }" @click="tab = 'todo'">
-          待初审<span v-if="!loading" class="mono n">{{ todo.length }}</span>
+          {{ wording.todoTab }}<span v-if="!loading" class="mono n">{{ todo.length }}</span>
         </button>
         <button type="button" role="tab" :aria-selected="tab === 'all'" :class="{ on: tab === 'all' }" @click="tab = 'all'">
           全部记录<span v-if="!loading" class="mono n">{{ rows.length }}</span>
@@ -78,7 +84,10 @@ function back() {
           <van-button round type="primary" size="small" @click="load">重新加载</van-button>
         </van-empty>
         <template v-else>
-          <p v-if="tab === 'todo' && todo.length" class="note">流程：本人发起 → <b>驻场初审</b> → 项目经理终审 → 拨款。驳回后本次机会退回给求职者。</p>
+          <p v-if="tab === 'todo' && todo.length" class="note">
+            流程：本人发起 → <component :is="wording.step === 'SITE' ? 'b' : 'span'">驻场初审</component> →
+            <component :is="wording.step === 'PM' ? 'b' : 'span'">项目经理终审</component> → 拨款。驳回后本次机会退回给求职者。
+          </p>
           <article v-for="a in shown" :key="a.advanceId" class="acard row-card">
             <router-link :to="`/advance/${a.advanceId}`" class="head">
               <div class="avatar avatar--o">{{ (a.seekerName ?? '?').slice(0, 1) }}</div>
@@ -96,12 +105,12 @@ function back() {
               <div class="kv"><dt>所属月份</dt><dd class="num">{{ a.bizMonth }}</dd></div>
               <div class="kv"><dt>申请单号</dt><dd class="num">{{ a.advanceId }}</dd></div>
             </dl>
-            <div v-if="canSiteReview(a)" class="acts">
-              <van-button v-if="a.allowedActions.includes('SITE_REJECT')" size="small" class="act" @click="review(a, false)">驳回</van-button>
-              <van-button v-if="a.allowedActions.includes('SITE_APPROVE')" size="small" type="primary" class="act act--main" @click="review(a, true)">初审通过</van-button>
+            <div v-if="canReview(a)" class="acts">
+              <van-button v-if="canReject(a)" size="small" class="act" @click="review(a, false)">驳回</van-button>
+              <van-button v-if="canApprove(a)" size="small" type="primary" class="act act--main" @click="review(a, true)">{{ approveText(a) }}</van-button>
             </div>
           </article>
-          <van-empty v-if="!shown.length" image="search" :description="tab === 'todo' ? '暂无待你初审的预支申请' : '暂无预支记录'" />
+          <van-empty v-if="!shown.length" image="search" :description="tab === 'todo' ? wording.empty : '暂无预支记录'" />
         </template>
         <div class="page-bottom-gap" />
       </div>
@@ -119,8 +128,8 @@ function back() {
 .atabs .n { margin-left: 4px; font-size: 11px; opacity: .8; }
 .pr { min-height: calc(100vh - 100px); }
 .head { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.head b { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink-900); }
-.head span { display: block; font-size: 11.5px; color: var(--ink-400); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.head .flex1 b { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink-900); }
+.head .flex1 span { display: block; font-size: 11.5px; color: var(--ink-400); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .amt { text-align: right; flex: none; display: grid; justify-items: end; gap: 3px; }
 .amt b { font-size: 17px; color: var(--signal-700); }
 .head .amt .tag { display: inline-flex; margin-top: 0; }

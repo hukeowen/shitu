@@ -3,11 +3,13 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, type BillDetail, type BillDispute } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
+import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmAction } from '@/composables/useRemark'
 import { fmtDate, fmtDateTime, fmtMoney, fmtNum } from '@/utils/format'
 
 const props = defineProps<{ billId: string | null }>()
 const emit = defineEmits<{ close: []; changed: [] }>()
+const { companyName } = useCompanyNames()
 
 const visible = computed({
   get: () => props.billId != null,
@@ -119,7 +121,7 @@ async function submitReply() {
         </div>
 
         <dl class="kv-grid">
-          <div class="kv"><dt>公司</dt><dd class="mono">{{ b.companyId }}</dd></div>
+          <div class="kv"><dt>公司</dt><dd>{{ companyName(b.companyId) }} <span class="mono dim">{{ b.companyId }}</span></dd></div>
           <div class="kv"><dt>账单月份</dt><dd class="mono">{{ b.billMonth }}</dd></div>
           <div class="kv"><dt>下发时间</dt><dd class="mono">{{ fmtDateTime(b.issuedAt) }}</dd></div>
           <div class="kv"><dt>异议截止</dt><dd class="mono">{{ fmtDate(b.disputeDeadline) }}</dd></div>

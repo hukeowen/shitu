@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type ApplicationStatus, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
 import AppActionButtons from '@/components/site/AppActionButtons.vue'
+import { appOpsWidth } from '@/components/site/appActions'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import ApplicantInsightDrawer from '@/components/site/ApplicantInsightDrawer.vue'
 import CountdownTag from '@/components/CountdownTag.vue'
@@ -39,6 +40,8 @@ const loadError = ref('')
 const wb = ref<SiteWorkbench | null>(null)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
 
+/** 操作列宽度按当前角色实际可用的按钮计算；只读角色（老板）没有操作，不显示该列 */
+const opsWidth = computed(() => appOpsWidth(list.value))
 const current = computed(() => TABS.find((t) => t.key === tab.value) ?? TABS[0])
 
 async function load() {
@@ -129,45 +132,45 @@ function openInsight(row: SiteApplication) {
         <el-table-column label="#" width="48">
           <template #default="{ $index }"><span class="mono t-xs">{{ String((page.page - 1) * page.pageSize + $index + 1).padStart(2, '0') }}</span></template>
         </el-table-column>
-        <el-table-column label="求职者" min-width="130">
+        <el-table-column label="求职者" min-width="200">
           <template #default="{ row }">
             <button type="button" class="person-btn" title="查看画像、匹配记录与历史报名" @click="openInsight(row)">
-              <PersonCell :name="row.seekerName" :accent="!row.fromPublic" :sub="row.applicationId" />
+              <PersonCell :name="row.seekerName" :accent="!row.fromPublic" mono :sub="row.applicationId" />
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="手机号" width="130">
+        <el-table-column label="手机号" min-width="136">
           <template #default="{ row }">
             <span v-if="row.phone" class="mono t-sm">{{ fmtPhone(row.phone) }}</span>
-            <span v-else class="t-xs">{{ isSite ? '—' : '仅驻场可见' }}</span>
+            <span v-else class="t-xs nowrap">{{ isSite ? '—' : '仅驻场可见' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="应聘岗位" min-width="180">
+        <el-table-column label="应聘岗位" min-width="190">
           <template #default="{ row }">
-            <div class="t-sm strong">{{ row.jobTitle ?? '—' }}</div>
-            <div class="t-xs">{{ row.projectName }}</div>
+            <div class="t-sm strong clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
+            <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="来源" width="80">
+        <el-table-column label="来源" min-width="76">
           <template #default="{ row }"><span class="tag" :class="row.fromPublic ? 'tag--public' : 'tag--private'">{{ row.fromPublic ? '公域' : '私域' }}</span></template>
         </el-table-column>
-        <el-table-column label="报名 / 面试时间" width="172">
+        <el-table-column label="报名 / 面试时间" min-width="176">
           <template #default="{ row }">
             <div class="mono t-xs">报 {{ fmtDateTime(row.createdAt) }}</div>
             <div class="mono t-sm" :class="row.interviewAt ? 'strong' : 'dim'">面 {{ fmtDateTime(row.interviewAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="状态" min-width="140">
           <template #default="{ row }">
             <DictTag type="ApplicationStatus" :value="row.status" pill />
-            <div v-if="row.arrivedAt" class="t-xs" style="color: var(--ok)">已到厂 {{ fmtDateTime(row.arrivedAt).slice(5) }}</div>
-            <div v-else class="t-xs">{{ row.status === 'PENDING_INTERVIEW' ? (row.acknowledgedAt ? '已推送面试信息' : '未知悉') : row.contract?.status === 'PENDING_SIGN' || row.allowedActions.includes('RESEND_CONTRACT') ? '待求职者签署' : row.status === 'PENDING_CONFIRM' ? '待发起签约' : '' }}</div>
+            <div v-if="row.arrivedAt" class="t-xs nowrap" style="color: var(--ok)">已到厂 {{ fmtDateTime(row.arrivedAt).slice(5) }}</div>
+            <div v-else class="t-xs nowrap">{{ row.status === 'PENDING_INTERVIEW' ? (row.acknowledgedAt ? '已推送面试信息' : '未知悉') : row.contract?.status === 'PENDING_SIGN' || row.allowedActions.includes('RESEND_CONTRACT') ? '待求职者签署' : row.status === 'PENDING_CONFIRM' ? '待发起签约' : '' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="响应剩余" width="110">
+        <el-table-column label="响应剩余" min-width="112">
           <template #default="{ row }"><CountdownTag :deadline="row.responseDeadline" :now="now" /></template>
         </el-table-column>
-        <el-table-column label="操作" min-width="230" align="right" fixed="right">
+        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
           <template #default="{ row }"><AppActionButtons :app="row" @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
@@ -191,17 +194,14 @@ function openInsight(row: SiteApplication) {
     </div>
 
     <div class="grid g-3" style="margin-top: 14px">
-      <div class="card"><div class="card__bd">
-        <div class="eyebrow">脱敏与权限</div>
-        <p class="t-sm" style="margin-top: 6px; line-height: 1.8">姓名默认脱敏；<b class="strong">仅驻场角色可见完整手机号</b>。项目经理端自动隐藏手机号与证件号，「爽约」只能由驻场标记。</p>
+      <div class="card"><div class="card__hd"><h3>脱敏与权限</h3></div><div class="card__bd">
+        <p class="t-sm" style="line-height: 1.8">姓名默认脱敏；<b class="strong">仅驻场角色可见完整手机号</b>。项目经理端自动隐藏手机号与证件号，「爽约」只能由驻场标记。</p>
       </div></div>
-      <div class="card"><div class="card__bd">
-        <div class="eyebrow">取消权限</div>
-        <p class="t-sm" style="margin-top: 6px; line-height: 1.8">用户<b class="strong">无法自行取消报名</b>。误操作或需更换岗位时由驻场 / 项目经理在后台取消（必填原因），取消后用户可重新进入 AI 问薪。</p>
+      <div class="card"><div class="card__hd"><h3>取消权限</h3></div><div class="card__bd">
+        <p class="t-sm" style="line-height: 1.8">用户<b class="strong">无法自行取消报名</b>。误操作或需更换岗位时由驻场 / 项目经理在后台取消（必填原因），取消后用户可重新进入 AI 问薪。</p>
       </div></div>
-      <div class="card"><div class="card__bd">
-        <div class="eyebrow">面试未通过</div>
-        <p class="t-sm" style="margin-top: 6px; line-height: 1.8">报名前为本公司私域 → 回到「私域待匹配」并重开 24h 窗口；报名前为公域 → 回公域。爽约、超时一律释放到公域。</p>
+      <div class="card"><div class="card__hd"><h3>面试未通过</h3></div><div class="card__bd">
+        <p class="t-sm" style="line-height: 1.8">报名前为本公司私域 → 回到「私域待匹配」并重开 24h 窗口；报名前为公域 → 回公域。爽约、超时一律释放到公域。</p>
       </div></div>
     </div>
 
@@ -210,7 +210,7 @@ function openInsight(row: SiteApplication) {
 </template>
 
 <style scoped>
-.person-btn { all: unset; cursor: pointer; display: block; border-radius: var(--r-xs); }
+.person-btn { all: unset; cursor: pointer; display: block; max-width: 100%; border-radius: var(--r-xs); }
 .person-btn:hover { opacity: 0.8; }
 .person-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 </style>

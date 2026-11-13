@@ -262,9 +262,9 @@ watch(active, (t) => {
                 <el-input v-model="rel.remark" type="textarea" :rows="3" maxlength="200" show-word-limit placeholder="补充说明…" />
               </el-form-item>
             </el-form>
-            <dl class="kv"><dt>当前归属（bound）</dt><dd>本公司 → <span style="color: var(--danger)">清空</span></dd></dl>
+            <dl class="kv"><dt>当前归属</dt><dd>本公司 → <span style="color: var(--danger)">清空</span></dd></dl>
             <dl class="kv"><dt>公域 / 私域</dt><dd>私域 → <span class="tag tag--public">公域</span></dd></dl>
-            <dl class="kv"><dt>来源归属（source）</dt><dd style="color: var(--ok)">保持不变</dd></dl>
+            <dl class="kv"><dt>来源归属</dt><dd style="color: var(--ok)">保持不变</dd></dl>
             <dl class="kv"><dt>后续流转费</dt><dd>本公司得 8 元/人/天</dd></dl>
             <div style="margin-top: 14px; text-align: right">
               <el-button type="danger" :loading="rel.saving" @click="submitRelease">确认释放</el-button>

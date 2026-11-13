@@ -151,7 +151,9 @@ public class ReportService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("days", days);
         m.put("from", from.toString());
-        m.put("opened", count("SELECT COUNT(DISTINCT user_id) FROM quiz_open WHERE biz_date >= ?", Date.valueOf(from)));
+        // 提交过答案的人一定打开过答题页（旧数据、接口直连没有打开记录），并进来保证漏斗逐级递减
+        m.put("opened", count("SELECT COUNT(*) FROM (SELECT user_id FROM quiz_open WHERE biz_date >= ? "
+                + "UNION SELECT user_id FROM match_session WHERE started_at >= ?) t", Date.valueOf(from), Date.valueOf(from)));
         m.put("submitted", count("SELECT COUNT(DISTINCT user_id) FROM match_session WHERE started_at >= ?", Date.valueOf(from)));
         m.put("matched", count("SELECT COUNT(DISTINCT user_id) FROM match_session WHERE started_at >= ? AND status = 'MATCHED'", Date.valueOf(from)));
         m.put("applied", count("SELECT COUNT(DISTINCT a.user_id) FROM application a JOIN match_session s ON s.session_id = a.match_session_id "

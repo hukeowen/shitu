@@ -59,7 +59,7 @@ export const FIELDS: FieldMeta[] = [
     ],
   },
   { field: 'expect_job_type', label: '期望工种', desc: '软打分：工种匹配因子', kind: 'enum', values: fromDict('JobType', ['ELECTRONICS', 'GENERAL', 'WAREHOUSE', 'MACHINING', 'QC'], [{ value: 'ANY', label: '都可以' }]) },
-  { field: 'expect_salary', label: '期望薪资', desc: '软打分：薪资区间重叠度，选项填 min / max（元/月）', kind: 'range' },
+  { field: 'expect_salary', label: '期望薪资', desc: '软打分：薪资区间重叠度，选项填最低 / 最高金额（元/月）', kind: 'range' },
   { field: 'shift_pref', label: '班次', desc: '软打分：班次匹配因子', kind: 'enum', values: fromDict('ShiftType', ['DAY', 'TWO_SHIFT', 'NIGHT', 'LONG_DAY']) },
   {
     field: 'dorm_req',
@@ -73,7 +73,7 @@ export const FIELDS: FieldMeta[] = [
       { value: 'NONE', label: '不需要住宿' },
     ],
   },
-  { field: 'work_years', label: '经验', desc: '软打分：从业年限，value 填整数年限', kind: 'number' },
+  { field: 'work_years', label: '经验', desc: '软打分：从业年限，每个选项填整数年限', kind: 'number' },
 ]
 
 export const REQUIRED_FIELDS: ProfileField[] = ['accept_factory', 'locked_region']
@@ -256,8 +256,8 @@ export function validate(qs: EditQuestion[]): Issue[] {
       labels.add(label)
       if (!meta) return
       if (meta.kind === 'range') {
-        if (o.min == null || o.max == null) issues.push({ q: i, msg: `${on} 薪资题需填写 min / max`, warn: true })
-        else if (o.min > o.max) issues.push({ q: i, msg: `${on} min 不能大于 max` })
+        if (o.min == null || o.max == null) issues.push({ q: i, msg: `${on} 薪资题需填写最低 / 最高金额`, warn: true })
+        else if (o.min > o.max) issues.push({ q: i, msg: `${on} 最低金额不能大于最高金额` })
       } else if (meta.kind === 'number') {
         if (!o.value.trim()) issues.push({ q: i, msg: `${on} 未填年限，按 0 年计`, warn: true })
         else if (!/^\d{1,2}$/.test(o.value.trim())) issues.push({ q: i, msg: `${on} 年限需为 0–99 的整数` })
@@ -269,10 +269,10 @@ export function validate(qs: EditQuestion[]): Issue[] {
       }
     })
     if (q.profileField === 'locked_region' && !q.options.some((o) => o.needRegion && o.value.trim() === 'LOCKED'))
-      issues.push({ q: i, msg: `${n} 地域锁定题应有一个 value=LOCKED 且勾选「需选城市」的选项`, warn: true })
+      issues.push({ q: i, msg: `${n} 地域锁定题应有一个画像值为「锁定城市」且勾选「需选城市」的选项`, warn: true })
   })
   for (const f of REQUIRED_FIELDS) {
-    if (!fields.has(f)) issues.push({ q: -1, msg: `必须包含「${fieldLabel(f)}」题（${f}）` })
+    if (!fields.has(f)) issues.push({ q: -1, msg: `必须包含「${fieldLabel(f)}」题` })
   }
   return issues
 }

@@ -3,10 +3,10 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceDetail } from '@shitu/api-client'
 import ReasonDialog from '@/components/ReasonDialog.vue'
-import { ADVANCE_TAG, DECISION_TEXT, LEDGER_TEXT, STEP_TEXT, canSiteReview, siteReview } from '@/utils/advance'
+import { ADVANCE_TAG, DECISION_TEXT, LEDGER_TEXT, STEP_TEXT, approveText, canApprove, canReject, canReview, reviewAdvance } from '@/utils/advance'
 import { fmtFull, fmtYuan, parseLocal } from '@/utils/time'
 
-/** M-11 预支单笔详情：申请信息、逐级审批记录（节点 / 结论 / 意见 / 时间）、拨款与抵扣流水，可在此初审 */
+/** M-11 预支单笔详情：申请信息、逐级审批记录（节点 / 结论 / 意见 / 时间）、拨款与抵扣流水，可在此初审（驻场）/ 终审（项目经理） */
 const route = useRoute()
 const router = useRouter()
 const { label } = useDict()
@@ -45,7 +45,7 @@ const pendingSteps = computed(() => {
 const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(approve: boolean) {
   const a = adv.value
-  if (a && (await siteReview(dialog.value, a, approve, fmtYuan(a.amount)))) void load()
+  if (a && (await reviewAdvance(dialog.value, a, approve, fmtYuan(a.amount)))) void load()
 }
 
 function back() {
@@ -117,9 +117,9 @@ function back() {
       <div class="page-bottom-gap" />
     </div>
 
-    <div v-if="adv && canSiteReview(adv)" class="foot">
-      <van-button v-if="adv.allowedActions.includes('SITE_REJECT')" class="btn-cta f1" @click="review(false)">驳回</van-button>
-      <van-button v-if="adv.allowedActions.includes('SITE_APPROVE')" type="primary" class="btn-cta f2" @click="review(true)">初审通过</van-button>
+    <div v-if="adv && canReview(adv)" class="foot">
+      <van-button v-if="canReject(adv)" class="btn-cta f1" @click="review(false)">驳回</van-button>
+      <van-button v-if="canApprove(adv)" type="primary" class="btn-cta f2" @click="review(true)">{{ approveText(adv) }}</van-button>
     </div>
     <ReasonDialog ref="dialog" />
   </div>
