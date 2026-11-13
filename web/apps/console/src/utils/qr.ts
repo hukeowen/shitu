@@ -9,8 +9,19 @@ export const QR_COLOR = { dark: '#000000', light: '#FFFFFF' } as const
  */
 export const QR_POSTER = { size: 600, pad: 64 } as const
 
+/** 页面上显示的码自带 4 个模块的白边（标准静区），外面不再套框 */
+export const QR_SCREEN_MARGIN = 4
+
+/** 下载图用：码四周自带 1 个模块白边，外面再由 QR_POSTER.pad 补足静区 */
 export function qrDataUrl(text: string, width = 240): Promise<string> {
   return QRCode.toDataURL(text, { width, margin: 1, errorCorrectionLevel: 'M', color: { ...QR_COLOR } })
+}
+
+/** 页面上显示用：每个模块取整数个像素（不出现半个像素的码点），宽度不小于 minWidth，四周白边 QR_SCREEN_MARGIN 个模块 */
+export function qrScreenDataUrl(text: string, minWidth: number): Promise<string> {
+  const n = QRCode.create(text, { errorCorrectionLevel: 'M' }).modules.size
+  const scale = Math.max(1, Math.ceil(minWidth / (n + QR_SCREEN_MARGIN * 2)))
+  return QRCode.toDataURL(text, { scale, margin: QR_SCREEN_MARGIN, errorCorrectionLevel: 'M', color: { ...QR_COLOR } })
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

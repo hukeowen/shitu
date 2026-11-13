@@ -23,7 +23,7 @@ import {
 } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import PersonCell from '@/components/PersonCell.vue'
-import { boxSubmit, isBlocked } from '@/composables/boxSubmit'
+import { boxSubmit, isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDateTime, PHONE_RE } from '@/utils/format'
@@ -39,6 +39,7 @@ const roleOptions = computed(() => options('ActorRole').filter((o) => TENANT_ROL
 // ---------------------------------------------------------------- 列表
 const loading = ref(false)
 const loadError = ref('')
+const loadNet = ref(false)
 const members = ref<MemberView[]>([])
 /** 拿到过成员列表（没拿到时指标不显示数字） */
 const ready = ref(false)
@@ -46,7 +47,7 @@ const filter = reactive<{ keyword: string; role: TenantRole | '' }>({ keyword: '
 /** 接口一次返回全部成员，表格在前端分页 */
 const pg = reactive({ page: 1, pageSize: 20 })
 const pageRows = computed(() => members.value.slice((pg.page - 1) * pg.pageSize, pg.page * pg.pageSize))
-/** 停用 / 启用被后端拒绝的成员：只置灰这一行的那个按钮，原因写在表格上方，重新查询后再判断 */
+/** 停用 / 启用被后端拒绝的成员：只置灰这一行的那个按钮，原因写在表格上方，重新查询时清掉 */
 const blocked = reactive<Record<string, { name: string; text: string }>>({})
 
 async function load() {
@@ -61,6 +62,7 @@ async function load() {
   } catch (e) {
     members.value = []
     loadError.value = errorMessage(e, '成员列表加载失败')
+    loadNet.value = isNetwork(e)
   } finally {
     loading.value = false
   }
@@ -173,6 +175,8 @@ async function toggleStatus(m: MemberView) {
     await ElMessageBox.confirm(s.message, disable ? '停用成员' : '启用成员', {
       type: 'warning',
       confirmButtonText: act,
+      // 停用：确认按钮和表格里一样用危险色描边；启用照旧主色
+      ...(disable ? { confirmButtonClass: 'el-button--danger is-plain btn-reject' } : {}),
       cancelButtonText: '取消',
       beforeClose: s.beforeClose,
     })
@@ -183,8 +187,16 @@ async function toggleStatus(m: MemberView) {
   load()
 }
 
-/** 操作列宽按本页实际出现的按钮算（规范 Page States「console 表格操作列宽」） */
-const opsWidth = computed(() => actionsColWidth(pageRows.value.map((m) => ({ labels: ['编辑', m.status === 'NORMAL' ? '停用' : '启用'] }))))
+/** 自己那一行：前端已经知道不能停用自己，「停用」一开始就置灰并写明原因（后端照旧会拒绝） */
+const isSelf = (m: MemberView) => m.memberId === meStore.me?.memberId
+const SELF_WHY = '不能停用自己'
+/** 操作列宽按本页实际出现的按钮算（规范 Page States「console 表格操作列宽」）；自己那一行下面还有一行原因，按 12px 字宽留够 */
+const opsWidth = computed(() =>
+  actionsColWidth(
+    pageRows.value.map((m) => ({ labels: ['编辑', m.status === 'NORMAL' ? '停用' : '启用'] })),
+    pageRows.value.some((m) => isSelf(m) && m.status === 'NORMAL') ? 24 + SELF_WHY.length * 12 + 8 : 96,
+  ),
+)
 
 // ---------------------------------------------------------------- 权限矩阵（原型 A-19，与后端 TenantPermissions 一致）
 type Cell = boolean | string
@@ -253,8 +265,8 @@ onMounted(() => {
         <el-button @click="load">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>
-      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}。重新查询后再判断</p>
-      <el-table v-loading="loading" :data="pageRows" row-key="memberId" :row-class-name="({ row }) => (row.status === 'DISABLED' ? 'row-dim' : '')">
+      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}</p>
+      <el-table v-loading="loading" :data="pageRows" row-key="memberId" :row-class-name="({ row }) => [row.status === 'DISABLED' ? 'row-dim' : '', isSelf(row) ? 'row-self' : ''].join(' ')">
         <el-table-column label="成员" min-width="160">
           <template #default="{ row }">
             <PersonCell :name="row.name" :sub="row.phoneMasked">
@@ -284,17 +296,24 @@ onMounted(() => {
           <template #default="{ row }">
             <div class="acts">
               <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button size="small" link :type="row.status === 'NORMAL' ? 'danger' : 'primary'" :disabled="!!blocked[row.memberId]" @click="toggleStatus(row)">
+              <el-button
+                size="small"
+                link
+                :type="row.status === 'NORMAL' ? 'danger' : 'primary'"
+                :disabled="!!blocked[row.memberId] || (isSelf(row) && row.status === 'NORMAL')"
+                @click="toggleStatus(row)"
+              >
                 {{ row.status === 'NORMAL' ? '停用' : '启用' }}
               </el-button>
             </div>
+            <div v-if="isSelf(row) && row.status === 'NORMAL'" class="self-why">{{ SELF_WHY }}</div>
           </template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="state-box">
             <IconCircleExclamationPoint :size="48" />
             <h4>{{ loadError }}</h4>
-            <p>请检查网络后重新加载</p>
+            <p>{{ loadNet ? '请检查网络后重新加载' : '加载失败，可以稍后重新加载' }}</p>
             <el-button @click="load">重新加载</el-button>
           </div>
           <div v-else-if="!loading" class="state-box">
@@ -412,5 +431,6 @@ onMounted(() => {
 /* 没有该权限只是一种状态，不是错误：用三级文字色 */
 .no { color: var(--text-3); }
 .phone-tip { margin-left: var(--space-2); }
+.self-why { margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 1.4; color: var(--text-3); }
 .opt-r { float: right; }
 </style>

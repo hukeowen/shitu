@@ -13,7 +13,7 @@ import {
 import { IconBuildingComplex, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import ClientSelect from '@/components/ClientSelect.vue'
 import DictTag from '@/components/DictTag.vue'
-import { boxSubmit, isBlocked } from '@/composables/boxSubmit'
+import { boxSubmit, isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDate } from '@/utils/format'
@@ -27,12 +27,13 @@ const canContract = computed(() => meStore.can('CLIENT_CONTRACT_MANAGE'))
 const DEFAULT_STATUS: ProjectStatus = 'ACTIVE'
 const loading = ref(false)
 const loadError = ref('')
+const loadNet = ref(false)
 const list = ref<ProjectView[]>([])
 const filter = reactive<{ status: ProjectStatus | ''; keyword: string }>({ status: DEFAULT_STATUS, keyword: '' })
 /** 接口一次返回全部项目，表格在前端分页 */
 const pg = reactive({ page: 1, pageSize: 20 })
 const pageRows = computed(() => list.value.slice((pg.page - 1) * pg.pageSize, pg.page * pg.pageSize))
-/** 结束项目被后端拒绝的项目：只置灰这一行的「结束」，原因写在表格上方，重新查询后再判断 */
+/** 结束项目被后端拒绝的项目：只置灰这一行的「结束」，原因写在表格上方，重新查询时清掉 */
 const blocked = reactive<Record<string, { name: string; text: string }>>({})
 
 async function load() {
@@ -45,6 +46,7 @@ async function load() {
   } catch (e) {
     list.value = []
     loadError.value = errorMessage(e, '项目加载失败')
+    loadNet.value = isNetwork(e)
   } finally {
     loading.value = false
   }
@@ -152,6 +154,8 @@ async function close(p: ProjectView) {
     await ElMessageBox.confirm(s.message, '结束项目', {
       type: 'warning',
       confirmButtonText: '结束项目',
+      // 不可撤回：确认按钮和表格里一样用危险色描边
+      confirmButtonClass: 'el-button--danger is-plain btn-reject',
       cancelButtonText: '取消',
       beforeClose: s.beforeClose,
     })
@@ -198,7 +202,7 @@ defineExpose({ openCreate })
       <el-button @click="load">查询</el-button>
       <el-button @click="reset">重置</el-button>
     </div>
-    <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}。重新查询后再判断</p>
+    <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}</p>
     <el-table v-loading="loading" :data="pageRows" row-key="projectId" :row-class-name="({ row }) => (row.status === 'CLOSED' ? 'row-dim' : '')">
       <el-table-column label="项目名称" min-width="160">
         <template #default="{ row }">
@@ -237,13 +241,14 @@ defineExpose({ openCreate })
         <div v-if="loadError" class="state-box">
           <IconCircleExclamationPoint :size="48" />
           <h4>{{ loadError }}</h4>
-          <p>请检查网络后重新加载</p>
+          <p>{{ loadNet ? '请检查网络后重新加载' : '加载失败，可以稍后重新加载' }}</p>
           <el-button @click="load">重新加载</el-button>
         </div>
         <div v-else-if="!loading" class="state-box">
           <IconBuildingComplex :size="48" />
           <h4>暂无项目</h4>
-          <p>{{ filter.keyword.trim() || filter.status !== DEFAULT_STATUS ? '当前筛选范围内没有项目，换个条件或点「重置」' : canManage ? '点右上角「新建项目」，上传合作合同后即可发布岗位' : '项目经理或老板新建项目后会出现在这里' }}</p>
+          <p>{{ filter.keyword.trim() || filter.status !== DEFAULT_STATUS ? '当前筛选范围内没有项目，换个条件或点「重置」' : canManage ? '新建甲方企业与项目，上传合作合同后即可发布岗位' : '项目经理或老板新建项目后会出现在这里' }}</p>
+          <el-button v-if="canManage" type="primary" @click="openCreate">新建项目</el-button>
         </div>
         <span v-else />
       </template>
@@ -268,8 +273,8 @@ defineExpose({ openCreate })
         </el-form-item>
         <el-form-item label="甲方企业" prop="clientId">
           <ClientSelect :key="dialog.seq" v-model="form.clientId" :disabled="!!dialog.editing" :initial-name="dialog.editing?.clientName" @change="onClientChange" />
-          <div v-if="dialog.editing" class="sub">项目创建后不能更换甲方企业</div>
-          <span v-if="clientHint === 'ok'" class="status-tag status-tag--success hint">该甲方已有有效合同，可发布岗位</span>
+          <div v-if="dialog.editing" class="sub lock-tip">项目创建后不能更换甲方企业</div>
+          <div v-if="clientHint === 'ok'" class="hint"><span class="status-tag status-tag--success">该甲方已有有效合同，可发布岗位</span></div>
           <div v-else-if="clientHint === 'missing'" class="notice-bar notice-bar--warn hint">
             <IconCircleExclamationPoint :size="16" class="notice-bar-i" />
             <span>该甲方暂无审核通过且在有效期内的合作合同：项目可以创建，但需上传合同并审核通过后才能发布岗位。</span>
@@ -303,5 +308,7 @@ defineExpose({ openCreate })
 .acts .el-button + .el-button { margin-left: 0; }
 .hint { margin-top: var(--space-2); }
 .notice-bar.hint { width: 100%; }
+/* 「项目创建后不能更换甲方企业」占一整行，和下面的提示隔开 */
+.lock-tip { width: 100%; margin-top: var(--space-1); }
 .place { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0 var(--space-2); }
 </style>

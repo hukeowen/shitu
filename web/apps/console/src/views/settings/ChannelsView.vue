@@ -13,7 +13,7 @@ import {
   IconUserCheck,
 } from '@shitu/ui-icons'
 import QrImage from '@/components/QrImage.vue'
-import { boxSubmit, isBlocked } from '@/composables/boxSubmit'
+import { boxSubmit, isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
 import { copyText, fmtDate } from '@/utils/format'
@@ -30,6 +30,7 @@ const companyName = computed(() => meStore.me?.company.shortName || meStore.me?.
 const mine = ref<ChannelItem | null>(null)
 const mineLoading = ref(false)
 const mineError = ref('')
+const mineNet = ref(false)
 async function loadMine() {
   if (!canMine.value) return
   mineLoading.value = true
@@ -39,6 +40,7 @@ async function loadMine() {
   } catch (e) {
     mine.value = null
     mineError.value = errorMessage(e, '专属码加载失败')
+    mineNet.value = isNetwork(e)
   } finally {
     mineLoading.value = false
   }
@@ -49,12 +51,13 @@ type StatusFilter = 'ALL' | 'ACTIVE' | 'DISABLED'
 const DEFAULT_STATUS: StatusFilter = 'ACTIVE'
 const loading = ref(false)
 const loadError = ref('')
+const loadNet = ref(false)
 const list = ref<ChannelItem[]>([])
 /** 拿到过列表（没拿到时指标和页签不显示数字） */
 const ready = ref(false)
 const statusFilter = ref<StatusFilter>(DEFAULT_STATUS)
 const keyword = ref('')
-/** 停用 / 启用被后端拒绝的渠道码：只置灰这一行的那个按钮，原因写在表格上方，重新查询后再判断 */
+/** 停用 / 启用被后端拒绝的渠道码：只置灰这一行的那个按钮，原因写在表格上方，重新查询时清掉 */
 const blocked = reactive<Record<string, { name: string; text: string }>>({})
 
 async function load() {
@@ -69,6 +72,7 @@ async function load() {
   } catch (e) {
     list.value = []
     loadError.value = errorMessage(e, '渠道码加载失败')
+    loadNet.value = isNetwork(e)
   } finally {
     loading.value = false
   }
@@ -151,6 +155,8 @@ async function toggle(c: ChannelItem) {
     await ElMessageBox.confirm(s.message, disable ? '停用渠道码' : '启用渠道码', {
       type: 'warning',
       confirmButtonText: act,
+      // 停用：确认按钮和表格里一样用危险色描边；启用照旧主色
+      ...(disable ? { confirmButtonClass: 'el-button--danger is-plain btn-reject' } : {}),
       cancelButtonText: '取消',
       beforeClose: s.beforeClose,
     })
@@ -248,41 +254,40 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="top-row" :class="{ solo: !canManage }">
-      <div v-if="canMine" v-loading="mineLoading" class="card mine-card">
-        <div class="card__hd"><h3>我的专属码</h3><span class="status-tag status-tag--private">私域</span></div>
-        <div class="card__bd">
-          <div v-if="mineError" class="state-box">
-            <IconCircleExclamationPoint :size="48" />
-            <h4>{{ mineError }}</h4>
-            <p>请检查网络后重新加载</p>
-            <el-button @click="loadMine">重新加载</el-button>
-          </div>
-          <div v-else-if="mine" class="mine">
-            <QrImage :url="mine.url" :size="150" :dim="mine.status !== 'ACTIVE'" />
-            <div class="mine-info">
-              <dl class="desc-list">
-                <div><dt>名称</dt><dd>{{ mine.name }}</dd></div>
-                <div><dt>初始归属</dt><dd>{{ companyName }} <span class="status-tag status-tag--private">私域</span></dd></div>
-                <div><dt>访问 / 注册</dt><dd class="tnum">{{ mine.visits }} / {{ mine.registrations }}</dd></div>
-                <div class="wide"><dt>链接</dt><dd class="url">{{ mine.url }}</dd></div>
-              </dl>
-              <div class="mine-acts">
-                <el-button size="small" @click="download(mine)"><IconDownload :size="14" class="btn-i" />下载二维码</el-button>
-                <el-button size="small" @click="copy(mine)"><IconCopy :size="14" class="btn-i" />复制链接</el-button>
-              </div>
+    <div v-if="canManage" class="notice-bar rule">
+      <IconInfo :size="16" class="notice-bar-i" />
+      <span><b>归属规则：</b>扫描本公司渠道码（公司码 / 驻场成员码 / 项目码）注册的求职者归属本公司（私域），仅匹配本公司岗位；已入职员工分享的注册用户归属平台（公域）。</span>
+    </div>
+    <div v-if="canMine" v-loading="mineLoading" class="card mine-card">
+      <div class="card__hd"><h3>我的专属码</h3><span class="status-tag status-tag--private">私域</span></div>
+      <div class="card__bd">
+        <div v-if="mineError" class="state-box">
+          <IconCircleExclamationPoint :size="48" />
+          <h4>{{ mineError }}</h4>
+          <p>{{ mineNet ? '请检查网络后重新加载' : '加载失败，可以稍后重新加载' }}</p>
+          <el-button @click="loadMine">重新加载</el-button>
+        </div>
+        <div v-else-if="mine" class="mine">
+          <QrImage :url="mine.url" :size="150" :dim="mine.status !== 'ACTIVE'" />
+          <div class="mine-info">
+            <dl class="desc-list">
+              <div><dt>名称</dt><dd>{{ mine.name }}</dd></div>
+              <div><dt>初始归属</dt><dd>{{ companyName }} <span class="status-tag status-tag--private">私域</span></dd></div>
+              <div><dt>访问 / 注册</dt><dd class="tnum">{{ mine.visits }} / {{ mine.registrations }}</dd></div>
+              <div class="wide"><dt>链接</dt><dd class="url">{{ mine.url }}</dd></div>
+            </dl>
+            <div class="mine-acts">
+              <el-button size="small" @click="download(mine)"><IconDownload :size="14" class="btn-i" />下载二维码</el-button>
+              <el-button size="small" @click="copy(mine)"><IconCopy :size="14" class="btn-i" />复制链接</el-button>
             </div>
           </div>
-          <div v-else-if="!mineLoading" class="state-box">
-            <IconQrCode :size="48" />
-            <h4>暂无专属码</h4>
-            <p>专属码由公司为你生成，生成后会出现在这里</p>
-          </div>
         </div>
-      </div>
-      <div v-if="canManage" class="notice-bar notice-bar--warn rule">
-        <IconInfo :size="16" class="notice-bar-i" />
-        <span><b>归属规则：</b>扫描本公司渠道码（公司码 / 驻场成员码 / 项目码）注册的求职者归属本公司（私域），仅匹配本公司岗位；已入职员工分享的注册用户归属平台（公域）。</span>
+        <div v-else-if="!mineLoading" class="state-box">
+          <IconQrCode :size="48" />
+          <h4>暂无专属码</h4>
+          <p>打开本页时会自动生成专属码，没有显示可以重新加载</p>
+          <el-button @click="loadMine">重新加载</el-button>
+        </div>
       </div>
     </div>
 
@@ -298,7 +303,7 @@ onMounted(() => {
         <el-button @click="load">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>
-      <p v-for="(b, code) in blocked" :key="code" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}。重新查询后再判断</p>
+      <p v-for="(b, code) in blocked" :key="code" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}</p>
       <el-table v-loading="loading" :data="pageRows" row-key="code" :row-class-name="({ row }) => (row.status === 'DISABLED' ? 'row-dim' : '')">
         <el-table-column label="二维码" width="96">
           <template #default="{ row }"><QrImage :url="row.url" :size="64" :dim="row.status !== 'ACTIVE'" /></template>
@@ -345,13 +350,14 @@ onMounted(() => {
           <div v-if="loadError" class="state-box">
             <IconCircleExclamationPoint :size="48" />
             <h4>{{ loadError }}</h4>
-            <p>请检查网络后重新加载</p>
+            <p>{{ loadNet ? '请检查网络后重新加载' : '加载失败，可以稍后重新加载' }}</p>
             <el-button @click="load">重新加载</el-button>
           </div>
           <div v-else-if="!loading" class="state-box">
             <IconQrCode :size="48" />
             <h4>暂无渠道码</h4>
-            <p>{{ keyword.trim() || statusFilter !== DEFAULT_STATUS ? '当前筛选范围内没有渠道码，换个条件或点「重置」' : '点右上角「生成渠道码」，用于海报、门岗或线上投放' }}</p>
+            <p>{{ keyword.trim() || statusFilter !== DEFAULT_STATUS ? '当前筛选范围内没有渠道码，换个条件或点「重置」' : '生成渠道码，用于海报、门岗或线上投放' }}</p>
+            <el-button type="primary" @click="openCreate">生成渠道码</el-button>
           </div>
           <span v-else />
         </template>
@@ -402,11 +408,11 @@ onMounted(() => {
 <style scoped>
 .btn-i { margin-right: var(--space-1); }
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-gap); margin-bottom: var(--space-gap); }
-.top-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-gap); align-items: start; }
-.top-row.solo { grid-template-columns: minmax(0, 720px); }
+.rule { margin-bottom: var(--space-gap); }
 .tbl-card { margin-top: var(--space-gap); }
 .mine { display: flex; gap: var(--space-5); align-items: flex-start; }
 .mine-info { flex: 1; min-width: 0; }
+.mine .desc-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .desc-list .wide { grid-column: 1 / -1; }
 .url { font-size: var(--font-size-aux); word-break: break-all; }
 .mine-acts { display: flex; gap: var(--space-2); margin-top: var(--space-4); }

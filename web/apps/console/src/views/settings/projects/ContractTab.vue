@@ -8,12 +8,13 @@ import ClientSelect from '@/components/ClientSelect.vue'
 import DictTag from '@/components/DictTag.vue'
 import FileLink from '@/components/FileLink.vue'
 import FileUploader, { type FileEntry } from '@/components/FileUploader.vue'
-import { isBlocked } from '@/composables/boxSubmit'
+import { isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDate, fmtDateTime } from '@/utils/format'
 
 const loading = ref(false)
 const loadError = ref('')
+const loadNet = ref(false)
 const list = ref<ContractView[]>([])
 const clientFilter = ref('')
 /** 接口一次返回全部合同，表格在前端分页 */
@@ -29,6 +30,7 @@ async function load() {
   } catch (e) {
     list.value = []
     loadError.value = errorMessage(e, '合同加载失败')
+    loadNet.value = isNetwork(e)
   } finally {
     loading.value = false
   }
@@ -137,13 +139,14 @@ defineExpose({ openUpload })
         <div v-if="loadError" class="state-box">
           <IconCircleExclamationPoint :size="48" />
           <h4>{{ loadError }}</h4>
-          <p>请检查网络后重新加载</p>
+          <p>{{ loadNet ? '请检查网络后重新加载' : '加载失败，可以稍后重新加载' }}</p>
           <el-button @click="load">重新加载</el-button>
         </div>
         <div v-else-if="!loading" class="state-box">
           <IconFileText :size="48" />
           <h4>暂无合作合同</h4>
-          <p>{{ clientFilter ? '这个甲方还没有上传过合同，换个甲方或点「重置」' : '点右上角「上传合同」，平台审核通过后该甲方下的项目即可发布岗位' }}</p>
+          <p>{{ clientFilter ? '这个甲方还没有上传过合同，换个甲方或点「重置」' : '上传与甲方签订的合同，平台审核通过后该甲方下的项目即可发布岗位' }}</p>
+          <el-button type="primary" @click="openUpload">上传合同</el-button>
         </div>
         <span v-else />
       </template>

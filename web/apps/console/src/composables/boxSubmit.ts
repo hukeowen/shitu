@@ -47,3 +47,8 @@ export function boxSubmit(
 export function isBlocked(e: unknown): boolean {
   return isApiError(e) && e.code !== 'NETWORK'
 }
+
+/** 断网、超时：加载失败时提示「请检查网络后重新加载」；别的错误（403、500 等）只写原因，不往网络上引 */
+export function isNetwork(e: unknown): boolean {
+  return isApiError(e) && e.code === 'NETWORK'
+}

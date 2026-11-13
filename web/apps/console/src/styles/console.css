@@ -189,3 +189,6 @@ a { color: inherit; text-decoration: none; }
 .el-button.el-button--danger.btn-reject { --el-button-bg-color: var(--bg-card); --el-button-border-color: var(--danger-text); --el-button-text-color: var(--danger-text); }
 /* 确认框（ElMessageBox）标题和弹窗标题同级：16px / 600 */
 .el-message-box .el-message-box__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); }
+
+/* 复选框未勾选时的边框：默认用 --border（白底上约 1.3:1）看不出框，改用三级文字色，达到图形对比度 3:1 */
+html .el-checkbox { --el-checkbox-input-border: var(--el-border-width) var(--el-border-style) var(--text-3); }

@@ -818,8 +818,9 @@ const allZero = `(() => { const n = [...document.querySelectorAll('#app .filter-
 // 只有异常卡的数字用危险色：没有提醒色数字，危险色的数不为 0
 const statTone = `(() => { if (document.querySelector('#app .stat--warn')) return '指标数字用了提醒色'; const z = [...document.querySelectorAll('#app .stat--danger .stat-v')].find((v) => Number(v.innerText.trim()) === 0); return z ? '数字为 0 也用了危险色' : '' })()`
 // 表格行高约 48
-// 看不见的表格（没选中的标签页）不算
-const rowsTall = `(() => { const r = [...document.querySelectorAll('#app .el-table__body tr')].find((tr) => tr.getClientRects().length && tr.getBoundingClientRect().height < 44); return r ? '表格行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px：' + r.innerText.slice(0, 12) : '' })()`
+// 看不见的表格（没选中的标签页）不算；scope 只查某一块（如组织页只查成员表，权限矩阵是对照用的小号行，不按数据表行高要求）
+const rowsTallIn = (scope) => `(() => { const r = [...document.querySelectorAll(${JSON.stringify(scope + ' .el-table__body tr')})].find((tr) => tr.getClientRects().length && tr.getBoundingClientRect().height < 44); return r ? '表格行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px：' + r.innerText.slice(0, 12) : '' })()`
+const rowsTall = rowsTallIn('#app')
 // 断网的轻提示出来之后再截图
 const toastShown = `(async () => { for (let i = 0; i < 40 && !document.querySelector('.el-message--error'); i++) await ${wait(100)}; await ${wait(400)} })()`
 const wbFit = `(() => { const main = document.querySelector('.main').getBoundingClientRect(), q = document.querySelector('#app .queue').getBoundingClientRect(), d = document.querySelector('#app .detail').getBoundingClientRect()
@@ -1264,23 +1265,29 @@ const setLayout = (addText, tabs = false) => `(() => { const hd = document.query
 // 编辑用弹窗，宽 480–640（最上面那个弹窗）
 const dlgWidth = `(() => { const d = [...document.querySelectorAll('.el-dialog')].filter((x) => x.getClientRects().length).at(-1); if (!d) return '没有弹窗'
   const w = Math.round(d.getBoundingClientRect().width); return w >= 480 && w <= 640 ? '' : '弹窗宽 ' + w + '，应在 480–640' })()`
-// 页面上的专属码：码点纯黑白；按页面上的链接重新编码、逐个模块对照（本机没有扫码库，用这个代替解码）；白底框，码四周白边不少于 2 个模块
+// 读一张页面上的二维码：像素、左上角定位块的位置和模块大小（定位块是 7 个模块宽的黑块），不依赖生成参数
+const qrRead = `async (img) => { await img.decode(); const W = img.naturalWidth, H = img.naturalHeight, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
+  const d = x.getImageData(0, 0, W, H).data; let grey = 0; for (let i = 0; i < d.length; i += 4) if (d[i] !== d[i + 1] || d[i] !== d[i + 2] || (d[i] !== 0 && d[i] !== 255)) grey++
+  let x0 = -1, y0 = -1; for (let y = 0; y < H && x0 < 0; y++) for (let xx = 0; xx < W; xx++) if (d[(y * W + xx) * 4] === 0) { x0 = xx; y0 = y; break }
+  let run = 0; while (x0 >= 0 && x0 + run < W && d[(y0 * W + x0 + run) * 4] === 0) run++
+  return { d, W, grey, x0, y0, cell: run / 7 } }`
+// 码四周的白边（码自带的白边 + 白底框的内边距，按显示尺寸算）不少于 4 个模块，外面不套灰框
+const qrQuiet = `(img, q) => { const box = img.closest('.qr'), cs = getComputedStyle(box); if (cs.backgroundColor !== 'rgb(255, 255, 255)') return '二维码底框不是白色：' + cs.backgroundColor
+  if (parseFloat(cs.borderLeftWidth) > 0) return '二维码外面还套着框'
+  const s = img.getBoundingClientRect().width / q.W, pad = img.getBoundingClientRect().left - box.getBoundingClientRect().left
+  const quiet = (Math.min(q.x0, q.y0) * s + pad) / (q.cell * s); return quiet >= 4 ? '' : '二维码白边只有 ' + quiet.toFixed(1) + ' 个模块' }`
+// 页面上的专属码：码点纯黑白；按页面上的链接重新编码、逐个模块对照（本机没有扫码库，用这个代替解码）；四周白边不少于 4 个模块
 const qrScreen = `(async () => { const QR = (await import('/node_modules/.vite/deps/qrcode.js')).default
-  const box = document.querySelector('#app .mine .qr'), img = box?.querySelector('img'); if (!img) return '没有专属码图片'
+  const img = document.querySelector('#app .mine .qr img'); if (!img) return '没有专属码图片'
   const url = document.querySelector('#app .mine .url')?.innerText.trim(); if (!url) return '页面上没有专属链接'
-  await img.decode(); const W = img.naturalWidth, c = document.createElement('canvas'); c.width = W; c.height = img.naturalHeight; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
-  const d = x.getImageData(0, 0, W, c.height).data; let grey = 0; for (let i = 0; i < d.length; i += 4) if (d[i] !== d[i + 1] || d[i] !== d[i + 2] || (d[i] !== 0 && d[i] !== 255)) grey++
-  if (grey) return '专属码里有 ' + grey + ' 个不是纯黑白的像素'
-  const mod = QR.create(url, { errorCorrectionLevel: 'M' }).modules, n = mod.size, cell = W / (n + 2); let wrong = 0
-  for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) { const i = (Math.floor((r + 1.5) * cell) * W + Math.floor((col + 1.5) * cell)) * 4; if ((d[i] === 0) !== !!mod.data[r * n + col]) wrong++ }
+  const q = await (${qrRead})(img); if (q.grey) return '专属码里有 ' + q.grey + ' 个不是纯黑白的像素'
+  const mod = QR.create(url, { errorCorrectionLevel: 'M' }).modules, n = mod.size; let wrong = 0
+  for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) { const i = (Math.floor(q.y0 + (r + 0.5) * q.cell) * q.W + Math.floor(q.x0 + (col + 0.5) * q.cell)) * 4; if ((q.d[i] === 0) !== !!mod.data[r * n + col]) wrong++ }
   if (wrong) return '专属码的码点和链接 ' + url + ' 对不上：' + wrong + ' 个模块不同'
-  if (getComputedStyle(box).backgroundColor !== 'rgb(255, 255, 255)') return '二维码底框不是白色：' + getComputedStyle(box).backgroundColor
-  const ir = img.getBoundingClientRect(), shown = ir.width / (n + 2), pad = ir.left - box.getBoundingClientRect().left - parseFloat(getComputedStyle(box).borderLeftWidth)
-  const quiet = (pad + shown) / shown; return quiet >= 2 ? '' : '二维码白边只有 ' + quiet.toFixed(1) + ' 个模块' })()`
-// 表格里启用中的渠道码：每一张都只有纯黑、纯白两种像素
+  return (${qrQuiet})(img, q) })()`
+// 表格里启用中的渠道码：每一张都只有纯黑、纯白两种像素，四周白边不少于 4 个模块
 const qrRowsPure = `(async () => { const imgs = [...document.querySelectorAll('#app td .qr:not(.dim) img')]; if (!imgs.length) return '表格里没有启用中的二维码'
-  for (const img of imgs) { await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
-    const d = x.getImageData(0, 0, c.width, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i] !== d[i + 1] || d[i] !== d[i + 2] || (d[i] !== 0 && d[i] !== 255)) return '表格里的二维码有不是纯黑白的像素' }
+  for (const img of imgs) { const q = await (${qrRead})(img); if (q.grey) return '表格里的二维码有不是纯黑白的像素'; const bad = (${qrQuiet})(img, q); if (bad) return '表格里：' + bad }
   return '' })()`
 // 下载的二维码图片：在页面里调 utils/qr.ts 合成（不触发下载）；码区纯黑白、码点和链接一致，外圈静区全白且（连同码自带的 1 模块白边）不少于 4 个模块
 const qrPng = `(async () => { const m = await import('/src/utils/qr.ts'), QR = (await import('/node_modules/.vite/deps/qrcode.js')).default
@@ -1303,6 +1310,30 @@ const eachRetry = (sels) => `(() => { const miss = ${JSON.stringify(sels)}.filte
 const matrixIcons = `(() => { const t = document.querySelector('#app .matrix'); if (!t) return '没有权限矩阵'; if (/[✓✕]/.test(t.innerText)) return '权限矩阵还在用 ✓ ✕ 字符'
   const yes = t.querySelectorAll('.yes svg').length, no = [...t.querySelectorAll('.no')]; if (!yes || !no.length) return '权限矩阵没有图标'
   return no.some((e) => getComputedStyle(e).color === ${tokenColor('--danger-text')}) ? '「没有该权限」用了危险色' : '' })()`
+// 不可撤回操作的确认按钮：危险色描边（和表格里同一个操作一致），不是主色实心
+const boxDanger = (text) => `(() => { const b = ${findBtn(text, '.el-message-box')}; if (!b) return '确认框里没有「${text}」'; const cs = getComputedStyle(b)
+  return cs.backgroundColor === ${bgToken('--bg-card')} && cs.color === ${tokenColor('--danger-text')} && cs.borderTopColor === ${tokenColor('--danger-text')} ? '' : '确认框里的「${text}」不是危险色描边：' + cs.backgroundColor + ' ' + cs.color + ' ' + cs.borderTopColor })()`
+// 空状态里有下一步的主按钮
+const emptyAct = (text) => `${findBtn(text, '#app .state-box')}?.classList.contains('el-button--primary') ? '' : '空状态里没有「${text}」主按钮'`
+// 加载失败的说明：断网才说「请检查网络」，别的错误不往网络上引
+const failHint = (net) => `(() => { const t = [...document.querySelectorAll('#app .state-box p')].map((p) => p.innerText).join('|'); if (!t) return '失败状态没有说明'
+  return t.includes('请检查网络') === ${net} ? '' : ${net} ? '断网时没提示检查网络：' + t : '不是断网却让检查网络：' + t })()`
+const serverError = refuse('SYS_5000', '服务器开小差了，请稍后再试')
+// 自己那一行：「停用」一开始就置灰，下面写明原因
+const selfOff = `(() => { const tr = document.querySelector('#app .el-table__body tr.row-self'); if (!tr) return '没有自己那一行'
+  const b = [...tr.querySelectorAll('td.ops-col button')].find((x) => x.innerText.includes('停用')); if (!b?.disabled) return '自己那一行的「停用」没有置灰'
+  return tr.querySelector('td.ops-col')?.innerText.includes('不能停用自己') ? '' : '自己那一行没写明不能停用的原因' })()`
+const clickOtherOff = [`[...document.querySelectorAll('#app .el-table__body tr:not(.row-self) td.ops-col button')].find((b) => b.innerText.includes('停用') && !b.disabled).click()`, wait(500)]
+// 项目编辑弹窗：「不能更换甲方」和下面的提示之间至少 8px
+const hintGap = `(() => { const a = document.querySelector('.el-dialog .lock-tip'), b = document.querySelector('.el-dialog .hint'); if (!a || !b) return '没有「不能更换甲方」或合同提示'
+  const g = b.getBoundingClientRect().top - a.getBoundingClientRect().bottom; return g >= 7.5 ? '' : '两行提示只隔了 ' + g.toFixed(1) + 'px' })()`
+// 合同弹窗：「合同文件」标签和已上传的文件行垂直居中对齐
+const fileAligned = `(() => { const item = [...document.querySelectorAll('.el-dialog .el-form-item')].find((x) => x.querySelector('.el-form-item__label')?.innerText.includes('合同文件')); const li = item?.querySelector('.list li'); if (!li) return '没有已上传的文件行'
+  const c = (e) => { const r = e.getBoundingClientRect(); return (r.top + r.bottom) / 2 }, d = c(li) - c(item.querySelector('.el-form-item__label')); return Math.abs(d) <= 2 ? '' : '「合同文件」标签和文件行错开 ' + d.toFixed(1) + 'px' })()`
+// 未勾选复选框的边框和白底对比度不低于 3:1
+const checkboxContrast = `(() => { const box = [...document.querySelectorAll('.el-dialog .el-checkbox:not(.is-checked) .el-checkbox__inner')][0]; if (!box) return '没有未勾选的复选框'
+  const lum = (c) => { const [r, g, b] = c.match(/\\d+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const ratio = 1.05 / (lum(getComputedStyle(box).borderTopColor) + 0.05); return ratio >= 3 ? '' : '复选框边框对比度只有 ' + ratio.toFixed(2) + ':1' })()`
 const pickDateRange = [`document.querySelector('.el-dialog .el-range-editor').click()`, wait(400),
   `document.querySelector('.el-date-range-picker td.today, .el-date-range-picker td.available').click()`, wait(200),
   `[...document.querySelectorAll('.el-date-range-picker .is-right td.available')].at(-1).click()`, wait(300)]
@@ -2443,8 +2474,10 @@ const STATES = [
     checks: [cSide('pm'), setLayout('新建项目', true), opsCol, tblFit, opsTap, rowsTall, cLegacy16, queryReset, hasPager, statusTags, elPrimary] },
   { app: 'console', screen: 'settings-projects', state: 'normal', persona: 'pm', path: '/settings/projects', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, sideActive, opsCol, tblFit] },
   { app: 'console', screen: 'settings-projects', state: 'loading', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无项目')] },
-  { app: 'console', screen: 'settings-projects', state: 'empty', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无项目'), cLegacy16] },
-  { app: 'console', screen: 'settings-projects', state: 'error', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('暂无项目')] },
+  { app: 'console', screen: 'settings-projects', state: 'empty', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无项目'), emptyAct('新建项目'), cLegacy16] },
+  { app: 'console', screen: 'settings-projects', state: 'error', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'fail' }), checks: [oneRetry, failHint(true), hasNot('暂无项目')] },
+  { app: 'console', screen: 'settings-projects', state: 'error-server', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API, method: 'GET', action: 'respond', body: serverError }), checks: [oneRetry, failHint(false), has('服务器开小差了')] },
+  { app: 'console', screen: 'settings-projects', state: 'close-confirm', persona: 'pm', path: '/settings/projects', rules: sr(), steps: openRow('结束'), checks: [boxTitle, boxDanger('结束项目')] },
   // 结束项目：在确认框里提交
   { app: 'console', screen: 'settings-projects', state: 'close-submitting', persona: 'pm', path: '/settings/projects', rules: sr(), quick: true,
     steps: [...openRow('结束'), countXhr, boxClickTwice('结束项目')], checks: [boxTitle, elSpinning('结束项目', '.el-message-box'), sentOnce] },
@@ -2455,7 +2488,7 @@ const STATES = [
   { app: 'console', screen: 'settings-project-dlg', state: 'create', persona: 'pm', path: '/settings/projects', rules: sr(), steps: [`${findBtn('新建项目', '#app .page-hd')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
   { app: 'console', screen: 'settings-project-dlg', state: 'client-create', persona: 'pm', path: '/settings/projects', rules: sr(),
     steps: [`${findBtn('新建项目', '#app .page-hd')}.click()`, wait(500), `${findBtn('新建甲方企业', '.el-dialog')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
-  { app: 'console', screen: 'settings-project-dlg', state: 'edit', persona: 'pm', path: '/settings/projects', rules: sr(), steps: openRow('编辑'), checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-project-dlg', state: 'edit', persona: 'pm', path: '/settings/projects', rules: sr(), steps: openRow('编辑'), checks: [dlgWidth, dlgNoWrap, dlgLegacy, hintGap] },
   { app: 'console', screen: 'settings-project-dlg', state: 'submitting', persona: 'pm', path: '/settings/projects', rules: sr(), quick: true,
     steps: [...openRow('编辑'), countXhr, elClickTwice('保存', '.el-dialog')], checks: [elSpinning('保存', '.el-dialog'), sentOnce] },
   { app: 'console', screen: 'settings-project-dlg', state: 'rejected', persona: 'pm', path: '/settings/projects', rules: sr({ url: PROJ_API + '/', method: 'PUT', action: 'respond', body: refuse('TEN_4093', '项目已结束，不能修改') }),
@@ -2466,9 +2499,9 @@ const STATES = [
     checks: [cSide('pm'), setLayout('上传合同', true), tblFit, opsTap, rowsTall, cLegacy16, queryReset, hasPager, elPrimary] },
   { app: 'console', screen: 'settings-contracts', state: 'normal', persona: 'pm', path: '/settings/projects?tab=contracts', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, sideActive, tblFit] },
   { app: 'console', screen: 'settings-contracts', state: 'loading', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无合作合同')] },
-  { app: 'console', screen: 'settings-contracts', state: 'empty', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无合作合同'), cLegacy16] },
+  { app: 'console', screen: 'settings-contracts', state: 'empty', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无合作合同'), emptyAct('上传合同'), cLegacy16] },
   { app: 'console', screen: 'settings-contracts', state: 'error', persona: 'pm', path: '/settings/projects?tab=contracts', rules: sr({ url: CONTRACT_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('暂无合作合同')] },
-  { app: 'console', screen: 'settings-contract-dlg', state: 'normal', persona: 'pm', path: '/settings/projects?tab=contracts', rules: contractRules(), steps: fillContract, checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-contract-dlg', state: 'normal', persona: 'pm', path: '/settings/projects?tab=contracts', rules: contractRules(), steps: fillContract, checks: [dlgWidth, dlgNoWrap, dlgLegacy, fileAligned] },
   { app: 'console', screen: 'settings-contract-dlg', state: 'submitting', persona: 'pm', path: '/settings/projects?tab=contracts', rules: contractRules(), quick: true,
     steps: [...fillContract, countXhr, elClickTwice('提交审核', '.el-dialog')], checks: [elSpinning('提交审核', '.el-dialog'), sentOnce] },
   { app: 'console', screen: 'settings-contract-dlg', state: 'rejected', persona: 'pm', path: '/settings/projects?tab=contracts',
@@ -2481,10 +2514,11 @@ const STATES = [
   { app: 'console', screen: 'settings-channels', state: 'normal', persona: 'owner', path: '/settings/channels', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cFit, sideActive, kpiCards, opsCol, tblFit] },
   { app: 'console', screen: 'settings-channels', state: 'loading', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)],
     checks: [eachMask(['.mine-card', '.tbl-card']), noNums, tabsBlank, hasNot('暂无渠道码'), hasNot('暂无专属码')] },
-  { app: 'console', screen: 'settings-channels', state: 'empty', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API + '/mine', action: 'continue' }, { url: CHANNEL_API, method: 'GET', action: 'respond', body: reply([]) }),
-    checks: [has('暂无渠道码'), allZero, cLegacy16] },
+  { app: 'console', screen: 'settings-channels', state: 'empty', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API + '/mine', action: 'respond', body: reply(null) }, { url: CHANNEL_API, method: 'GET', action: 'respond', body: reply([]) }),
+    checks: [has('暂无渠道码'), emptyAct('生成渠道码'), has('暂无专属码'), has('打开本页时会自动生成专属码'), `${findBtn('重新加载', '#app .mine-card')} ? '' : '专属码空状态没有「重新加载」'`, allZero, cLegacy16] },
   { app: 'console', screen: 'settings-channels', state: 'error', persona: 'owner', path: '/settings/channels', rules: sr({ url: CHANNEL_API, method: 'GET', action: 'fail' }),
-    checks: [eachRetry(['.mine-card', '.tbl-card']), noNums, tabsBlank, hasNot('暂无渠道码'), hasNot('暂无专属码')] },
+    checks: [eachRetry(['.mine-card', '.tbl-card']), failHint(true), noNums, tabsBlank, hasNot('暂无渠道码'), hasNot('暂无专属码')] },
+  { app: 'console', screen: 'settings-channels', state: 'toggle-confirm', persona: 'owner', path: '/settings/channels', rules: sr(), steps: openRow('停用'), checks: [boxTitle, boxDanger('停用')] },
   { app: 'console', screen: 'settings-channels', state: 'toggle-submitting', persona: 'owner', path: '/settings/channels', rules: sr(), quick: true,
     steps: [...openRow('停用'), countXhr, boxClickTwice('停用')], checks: [boxTitle, elSpinning('停用', '.el-message-box'), sentOnce] },
   { app: 'console', screen: 'settings-channels', state: 'toggle-rejected', persona: 'owner', path: '/settings/channels', rules: sr({ url: '/disable', method: 'POST', action: 'respond', body: refuse('CHANNEL_4091', '渠道码状态已变化，请刷新后再操作') }),
@@ -2500,20 +2534,23 @@ const STATES = [
   { app: 'console', screen: 'settings-channels', state: 'mine-only', persona: 'site', path: '/settings/channels', rules: sr(), checks: [has('我的专属码'), hasNot('启用中的渠道码'), qrScreen, cLegacy16] },
   // ---- 工单 20：组织与权限 ----
   { app: 'console', screen: 'settings-org', state: 'normal', persona: 'owner', path: '/settings/org', rules: sr(),
-    checks: [cSide('owner'), setLayout('新增成员'), kpiCards, opsCol, tblFit, opsTap, cLegacy16, queryReset, hasPager, statusTags, elPrimary, matrixIcons,
-      `(() => { const r = [...document.querySelectorAll('#app .members .el-table__body tr')].find((tr) => tr.getBoundingClientRect().height < 44); return r ? '成员表行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px' : '' })()`] },
+    // 行高只查成员表：权限矩阵是对照用的小号行，不按数据表的 48 行高
+    checks: [cSide('owner'), setLayout('新增成员'), kpiCards, opsCol, tblFit, opsTap, cLegacy16, queryReset, hasPager, statusTags, elPrimary, matrixIcons, rowsTallIn('#app .members'), selfOff] },
   { app: 'console', screen: 'settings-org', state: 'normal', persona: 'owner', path: '/settings/org', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cFit, sideActive, kpiCards, opsCol, tblFit] },
   { app: 'console', screen: 'settings-org', state: 'loading', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, hasNot('暂无成员')] },
   { app: 'console', screen: 'settings-org', state: 'empty', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'respond', body: reply([]) }),
     checks: [has('暂无成员'), cLegacy16, `(() => { const n = [...document.querySelectorAll('#app .stat-v')].map((e) => e.innerText.trim()).filter((t) => !/^0( \\/ 0)?$/.test(t)); return n.length ? '列表是空的，计数却不是 0：' + n.join('、') : '' })()`] },
-  { app: 'console', screen: 'settings-org', state: 'error', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'fail' }), checks: [oneRetry, noNums, hasNot('暂无成员')] },
+  { app: 'console', screen: 'settings-org', state: 'error', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'fail' }), checks: [oneRetry, failHint(true), noNums, hasNot('暂无成员')] },
+  { app: 'console', screen: 'settings-org', state: 'error-server', persona: 'owner', path: '/settings/org', rules: sr({ url: MEMBER_API, method: 'GET', action: 'respond', body: serverError }), checks: [oneRetry, failHint(false), noNums, has('服务器开小差了')] },
+  { app: 'console', screen: 'settings-org', state: 'toggle-confirm', persona: 'owner', path: '/settings/org', rules: sr(), steps: clickOtherOff, checks: [boxTitle, boxDanger('停用')] },
   { app: 'console', screen: 'settings-org', state: 'toggle-submitting', persona: 'owner', path: '/settings/org', rules: sr(), quick: true,
-    steps: [...openRow('停用'), countXhr, boxClickTwice('停用')], checks: [boxTitle, elSpinning('停用', '.el-message-box'), sentOnce] },
-  { app: 'console', screen: 'settings-org', state: 'toggle-rejected', persona: 'owner', path: '/settings/org', rules: sr({ url: '/status', method: 'POST', action: 'respond', body: refuse('TEN_4031', '不能停用自己') }),
-    steps: [...openRow('停用'), `${findBtn('停用', '.el-message-box')}.click()`, elToastGone('不能停用自己')],
-    checks: [boxWhy('停用', '暂时不能停用：不能停用自己'), whyStays('#app .tbl-tip', '暂时不能停用：不能停用自己'), onlyOff('#app td.ops-col', '停用'), dlgIdle] },
+    steps: [...clickOtherOff, countXhr, boxClickTwice('停用')], checks: [boxTitle, elSpinning('停用', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'settings-org', state: 'toggle-rejected', persona: 'owner', path: '/settings/org', rules: sr({ url: '/status', method: 'POST', action: 'respond', body: refuse('TEN_4033', '该成员还有未处理的预支初审') }),
+    steps: [...clickOtherOff, `${findBtn('停用', '.el-message-box')}.click()`, elToastGone('该成员还有未处理的预支初审')],
+    // 自己那一行本来就置灰（selfOff），被拒只多置灰这一行的「停用」
+    checks: [boxWhy('停用', '暂时不能停用：该成员还有未处理的预支初审'), whyStays('#app .tbl-tip', '暂时不能停用：该成员还有未处理的预支初审'), onlyOff('#app tr:not(.row-self) td.ops-col', '停用'), selfOff, dlgIdle] },
   { app: 'console', screen: 'settings-org', state: 'readonly', persona: 'pm', path: '/settings/org', rules: sr(), checks: [hasNot('新增成员'), has('只读'), cLegacy16, `document.querySelector('#app td.ops-col') ? '只读视图不该有操作列' : ''`] },
-  { app: 'console', screen: 'settings-member-dlg', state: 'create', persona: 'owner', path: '/settings/org', rules: sr(), steps: [`${findBtn('新增成员', '#app .page-hd')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
+  { app: 'console', screen: 'settings-member-dlg', state: 'create', persona: 'owner', path: '/settings/org', rules: sr(), steps: [`${findBtn('新增成员', '#app .page-hd')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy, checkboxContrast] },
   { app: 'console', screen: 'settings-member-dlg', state: 'edit', persona: 'owner', path: '/settings/org', rules: sr(), steps: openRow('编辑'), checks: [dlgWidth, dlgNoWrap, dlgLegacy] },
   { app: 'console', screen: 'settings-member-dlg', state: 'submitting', persona: 'owner', path: '/settings/org', rules: sr(), quick: true,
     steps: [...openRow('编辑'), countXhr, elClickTwice('保存', '.el-dialog')], checks: [elSpinning('保存', '.el-dialog'), sentOnce] },

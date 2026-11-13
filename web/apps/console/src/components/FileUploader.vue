@@ -113,7 +113,9 @@ function remove(i: number) {
 .drop-t { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-1); }
 .drop-d { font-size: var(--font-size-min); color: var(--text-3); }
 .form-err { margin-top: var(--space-2); }
-.list { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
-.list li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; font-size: var(--font-size-aux); }
+/* 文件行和表单标签同高（32），传满后上传区隐藏，第一行和标签对齐；上传区在时和它隔开 */
+.list { list-style: none; margin: 0; padding: 0; }
+.drop ~ .list, .form-err ~ .list { margin-top: var(--space-2); }
+.list li { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; font-size: var(--font-size-aux); }
 .list .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
 </style>
