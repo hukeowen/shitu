@@ -49,18 +49,6 @@ export function remainMs(deadline: string | null | undefined, now: number): numb
   return d ? d.getTime() - now : null
 }
 
-/** 倒计时文本：HH:MM（超过 24h 显示 X天HH:MM；已超时显示 超时 HH:MM） */
-export function fmtCountdown(ms: number | null): string {
-  if (ms == null) return '—'
-  const neg = ms < 0
-  const total = Math.floor(Math.abs(ms) / 60000)
-  const days = Math.floor(total / 1440)
-  const h = Math.floor((total % 1440) / 60)
-  const m = total % 60
-  const body = `${days > 0 ? `${days}天` : ''}${pad(h)}:${pad(m)}`
-  return neg ? `超时 ${body}` : body
-}
-
 /**
  * 剩余时间带单位：「3 小时 41 分」「42 分钟」「1 天 16 小时」，已超时前面加「超时」。
  * 不写「03:41」：分不清是时:分还是分:秒（同 staff utils/time.ts 的 fmtRemain）

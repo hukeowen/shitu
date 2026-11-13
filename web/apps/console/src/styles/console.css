@@ -160,3 +160,28 @@ a { color: inherit; text-decoration: none; }
 /* 操作被后端业务拒绝的原因（规范「Page States」）：提醒文字色写「暂时不能…：原因」，留在页面上；msgbox-why 写在确认框提示文字下面 */
 .blocked-why, .msgbox-why { margin: 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--warning-text); }
 .msgbox-why { margin-top: var(--space-2); }
+
+/* ---------- 流转与财务页面（工单 16）---------- */
+/* 金额：一级文字色、600 字重、等宽数字、不折行；收支靠 fmtSigned 的 +/− 和列名区分，不靠颜色 */
+.money { font-variant-numeric: tabular-nums; font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; }
+/* 指标卡右上角的图标：卡片加 stat--icon，标题给图标让位 */
+.stat--icon { position: relative; min-width: 0; }
+.stat--icon .stat-l { padding-right: var(--space-6); }
+.stat-i { position: absolute; top: var(--space-4); right: var(--space-4); color: var(--primary); }
+.stat--danger .stat-i { color: var(--danger-text); }
+/* 区块里的空 / 失败（第 13 类）：图标、标题、一行说明、按钮 */
+.state-box { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); line-height: 1.6; text-align: center; }
+.state-box > svg { color: var(--text-3); }
+.state-box h4 { margin: var(--space-2) 0 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.state-box p { margin: 0 0 var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+/* 详情抽屉的分块（第 5 类）：16px / 600 的块标题，字段用两列的描述列表 */
+.blk + .blk { margin-top: var(--space-6); }
+.blk-t { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.blk-t small { font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.desc-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-6); margin: 0; }
+.desc-list > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.desc-list dt { font-size: var(--font-size-aux); color: var(--text-2); }
+.desc-list dd { margin: 0; font-size: var(--font-size-body); color: var(--text-1); }
+/* 图表图例（第 10 类）：色块 + 12px 二级文字 */
+.chart-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--font-size-min); color: var(--text-2); }
+.chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: var(--space-1); }

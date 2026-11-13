@@ -49,6 +49,16 @@ export function fmtYuan(n?: number | null): string {
   return `${v < 0 ? '-' : ''}¥${s}`
 }
 
+/**
+ * 带收支方向的金额：收入 +¥、支出 −¥（全角减号），零值不带符号。
+ * 收入和支出靠正负号和文字区分，不靠颜色（规范「Page Layouts」第 9 类）
+ */
+export function fmtSigned(n: number | null | undefined, dir: 'in' | 'out'): string {
+  if (n == null || Number.isNaN(Number(n))) return '—'
+  const v = Math.abs(Number(n))
+  return `${v === 0 ? '' : dir === 'in' ? '+' : '−'}${fmtYuan(v)}`
+}
+
 /** 后端金额字段可能是字符串（BigDecimal），统一转 number */
 export function toNum(n: unknown): number {
   const v = typeof n === 'number' ? n : Number(n)

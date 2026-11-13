@@ -12,7 +12,6 @@ declare module 'vue' {
     ApplicantInsightDrawer: typeof import('./src/components/site/ApplicantInsightDrawer.vue')['default']
     ClientSelect: typeof import('./src/components/ClientSelect.vue')['default']
     CompanyForm: typeof import('./src/components/CompanyForm.vue')['default']
-    CountdownTag: typeof import('./src/components/CountdownTag.vue')['default']
     DictTag: typeof import('./src/components/DictTag.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElBadge: typeof import('element-plus/es')['ElBadge']
