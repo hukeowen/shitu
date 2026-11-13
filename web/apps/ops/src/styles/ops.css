@@ -20,7 +20,7 @@
 .card__hd h3 { margin: 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .card__bd { padding: var(--space-card); }
 
-.toolbar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--divider); background: var(--bg-card); border-radius: var(--radius-card) var(--radius-card) 0 0; }
+.toolbar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--divider); background: var(--bg-card); border-radius: var(--radius-card) var(--radius-card) 0 0; }
 .toolbar .spacer { flex: 1; }
 .filter-tabs { display: flex; gap: 2px; flex-wrap: wrap; }
 .filter-tabs button { padding: 5px 11px; font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-2); border-radius: var(--radius-control); border: 0; background: transparent; cursor: pointer; font-family: inherit; }
@@ -31,7 +31,7 @@
 .pager { display: flex; justify-content: flex-end; padding: 10px 14px; }
 
 /* ---------- Stat：指标卡（规范第 1 类，和企业后台一致） ---------- */
-.stat { padding: 14px var(--space-4); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.stat { padding: var(--space-4); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
 .stat-l { font-size: var(--font-size-aux); color: var(--text-2); }
 .stat-v { font-size: var(--font-size-metric); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .stat-v small { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); margin-left: 3px; color: var(--text-3); }
@@ -93,7 +93,7 @@
 .tl-r { font-size: var(--font-size-aux); color: var(--text-2); margin-top: 2px; white-space: pre-wrap; }
 
 /* 代码块：浅底（规范不用深色大块） */
-.codeblk { font-family: var(--font-mono); font-size: var(--font-size-min); background: var(--bg-fill); color: var(--text-1); border-radius: var(--radius-control); padding: var(--space-3) 14px; overflow: auto; line-height: 1.7; margin: 0; white-space: pre-wrap; word-break: break-all; }
+.codeblk { font-family: var(--font-mono); font-size: var(--font-size-min); background: var(--bg-fill); color: var(--text-1); border-radius: var(--radius-control); padding: var(--space-3) var(--space-4); overflow: auto; line-height: 1.7; margin: 0; white-space: pre-wrap; word-break: break-all; }
 
 /* 改版前的提示条：浅底 + 一级文字（规范「提示条」），新页面用下面的 .notice-bar */
 .notice { display: flex; gap: var(--space-2); align-items: flex-start; padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); background: var(--primary-bg); }
@@ -116,6 +116,8 @@
 
 /* 被拒、失败的原因：轻提示之外留在页面上（规范「Page States」），外边距由各页按位置自己定 */
 .form-err { margin: 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--danger-text); }
+/* 账号锁定、需要等一会儿这类「暂时不能」的被拒用提醒色（改版前登录页的区分） */
+.form-err--warn { color: var(--warning-text); }
 /* 列表里某一条被后端业务拒绝的原因（提醒文字色）；msgbox-why 写在确认框提示文字下面 */
 .blocked-why, .msgbox-why { margin: 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--warning-text); }
 .msgbox-why { margin-top: var(--space-2); }

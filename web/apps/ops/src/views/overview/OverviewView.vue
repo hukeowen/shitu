@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, isApiError, opsApi, type OpsOverview } from '@shitu/api-client'
 import {
@@ -56,15 +56,15 @@ const chartBox = ref<HTMLElement>()
 const W = ref(560)
 const H = 180
 const PAD = { l: 36, r: 8, t: 12, b: 24 }
-let ro: ResizeObserver | undefined
-onMounted(() => {
-  ro = new ResizeObserver(([e]) => {
-    if (e.contentRect.width > 0) W.value = Math.round(e.contentRect.width)
-  })
-  // 图表区域随数据出现，观察外层卡片体
-  if (chartBox.value) ro.observe(chartBox.value)
+const ro = new ResizeObserver(([e]) => {
+  if (e.contentRect.width > 0) W.value = Math.round(e.contentRect.width)
 })
-onBeforeUnmount(() => ro?.disconnect())
+// 卡片体会随「加载失败 → 重新加载成功」卸载又重新挂载：节点换了就改观察新节点
+watch(chartBox, (el, old) => {
+  if (old) ro.unobserve(old)
+  if (el) ro.observe(el)
+}, { flush: 'post', immediate: true })
+onBeforeUnmount(() => ro.disconnect())
 
 /** 补齐近 14 天：后端只返回有注册的日期，没有数据的日子按 0 画出来（按北京日期） */
 const trend = computed(() => {
@@ -152,12 +152,19 @@ const hover = ref<number | null>(null)
               <div class="fee">
                 <div class="stat-l">平台流转收入</div>
                 <div class="fee-v money">{{ fmtMoney(data?.yesterday.platformTake) }}<small v-if="data">元</small></div>
-                <div v-if="data" class="stat-d">抽佣 {{ fmtMoney(data.yesterday.transferCommission) }} · 全额 {{ fmtMoney(data.yesterday.transferFullIncome) }}</div>
+                <template v-if="data">
+                  <div class="stat-d">抽佣 {{ fmtMoney(data.yesterday.transferCommission) }}</div>
+                  <div class="stat-d">全额 {{ fmtMoney(data.yesterday.transferFullIncome) }}</div>
+                </template>
               </div>
               <div class="fee">
                 <div class="stat-l">本月累计服务费</div>
                 <div class="fee-v money">{{ fmtMoney(data?.monthServiceFee) }}<small v-if="data">元</small></div>
-                <div v-if="data" class="stat-d">截至昨日日结 · 流转抽佣 {{ fmtMoney(data.monthTransferCommission) }} · 流转全额 {{ fmtMoney(data.monthTransferFullIncome) }}</div>
+                <template v-if="data">
+                  <div class="stat-d">截至昨日日结</div>
+                  <div class="stat-d">流转抽佣 {{ fmtMoney(data.monthTransferCommission) }}</div>
+                  <div class="stat-d">流转全额 {{ fmtMoney(data.monthTransferFullIncome) }}</div>
+                </template>
               </div>
             </div>
           </div>
@@ -204,9 +211,11 @@ const hover = ref<number | null>(null)
 
 <style scoped>
 .kpis { gap: var(--space-gap); margin-bottom: var(--space-gap); }
-.fees { gap: var(--space-gap); grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+.fees { gap: var(--space-gap); grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: start; }
 @media (max-width: 1180px) { .fees { grid-template-columns: 1fr; } }
-.fee-grid { row-gap: 18px; }
+.fee-grid { row-gap: var(--space-5); }
+/* 计费说明逐行写，一行一条，不折行（两卡顶部对齐，不强拉同高） */
+.fee .stat-d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fee-v { display: block; font-size: var(--font-size-title); margin-top: var(--space-1); }
 .fee-v small { font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--text-3); margin-left: 3px; }
 .total { color: var(--text-1); font-weight: var(--font-weight-semibold); }
@@ -217,7 +226,7 @@ const hover = ref<number | null>(null)
 .grid-l { stroke: var(--divider); stroke-width: 1; }
 .ax { font-size: var(--font-size-min); fill: var(--text-2); }
 .bar { fill: var(--chart-1); }
-.bar.on { fill: var(--primary-hover); }
+.bar.on { fill: var(--chart-1); fill-opacity: .72; }
 .lg-bar { background: var(--chart-1); }
 .chart-legend { margin-top: var(--space-2); }
 .tip { position: absolute; top: 0; right: 0; font-size: var(--font-size-min); color: var(--text-2); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-tag); padding: 2px var(--space-2); box-shadow: var(--shadow-popup); }

@@ -13,7 +13,6 @@ declare module 'vue' {
     ClientSelect: typeof import('./src/components/ClientSelect.vue')['default']
     CompanyForm: typeof import('./src/components/CompanyForm.vue')['default']
     DictTag: typeof import('./src/components/DictTag.vue')['default']
-    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElBadge: typeof import('element-plus/es')['ElBadge']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCard: typeof import('element-plus/es')['ElCard']

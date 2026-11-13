@@ -103,7 +103,7 @@ onMounted(() => pending.refresh())
 .pend-err, .pend-ok { margin-top: var(--space-3); align-items: center; }
 .pend-t { flex: 1; min-width: 0; }
 .mod { margin-top: var(--space-gap); }
-.mod-it { display: flex; align-items: center; gap: var(--space-3); padding: 14px var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); text-decoration: none; transition: border-color .14s; }
+.mod-it { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); text-decoration: none; transition: border-color .14s; }
 .mod-it:hover { border-color: var(--primary-line); background: var(--bg-hover); }
 .mod-it:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .mod-i { flex: none; color: var(--text-2); }

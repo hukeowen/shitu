@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules, InputInstance } from 'element-plus'
 import { errorMessage, isApiError, logout, opsApi } from '@shitu/api-client'
-import { BrandMark } from '@shitu/ui-icons'
+import { BrandMark, IconRefreshCw } from '@shitu/ui-icons'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
 import { APP_TITLE, HOME_PATH } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -22,6 +22,8 @@ const submitting = ref(false)
 const notice = ref<{ tone: 'warn' | 'ok' | 'info'; text: string } | null>(null)
 /** 登录被拒的原因：留在主按钮上方，下一次提交时清掉 */
 const formError = ref('')
+/** 账号锁定（AUTH_4009）、登录太频繁（AUTH_4006）用提醒色，其余被拒用危险色（同改版前） */
+const formWarn = ref(false)
 
 const rules: FormRules<typeof form> = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -75,6 +77,7 @@ async function submit() {
     form.captchaCode = ''
     loadCaptcha()
     formError.value = errorMessage(e, '登录失败，请稍后重试')
+    formWarn.value = isApiError(e, 'AUTH_4009') || isApiError(e, 'AUTH_4006')
     if (isApiError(e, 'AUTH_4005')) captchaInput.value?.focus()
     if (isApiError(e, 'AUTH_4008')) form.password = ''
   } finally {
@@ -143,11 +146,12 @@ onMounted(() => {
               <el-input ref="captchaInput" v-model="form.captchaCode" maxlength="6" placeholder="请输入右侧字符" />
               <button type="button" class="cap" title="看不清？点击换一张" :disabled="captcha.loading" @click="loadCaptcha">
                 <img v-if="captcha.image && !captcha.error" :src="captcha.image" alt="图形验证码" />
-                <span v-else>{{ captcha.loading ? '加载中…' : captcha.error ? `${captcha.error}，点击重试` : '点击获取' }}</span>
+                <span v-else class="cap-t"><IconRefreshCw v-if="!captcha.loading" :size="14" />{{ captcha.loading ? '加载中…' : captcha.error ? '重新获取' : '点击获取' }}</span>
               </button>
             </div>
+            <p v-if="captcha.error" class="cap-err" role="alert">图形验证码加载失败：{{ captcha.error }}</p>
           </el-form-item>
-          <p v-if="formError" class="form-err" role="alert">{{ formError }}</p>
+          <p v-if="formError" class="form-err" :class="{ 'form-err--warn': formWarn }" role="alert">{{ formError }}</p>
           <el-button type="primary" native-type="submit" size="large" class="btn" :loading="submitting">登录</el-button>
         </el-form>
         <p class="tip">仕兔平台运营中台 · 仅限内网访问</p>
@@ -178,6 +182,9 @@ h1 { margin: var(--space-6) 0 0; font-size: var(--font-size-title); font-weight:
 .cap-row .el-input { flex: 1; min-width: 0; }
 .cap { flex: none; width: 112px; height: var(--control-height); padding: 0 var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); cursor: pointer; overflow: hidden; display: grid; place-items: center; font-family: inherit; font-size: var(--font-size-min); line-height: 1.3; color: var(--text-3); }
 .cap:disabled { cursor: progress; }
+.cap-t { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; }
+/* 验证码加载失败的完整原因：字段下方 12px 危险文字色，和字段错误提示同一位置 */
+.cap-err { margin: var(--space-1) 0 0; width: 100%; font-size: var(--font-size-min); line-height: 1.5; color: var(--danger-text); }
 .cap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .form-err { margin-bottom: var(--space-3); }
 .btn { width: 100%; margin-top: var(--space-1); }

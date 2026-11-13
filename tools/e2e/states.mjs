@@ -1373,6 +1373,8 @@ const oTop = (crumb) => `(() => { const top = document.querySelector('.top'); if
   if (top.querySelector('.tag, .st-pill, .el-breadcrumb')) return '顶栏还在用旧标签或 Element 面包屑'
   const me = top.querySelector('button.me'); if (!me?.querySelector('svg')) return '账号按钮没有共享图标'
   if (top.getBoundingClientRect().right - me.getBoundingClientRect().right > 32) return '账号按钮不在顶栏右边'
+  const mn = me.querySelector('.mn')?.innerText.trim(); if (!mn) return '账号按钮没有账号名'
+  if ([...me.querySelectorAll('.status-tag')].some((t) => t.innerText.trim() === mn)) return '账号按钮上的名字和角色标签重复：' + mn
   return top.querySelector('.status-tag.status-tag--info') ? '' : '角色不是信息色的共享状态标签' })()`
 // 写拦截自检：发一条不存在的 PUT（不会落库），1.5 秒内有回应就说明写请求没被拦住
 const opsWriteGuard = `new Promise((ok) => { const x = new XMLHttpRequest(); x.open('PUT', '/api/v1/ops/__write-guard-probe'); x.onloadend = () => ok('PUT 写请求没被拦住（状态 ' + x.status + '）'); x.send('{}'); setTimeout(() => ok(''), 1500) })`
@@ -1397,6 +1399,29 @@ const chartSpec = `(() => { const svg = document.querySelector('#app .chart svg'
   const t = [...svg.querySelectorAll('text')].find((x) => parseFloat(getComputedStyle(x).fontSize) !== 12 || getComputedStyle(x).fill !== ${tokenColor('--text-2')}); if (t) return '坐标标签不是 12px 二级文字：' + t.textContent + ' ' + getComputedStyle(t).fontSize + ' ' + getComputedStyle(t).fill
   const lg = document.querySelector('#app .chart-legend i'); if (!lg) return '有数据却没有图例'
   return getComputedStyle(lg).backgroundColor === ${bgToken('--chart-1')} ? '' : '图例色块和柱子不是同一个颜色' })()`
+// 柱状图宽度跟着卡片走：画布宽等于图表区域宽
+const chartFit = `(() => { const svg = document.querySelector('#app .chart svg'), box = document.querySelector('#app .chart'); if (!svg || !box) return '没有柱状图'
+  const w = svg.getBoundingClientRect().width, b = box.getBoundingClientRect().width; return Math.abs(w - b) <= 1 ? '' : '柱状图宽 ' + Math.round(w) + '，图表区域宽 ' + Math.round(b) + '，没跟着卡片变' })()`
+// 悬停的柱子仍用图表配色（同色调降低不透明度），不换成别的颜色
+const chartHover = `(async () => { const bar = document.querySelector('#app .chart rect.bar'); if (!bar) return '没有柱子'
+  bar.parentNode.dispatchEvent(new MouseEvent('mouseenter')); await new Promise((r) => setTimeout(r, 100))
+  const on = document.querySelector('#app .chart rect.bar.on'); if (!on) return '悬停后柱子没有高亮'
+  const cs = getComputedStyle(on); const msg = cs.fill !== ${tokenColor('--chart-1')} ? '悬停的柱子不是图表配色 --chart-1：' + cs.fill : ''
+  bar.parentNode.dispatchEvent(new MouseEvent('mouseleave')); return msg })()`
+// 昨日计费：说明一行一条不折行、不截断；卡片和右侧图表卡顶部对齐，底部不空出一大块
+const feeFit = `(() => { const d = [...document.querySelectorAll('#app .fee .stat-d')]; if (!d.length) return '计费卡没有说明'
+  const bad = d.find((e) => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().height > parseFloat(getComputedStyle(e).fontSize) * 2); if (bad) return '计费说明折行或被截断：' + bad.innerText
+  const [a, b] = [...document.querySelectorAll('#app .fees > .card')].map((c) => c.getBoundingClientRect()); if (Math.abs(a.top - b.top) > 1) return '计费卡和图表卡顶部没对齐'
+  const last = Math.max(...[...document.querySelectorAll('#app .fees > .card:first-child .fee')].map((f) => f.getBoundingClientRect().bottom))
+  return a.bottom - last <= 18 ? '' : '计费卡底部空出 ' + Math.round(a.bottom - last) + 'px' })()`
+const noBadge = `document.querySelector('.side .bdg') ? '待办都是 0，侧栏却有角标' : ''`
+// 验证码加载失败：框里只放刷新图标和「重新获取」，不溢出；完整原因 12px 危险文字色写在字段下方
+const capErr = `(() => { const c = document.querySelector('#app .cap'); if (!c) return '没有验证码框'
+  if (c.querySelector('img')) return '验证码加载失败却显示了图片'
+  if (!c.querySelector('svg') || c.innerText.trim() !== '重新获取') return '验证码框里不是刷新图标加「重新获取」：' + c.innerText
+  if (c.scrollWidth > c.clientWidth + 1 || c.scrollHeight > c.clientHeight + 1) return '验证码框里的文字溢出'
+  const e = document.querySelector('#app .cap-err'); if (!e || !e.innerText.includes('图形验证码加载失败')) return '字段下方没写验证码加载失败的原因'
+  return parseFloat(getComputedStyle(e).fontSize) === 12 && getComputedStyle(e).color === ${tokenColor('--danger-text')} ? '' : '验证码失败原因不是 12px 危险文字色' })()`
 const noLegend = `document.querySelector('#app .chart-legend') ? '没有数据却显示了图例' : ''`
 // 计费金额：一级文字色、600 字重、等宽数字，不用主色；没拿到数据时显示「—」
 const feePlain = `(() => { const v = [...document.querySelectorAll('#app .fee-v')]; if (v.length !== 4) return '计费金额不是 4 个：' + v.length
@@ -1409,8 +1434,9 @@ const pendHint = (net) => `(() => { const t = document.querySelector('#app .pend
   return t.includes('请检查网络') === ${net} ? '' : ${net} ? '断网时没提示检查网络：' + t : '不是断网却让检查网络：' + t })()`
 const zeroKpis = `(() => { const v = [...document.querySelectorAll('#app .kpis .stat-v')].map((e) => e.innerText.trim()).filter((t) => parseInt(t, 10) !== 0); return v.length ? '待办是空的，数字却不是 0：' + v.join('、') : '' })()`
 // 被拒的原因留在表单里（危险文字色，主按钮上方）
-const formErr = (scope, text) => `(() => { const e = [...document.querySelectorAll(${JSON.stringify(scope + ' .form-err')})].find((x) => x.innerText.includes(${JSON.stringify(text)})); if (!e) return '被拒的原因没有留在表单里：${text}'
-  return getComputedStyle(e).color === ${tokenColor('--danger-text')} ? '' : '被拒原因不是危险文字色' })()`
+// tone：账号锁定、太频繁这类「暂时不能」用提醒色，其余危险色（改版前登录页就这样区分）
+const formErr = (scope, text, tone = '--danger-text') => `(() => { const e = [...document.querySelectorAll(${JSON.stringify(scope + ' .form-err')})].find((x) => x.innerText.includes(${JSON.stringify(text)})); if (!e) return '被拒的原因没有留在表单里：${text}'
+  return getComputedStyle(e).color === ${tokenColor(tone)} ? '' : '被拒原因不是 ${tone} 色：' + getComputedStyle(e).color })()`
 const oFill = (placeholder, value, scope = '#app') => `(() => { const el = document.querySelector(${JSON.stringify(scope + ' input[placeholder*="' + placeholder + '"]')})
   el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
 const oLoginFill = [oFill('请输入用户名', 'admin'), oFill('请输入密码', 'Wrong1234'), oFill('请输入右侧字符', 'AB12')]
@@ -2654,10 +2680,12 @@ const STATES = [
   { app: 'ops', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: 1280, height: 800, rules: or(), checks: [cLoginCard] },
   { app: 'ops', screen: 'login', state: 'invalid', persona: 'guest', path: '/login', rules: or(), steps: [`${findBtn('登录')}.click()`], checks: [elFieldError('请输入用户名'), elFieldError('请输入密码'), fieldGap] },
   { app: 'ops', screen: 'login', state: 'captcha-error', persona: 'guest', path: '/login', rules: or({ url: O_CAPTCHA_API, action: 'fail' }),
-    checks: [`document.querySelector('#app .cap img') ? '验证码加载失败却显示了图片' : ''`, `/失败|重试|获取/.test(document.querySelector('#app .cap')?.innerText ?? '') ? '' : '验证码位置没有写明加载失败'`] },
+    checks: [capErr] },
   { app: 'ops', screen: 'login', state: 'submitting', persona: 'guest', path: '/login', rules: or(), steps: [...oLoginFill, countXhr, elClickTwice('登录')], quick: true, checks: [elSpinning('登录'), sentOnce] },
   { app: 'ops', screen: 'login', state: 'rejected', persona: 'guest', path: '/login', rules: or({ url: O_LOGIN_API, action: 'respond', body: refuse('AUTH_4008', '用户名或密码错误') }),
     steps: [...oLoginFill, `${findBtn('登录')}.click()`], checks: [formErr('#app', '用户名或密码错误'), elIdle] },
+  { app: 'ops', screen: 'login', state: 'locked', persona: 'guest', path: '/login', rules: or({ url: O_LOGIN_API, action: 'respond', body: refuse('AUTH_4009', '密码错误次数过多，账号已锁定 15 分钟') }),
+    steps: [...oLoginFill, `${findBtn('登录')}.click()`], checks: [formErr('#app', '账号已锁定', '--warning-text'), elIdle] },
   { app: 'ops', screen: 'login', state: 'first-change', persona: 'guest', path: '/login', rules: or(...firstLogin, ...firstMe()), steps: toChange,
     checks: [has('首次登录'), has('修改密码并重新登录'), has('使用其他账号登录'), `document.querySelector('#app .notice-bar--warn') ? '' : '没有提醒先改密码的提示条'`, cNoDecor, cLegacy16] },
   { app: 'ops', screen: 'login', state: 'first-submitting', persona: 'guest', path: '/login', rules: or(...firstLogin, ...firstMe()), quick: true,
@@ -2675,10 +2703,15 @@ const STATES = [
   { app: 'ops', screen: 'workbench', state: 'error', persona: 'ops', path: '/workbench', rules: or({ url: O_PENDING_API, action: 'fail' }), checks: [oneRetry, pendHint(true), noNums, hasNot('目前没有待处理')] },
   { app: 'ops', screen: 'workbench', state: 'error-server', persona: 'ops', path: '/workbench', rules: or({ url: O_PENDING_API, action: 'respond', body: serverError }), checks: [oneRetry, pendHint(false), noNums, has('服务器开小差了')] },
   // 平台概览：页面头 → 6 张指标卡（每排 3 张）→ 昨日计费、近 14 日注册趋势柱状图
-  { app: 'ops', screen: 'overview', state: 'normal', persona: 'ops', path: '/ops/overview', rules: or(), checks: [cSide('ops'), oTop('运营/运营总览'), kpiGrid(6, 3), chartSpec, feePlain, cLegacy16, statTone] },
-  { app: 'ops', screen: 'overview', state: 'normal', persona: 'ops', path: '/ops/overview', width: 1280, height: 800, rules: or(), checks: [kpiGrid(6, 3), chartSpec, cFitAny, sideActive] },
+  { app: 'ops', screen: 'overview', state: 'normal', persona: 'ops', path: '/ops/overview', rules: or(), checks: [cSide('ops'), oTop('运营/运营总览'), kpiGrid(6, 3), chartSpec, chartFit, chartHover, feePlain, feeFit, cLegacy16, statTone] },
+  { app: 'ops', screen: 'overview', state: 'normal', persona: 'ops', path: '/ops/overview', width: 1280, height: 800, rules: or(), checks: [kpiGrid(6, 3), chartSpec, chartFit, feeFit, cFitAny, sideActive] },
   { app: 'ops', screen: 'overview', state: 'loading', persona: 'ops', path: '/ops/overview', rules: or({ url: O_OVERVIEW_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask, noNums, feeBlank, noLegend, refreshBusy] },
-  { app: 'ops', screen: 'overview', state: 'empty', persona: 'ops', path: '/ops/overview', rules: or({ url: O_OVERVIEW_API, action: 'respond', body: fakeOverview(true) }), checks: [has('近 14 日没有新注册'), noLegend, kpiGrid(6, 3), zeroKpis] },
+  // 空：概览和侧栏待办角标用同一份「都是 0」的假数据，前后自洽
+  { app: 'ops', screen: 'overview', state: 'empty', persona: 'ops', path: '/ops/overview',
+    rules: or({ url: O_OVERVIEW_API, action: 'respond', body: fakeOverview(true) }, { url: O_PENDING_API, action: 'respond', body: reply({ companies: 0, contracts: 0, jobs: 0 }) }), checks: [has('近 14 日没有新注册'), noLegend, kpiGrid(6, 3), zeroKpis, noBadge] },
+  // 首次加载失败 → 重新加载成功 → 内容区变窄：柱状图宽度跟着变（卡片体重新挂载后要重新观察）
+  { app: 'ops', screen: 'overview', state: 'retry-resize', persona: 'ops', path: '/ops/overview', rules: or({ url: O_OVERVIEW_API, action: 'fail' }), lateRules: [{ url: O_OVERVIEW_API, action: 'continue' }],
+    steps: [`${findBtn('重新加载')}.click()`, `document.querySelector('#app .content').style.paddingRight = '240px'`, wait(600)], checks: [chartSpec, chartFit] },
   { app: 'ops', screen: 'overview', state: 'error', persona: 'ops', path: '/ops/overview', rules: or({ url: O_OVERVIEW_API, action: 'fail' }), checks: [oneRetry, failHint(true), noNums, feeBlank, noLegend] },
   { app: 'ops', screen: 'overview', state: 'error-server', persona: 'ops', path: '/ops/overview', rules: or({ url: O_OVERVIEW_API, action: 'respond', body: serverError }), checks: [oneRetry, failHint(false), has('服务器开小差了')] },
   // 一次性密码弹窗（平台账号页重置密码后弹出；页面本身归工单 25，这里只看弹窗）

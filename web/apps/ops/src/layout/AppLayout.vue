@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { logout, useDict } from '@shitu/api-client'
-import { BrandMark, IconChevronDown } from '@shitu/ui-icons'
+import { BrandMark, IconChevronDown, IconUser } from '@shitu/ui-icons'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
 import { APP_TITLE, MENU, type MenuItem } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -99,7 +99,8 @@ onMounted(() => {
         <span class="spacer" />
         <el-dropdown trigger="click" @command="onCommand">
           <button type="button" class="me">
-            <span class="mn">{{ auth.me?.displayName }}</span>
+            <IconUser :size="16" />
+            <span class="mn">{{ auth.me?.username }}</span>
             <span v-for="r in auth.me?.roles ?? []" :key="r" class="status-tag status-tag--info">{{ label('OpsRole', r) }}</span>
             <IconChevronDown :size="16" />
           </button>
@@ -127,7 +128,7 @@ onMounted(() => {
 /* 外壳和企业后台（console layout/AppLayout.vue）是同一套：侧栏、顶栏、内容区的尺寸和颜色一致 */
 .shell { --layout-top-height: 56px; display: flex; min-height: 100vh; background: var(--bg-page); }
 .side { width: 220px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg-card); border-right: 1px solid var(--border); }
-.brand { display: flex; align-items: center; gap: var(--space-2); height: 56px; flex: none; padding: 0 var(--space-4); }
+.brand { display: flex; align-items: center; gap: var(--space-2); height: var(--layout-top-height); flex: none; padding: 0 var(--space-4); }
 .brand b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .nav { flex: 1; overflow: auto; padding: 0 var(--space-3) var(--space-4); }
 .grp { padding: var(--space-4) var(--space-2) var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
@@ -137,7 +138,7 @@ onMounted(() => {
 .item.is-active { background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
 .item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 /* 待办角标：危险文字色底配白字（对比度见 design-guard CONTRAST_PAIRS 的组件库实心按钮那一组） */
-.bdg { flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: var(--font-size-min); font-weight: var(--font-weight-medium); line-height: 18px; text-align: center; background: var(--danger-text); color: var(--text-on-primary); }
+.bdg { flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-card); font-size: var(--font-size-min); font-weight: var(--font-weight-medium); line-height: 18px; text-align: center; background: var(--danger-text); color: var(--text-on-primary); }
 .soon { flex: none; font-size: var(--font-size-min); color: var(--text-3); }
 .side-user { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--divider); display: flex; align-items: center; gap: var(--space-2); }
 .avatar { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); background: var(--primary-bg); color: var(--primary-text); }
