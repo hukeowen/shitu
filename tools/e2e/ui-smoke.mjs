@@ -69,7 +69,8 @@ const SUITES = [
   { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: menuPaths('ops') },
   ...consoleAuth,
   { name: 'console-owner', app: 'console', cookieFile: 'tenant-13800000001.rt', paths: menuPaths('console') },
-  { name: 'console-pm', app: 'console', cookieFile: 'tenant-13800000002.rt', paths: menuPaths('console') },
+  // 岗位编辑不在菜单里：新建页直接打开，编辑页用截图数据里的岗位（工单 17）
+  { name: 'console-pm', app: 'console', cookieFile: 'tenant-13800000002.rt', paths: [...menuPaths('console'), '/pm/jobs/edit', ...(seeded ? [`/pm/jobs/edit?id=${seeded.ids.matchedJobId}`] : [])] },
   { name: 'console-site', app: 'console', cookieFile: 'tenant-13800000003.rt', paths: menuPaths('console') },
   { name: 'staff-site', app: 'staff', cookieFile: 'tenant-13800000003.rt', paths: [...routePaths('staff'), ...staffSeeded] },
   { name: 'seeker-new', app: 'seeker', cookieFile: 'seeker.rt', paths: routePaths('seeker') },

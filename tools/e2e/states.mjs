@@ -989,6 +989,38 @@ const ownerPage = (screen, path, api, { fake, empty, emptyText, checks = [], wid
   { app: 'console', screen, state: 'empty', persona: 'owner', path, rules: sr({ url: api, action: 'respond', body: empty }), checks: [has(emptyText), zeroBut(keep), cLegacy16] },
   { app: 'console', screen, state: 'error', persona: 'owner', path, rules: sr({ url: api, action: 'fail' }), checks: [oneRetry, nums, hasNot(emptyText), ...errNot.map(hasNot)] },
 ]
+// ---- 工单 17：项目看板（第 1 类）、岗位管理（第 2 类 + 第 5 类抽屉）、岗位编辑（第 6 类）、知识库（第 2 类 + 第 10 类横条）----
+const BOARD_API = '/tenant/reports/board', JOBS_API = '/tenant/jobs', JOB_STATS_API = '/tenant/jobs/stats', KB_API = '/tenant/kb', KB_PENDING_API = '/tenant/kb/pending', PROJECTS_API = '/tenant/projects'
+// 看板「本月人员变动」：没拿到数据（加载、失败、没有负责项目）时三格都是「—」
+const monthBlank = `(() => { const v = [...document.querySelectorAll('#app .m-v')].map((e) => e.innerText.trim()); if (v.length !== 3) return '「本月人员变动」应该有 3 格，实际 ' + v.length
+  const n = v.filter((t) => t !== '—'); return n.length ? '没拿到数据，本月人员变动却显示了数字：' + n.join('、') : '' })()`
+// 净增带 +/− 号，颜色是一级文字（不靠红绿区分增减）
+const netSigned = `(() => { const c = [...document.querySelectorAll('#app .m-cell')].find((x) => x.innerText.includes('本月净增')); if (!c) return '没有「本月净增」'
+  const v = c.querySelector('.m-v'), t = v.innerText.trim(); if (!/^([+−]\\d+|0)$/.test(t)) return '本月净增没有写正负号：' + t
+  return getComputedStyle(v).color === ${tokenColor('--text-1')} ? '' : '本月净增靠颜色区分增减：' + getComputedStyle(v).color })()`
+// 长表单（第 6 类）：卡片分区、每区块标题加两列字段、必填项带红星、底部固定「取消 / 保存」操作条
+const JOB_REQUIRED = ['岗位名称', '所属项目', '工种', '岗位职责', '月综合薪资下限（元）', '月综合薪资上限（元）', '班次', '面试地址', '招聘总名额']
+const jobForm = `(() => { const cards = [...document.querySelectorAll('#app .job-form section.card')]; if (cards.length < 5) return '表单没有按卡片分区：' + cards.length + ' 张'
+  const bare = cards.find((c) => !c.querySelector('.card__hd h3')); if (bare) return '有分区没有区块标题'
+  const one = [...document.querySelectorAll('#app .job-form .fields')].find((f) => getComputedStyle(f).gridTemplateColumns.split(' ').length !== 2); if (one) return '有分区的字段不是两列：' + one.closest('section').querySelector('h3').innerText
+  const red = ${tokenColor('--el-color-danger')}
+  for (const name of ${JSON.stringify(JOB_REQUIRED)}) { const it = [...document.querySelectorAll('#app .job-form .el-form-item')].find((x) => x.querySelector('.el-form-item__label')?.innerText.trim() === name); if (!it) return '没有「' + name + '」'
+    const st = getComputedStyle(it.querySelector('.el-form-item__label'), '::before'); if (!it.classList.contains('is-required') || !st.content.includes('*')) return '必填项「' + name + '」没有红星'
+    if (st.color !== red) return '「' + name + '」的星不是红色：' + st.color }
+  return '' })()`
+const jobBar = `(() => { const bar = document.querySelector('#app .save-bar'); if (!bar) return '没有底部操作条'; const r = bar.getBoundingClientRect()
+  if (Math.abs(r.bottom - innerHeight) > 1) return '操作条没有固定在底部（下沿 ' + Math.round(r.bottom) + '，视口 ' + innerHeight + '）'
+  const bs = [...bar.querySelectorAll('.el-button')]; if (bs.length !== 2 || !bs[0].innerText.includes('取消') || !bs[1].classList.contains('el-button--primary')) return '操作条不是「取消」加主色「保存」'
+  if (bs[0].getBoundingClientRect().left > bs[1].getBoundingClientRect().left) return '「取消」不在「保存」左边'
+  const cut = bs.find((b) => { const q = b.getBoundingClientRect(); return q.top < r.top || q.bottom > r.bottom + 1 || q.bottom > innerHeight + 1 }); if (cut) return '操作条里的「' + cut.innerText.trim() + '」被截掉了（操作条高 ' + Math.round(r.height) + '）'
+  const main = document.querySelector('.main').getBoundingClientRect(); return r.left >= main.left - 1 && r.right <= main.right + 1 ? '' : '操作条超出内容区' })()`
+// 抽屉里的薪资：白底上 ≥18px / 600 的薪资色（规范 Color Roles）
+const drawerSalary = `(() => { const e = document.querySelector('.job-drawer .salary'); if (!e) return '抽屉里没有薪资'; const cs = getComputedStyle(e)
+  if (parseFloat(cs.fontSize) < 18 || Number(cs.fontWeight) < 600) return '薪资不够大或不够粗：' + cs.fontSize + ' ' + cs.fontWeight
+  return cs.color === ${tokenColor('--salary')} ? '' : '薪资不是薪资色：' + cs.color })()`
+const openJobRow = (text) => [`${findBtn(text, '#app .el-table__body')}.click()`, wait(500)]
+const openJobTitle = [`document.querySelector('#app .el-table__body .title').click()`, wait(700)]
+const KB_WHY = '暂时不能删除：条目已被他人修改'
 const C_LOGIN_API = '/tenant/auth/sms-login', C_SMS_API = '/tenant/auth/sms-code', C_CAPTCHA_API = '/tenant/auth/captcha'
 const C_APPLY_API = '/tenant/onboarding/apply', C_UPLOAD_API = '/tenant/onboarding/files', C_RESUBMIT_API = '/tenant/company/application'
 const C_MSG_API = '/tenant/messages?', C_UNREAD_API = '/tenant/messages/unread-count', C_READ_API = '/tenant/messages/read'
@@ -1006,6 +1038,9 @@ const fakeUpload = reply({ key: 'onboarding/2026/11/shot-license.png', name: '�
 const C_PENDING = data.personas.pendingOwner.phone
 const pendingMe = (await get(TME_API, await tenantSession(C_PENDING))).data
 const pmMe = (await get(TME_API, await tenantSession(MEMBERS.pm))).data
+// 驳回状态的岗位（编辑时不弹确认框、直接保存），从 PM 的岗位列表里取，不写死编号
+const rejectedJobId = (await get(JOBS_API + '?status=REJECTED&page=1&pageSize=1', await tenantSession(MEMBERS.pm))).data.records[0]?.jobId
+const MATCHED_EDIT = `/pm/jobs/edit?id=${data.ids.matchedJobId}`
 // 假的成员信息。规则按「地址里包含」匹配，'/tenant/me' 也会命中 '/tenant/messages/…'（未读数会被换成成员对象），所以先放行消息的读取
 const cMe = (me, company) => [{ url: '/tenant/messages', method: 'GET', action: 'continue' }, { url: TME_API, action: 'respond', body: reply({ ...me, company: { ...me.company, ...company } }) }]
 const openBell = `document.querySelector('.top button[aria-label="消息"]').click()`
@@ -1892,6 +1927,90 @@ const STATES = [
   { app: 'console', screen: 'channel-report', state: 'error-legend', persona: 'owner', path: '/owner/channel-report', rules: sr({ url: CHANNELS_API, action: 'fail' }), checks: [`document.querySelector('#app .chart-legend') ? '没数据却显示了图例' : ''`] },
   ...ownerPage('channel-report', '/owner/channel-report', CHANNELS_API, { empty: reply([]), emptyText: '暂无渠道码',
     checks: [chartColors('#app .mini-t i, #app .fn-b i, #app .chart-legend i'), funnelText] }),
+  // ---- 工单 17：项目数据看板 ----
+  { app: 'console', screen: 'pm-board', state: 'normal', persona: 'pm', path: '/pm/board', rules: sr(), checks: [cSide('pm'), kpiCards, statTone, cLegacy16, noThrottleWord, netSigned, has('本月人员变动'), has('待我处理')] },
+  { app: 'console', screen: 'pm-board', state: 'normal', persona: 'pm', path: '/pm/board', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, kpiCards, wbKpiAligned] },
+  { app: 'console', screen: 'pm-board', state: 'loading', persona: 'pm', path: '/pm/board', rules: sr({ url: BOARD_API, action: 'hang' }), quick: true, steps: [wait(600)],
+    checks: [loadMask, noNums, monthBlank, hasNot('暂无待处理事项'), hasNot('你还没有被分配负责项目')] },
+  { app: 'console', screen: 'pm-board', state: 'empty', persona: 'pm', path: '/pm/board', rules: sr({ url: BOARD_API, action: 'respond', body: reply({}) }),
+    checks: [has('你还没有被分配负责项目'), has('组织与权限'), allZero, monthBlank, cLegacy16] },
+  { app: 'console', screen: 'pm-board', state: 'error', persona: 'pm', path: '/pm/board', rules: sr({ url: BOARD_API, action: 'fail' }), checks: [oneRetry, noNums, monthBlank, hasNot('你还没有被分配负责项目')] },
+  // ---- 工单 17：岗位管理 ----
+  { app: 'console', screen: 'pm-jobs', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord] },
+  { app: 'console', screen: 'pm-jobs', state: 'normal', persona: 'pm', path: '/pm/jobs', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'pm-jobs', state: 'more', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [`${findBtn('更多', '#app .el-table__body')}.click()`, wait(400)],
+    checks: [`[...document.querySelectorAll('.el-dropdown-menu__item')].some((x) => x.getClientRects().length && x.innerText.trim() === '下架') ? '' : '「更多」里没有「下架」'`] },
+  { app: 'console', screen: 'pm-jobs', state: 'loading', persona: 'pm', path: '/pm/jobs', rules: sr({ url: JOBS_API, action: 'hang' }), quick: true, steps: [wait(600)],
+    checks: [`document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`, noNums, hasNot('暂无岗位')] },
+  { app: 'console', screen: 'pm-jobs', state: 'empty', persona: 'pm', path: '/pm/jobs',
+    rules: sr({ url: JOB_STATS_API, action: 'respond', body: reply({ PENDING_AUDIT: 0, REJECTED: 0, RECRUITING: 0, PAUSED: 0, OFFLINE: 0, FORCE_OFFLINE: 0 }) }, { url: JOBS_API, action: 'respond', body: emptyPage }),
+    checks: [has('暂无岗位'), allZero, cLegacy16] },
+  { app: 'console', screen: 'pm-jobs', state: 'error', persona: 'pm', path: '/pm/jobs', rules: sr({ url: JOBS_API, action: 'fail' }), checks: [oneRetry, noNums, hasNot('暂无岗位')] },
+  { app: 'console', screen: 'pm-jobs', state: 'submitting', persona: 'pm', path: '/pm/jobs', rules: sr(), quick: true,
+    steps: [...openJobRow('暂停'), countXhr, boxClickTwice('暂停招聘')], checks: [elSpinning('暂停招聘', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-jobs', state: 'rejected', persona: 'pm', path: '/pm/jobs', rules: sr({ url: '/pause', method: 'POST', action: 'respond', body: refuse('JOB_4091', '岗位状态已变化，请刷新后再操作') }),
+    steps: [...openJobRow('暂停'), `${findBtn('暂停招聘', '.el-message-box')}.click()`, elToastGone('岗位状态已变化')],
+    checks: [...rowOff('暂时不能暂停招聘：岗位状态已变化', '暂停'), boxWhy('暂停招聘', '暂时不能暂停招聘：岗位状态已变化'), elIdle] },
+  { app: 'console', screen: 'pm-jobs', state: 'network', persona: 'pm', path: '/pm/jobs', rules: sr({ url: '/pause', method: 'POST', action: 'fail' }),
+    steps: [...openJobRow('暂停'), `${findBtn('暂停招聘', '.el-message-box')}.click()`, toastShown],
+    checks: [`document.querySelector('#app .blocked-why, .msgbox-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn('暂停招聘', '.el-message-box')}?.disabled === false ? '' : '网络失败后确认框关了或确认按钮被置灰'`] },
+  { app: 'console', screen: 'pm-jobs', state: 'quota-submitting', persona: 'pm', path: '/pm/jobs', rules: sr(), quick: true,
+    steps: [...openJobRow('名额'), countXhr, elClickTwice('保存', '.el-dialog')], checks: [elSpinning('保存', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'pm-jobs', state: 'quota-rejected', persona: 'pm', path: '/pm/jobs', rules: sr({ url: '/quota', method: 'PUT', action: 'respond', body: refuse('JOB_4092', '名额不能少于已占用数') }),
+    steps: [...openJobRow('名额'), `${findBtn('保存', '.el-dialog')}.click()`, elToastGone('名额不能少于已占用数')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能调整名额：名额不能少于已占用数'), `${findBtn('保存', '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「保存」没有置灰'`, elIdle] },
+  // 岗位详情抽屉（第 5 类）
+  { app: 'console', screen: 'job-drawer', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: openJobTitle,
+    checks: [drawerBlocks('.job-drawer', ['基本信息', '食宿', '要求', '面试', '岗位职责', '时间', '审核轨迹']), drawerSalary] },
+  { app: 'console', screen: 'job-drawer', state: 'error', persona: 'pm', path: '/pm/jobs', rules: sr({ url: '/audits', action: 'fail' }), steps: openJobTitle,
+    checks: [`[...document.querySelectorAll('.job-drawer button')].some((b) => b.innerText.includes('重新加载')) ? '' : '岗位详情失败时没有「重新加载」'`] },
+  // ---- 工单 17：岗位编辑（第 6 类长表单）----
+  { app: 'console', screen: 'pm-job-edit', state: 'normal', persona: 'pm', path: MATCHED_EDIT, rules: sr(), checks: [cSide('pm'), jobForm, jobBar, elPrimary, cLegacy16] },
+  { app: 'console', screen: 'pm-job-edit', state: 'normal', persona: 'pm', path: MATCHED_EDIT, width: 1280, height: 800, rules: sr(), checks: [cFitAny, jobForm, jobBar] },
+  { app: 'console', screen: 'pm-job-edit', state: 'create', persona: 'pm', path: '/pm/jobs/edit', rules: sr(), checks: [jobForm, jobBar, has('提交审核并发布')] },
+  { app: 'console', screen: 'pm-job-edit', state: 'loading', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: PROJECTS_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask] },
+  { app: 'console', screen: 'pm-job-edit', state: 'empty', persona: 'pm', path: '/pm/jobs/edit', rules: sr({ url: PROJECTS_API, action: 'respond', body: reply([]) }), checks: [has('暂无进行中的项目'), jobBar] },
+  { app: 'console', screen: 'pm-job-edit', state: 'error', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: PROJECTS_API, action: 'fail' }), checks: [oneRetry, jobBar] },
+  { app: 'console', screen: 'pm-job-edit', state: 'invalid', persona: 'pm', path: '/pm/jobs/edit', rules: sr(), steps: [`${findBtn('提交审核并发布', '#app .save-bar')}.click()`],
+    checks: [elFieldError('请填写岗位名称')] },
+  // 招聘中的岗位：确认框里提交
+  { app: 'console', screen: 'pm-job-edit', state: 'submitting', persona: 'pm', path: MATCHED_EDIT, rules: sr(), quick: true,
+    steps: [`${findBtn('保存并提交审核', '#app .save-bar')}.click()`, wait(600), countXhr, boxClickTwice('保存并提交审核')], checks: [elSpinning('保存并提交审核', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-job-edit', state: 'rejected', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: JOBS_API + '/', method: 'PUT', action: 'respond', body: refuse('JOB_4091', '岗位状态已变化，请刷新后再操作') }),
+    steps: [`${findBtn('保存并提交审核', '#app .save-bar')}.click()`, wait(600), `${findBtn('保存并提交审核', '.el-message-box')}.click()`, elToastGone('岗位状态已变化')],
+    checks: [boxWhy('保存并提交审核', '暂时不能保存：岗位状态已变化'), whyStays('#app .save-bar .blocked-why', '暂时不能保存：岗位状态已变化'), elIdle] },
+  // 被驳回的岗位：不弹框，直接保存
+  ...(rejectedJobId ? [
+    { app: 'console', screen: 'pm-job-edit', state: 'direct-submitting', persona: 'pm', path: `/pm/jobs/edit?id=${rejectedJobId}`, rules: sr(), quick: true,
+      steps: [countXhr, elClickTwice('保存并提交审核', '#app .save-bar')], checks: [elSpinning('保存并提交审核', '#app .save-bar'), sentOnce] },
+    { app: 'console', screen: 'pm-job-edit', state: 'direct-rejected', persona: 'pm', path: `/pm/jobs/edit?id=${rejectedJobId}`,
+      rules: sr({ url: JOBS_API + '/', method: 'PUT', action: 'respond', body: refuse('JOB_4091', '岗位状态已变化，请刷新后再操作') }),
+      steps: [`${findBtn('保存并提交审核', '#app .save-bar')}.click()`, elToastGone('岗位状态已变化')],
+      checks: [whyStays('#app .save-bar .blocked-why', '暂时不能保存：岗位状态已变化'), `${findBtn('保存并提交审核', '#app .save-bar')}.disabled ? '' : '被拒之后「保存并提交审核」没有置灰'`, elIdle] },
+  ] : []),
+  // ---- 工单 17：知识库 ----
+  { app: 'console', screen: 'pm-kb', state: 'normal', persona: 'pm', path: '/pm/kb', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord] },
+  { app: 'console', screen: 'pm-kb', state: 'normal', persona: 'pm', path: '/pm/kb', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'pm-kb', state: 'pending', persona: 'pm', path: '/pm/kb?tab=pending', rules: sr(), checks: [opsCol, tblFit, rowsTall, chartColors('#app .track i'), cLegacy16] },
+  { app: 'console', screen: 'pm-kb', state: 'pending', persona: 'pm', path: '/pm/kb?tab=pending', width: 1280, height: 800, rules: sr(), checks: [cFit, opsCol, tblFit] },
+  { app: 'console', screen: 'pm-kb', state: 'loading', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API, action: 'hang' }), quick: true, steps: [wait(600)],
+    checks: [`document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`, noNums, hasNot('暂无问答条目')] },
+  { app: 'console', screen: 'pm-kb', state: 'empty', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API, action: 'respond', body: reply([]) }), checks: [has('暂无问答条目'), allZero, cLegacy16] },
+  { app: 'console', screen: 'pm-kb', state: 'pending-empty', persona: 'pm', path: '/pm/kb?tab=pending', rules: sr({ url: KB_PENDING_API, action: 'respond', body: reply([]) }), checks: [has('没有待补充的问题')] },
+  { app: 'console', screen: 'pm-kb', state: 'error', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API, action: 'fail' }), checks: [oneRetry, noNums, hasNot('暂无问答条目')] },
+  { app: 'console', screen: 'pm-kb', state: 'submitting', persona: 'pm', path: '/pm/kb', rules: sr(), quick: true,
+    steps: [...openJobRow('删除'), countXhr, boxClickTwice('删除')], checks: [elSpinning('删除', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-kb', state: 'rejected', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API + '/', method: 'DELETE', action: 'respond', body: refuse('KB_4091', '条目已被他人修改') }),
+    steps: [...openJobRow('删除'), `${findBtn('删除', '.el-message-box')}.click()`, elToastGone('条目已被他人修改')],
+    checks: [...rowOff(KB_WHY, '删除'), boxWhy('删除', KB_WHY), elIdle] },
+  { app: 'console', screen: 'pm-kb', state: 'ignore-rejected', persona: 'pm', path: '/pm/kb?tab=pending', rules: sr({ url: '/ignore', method: 'POST', action: 'respond', body: refuse('KB_4092', '问题已被处理') }),
+    steps: [...openJobRow('忽略'), `${findBtn('忽略', '.el-message-box')}.click()`, elToastGone('问题已被处理')],
+    checks: [...rowOff('暂时不能忽略：问题已被处理', '忽略'), boxWhy('忽略', '暂时不能忽略：问题已被处理'), elIdle] },
+  { app: 'console', screen: 'pm-kb', state: 'edit-submitting', persona: 'pm', path: '/pm/kb', rules: sr(), quick: true,
+    steps: [...openJobRow('编辑'), countXhr, elClickTwice('保存', '.el-dialog')], checks: [elSpinning('保存', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'pm-kb', state: 'edit-rejected', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API + '/', method: 'PUT', action: 'respond', body: refuse('KB_4091', '条目已被他人修改') }),
+    steps: [...openJobRow('编辑'), `${findBtn('保存', '.el-dialog')}.click()`, elToastGone('条目已被他人修改')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能保存：条目已被他人修改'), `${findBtn('保存', '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「保存」没有置灰'`, elIdle] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
