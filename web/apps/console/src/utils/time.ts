@@ -61,6 +61,20 @@ export function fmtCountdown(ms: number | null): string {
   return neg ? `超时 ${body}` : body
 }
 
+/**
+ * 剩余时间带单位：「3 小时 41 分」「42 分钟」「1 天 16 小时」，已超时前面加「超时」。
+ * 不写「03:41」：分不清是时:分还是分:秒（同 staff utils/time.ts 的 fmtRemain）
+ */
+export function fmtRemain(ms: number | null): string {
+  if (ms == null) return '—'
+  const total = Math.floor(Math.abs(ms) / 60000)
+  const d = Math.floor(total / 1440)
+  const h = Math.floor((total % 1440) / 60)
+  const m = total % 60
+  const body = d > 0 ? `${d} 天 ${h} 小时` : h > 0 ? `${h} 小时 ${m} 分` : `${m} 分钟`
+  return ms < 0 ? `超时 ${body}` : body
+}
+
 /** 倒计时颜色：已超时 / <1h → danger，<6h → warn，其余 muted */
 export function countdownTone(ms: number | null): 'danger' | 'warn' | 'muted' {
   if (ms == null) return 'muted'

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { errorMessage, tenantApi, useDict, type ApplicationInsight, type SiteApplication } from '@shitu/api-client'
+import { IconCircleExclamationPoint } from '@shitu/ui-icons'
+import DictTag from '@/components/DictTag.vue'
 import { fmtDateTime } from '@/utils/format'
 
 /** 求职者画像（M-04）：画像标签、匹配记录、在本公司的历史报名。只含本公司的岗位与报名。 */
@@ -31,49 +33,61 @@ watch(open, (v) => {
 </script>
 
 <template>
-  <el-drawer v-model="open" :title="app ? app.seekerName + ' 的画像' : '求职者画像'" size="480px" destroy-on-close>
+  <el-drawer v-model="open" :title="app ? app.seekerName + ' 的画像' : '求职者画像'" size="560px" class="insight-drawer" destroy-on-close>
     <div v-loading="loading" class="wrap">
-      <el-alert v-if="error" type="error" :title="error" show-icon :closable="false" />
+      <div v-if="error" class="fail">
+        <IconCircleExclamationPoint :size="48" class="fail-i" />
+        <h4 class="fail-t">{{ error }}</h4>
+        <p class="hint">请检查网络后重新加载</p>
+        <el-button type="primary" @click="load">重新加载</el-button>
+      </div>
       <template v-else-if="data && app">
-        <div class="t-xs">报名岗位</div>
-        <div class="job"><b>{{ app.jobTitle }}</b><span class="t-xs"> · {{ app.projectName }}</span></div>
+        <dl class="job"><dt>报名岗位</dt><dd><b>{{ app.jobTitle }}</b><span class="hint"> · {{ app.projectName }}</span></dd></dl>
 
         <h4>画像标签</h4>
-        <div v-if="data.profileTags.length" class="chips"><span v-for="t in data.profileTags" :key="t" class="tag">{{ t }}</span></div>
-        <div v-else class="t-xs">没有答题记录（由驻场 / 经纪人推荐报名）</div>
+        <div v-if="data.profileTags.length" class="chips"><span v-for="t in data.profileTags" :key="t" class="status-tag">{{ t }}</span></div>
+        <p v-else class="hint">没有答题记录（由驻场 / 经纪人推荐报名）</p>
 
         <h4>匹配记录</h4>
-        <div v-if="data.matchRecords.length === 0" class="t-xs">没有匹配到本公司岗位的记录</div>
+        <p v-if="data.matchRecords.length === 0" class="hint">没有匹配到本公司岗位的记录</p>
         <div v-for="(m, i) in data.matchRecords" :key="i" class="rec">
-          <div class="rec-hd"><span class="mono t-xs">{{ fmtDateTime(m.matchedAt) }}</span><span v-if="m.source" class="tag tag--ok">本次报名来自这次匹配</span></div>
+          <div class="rec-hd"><span class="hint">{{ fmtDateTime(m.matchedAt) }}</span><span v-if="m.source" class="status-tag status-tag--success">本次报名来自这次匹配</span></div>
           <div v-for="j in m.jobs" :key="j.jobId" class="rec-job">
-            <div class="rec-t"><span :class="{ strong: j.appliedJob }">{{ j.title }}</span><b class="num">{{ Number(j.matchScore).toFixed(0) }}%</b></div>
-            <div v-if="j.reasonText" class="t-xs">{{ j.reasonText }}</div>
+            <div class="rec-t"><span :class="{ strong: j.appliedJob }">{{ j.title }}</span><b class="score">{{ Number(j.matchScore).toFixed(0) }}%</b></div>
+            <div v-if="j.reasonText" class="hint">{{ j.reasonText }}</div>
           </div>
         </div>
 
         <h4>在本公司的历史报名</h4>
-        <div v-if="data.history.length === 0" class="t-xs">这是第一次报名本公司岗位</div>
+        <p v-if="data.history.length === 0" class="hint">这是第一次报名本公司岗位</p>
         <div v-for="h in data.history" :key="h.applicationId" class="his">
-          <div><b>{{ h.jobTitle }}</b> <span class="tag">{{ label('ApplicationStatus', h.status) }}</span></div>
-          <div class="t-xs"><span class="mono">{{ fmtDateTime(h.createdAt) }}</span> 报名<template v-if="h.endReason"> · {{ label('LifecycleEvent', h.endReason) }}</template></div>
+          <div class="his-hd"><b>{{ h.jobTitle }}</b> <DictTag type="ApplicationStatus" :value="h.status" /></div>
+          <div class="hint">{{ fmtDateTime(h.createdAt) }} 报名<template v-if="h.endReason"> · {{ label('LifecycleEvent', h.endReason) }}</template></div>
         </div>
-        <div class="note">只显示本公司的岗位与报名记录。</div>
+        <p class="hint foot">只显示本公司的岗位与报名记录。</p>
       </template>
     </div>
   </el-drawer>
 </template>
 
 <style scoped>
-.wrap { min-height: 160px; }
-.job { margin-top: 2px; }
-h4 { margin: 20px 0 8px; font-size: 13px; font-weight: 700; color: var(--ink-900); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.rec { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 8px; }
-.rec-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.rec-job { padding: 5px 0; border-top: 1px dashed var(--line); }
-.rec-t { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
-.rec-t .strong { font-weight: 700; }
-.his { padding: 8px 0; border-bottom: 1px solid var(--line); line-height: 1.8; }
-.note { margin-top: 16px; }
+.wrap { min-height: 160px; font-size: var(--font-size-body); color: var(--text-1); }
+.job { display: flex; gap: var(--space-3); margin: 0; }
+.job dt { color: var(--text-2); }
+.job dd { margin: 0; }
+h4 { margin: var(--space-6) 0 var(--space-3); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.hint { margin: 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-3); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.rec { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); margin-bottom: var(--space-2); }
+.rec-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
+.rec-job { padding: var(--space-2) 0; border-top: 1px solid var(--divider); }
+.rec-t { display: flex; justify-content: space-between; gap: var(--space-3); }
+.rec-t .strong { font-weight: var(--font-weight-semibold); }
+.score { font-weight: var(--font-weight-semibold); }
+.his { padding: var(--space-2) 0; border-bottom: 1px solid var(--divider); line-height: 1.8; }
+.his-hd { display: flex; align-items: center; gap: var(--space-2); }
+.foot { margin-top: var(--space-4); }
+.fail { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) 0; text-align: center; }
+.fail-i { color: var(--text-3); }
+.fail-t { margin: var(--space-2) 0 0; }
 </style>

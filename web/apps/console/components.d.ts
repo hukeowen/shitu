@@ -58,6 +58,7 @@ declare module 'vue' {
     MessageBell: typeof import('./src/components/MessageBell.vue')['default']
     PersonCell: typeof import('./src/components/PersonCell.vue')['default']
     QrImage: typeof import('./src/components/QrImage.vue')['default']
+    RemainTag: typeof import('./src/components/site/RemainTag.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
