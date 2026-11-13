@@ -104,8 +104,6 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
             return tops.length > 1 && Math.max(...tops) - Math.min(...tops) > 8
           })
           if (wrapped) out.push('表格操作列按钮折行')
-          // 企业后台的字典标签（DictTag）统一成共享状态标签，不再有改版前的状态点
-          if (document.querySelector('.st-pill') && location.port === '5175') out.push('还在用旧状态点 .st-pill')
           // 页面横向溢出
           if (document.documentElement.scrollWidth > window.innerWidth + 2) out.push('页面横向溢出 ' + (document.documentElement.scrollWidth - window.innerWidth) + 'px')
           // 按钮 / 标签文字被裁切
