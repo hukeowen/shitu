@@ -45,6 +45,9 @@ const TONES: Record<string, Record<string, Tone>> = {
   StaffSource: { OWN: 'success', PLATFORM: 'public', TRANSFER: 'public' },
   // 请假 / 旷工：以 staff 请假弹层为准
   AbsenceType: { LEAVE: 'warning', ABSENT: 'danger' },
+  // 工伤：以 staff 工伤上报页的 SEV_TONE 为准
+  IncidentSeverity: { MINOR: 'info', SERIOUS: 'warning', CRITICAL: 'danger' },
+  IncidentStatus: { OPEN: 'warning', CLOSED: 'success' },
   DisputeStatus: { OPEN: 'warning', ACCEPTED: 'success', REJECTED: 'danger' },
   LedgerDirection: { PAYABLE: 'danger', RECEIVABLE: 'success' },
   // 预支状态：以 seeker utils/advance.ts 的 ADVANCE_TONE 为准

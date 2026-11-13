@@ -1102,6 +1102,56 @@ const resultActs = `(() => { const a = document.querySelector('#app .result .act
   return p === 1 && l === 1 ? '' : '结果区应当是一个主按钮加一个文字链接，实际主按钮 ' + p + ' 个、链接 ' + l + ' 个' })()`
 const readAllOffEl = `(() => { const b = ${findBtn('全部已读', '.msg-drawer')}; return b && b.disabled ? '' : '「全部已读」没有置灰' })()`
 
+// ---- 工单 18：人员管理（第 2 类 + 请假旷工、离职、调岗弹窗）、离职审核（第 8 类）、花名册导入（第 16 类）、工伤上报（第 2 类）----
+const RESIGN_API = '/tenant/resign-requests', ROSTER_BATCHES_API = '/tenant/roster/batches', ROSTER_IMPORT_API = '/tenant/roster/import'
+// 离职审核的按钮和别的审核页（驻场预支审核的 reviewBar）一致：「驳回」在左、白底危险色字和描边；「确认离职」在右、主色实心
+const reviewOps = `(() => { const rows = [...document.querySelectorAll('#app .el-table__body tr')].filter((tr) => tr.querySelector('td.ops-col .el-button')); if (!rows.length) return '没有带审核按钮的行'
+  let seen = 0
+  for (const tr of rows) { const bs = [...tr.querySelectorAll('td.ops-col .el-button')], rj = bs.find((b) => b.innerText.includes('驳回')), ok = bs.find((b) => b.innerText.includes('确认离职')); if (!rj || !ok) continue
+    seen++; const a = rj.getBoundingClientRect(), b = ok.getBoundingClientRect(); if (Math.abs(a.top - b.top) > 1 || a.right > b.left) return '「驳回」不在「确认离职」左边'
+    const lc = getComputedStyle(rj), rc = getComputedStyle(ok)
+    if (lc.backgroundColor !== ${bgToken('--bg-card')} || lc.color !== ${tokenColor('--danger-text')} || lc.borderTopColor !== ${tokenColor('--danger-text')}) return '「驳回」不是危险色描边：' + lc.backgroundColor + ' ' + lc.color + ' ' + lc.borderTopColor
+    if (rc.backgroundColor !== ${bgToken('--primary')} || ok.classList.contains('is-plain') || ok.classList.contains('is-link')) return '「确认离职」不是主色实心：' + rc.backgroundColor }
+  return seen ? '' : '没有同时有「驳回」和「确认离职」的行' })()`
+// 导入页（第 16 类）：步骤说明 → 虚线上传区（写明模板和格式）→ 结果汇总（成功 n 条、失败 n 条）→ 逐行结果表
+const importLayout = `(() => { const q = (s) => document.querySelector('#app ' + s), st = q('.steps'), up = q('.el-upload-dragger'), sum = q('.result .sum'), tb = q('.row-tbl')
+  if (!st || !up) return '没有步骤说明或上传区'; if (getComputedStyle(up).borderTopStyle !== 'dashed') return '上传区不是虚线边框'
+  if (!up.innerText.includes('模板') || !up.innerText.includes('.xlsx')) return '上传区没写模板下载方式和格式要求'
+  const y = (e) => e.getBoundingClientRect().top; if (!(y(st) < y(up))) return '步骤说明不在上传区上面'
+  if (sum && tb && !(y(up) < y(sum) && y(sum) < y(tb))) return '顺序不是上传区 → 结果汇总 → 逐行结果表'
+  if (sum && !(/成功\\s*\\d+\\s*条/.test(sum.innerText) && /失败\\s*\\d+\\s*条/.test(sum.innerText))) return '结果汇总没写「成功 n 条、失败 n 条」'
+  return '' })()`
+// 逐行结果表：失败行用 --danger-soft 浅底（tr 和 td 一起看）并写明原因，成功行不铺底
+const rosterRows = `(() => { const t = document.querySelector('#app .row-tbl'); if (!t) return '没有逐行结果表'
+  const trs = [...t.querySelectorAll('.el-table__body tr')], bad = trs.filter((tr) => tr.innerText.includes('失败')), good = trs.filter((tr) => !tr.innerText.includes('失败'))
+  if (!bad.length || !good.length) return '逐行结果表应同时有成功行和失败行：' + good.length + ' / ' + bad.length
+  const soft = ${bgToken('--danger-soft')}, onSoft = (tr) => [tr, ...tr.querySelectorAll('td')].some((e) => getComputedStyle(e).backgroundColor === soft)
+  const nb = bad.find((tr) => !onSoft(tr)); if (nb) return '失败行没用危险浅底：' + nb.innerText.replace(/\\s+/g, ' ')
+  if (good.some(onSoft)) return '成功行也铺了危险浅底'
+  const nr = bad.find((tr) => { const c = tr.querySelectorAll('td')[2]?.innerText.trim(); return !c || c === '—' }); return nr ? '失败行没写原因：' + nr.innerText.replace(/\\s+/g, ' ') : '' })()`
+const pickXlsx = `(() => { const i = document.querySelector('#app .el-upload__input'), dt = new DataTransfer()
+  dt.items.add(new File(['x'], '十一月花名册.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); i.files = dt.files; i.dispatchEvent(new Event('change', { bubbles: true })) })()`
+const startImport = [pickXlsx, wait(300), `${findBtn('开始导入')}.click()`, wait(400)]
+const ROSTER_ROWS = Array.from({ length: 9 }, (_, i) => (i === 3 ? { rowNo: i + 2, success: false, error: '手机号格式不正确：1380000123' }
+  : i === 6 ? { rowNo: i + 2, success: false, error: '项目「立讯精密昆山三期」不存在，请填项目编号或完整名称' } : { rowNo: i + 2, success: true, userId: 'U20261113000' + i }))
+const fakeRoster = reply({ batchId: 'RB-SHOT-1113', total: 9, success: 7, failed: 2, inFreePeriod: true, rows: ROSTER_ROWS })
+const fakeAbs = reply([
+  { id: 92, employmentId: 'EM2026111200001', absenceDate: '2026-11-10', absenceType: 'ABSENT', markedBy: 'M202611120003', createdAt: '2026-11-10T18:20:00' },
+  { id: 91, employmentId: 'EM2026111200001', absenceDate: '2026-11-05', absenceType: 'LEAVE', markedBy: 'M202611120003', remark: '病假', createdAt: '2026-11-05T08:10:00' },
+])
+const absGetR = (action, body) => ({ url: ABS_API, method: 'GET', action, body })
+const dlgLegacy = `document.querySelector('.el-dialog .tag, .el-dialog .note, .el-dialog .mono, .el-dialog .num, .el-dialog .eyebrow') ? '弹窗里还在用旧标签、旧提示条、眉标或旧数字类' : ''`
+const dlgIdle = `document.querySelector('.el-dialog .el-button.is-loading, .el-message-box .el-button.is-loading') ? '被拒之后弹窗里的按钮还在转' : ''`
+const dlgOff = (text) => `[...document.querySelectorAll('.el-dialog__footer button, .el-dialog .mark-row button')].find((b) => b.innerText.includes(${JSON.stringify(text)}))?.disabled ? '' : '被拒之后弹窗里的「${text}」没有置灰'`
+const fillDlg = (sel, value) => `(() => { const el = document.querySelector(${JSON.stringify('.el-dialog ' + sel)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
+const pickOpt = (i, not = '') => [`document.querySelectorAll('.el-dialog .el-select__wrapper')[${i}].click()`, wait(500),
+  `[...document.querySelectorAll('.el-select-dropdown__item')].find((x) => x.getClientRects().length && !x.classList.contains('is-disabled') && (!${JSON.stringify(not)} || !x.innerText.includes(${JSON.stringify(not)}))).click()`, wait(300)]
+const openStaff = (text) => [`${findBtn(text, '#app .el-table__body')}.click()`, wait(600)]
+const tabsBlank = `document.querySelector('#app .filter-tabs .n') ? '没拿到数据却显示了页签计数' : ''`
+const tblMask = `document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`
+const statusTags = `(() => { const rs = [...document.querySelectorAll('#app .el-table__body tr')]; if (!rs.length) return '表格没有行'; const r = rs.find((tr) => !tr.querySelector('.status-tag')); return r ? '这一行的状态不是共享状态标签：' + r.innerText.slice(0, 12) : '' })()`
+const RESIGN_WHY = '离职申请已被处理，请刷新后再操作'
+const resignRefused = refuse('RESIGN_4091', RESIGN_WHY)
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
@@ -2038,6 +2088,108 @@ const STATES = [
   { app: 'console', screen: 'pm-kb', state: 'edit-rejected', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API + '/', method: 'PUT', action: 'respond', body: refuse('KB_4091', '条目已被他人修改') }),
     steps: [...openJobRow('编辑'), `${findBtn('保存', '.el-dialog')}.click()`, elToastGone('条目已被他人修改')],
     checks: [whyStays('.el-dialog .blocked-why', '暂时不能保存：条目已被他人修改'), `${findBtn('保存', '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「保存」没有置灰'`, elIdle] },
+  // ---- 工单 18：人员管理（第 2 类）----
+  { app: 'console', screen: 'pm-staff', state: 'normal', persona: 'pm', path: '/pm/staff', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord, opsTap, queryReset, hasPager, statusTags] },
+  { app: 'console', screen: 'pm-staff', state: 'normal', persona: 'pm', path: '/pm/staff', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'pm-staff', state: 'left', persona: 'pm', path: '/pm/staff', rules: sr(), steps: [`[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('已离职')).click()`, wait(600)],
+    checks: [opsCol, tblFit, statusTags, has('缺勤记录')] },
+  { app: 'console', screen: 'pm-staff', state: 'loading', persona: 'pm', path: '/pm/staff', rules: sr({ url: EMP_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, tabsBlank, hasNot('暂无人员')] },
+  { app: 'console', screen: 'pm-staff', state: 'empty', persona: 'pm', path: '/pm/staff', rules: sr({ url: EMP_API, action: 'respond', body: emptyPage }), checks: [has('暂无人员'), allZero, cLegacy16] },
+  { app: 'console', screen: 'pm-staff', state: 'error', persona: 'pm', path: '/pm/staff', rules: sr({ url: EMP_API, action: 'fail' }), checks: [oneRetry, noNums, tabsBlank, hasNot('暂无人员')] },
+  // 请假 / 旷工弹窗：标记在弹窗里提交；撤销在确认框里提交
+  { app: 'console', screen: 'staff-absence', state: 'normal', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('respond', fakeAbs)), steps: openStaff('请假/旷工'),
+    checks: [dlgLegacy, `document.querySelector('.el-dialog .rec-sum')?.innerText.includes('请假 1 天 · 旷工 1 天') ? '' : '没写本月请假 / 旷工天数'`] },
+  { app: 'console', screen: 'staff-absence', state: 'loading', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('hang')), quick: true,
+    // 点开和等待放在同一步：分成两步时中间的 settle 会等挂住的请求满 10 秒，接口超时后截到的是失败
+    steps: [`(async () => { ${findBtn('请假/旷工', '#app .el-table__body')}.click(); await ${wait(900)} })()`],
+    checks: [`document.querySelector('.el-dialog .el-loading-mask') ? '' : '记录加载中没有加载遮罩'`, `document.querySelector('.el-dialog .rec-sum') ? '没拿到记录却显示了天数' : ''`, `document.querySelector('.el-dialog').innerText.includes('没有缺勤记录') ? '加载中就说没有记录' : ''`] },
+  { app: 'console', screen: 'staff-absence', state: 'empty', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('respond', reply([]))), steps: openStaff('请假/旷工'),
+    checks: [`document.querySelector('.el-dialog').innerText.includes('没有缺勤记录') ? '' : '空记录没写明'`] },
+  { app: 'console', screen: 'staff-absence', state: 'error', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('fail')), steps: openStaff('请假/旷工'),
+    checks: [`${findBtn('重新加载', '.el-dialog')} ? '' : '记录加载失败没有「重新加载」'`, `document.querySelector('.el-dialog .rec-sum') ? '没拿到记录却显示了天数' : ''`, `document.querySelector('.el-dialog').innerText.includes('没有缺勤记录') ? '失败说成没有记录' : ''`] },
+  { app: 'console', screen: 'staff-absence', state: 'submitting', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('respond', fakeAbs)), quick: true,
+    steps: [...openStaff('请假/旷工'), countXhr, elClickTwice('标记', '.el-dialog .mark-row')], checks: [elSpinning('标记', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'staff-absence', state: 'rejected', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('respond', fakeAbs), { url: ABS_API, method: 'PUT', action: 'respond', body: refuse('EMP_4090', '该日期不在任职期内') }),
+    steps: [...openStaff('请假/旷工'), `${findBtn('标记', '.el-dialog .mark-row')}.click()`, elToastGone('该日期不在任职期内')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能标记：该日期不在任职期内'), dlgOff('标记'), dlgIdle] },
+  { app: 'console', screen: 'staff-absence', state: 'revoke-submitting', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('respond', fakeAbs)), quick: true,
+    steps: [...openStaff('请假/旷工'), `${findBtn('撤销', '.el-dialog .el-table__body')}.click()`, wait(400), countXhr, boxClickTwice('撤销')], checks: [elSpinning('撤销', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'staff-absence', state: 'revoke-rejected', persona: 'pm', path: '/pm/staff', rules: sr(absGetR('respond', fakeAbs), { url: ABS_API, method: 'PUT', action: 'respond', body: refuse('EMP_4091', '工资已核算，不能撤销') }),
+    steps: [...openStaff('请假/旷工'), `${findBtn('撤销', '.el-dialog .el-table__body')}.click()`, wait(400), `${findBtn('撤销', '.el-message-box')}.click()`, elToastGone('工资已核算，不能撤销')],
+    checks: [boxWhy('撤销', '暂时不能撤销：工资已核算'), whyStays('.el-dialog .rec-why', '暂时不能撤销：工资已核算'), onlyOff('.el-dialog td.ops-col', '撤销'), dlgIdle] },
+  // 发起离职弹窗
+  { app: 'console', screen: 'staff-resign', state: 'normal', persona: 'pm', path: '/pm/staff', rules: sr(), steps: openStaff('离职'), checks: [dlgLegacy] },
+  { app: 'console', screen: 'staff-resign', state: 'submitting', persona: 'pm', path: '/pm/staff', rules: sr(), quick: true,
+    steps: [...openStaff('离职'), ...pickOpt(0), countXhr, elClickTwice('提交审核', '.el-dialog')], checks: [elSpinning('提交审核', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'staff-resign', state: 'rejected', persona: 'pm', path: '/pm/staff', rules: sr({ url: '/resign', method: 'POST', action: 'respond', body: refuse('RESIGN_4090', '该员工已有待审核的离职申请') }),
+    steps: [...openStaff('离职'), ...pickOpt(0), `${findBtn('提交审核', '.el-dialog')}.click()`, elToastGone('该员工已有待审核的离职申请')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能提交离职申请：该员工已有待审核的离职申请'), dlgOff('提交审核'), dlgIdle] },
+  // 内部调岗弹窗：选好岗位后在确认框里提交
+  { app: 'console', screen: 'staff-transfer', state: 'normal', persona: 'pm', path: '/pm/staff', rules: sr(), steps: openStaff('调岗'), checks: [dlgLegacy] },
+  { app: 'console', screen: 'staff-transfer', state: 'submitting', persona: 'pm', path: '/pm/staff', rules: sr(), quick: true,
+    steps: [...openStaff('调岗'), ...pickOpt(1, '成品仓储分拣员'), `${findBtn('确认调岗', '.el-dialog')}.click()`, wait(400), countXhr, boxClickTwice('确认调岗')], checks: [elSpinning('确认调岗', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'staff-transfer', state: 'rejected', persona: 'pm', path: '/pm/staff', rules: sr({ url: '/transfer', method: 'POST', action: 'respond', body: refuse('EMP_4093', '目标岗位已停止招聘') }),
+    steps: [...openStaff('调岗'), ...pickOpt(1, '成品仓储分拣员'), `${findBtn('确认调岗', '.el-dialog')}.click()`, wait(400), `${findBtn('确认调岗', '.el-message-box')}.click()`, elToastGone('目标岗位已停止招聘')],
+    checks: [boxWhy('确认调岗', '暂时不能调岗：目标岗位已停止招聘'), whyStays('.el-dialog .blocked-why', '暂时不能调岗：目标岗位已停止招聘'), dlgOff('确认调岗'), dlgIdle] },
+  // ---- 工单 18：离职审核（第 8 类：表格操作列里驳回在左、通过在右）----
+  { app: 'console', screen: 'pm-resign', state: 'normal', persona: 'pm', path: '/pm/resign', rules: sr(), checks: [cSide('pm'), reviewOps, tblFit, opsTap, rowsTall, cLegacy16, noThrottleWord, hasPager] },
+  { app: 'console', screen: 'pm-resign', state: 'normal', persona: 'pm', path: '/pm/resign', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, reviewOps, tblFit] },
+  { app: 'console', screen: 'pm-resign', state: 'approved', persona: 'pm', path: '/pm/resign', rules: sr(), steps: [`[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('已通过')).click()`, wait(600)],
+    checks: [tblFit, rowsTall, cLegacy16, `[...document.querySelectorAll('#app .el-table__header th')].some((th) => th.innerText.trim() === '操作') ? '已通过页签不该有操作列' : ''`] },
+  { app: 'console', screen: 'pm-resign', state: 'loading', persona: 'pm', path: '/pm/resign', rules: sr({ url: RESIGN_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, tabsBlank, hasNot('没有待审核的离职申请')] },
+  { app: 'console', screen: 'pm-resign', state: 'empty', persona: 'pm', path: '/pm/resign', rules: sr({ url: RESIGN_API, action: 'respond', body: reply([]) }), checks: [has('没有待审核的离职申请'), allZero, cLegacy16] },
+  { app: 'console', screen: 'pm-resign', state: 'error', persona: 'pm', path: '/pm/resign', rules: sr({ url: RESIGN_API, action: 'fail' }), checks: [oneRetry, tabsBlank, hasNot('没有待审核的离职申请')] },
+  { app: 'console', screen: 'pm-resign', state: 'submitting', persona: 'pm', path: '/pm/resign', rules: sr(), quick: true,
+    steps: [...openJobRow('确认离职'), countXhr, boxClickTwice('确认离职')], checks: [elSpinning('确认离职', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-resign', state: 'rejected', persona: 'pm', path: '/pm/resign', rules: sr({ url: '/decide', method: 'POST', action: 'respond', body: resignRefused }),
+    steps: [...openJobRow('确认离职'), `${findBtn('确认离职', '.el-message-box')}.click()`, elToastGone(RESIGN_WHY)],
+    checks: [...rowOff('暂时不能确认离职：' + RESIGN_WHY, '确认离职'), boxWhy('确认离职', '暂时不能确认离职：' + RESIGN_WHY), elIdle] },
+  { app: 'console', screen: 'pm-resign', state: 'reject-submitting', persona: 'pm', path: '/pm/resign', rules: sr(), quick: true,
+    steps: [...openJobRow('驳回'), fillBox('员工已同意继续上班'), countXhr, boxClickTwice('驳回')], checks: [elSpinning('驳回', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-resign', state: 'reject-rejected', persona: 'pm', path: '/pm/resign', rules: sr({ url: '/decide', method: 'POST', action: 'respond', body: resignRefused }),
+    steps: [...openJobRow('驳回'), fillBox('员工已同意继续上班'), `${findBtn('驳回', '.el-message-box')}.click()`, elToastGone(RESIGN_WHY)],
+    checks: [...rowOff('暂时不能驳回：' + RESIGN_WHY, '驳回'), boxWhy('驳回', '暂时不能驳回：' + RESIGN_WHY), elIdle] },
+  { app: 'console', screen: 'pm-resign', state: 'network', persona: 'pm', path: '/pm/resign', rules: sr({ url: '/decide', method: 'POST', action: 'fail' }),
+    steps: [...openJobRow('确认离职'), `${findBtn('确认离职', '.el-message-box')}.click()`, toastShown],
+    checks: [`document.querySelector('#app .blocked-why, .msgbox-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn('确认离职', '.el-message-box')}?.disabled === false ? '' : '网络失败后确认框关了或确认按钮被置灰'`] },
+  // ---- 工单 18：花名册导入（第 16 类）----
+  { app: 'console', screen: 'pm-roster', state: 'normal', persona: 'pm', path: '/pm/roster', rules: sr(), checks: [cSide('pm'), importLayout, tblFit, opsTap, cLegacy16, noThrottleWord] },
+  { app: 'console', screen: 'pm-roster', state: 'normal', persona: 'pm', path: '/pm/roster', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, importLayout, tblFit] },
+  { app: 'console', screen: 'pm-roster', state: 'loading', persona: 'pm', path: '/pm/roster', rules: sr({ url: ROSTER_BATCHES_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无导入记录')] },
+  { app: 'console', screen: 'pm-roster', state: 'empty', persona: 'pm', path: '/pm/roster', rules: sr({ url: ROSTER_BATCHES_API, action: 'respond', body: reply([]) }), checks: [has('暂无导入记录'), cLegacy16] },
+  { app: 'console', screen: 'pm-roster', state: 'error', persona: 'pm', path: '/pm/roster', rules: sr({ url: ROSTER_BATCHES_API, action: 'fail' }), checks: [oneRetry, hasNot('暂无导入记录')] },
+  { app: 'console', screen: 'pm-roster', state: 'picked', persona: 'pm', path: '/pm/roster', rules: sr(), steps: [pickXlsx, wait(300)],
+    checks: [has('已选择：十一月花名册.xlsx'), `${findBtn('开始导入')}.disabled ? '选了文件「开始导入」还是灰的' : ''`] },
+  { app: 'console', screen: 'pm-roster', state: 'submitting', persona: 'pm', path: '/pm/roster', rules: sr(), quick: true,
+    steps: [...startImport, countXhr, boxClickTwice('开始导入')], checks: [elSpinning('开始导入', '.el-message-box'), sentOnce] },
+  { app: 'console', screen: 'pm-roster', state: 'result', persona: 'pm', path: '/pm/roster', rules: sr({ url: ROSTER_IMPORT_API, method: 'POST', action: 'respond', body: fakeRoster }),
+    steps: [...startImport, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')],
+    checks: [importLayout, rosterRows, tblFit, cLegacy16, has('下载失败行')] },
+  { app: 'console', screen: 'pm-roster', state: 'result', persona: 'pm', path: '/pm/roster', width: 1280, height: 800, rules: sr({ url: ROSTER_IMPORT_API, method: 'POST', action: 'respond', body: fakeRoster }),
+    steps: [...startImport, `${findBtn('开始导入', '.el-message-box')}.click()`, wait(800), scrollStart('#app .result')], checks: [cFitAny, importLayout, rosterRows, tblFit] },
+  { app: 'console', screen: 'pm-roster', state: 'rejected', persona: 'pm', path: '/pm/roster', rules: sr({ url: ROSTER_IMPORT_API, method: 'POST', action: 'respond', body: refuse('ROSTER_4001', '表头与模板不一致，请下载最新模板') }),
+    steps: [...startImport, `${findBtn('开始导入', '.el-message-box')}.click()`, elToastGone('表头与模板不一致')],
+    checks: [boxWhy('开始导入', '暂时不能导入：表头与模板不一致'), whyStays('#app .up-why', '暂时不能导入：表头与模板不一致'), `${findBtn('开始导入')}.disabled ? '' : '被拒之后页面上的「开始导入」没有置灰'`, elIdle] },
+  // ---- 工单 18：工伤上报（第 2 类）----
+  { app: 'console', screen: 'pm-incidents', state: 'normal', persona: 'pm', path: '/pm/incidents', rules: sr(), checks: [cSide('pm'), opsCol, tblFit, opsTap, rowsTall, cLegacy16, noThrottleWord, hasPager, elPrimary, statusTags] },
+  { app: 'console', screen: 'pm-incidents', state: 'normal', persona: 'pm', path: '/pm/incidents', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, opsCol, tblFit] },
+  { app: 'console', screen: 'pm-incidents', state: 'all', persona: 'pm', path: '/pm/incidents', rules: sr(), steps: [`[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('全部')).click()`, wait(600)],
+    checks: [opsCol, tblFit, rowsTall, statusTags, has('处理结论')] },
+  { app: 'console', screen: 'pm-incidents', state: 'loading', persona: 'pm', path: '/pm/incidents', rules: sr({ url: INC_API, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('没有处理中的工伤')] },
+  { app: 'console', screen: 'pm-incidents', state: 'empty', persona: 'pm', path: '/pm/incidents', rules: sr({ url: INC_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('没有处理中的工伤'), cLegacy16] },
+  { app: 'console', screen: 'pm-incidents', state: 'error', persona: 'pm', path: '/pm/incidents', rules: sr({ url: INC_API, method: 'GET', action: 'fail' }), checks: [oneRetry, hasNot('没有处理中的工伤')] },
+  { app: 'console', screen: 'pm-incidents', state: 'report', persona: 'pm', path: '/pm/incidents', rules: sr(), steps: [`${findBtn('上报工伤')}.click()`, wait(500)], checks: [dlgLegacy] },
+  { app: 'console', screen: 'pm-incidents', state: 'report-submitting', persona: 'pm', path: '/pm/incidents', rules: sr(), quick: true,
+    steps: [`${findBtn('上报工伤')}.click()`, wait(500), fillDlg('input[placeholder="姓名"]', '陈立新'), fillDlg('textarea[placeholder*="哪里"]', '二号线搬运料箱时扭伤腰部，已送厂医务室'), countXhr, elClickTwice('立即上报', '.el-dialog')],
+    checks: [elSpinning('立即上报', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'pm-incidents', state: 'report-rejected', persona: 'pm', path: '/pm/incidents', rules: sr({ url: INC_API, method: 'POST', action: 'respond', body: refuse('INC_4001', '该项目已结束，不能再上报') }),
+    steps: [`${findBtn('上报工伤')}.click()`, wait(500), fillDlg('input[placeholder="姓名"]', '陈立新'), fillDlg('textarea[placeholder*="哪里"]', '二号线搬运料箱时扭伤腰部，已送厂医务室'), `${findBtn('立即上报', '.el-dialog')}.click()`, elToastGone('该项目已结束')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能上报：该项目已结束'), dlgOff('立即上报'), dlgIdle] },
+  { app: 'console', screen: 'pm-incidents', state: 'close-submitting', persona: 'pm', path: '/pm/incidents', rules: sr(), quick: true,
+    steps: [...openJobRow('结案'), fillDlg('textarea[placeholder*="救治"]', '包扎后当天复工，未申报工伤认定'), countXhr, elClickTwice('结案', '.el-dialog__footer')], checks: [elSpinning('结案', '.el-dialog'), sentOnce] },
+  { app: 'console', screen: 'pm-incidents', state: 'close-rejected', persona: 'pm', path: '/pm/incidents', rules: sr({ url: '/close', method: 'POST', action: 'respond', body: refuse('INC_4091', '该工伤已结案') }),
+    steps: [...openJobRow('结案'), fillDlg('textarea[placeholder*="救治"]', '包扎后当天复工，未申报工伤认定'), `${findBtn('结案', '.el-dialog__footer')}.click()`, elToastGone('该工伤已结案')],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能结案：该工伤已结案'), dlgOff('结案'), dlgIdle] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
