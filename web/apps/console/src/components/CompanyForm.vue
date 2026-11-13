@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { ApplyCompanyRequest, CompanyView, UploadedFile } from '@shitu/api-client'
 import FileUploader, { type FileEntry } from './FileUploader.vue'
@@ -46,7 +46,12 @@ const fileError = ref('')
 async function collect(): Promise<ApplyCompanyRequest | null> {
   const ok = await formRef.value?.validate().catch(() => false)
   fileError.value = files.value.length ? '' : '请上传营业执照（劳务派遣许可证如有一并上传）'
-  if (!ok || fileError.value) return null
+  if (!ok || fileError.value) {
+    // 校验没通过：滚到第一个出错的字段
+    await nextTick()
+    formRef.value?.$el.querySelector('.el-form-item.is-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    return null
+  }
   return {
     name: form.name.trim(),
     shortName: form.shortName.trim() || undefined,
@@ -86,5 +91,5 @@ defineExpose({ collect })
 </template>
 
 <style scoped>
-.mono-input :deep(input) { font-family: var(--f-mono); letter-spacing: .04em; }
+.mono-input :deep(input) { font-family: var(--font-mono); letter-spacing: .04em; }
 </style>

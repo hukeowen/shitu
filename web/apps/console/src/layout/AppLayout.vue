@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { logout, useDict } from '@shitu/api-client'
-import { BrandMark } from '@shitu/ui-icons'
+import { BrandMark, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import MessageBell from '@/components/MessageBell.vue'
 import { visibleMenu } from '@/router/access'
@@ -36,26 +36,24 @@ async function doLogout() {
   <div class="shell">
     <aside class="side">
       <div class="brand">
-        <BrandMark :size="20" />
+        <BrandMark :size="24" />
         <b>{{ APP_TITLE }}</b>
       </div>
       <div v-if="company" class="tenant">
-        <div class="avatar">{{ companyName.slice(0, 1) }}</div>
-        <div class="tn">
-          <b :title="company.name">{{ company.name }}</b>
-          <span>{{ company.creditScore != null ? `诚信分 ${company.creditScore}` : company.unifiedCreditCode }}</span>
-        </div>
+        <b :title="company.name">{{ company.name }}</b>
+        <span>{{ company.creditScore != null ? `诚信分 ${company.creditScore}` : company.unifiedCreditCode }}</span>
       </div>
-      <nav class="nav">
+      <nav class="nav" aria-label="主菜单">
         <template v-for="g in menu" :key="g.key">
           <div class="grp">{{ g.title }}</div>
           <router-link v-for="it in g.items.filter((x) => !x.hidden)" :key="it.path" :to="it.path" class="item" :class="{ 'is-active': route.path === it.path || route.path.startsWith(it.path + '/') }">
-            {{ it.title }}
+            <component :is="it.icon" :size="18" />
+            <span>{{ it.title }}</span>
           </router-link>
         </template>
       </nav>
       <div class="side-user">
-        <div class="avatar avatar--u">{{ meStore.me?.name.slice(0, 1) }}</div>
+        <div class="avatar">{{ meStore.me?.name.slice(0, 1) }}</div>
         <div class="su">
           <b>{{ meStore.me?.name }}</b>
           <span>{{ roleText }}</span>
@@ -64,11 +62,11 @@ async function doLogout() {
     </aside>
     <section class="main">
       <header class="top">
-        <div class="crumb">
+        <nav class="crumb" aria-label="面包屑">
           <span>{{ route.meta.group ?? APP_TITLE }}</span>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           <b>{{ route.meta.title }}</b>
-        </div>
+        </nav>
         <span class="spacer" />
         <div v-if="company" class="who">
           <span class="cn">{{ companyName }}</span>
@@ -77,13 +75,14 @@ async function doLogout() {
         <span class="sep" />
         <div class="who">
           <span class="mn">{{ meStore.me?.name }}</span>
-          <span v-for="r in meStore.me?.roles ?? []" :key="r"><DictTag type="ActorRole" :value="r" /></span>
+          <DictTag v-for="r in meStore.me?.roles ?? []" :key="r" type="ActorRole" :value="r" />
         </div>
         <MessageBell />
-        <el-button size="small" @click="doLogout">退出</el-button>
+        <el-button @click="doLogout">退出</el-button>
       </header>
-      <div v-if="company?.status === 'THROTTLED'" class="throttle note note--warn">
-        <b>公司当前处于平台处罚期</b>。{{ company.statusRemark }} 如有异议请联系平台运营。
+      <div v-if="company?.status === 'THROTTLED'" class="throttle" role="status">
+        <IconTriangleExclamationPoint :size="18" class="throttle-i" />
+        <div><b>公司当前处于平台处罚期</b>。{{ company.statusRemark }} 如有异议请联系平台运营。</div>
       </div>
       <main class="content">
         <router-view />
@@ -93,38 +92,35 @@ async function doLogout() {
 </template>
 
 <style scoped>
-.shell { display: flex; min-height: 100vh; background: var(--surface-2); }
-.side { width: 228px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--chrome); color: #fff; }
-.brand { display: flex; align-items: center; gap: 9px; padding: 16px 16px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
-.brand b { font-family: var(--f-dis); font-size: 15px; letter-spacing: .02em; }
-.env { margin-left: auto; font-family: var(--f-mono); font-size: 9px; letter-spacing: .1em; border: 1px solid rgba(255, 255, 255, .22); color: rgba(255, 255, 255, .6); padding: 1px 5px; border-radius: 3px; }
-.tenant { margin: 12px 12px 4px; padding: 9px 10px; border-radius: var(--r-sm); background: rgba(255, 255, 255, .055); border: 1px solid rgba(255, 255, 255, .09); display: flex; align-items: center; gap: 9px; }
-.tn { flex: 1; min-width: 0; }
-.tn b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tn span { font-size: 10px; font-family: var(--f-mono); color: rgba(255, 255, 255, .42); }
-.avatar { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--signal); color: #fff; }
-.avatar--u { background: var(--chrome-3); border: 1px solid rgba(255, 255, 255, .15); }
-.nav { flex: 1; overflow: auto; padding: 8px 10px 22px; }
-.grp { display: flex; align-items: center; gap: 6px; padding: 14px 8px 5px; font-size: 11px; color: rgba(255, 255, 255, .45); }
-.grp i { font-style: normal; font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .12em; color: rgba(255, 255, 255, .28); }
-.grp::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, .08); }
-.item { display: block; padding: 7px 9px; border-radius: var(--r-sm); font-size: 12.5px; color: rgba(255, 255, 255, .68); text-decoration: none; transition: .14s; }
-.item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
-.item.is-active { background: var(--signal); color: #fff; font-weight: 600; }
-.side-user { padding: 10px 12px; border-top: 1px solid rgba(255, 255, 255, .08); display: flex; align-items: center; gap: 9px; }
+.shell { display: flex; min-height: 100vh; background: var(--bg-page); }
+.side { width: 220px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg-card); border-right: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: var(--space-2); height: 56px; padding: 0 var(--space-4); }
+.brand b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.tenant { margin: 0 var(--space-3) var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); }
+.tenant b { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tenant span { font-size: var(--font-size-min); color: var(--text-3); }
+.nav { flex: 1; overflow: auto; padding: 0 var(--space-3) var(--space-4); }
+.grp { padding: var(--space-4) var(--space-2) var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
+.item { display: flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-2); border-radius: var(--radius-control); font-size: var(--font-size-body); color: var(--text-2); text-decoration: none; }
+.item span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item:hover { background: var(--bg-hover); color: var(--text-1); }
+.item.is-active { background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
+.item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.side-user { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--divider); display: flex; align-items: center; gap: var(--space-2); }
+.avatar { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); background: var(--primary-bg); color: var(--primary-text); }
 .su { flex: 1; min-width: 0; }
-.su b { display: block; font-size: 12.5px; }
-.su span { font-size: 10.5px; color: rgba(255, 255, 255, .42); }
+.su b { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.su span { font-size: var(--font-size-min); color: var(--text-3); }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 50; }
-.crumb { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-400); }
-.crumb b { color: var(--ink-900); font-size: 14px; font-weight: 700; }
-.crumb .ref b { font-size: 10px; color: var(--signal-700); }
-.who { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
-.who .cn { color: var(--ink-700); font-weight: 600; }
-.who .mn { color: var(--ink-900); font-weight: 600; }
-.sep { width: 1px; height: 18px; background: var(--line); }
-.throttle { margin: 14px 22px 0; }
-.content { flex: 1; padding: 20px 22px 60px; }
+.top { height: 56px; flex: none; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-6); background: var(--bg-card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+.crumb { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+.crumb b { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.who { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); }
+.who .cn { color: var(--text-2); }
+.who .mn { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.sep { width: 1px; height: 18px; background: var(--border); }
+.throttle { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-4) var(--space-6) 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-card); background: var(--warning-soft); color: var(--text-1); font-size: var(--font-size-body); line-height: 1.6; }
+.throttle-i { flex: none; margin-top: 2px; color: var(--warning-text); }
+.content { flex: 1; padding: var(--space-page); }
 @media (max-width: 980px) { .side { display: none; } }
 </style>

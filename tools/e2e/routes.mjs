@@ -109,6 +109,7 @@ const CONSOLE = [
   ['/login', 'guest'],
   ['/onboarding/apply', 'guest', null, enterOnboardingApply],
   ['/onboarding/status', 'pendingOwner'],
+  ['/onboarding/status', 'rejectedOwner'], // 被驳回的公司另截一张：结果页图标、审核意见和主按钮不同
   ['/site/home', 'site'],
   ['/site/todo', 'site'],
   ['/site/follow', 'site'],

@@ -649,6 +649,138 @@ const logoutTwice = `(async () => { await ${wait(300)}; ${findBtn('退出登录'
 const logoutFlow = `(async () => { ${findBtn('退出登录')}.click(); await ${wait(400)}; ${dialogBtn('退出')}; await ${logoutTwice}
   await ${wait(200)}; ${findBtn('退出登录')}.scrollIntoView({ block: 'center' }) })()`
 
+// ---- 工单 14：企业后台外壳、登录、入驻 ----
+// 企业后台用公司成员（MEMBERS）或截图数据里的待审核 / 被驳回老板；写请求同驻场一律拦住（sr）
+// 改动前的侧栏菜单（分组前加 #），改版后分组和可见项必须一字不差
+const C_MENUS = {
+  owner: '#驻场|待办清单|24h 响应监控|#薪资发放|工资表导入|工资申诉|预支抵扣对账|#人才流转|流转账本|流转人员台账|#项目经理|岗位管理|知识库管理|工伤上报|薪酬预支审批|#劳务公司老板|数据总览|渠道转化报表|费用账单|#公司设置|项目与甲方|渠道二维码|组织与权限',
+  pm: '#驻场|驻场工作台|待办清单|24h 响应监控|确权与签约|#人才经纪人|流转池|AI 分析报告|二次匹配 / 释放|#薪资发放|工资表导入|工资申诉|预支抵扣对账|#项目经理|数据看板|岗位管理|知识库管理|人员管理|离职审核|花名册导入|工伤上报|薪酬预支审批|#劳务公司老板|渠道转化报表|#公司设置|项目与甲方|渠道二维码|组织与权限',
+  site: '#驻场|驻场工作台|待办清单|24h 响应监控|确权与签约|#人才经纪人|流转池|AI 分析报告|二次匹配 / 释放|#项目经理|数据看板|人员管理|离职审核|工伤上报|薪酬预支审批|#公司设置|项目与甲方|渠道二维码',
+  broker: '#人才经纪人|流转池|AI 分析报告|二次匹配 / 释放|#项目经理|岗位管理|#公司设置|项目与甲方|渠道二维码',
+}
+const bgToken = (name) => `(() => { const p = document.body.appendChild(document.createElement('i')); p.style.background = 'var(${name})'; const c = getComputedStyle(p).backgroundColor; p.remove(); return c })()`
+// 侧栏：白底、右边 1px 边框、宽约 220；分组标题 12px 三级文字；菜单项高 36、图标加文字；选中项浅蓝底蓝字，只有一个；菜单和改版前一致
+const cSide = (who) => `(() => { const side = document.querySelector('.side'); if (!side) return '没有侧栏'
+  const cs = getComputedStyle(side)
+  if (cs.backgroundColor !== ${bgToken('--bg-card')}) return '侧栏不是白底：' + cs.backgroundColor
+  if (cs.borderRightWidth !== '1px' || cs.borderRightColor !== ${tokenColor('--border')}) return '侧栏右边不是 1px 边框色细线：' + cs.borderRightWidth + ' ' + cs.borderRightColor
+  const w = side.getBoundingClientRect().width; if (w < 212 || w > 228) return '侧栏宽 ' + w + '，应约 220'
+  const menu = [...side.querySelectorAll('.nav > *')].map((e) => (e.classList.contains('grp') ? '#' : '') + e.innerText.trim()).join('|')
+  if (menu !== ${JSON.stringify(C_MENUS[who])}) return '菜单分组或可见项和改版前不一致：' + menu
+  const grp = [...side.querySelectorAll('.nav .grp')].find((g) => parseFloat(getComputedStyle(g).fontSize) !== 12 || getComputedStyle(g).color !== ${tokenColor('--text-3')})
+  if (grp) return '分组标题不是 12px 三级文字：' + grp.innerText
+  const items = [...side.querySelectorAll('.nav .item')]
+  const tall = items.find((e) => Math.abs(e.getBoundingClientRect().height - 36) > 1); if (tall) return '菜单项高不是 36：' + tall.innerText + ' ' + tall.getBoundingClientRect().height
+  const bare = items.find((e) => !e.querySelector('svg')); if (bare) return '菜单项没有图标：' + bare.innerText
+  const on = items.filter((e) => e.classList.contains('is-active')); if (on.length !== 1) return '选中的菜单项有 ' + on.length + ' 个'
+  if (getComputedStyle(on[0]).backgroundColor !== ${bgToken('--primary-bg')} || getComputedStyle(on[0]).color !== ${tokenColor('--primary-text')}) return '选中项不是浅蓝底蓝字'
+  const off = items.find((e) => !e.classList.contains('is-active') && (getComputedStyle(e).backgroundColor === ${bgToken('--primary-bg')} || getComputedStyle(e).color !== ${tokenColor('--text-2')}))
+  return off ? '未选中项的颜色不对：' + off.innerText : '' })()`
+// 顶栏：白底；面包屑「分组 / 页面」；消息按钮带共享图标和名称；公司状态、角色用共享状态标签（正常 = 成功色，角色 = 信息色）
+const cTop = (crumb, companyTone = 'success') => `(() => { const top = document.querySelector('.top'); if (!top) return '没有顶栏'
+  if (getComputedStyle(top).backgroundColor !== ${bgToken('--bg-card')}) return '顶栏不是白底'
+  const c = top.querySelector('nav.crumb'); if (!c) return '顶栏没有面包屑'
+  if (c.innerText.replace(/\\s+/g, '') !== ${JSON.stringify(crumb)}) return '面包屑不是「${crumb}」：' + c.innerText
+  if (!top.querySelector('button[aria-label="消息"] svg')) return '顶栏没有带图标的消息按钮'
+  if (top.querySelector('.tag, .st-pill')) return '顶栏还在用旧标签'
+  if (!top.querySelector('.status-tag.status-tag--' + ${JSON.stringify(companyTone)})) return '公司状态不是 ${companyTone} 色调的共享状态标签'
+  return top.querySelector('.status-tag.status-tag--info') ? '' : '角色不是信息色的共享状态标签' })()`
+// 主色只在主按钮、选中项、链接上：外壳里其余元素不用主色实心底
+const cPrimaryOnly = `(() => { const want = ${bgToken('--primary')}
+  const hit = [...document.querySelectorAll('.side, .side *, .top, .top *')].find((e) => getComputedStyle(e).backgroundColor === want && !e.closest('.el-button--primary'))
+  return hit ? '外壳里主色用在了按钮和选中态以外：' + (hit.className || hit.tagName) : '' })()`
+// 1280 宽：侧栏不压内容区，内容区不出视口，表格不出内容区，「操作」列在表格的可视范围里
+const cFit = `(() => { const side = document.querySelector('.side').getBoundingClientRect(), main = document.querySelector('.main').getBoundingClientRect()
+  if (side.right > main.left + 1) return '侧栏和内容区重叠 ' + Math.round(side.right - main.left) + 'px'
+  if (main.right > innerWidth + 1) return '内容区超出视口 ' + Math.round(main.right - innerWidth) + 'px'
+  const tables = [...document.querySelectorAll('#app .el-table')].filter((t) => t.getClientRects().length)
+  if (!tables.some((t) => [...t.querySelectorAll('.el-table__header th')].some((th) => th.innerText.trim() === '操作'))) return '页面上没有带「操作」列的表格'
+  for (const t of tables) { const r = t.getBoundingClientRect()
+    if (r.right > main.right + 1) return '表格超出内容区 ' + Math.round(r.right - main.right) + 'px'
+    const ops = [...t.querySelectorAll('.el-table__header th')].filter((th) => th.innerText.trim() === '操作' && th.getClientRects().length)
+    const out = ops.find((th) => { const c = th.getBoundingClientRect(); return c.right > r.right + 1 || c.left < r.left - 1 })
+    if (out) return '「操作」列被挤出表格可视区' }
+  return '' })()`
+// 外壳留给内容的宽度：1280 宽时侧栏 220、内边距 24，内容区不少于 1012（页面自己的表格列宽合计超过它时，那是页面的事，归各页改版工单）
+const cRoom = `(() => { const c = document.querySelector('.content'), cs = getComputedStyle(c), w = c.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+  return w >= innerWidth - 220 - 48 - 1 ? '' : '外壳留给内容的宽度只有 ' + w + 'px' })()`
+// 不出现渐变、模糊、深色大底和装饰动画
+const cNoDecor = `(() => { const all = [document.body, ...document.querySelectorAll('#app *')].filter((e) => e.getClientRects().length)
+  const g = all.find((e) => /gradient/.test(getComputedStyle(e).backgroundImage)); if (g) return '有渐变：' + (g.className || g.tagName)
+  const blur = all.find((e) => /blur/.test(getComputedStyle(e).filter + getComputedStyle(e).backdropFilter)); if (blur) return '有模糊装饰：' + (blur.className || blur.tagName)
+  const dark = all.find((e) => { const r = e.getBoundingClientRect(); if (r.width * r.height < 20000) return false
+    const m = getComputedStyle(e).backgroundColor.match(/[\\d.]+/g); if (!m || (m[3] !== undefined && +m[3] < 0.5)) return false
+    return 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2] < 128 })
+  if (dark) return '有深色大底：' + (dark.className || dark.tagName)
+  const anim = all.find((e) => getComputedStyle(e).animationName !== 'none' && !e.closest('.el-loading-mask, .is-loading')); return anim ? '有装饰动画：' + (anim.className || anim.tagName) : '' })()`
+// 登录卡片：页面底色上一张白卡片，宽约 400、水平居中；里面从上到下是品牌标、标题、表单、通栏主按钮
+const cLoginCard = `(() => { if (getComputedStyle(document.body).backgroundColor !== ${bgToken('--bg-page')}) return '页面底不是浅灰'
+  const card = document.querySelector('#app .login-card'); if (!card) return '没有登录卡片'
+  if (getComputedStyle(card).backgroundColor !== ${bgToken('--bg-card')}) return '登录卡片不是白底'
+  const r = card.getBoundingClientRect(); if (r.width < 380 || r.width > 420) return '登录卡片宽 ' + r.width + '，应约 400'
+  if (Math.abs(r.left + r.width / 2 - innerWidth / 2) > 2) return '登录卡片没有水平居中'
+  const brand = card.querySelector('svg'), h = card.querySelector('h1'), form = card.querySelector('form'), btn = card.querySelector('.el-button--primary')
+  if (!brand || !h || !form || !btn) return '卡片里缺品牌标、标题、表单或主按钮'
+  const y = (e) => e.getBoundingClientRect().top
+  if (!(y(brand) < y(h) && y(h) < y(form) && y(form) < y(btn))) return '卡片里的顺序不是品牌标、标题、表单、主按钮'
+  return Math.abs(btn.getBoundingClientRect().width - form.getBoundingClientRect().width) > 1 ? '主按钮不是通栏' : '' })()`
+// 入驻外壳：左侧白底文字说明（入驻流程、需要准备的材料），右侧白卡片表单
+const cOnboardShell = `(() => { const aside = document.querySelector('#app .auth-aside'), card = document.querySelector('#app .auth-card'); if (!aside || !card) return '没有左侧说明或右侧表单卡片'
+  if (getComputedStyle(aside).backgroundColor !== ${bgToken('--bg-card')}) return '左侧说明不是白底'
+  if (getComputedStyle(card).backgroundColor !== ${bgToken('--bg-card')}) return '表单卡片不是白底'
+  if (aside.getBoundingClientRect().right > card.getBoundingClientRect().left) return '说明不在表单左边'
+  return ['入驻流程', '需要准备的材料', '营业执照'].filter((t) => !aside.innerText.includes(t)).map((t) => '左侧说明没有「' + t + '」').join('；') })()`
+// 结果页结构：48 的线性图标、16px / 600 的标题、一行说明
+const cResult = `(() => { const box = document.querySelector('#app .result'); if (!box) return '没有结果区'
+  const icon = box.querySelector('svg'), h = box.querySelector('h2'), p = box.querySelector('p')
+  if (!icon || Math.round(icon.getBoundingClientRect().width) !== 48) return '结果图标不是 48'
+  const cs = h && getComputedStyle(h); if (!cs || parseFloat(cs.fontSize) !== 16 || Number(cs.fontWeight) !== 600) return '结果标题不是 16px / 600'
+  return p ? '' : '结果区没有说明' })()`
+const elPrimary = `(() => { const n = [...document.querySelectorAll('#app .el-button--primary:not(.is-link):not(.is-plain):not(.is-text)')].filter((b) => b.getClientRects().length).length
+  return n === 1 ? '' : '主色实心按钮有 ' + n + ' 个' })()`
+const elClickTwice = (text, scope = '#app') => `(async () => { ${findBtn(text, scope)}.click(); await ${wait(300)}; const again = document.querySelector(${JSON.stringify(scope + ' .el-button.is-loading')}) ?? ${findBtn(text, scope)}; again?.click() })()`
+const elSpinning = (text, scope = '#app') => `(() => { const b = [...document.querySelectorAll(${JSON.stringify(scope + ' .el-button.is-loading')})]; return b.length === 1 && b[0].innerText.includes(${JSON.stringify(text)}) ? '' : '提交中应当只有「${text}」在转，实际 ' + b.length + ' 个' })()`
+const elIdle = `document.querySelector('#app .el-button.is-loading, .msg-drawer .el-button.is-loading') ? '被拒之后按钮还在转' : ''`
+// Element 的消息提示：先确认写了原因，等它消失后再截
+const elToastGone = (text) => `(async () => { await ${wait(400)}; if (![...document.querySelectorAll('.el-message')].some((t) => t.innerText.includes(${JSON.stringify(text)}))) throw new Error('被拒之后没有消息提示写明原因')
+  await ${wait(3800)}; if ([...document.querySelectorAll('.el-message')].some((t) => t.getClientRects().length)) throw new Error('消息提示还没消失') })()`
+// 字段下方的错误提示：危险文字色；校验不过时第一个出错的字段在可视区里
+const elFieldError = (text) => `(() => { const e = [...document.querySelectorAll('#app .el-form-item__error')].find((x) => x.innerText.includes(${JSON.stringify(text)}))
+  if (!e) return '字段下方没有「${text}」'
+  if (getComputedStyle(e).color !== ${tokenColor('--danger-text')}) return '错误提示不是危险文字色：' + getComputedStyle(e).color
+  const first = document.querySelector('#app .el-form-item.is-error').getBoundingClientRect()
+  return first.top >= 0 && first.bottom <= innerHeight ? '' : '第一个出错的字段不在可视区里' })()`
+const cLegacy = `document.querySelector('#app .tag, #app .st-pill, #app .note, #app .eyebrow, #app .num') ? '还在用旧标签、状态点、旧提示条、眉标或等宽数字类' : ''`
+const C_LOGIN_API = '/tenant/auth/sms-login', C_SMS_API = '/tenant/auth/sms-code', C_CAPTCHA_API = '/tenant/auth/captcha'
+const C_APPLY_API = '/tenant/onboarding/apply', C_UPLOAD_API = '/tenant/onboarding/files', C_RESUBMIT_API = '/tenant/company/application'
+const C_MSG_API = '/tenant/messages?', C_UNREAD_API = '/tenant/messages/unread-count', C_READ_API = '/tenant/messages/read'
+const fillPhone = fill('11 位手机号', '13800000002'), fillCode = fill('6 位数字验证码', '123456')
+// 入驻申请页要内存里的入驻凭证：同 routes.mjs 的 enterOnboardingApply，塞一个假的
+const enterApply = `(async () => { const g = document.querySelector('#app').__vue_app__.config.globalProperties
+  g.$pinia._s.get('onboarding').set('screenshot-only', '138****0019'); await g.$router.push('/onboarding/apply') })()`
+// 表单填好并「上传」一张执照（上传接口用 respond 回一个后端形状的文件）
+const fillApply = `(async () => { const set = (ph, v) => { const el = document.querySelector('#app input[placeholder*="' + ph + '"]'); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })) }
+  set('与营业执照一致', '昆山鑫诚劳务派遣有限公司'); set('18 位', '91320583MA1XC00019'); set('负责对接平台的联系人', '陈晓明')
+  const input = document.querySelector('#app .uploader input[type=file]'), dt = new DataTransfer()
+  dt.items.add(new File(['x'], '营业执照.png', { type: 'image/png' })); input.files = dt.files; input.dispatchEvent(new Event('change', { bubbles: true }))
+  await ${wait(800)} })()`
+const fakeUpload = reply({ key: 'onboarding/2026/11/shot-license.png', name: '营业执照.png', size: 1 })
+const C_PENDING = data.personas.pendingOwner.phone
+const pendingMe = (await get(TME_API, await tenantSession(C_PENDING))).data
+const pmMe = (await get(TME_API, await tenantSession(MEMBERS.pm))).data
+const cMe = (me, company) => ({ url: TME_API, action: 'respond', body: reply({ ...me, company: { ...me.company, ...company } }) })
+const openBell = `document.querySelector('.top button[aria-label="消息"]').click()`
+const msgsEmpty = reply({ records: [], total: 0, page: 1, pageSize: 20 })
+// 消息抽屉：每条是标题、时间、两行摘要；未读的左边主色圆点、标题 500
+const cDrawer = `(() => { const d = document.querySelector('.msg-drawer'); if (!d) return '没有消息抽屉'
+  const items = [...d.querySelectorAll('.msg')]; if (!items.length) return '抽屉里没有消息'
+  const un = items.find((m) => m.classList.contains('unread')); if (!un) return '没有未读消息'
+  const dot = un.querySelector('.dot'); if (!dot || getComputedStyle(dot).backgroundColor !== ${bgToken('--primary')}) return '未读没有主色圆点'
+  if (Number(getComputedStyle(un.querySelector('.mt')).fontWeight) !== 500) return '未读标题不是 500 字重'
+  const mc = un.querySelector('.mc'); if (getComputedStyle(mc).webkitLineClamp !== '2') return '摘要不是两行截断'
+  return '' })()`
+const readAllOffEl = `(() => { const b = ${findBtn('全部已读', '.msg-drawer')}; return b && b.disabled ? '' : '「全部已读」没有置灰' })()`
+
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
@@ -1316,6 +1448,74 @@ const STATES = [
     checks: [has('请检查网络后重新加载'), `${findBtn('重新加载')}?.classList.contains('van-button--primary') ? '' : '「重新加载」不是主色按钮'`, has('退出登录'), shellKept] },
   { app: 'staff', screen: 'me', state: 'submitting', persona: 'site', path: '/me', rules: sr(), steps: [toLogout, countXhr, logoutFlow], quick: true,
     checks: [spinning('退出登录'), sentOnce, logoutVisible] },
+  // ---- 工单 14：企业后台外壳 ----
+  // 拦截自检：同驻场，发一条不存在的 PUT（不会落库），1.5 秒内有回应就说明写请求没被拦住
+  { app: 'console', screen: 'shell', state: 'write-guard', persona: 'pm', path: '/pm/jobs', rules: sr(),
+    checks: [`new Promise((ok) => { const x = new XMLHttpRequest(); x.open('PUT', '/api/v1/tenant/employments/E-NONE/absences'); x.onloadend = () => ok('PUT 写请求没被拦住（状态 ' + x.status + '）'); x.send('{}'); setTimeout(() => ok(''), 1500) })`] },
+  { app: 'console', screen: 'shell', state: 'owner', persona: 'owner', path: '/owner/overview', rules: sr(), checks: [cSide('owner'), cTop('劳务公司老板/数据总览'), cPrimaryOnly, pageBg] },
+  { app: 'console', screen: 'shell', state: 'pm', persona: 'pm', path: '/pm/jobs', rules: sr(), checks: [cSide('pm'), cTop('项目经理/岗位管理'), cPrimaryOnly, cFit] },
+  { app: 'console', screen: 'shell', state: 'pm', persona: 'pm', path: '/pm/jobs', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, cRoom] },
+  { app: 'console', screen: 'shell', state: 'site', persona: 'site', path: '/site/home', rules: sr(), checks: [cSide('site'), cTop('驻场/驻场工作台'), cPrimaryOnly] },
+  { app: 'console', screen: 'shell', state: 'site', persona: 'site', path: '/site/home', width: 1280, height: 800, rules: sr(), checks: [cSide('site')] },
+  { app: 'console', screen: 'shell', state: 'broker', persona: 'broker', path: '/broker/pool', rules: sr(), checks: [cSide('broker'), cTop('人才经纪人/流转池')] },
+  { app: 'console', screen: 'shell', state: 'org', persona: 'owner', path: '/settings/org', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cFit] },
+  // 账单表各列最小宽度合计 1060，1280 宽下「操作」列要在表格里横向滚动才看得到：表格列宽归账单页的改版工单，这里只查外壳没挤占内容区
+  { app: 'console', screen: 'shell', state: 'bills', persona: 'owner', path: '/owner/bills', width: 1280, height: 800, rules: sr(), checks: [cSide('owner'), cRoom] },
+  { app: 'console', screen: 'shell', state: 'throttled', persona: 'pm', path: '/pm/board', rules: sr(cMe(pmMe, { status: 'THROTTLED', statusRemark: '近 30 天爽约率超标，限流至 12 月 1 日' })),
+    checks: [has('公司当前处于平台处罚期'), has('近 30 天爽约率超标'), `getComputedStyle(document.querySelector('#app .throttle')).backgroundColor === ${bgToken('--warning-soft')} ? '' : '处罚期提示条不是提醒浅底'`, cTop('项目经理/数据看板', 'warning')] },
+  // 消息抽屉
+  { app: 'console', screen: 'messages', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [openBell], checks: [cDrawer] },
+  { app: 'console', screen: 'messages', state: 'empty', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_MSG_API, action: 'respond', body: msgsEmpty }, { url: C_UNREAD_API, action: 'respond', body: reply(0) }), steps: [openBell],
+    checks: [`document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '' : '空状态没写「暂无消息」'`, readAllOffEl] },
+  { app: 'console', screen: 'messages', state: 'loading', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_MSG_API, action: 'hang' }), steps: [openBell], quick: true,
+    checks: [`document.querySelector('.msg-drawer .el-loading-mask') ? '' : '没有加载遮罩'`, `document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '加载中闪了空状态' : ''`, readAllOffEl] },
+  { app: 'console', screen: 'messages', state: 'error', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_MSG_API, action: 'fail' }), steps: [openBell],
+    checks: [`${findBtn('重新加载', '.msg-drawer')} ? '' : '失败了没有「重新加载」'`, `document.querySelector('.msg-drawer').innerText.includes('暂无消息') ? '失败了显示成空状态' : ''`, readAllOffEl] },
+  { app: 'console', screen: 'messages', state: 'submitting', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [openBell, countXhr, elClickTwice('全部已读', '.msg-drawer')], quick: true,
+    checks: [elSpinning('全部已读', '.msg-drawer'), sentOnce] },
+  { app: 'console', screen: 'messages', state: 'rejected', persona: 'pm', path: '/pm/jobs', rules: sr({ url: C_READ_API, action: 'respond', body: refuse('SYS_4290', '操作太频繁，请稍后再试') }),
+    steps: [openBell, `${findBtn('全部已读', '.msg-drawer')}.click()`, elToastGone('操作太频繁，请稍后再试')], checks: [stays('.msg-drawer .form-err', '操作太频繁，请稍后再试'), readAllOffEl, elIdle] },
+  // 登录
+  { app: 'console', screen: 'login', state: 'normal', persona: 'guest', path: '/login', rules: sr(), checks: [cLoginCard, cNoDecor, cLegacy, elPrimary] },
+  { app: 'console', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: 1280, height: 800, rules: sr(), checks: [cLoginCard] },
+  { app: 'console', screen: 'login', state: 'invalid', persona: 'guest', path: '/login', rules: sr(), steps: [`${findBtn('登录')}.click()`], checks: [elFieldError('请输入手机号'), elFieldError('请输入短信验证码')] },
+  { app: 'console', screen: 'login', state: 'sms-submitting', persona: 'guest', path: '/login', rules: sr(), steps: [fillPhone, countXhr, elClickTwice('获取验证码')], quick: true, checks: [elSpinning('获取验证码'), sentOnce] },
+  { app: 'console', screen: 'login', state: 'captcha', persona: 'guest', path: '/login', rules: sr({ url: C_SMS_API, action: 'respond', body: refuse('AUTH_4004', '请先完成图形验证码') }),
+    steps: [fillPhone, `${findBtn('获取验证码')}.click()`, elToastGone('请先完成图形验证码')], checks: [`document.querySelector('#app img[alt="图形验证码"]') ? '' : '没有出图形验证码'`, stays('#app .form-err', '请先完成图形验证码')] },
+  { app: 'console', screen: 'login', state: 'captcha-error', persona: 'guest', path: '/login', rules: sr({ url: C_SMS_API, action: 'respond', body: refuse('AUTH_4004', '请先完成图形验证码') }, { url: C_CAPTCHA_API, action: 'fail' }),
+    steps: [fillPhone, `${findBtn('获取验证码')}.click()`, wait(4500)], checks: [stays('#app .form-err', '图形验证码加载失败')] },
+  { app: 'console', screen: 'login', state: 'submitting', persona: 'guest', path: '/login', rules: sr(), steps: [fillPhone, fillCode, countXhr, elClickTwice('登录')], quick: true, checks: [elSpinning('登录'), sentOnce] },
+  { app: 'console', screen: 'login', state: 'rejected', persona: 'guest', path: '/login', rules: sr({ url: C_LOGIN_API, action: 'respond', body: refuse('AUTH_4001', '验证码错误或已过期') }),
+    steps: [fillPhone, fillCode, `${findBtn('登录')}.click()`, elToastGone('验证码错误或已过期')], checks: [stays('#app .form-err', '验证码错误或已过期'), elIdle] },
+  // 入驻申请
+  { app: 'console', screen: 'onboarding-apply', state: 'normal', persona: 'guest', path: '/login', rules: sr(), steps: [enterApply], checks: [cOnboardShell, cNoDecor, cLegacy, elPrimary] },
+  { app: 'console', screen: 'onboarding-apply', state: 'normal', persona: 'guest', path: '/login', width: 1280, height: 800, rules: sr(), steps: [enterApply], checks: [cOnboardShell] },
+  { app: 'console', screen: 'onboarding-apply', state: 'invalid', persona: 'guest', path: '/login', rules: sr(), steps: [enterApply, `${findBtn('提交入驻申请')}.click()`],
+    checks: [elFieldError('请填写营业执照上的公司全称'), elFieldError('请上传营业执照')] },
+  { app: 'console', screen: 'onboarding-apply', state: 'uploaded', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: fakeUpload }), steps: [enterApply, fillApply],
+    checks: [`document.querySelector('#app .uploader .status-tag--success') ? '' : '已上传的文件没有成功色共享标签'`] },
+  { app: 'console', screen: 'onboarding-apply', state: 'upload-failed', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: refuse('FILE_4001', '文件类型不支持') }),
+    steps: [enterApply, fillApply, elToastGone('文件类型不支持')], checks: [stays('#app .uploader .form-err', '文件类型不支持')] },
+  { app: 'console', screen: 'onboarding-apply', state: 'submitting', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: fakeUpload }),
+    steps: [enterApply, fillApply, countXhr, elClickTwice('提交入驻申请')], quick: true, checks: [elSpinning('提交入驻申请'), sentOnce] },
+  { app: 'console', screen: 'onboarding-apply', state: 'rejected', persona: 'guest', path: '/login', rules: sr({ url: C_UPLOAD_API, action: 'respond', body: fakeUpload }, { url: C_APPLY_API, action: 'respond', body: refuse('COMPANY_4091', '该统一社会信用代码已入驻') }),
+    steps: [enterApply, fillApply, `${findBtn('提交入驻申请')}.click()`, elToastGone('该统一社会信用代码已入驻')], checks: [stays('#app .form-err', '该统一社会信用代码已入驻'), elIdle] },
+  // 入驻进度
+  { app: 'console', screen: 'onboarding-status', state: 'pending', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), checks: [cResult, has('入驻资料审核中'), whiteBg('.top'), cNoDecor, cLegacy, elPrimary] },
+  { app: 'console', screen: 'onboarding-status', state: 'pending', persona: 'pendingOwner', path: '/onboarding/status', width: 1280, height: 800, rules: sr(), checks: [cResult] },
+  { app: 'console', screen: 'onboarding-status', state: 'rejected-company', persona: 'rejectedOwner', path: '/onboarding/status', rules: sr(), checks: [cResult, has('入驻申请被驳回'), has('营业执照照片不清晰'), elPrimary] },
+  { app: 'console', screen: 'onboarding-status', state: 'banned', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(cMe(pendingMe, { status: 'BANNED', statusRemark: '多次发布虚假岗位，已封禁' })), checks: [cResult, has('公司账号已被封禁'), has('多次发布虚假岗位')] },
+  { app: 'console', screen: 'onboarding-status', state: 'empty', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(cMe(pendingMe, { licenseFiles: [], shortName: null, dispatchLicenseNo: null })), checks: [cResult, has('未上传')] },
+  { app: 'console', screen: 'onboarding-status', state: 'submitting', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), lateRules: [{ url: TME_API, action: 'hang' }],
+    steps: [countXhr, elClickTwice('刷新状态')], quick: true, checks: [elSpinning('刷新状态'), sentOnce, `document.querySelector('#app .result .el-loading-mask') ? '' : '刷新中结果区没有加载遮罩'`] },
+  { app: 'console', screen: 'onboarding-status', state: 'refresh-failed', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), lateRules: [{ url: TME_API, action: 'fail' }],
+    steps: [`${findBtn('刷新状态')}.click()`, wait(5000)], checks: [stays('#app .result .form-err', '刷新失败'), has('入驻资料审核中'), elIdle] },
+  { app: 'console', screen: 'onboarding-status', state: 'editing', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(), steps: [`${findBtn('修改并重新提交')}.click()`],
+    checks: [`document.querySelector('#app input[placeholder*="与营业执照一致"]')?.value === ${JSON.stringify(pendingMe.company.name)} ? '' : '修改表单没带出原资料'`, elPrimary] },
+  { app: 'console', screen: 'onboarding-status', state: 'resubmitting', persona: 'pendingOwner', path: '/onboarding/status', rules: sr(),
+    steps: [`${findBtn('修改并重新提交')}.click()`, countXhr, elClickTwice('重新提交审核')], quick: true, checks: [elSpinning('重新提交审核'), sentOnce] },
+  { app: 'console', screen: 'onboarding-status', state: 'resubmit-rejected', persona: 'pendingOwner', path: '/onboarding/status', rules: sr({ url: C_RESUBMIT_API, action: 'respond', body: refuse('COMPANY_4090', '公司状态已变化，请刷新后再提交') }),
+    steps: [`${findBtn('修改并重新提交')}.click()`, `${findBtn('重新提交审核')}.click()`, elToastGone('公司状态已变化，请刷新后再提交')], checks: [stays('#app .form-err', '公司状态已变化，请刷新后再提交'), elIdle] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
@@ -1324,11 +1524,11 @@ fs.mkdirSync(OUT, { recursive: true })
 let bad = 0
 for (const s of todo) {
   const conf = APPS[s.app]
-  const viewport = { ...(conf.mobile ? VIEWPORT.mobile : VIEWPORT.desktop), ...(s.width ? { width: s.width } : {}) }
+  const viewport = { ...(conf.mobile ? VIEWPORT.mobile : VIEWPORT.desktop), ...(s.width ? { width: s.width } : {}), ...(s.height ? { height: s.height } : {}) }
   const name = `${s.app}_${s.screen}_${s.state}_${viewport.width}x${viewport.height}.png`
-  // 驻场端用公司成员（routes.mjs 的 MEMBERS），会话在 tenant-<手机号>.rt；求职者端用截图数据里的人物
-  const staff = s.app === 'staff'
-  const phone = s.persona === 'guest' ? null : staff ? MEMBERS[s.persona] : data.personas[s.persona]?.phone
+  // 驻场端、企业后台用公司成员（routes.mjs 的 MEMBERS，没有的再找截图数据里的人物，如待审核老板），会话在 tenant-<手机号>.rt；求职者端用截图数据里的人物
+  const staff = s.app === 'staff' || s.app === 'console'
+  const phone = s.persona === 'guest' ? null : (staff && MEMBERS[s.persona]) || data.personas[s.persona]?.phone
   const rtFile = phone ? `${staff ? 'tenant' : 'seeker'}-${phone}.rt` : null
   if (phone) await (staff ? tenantSession : seekerSession)(phone)
   const b = await openTab(viewport)

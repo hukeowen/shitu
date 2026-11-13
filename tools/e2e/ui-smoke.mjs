@@ -54,8 +54,20 @@ const SEEDED_STAFF_ROUTES = ['/applications/:id', '/advance/:id']
 const staffSeeded = seeded ? ROUTES.filter((x) => x.app === 'staff' && SEEDED_STAFF_ROUTES.includes(x.route)).map((r) => r.to(seeded.ids)) : []
 if (!seeded) console.log('没有 shots/baseline-data.json：驻场报名详情、预支详情这次没有覆盖\n')
 
+// 企业后台的登录、入驻申请（不登录；入驻申请要先塞入驻凭证，进入脚本取 routes.mjs 的登记）和入驻进度（截图数据里待审核、被驳回的公司老板）
+const consoleApply = ROUTES.find((x) => x.app === 'console' && x.route === '/onboarding/apply')
+const consoleAuth = [{ name: 'console-guest', app: 'console', cookieFile: null, paths: ['/login', { path: '/onboarding/apply', enter: consoleApply.enter?.(seeded?.ids, seeded?.personas) }] }]
+for (const persona of seeded ? ['pendingOwner', 'rejectedOwner'] : []) {
+  const phone = seeded.personas[persona].phone
+  if (process.env.SUITE && !process.env.SUITE.split(',').includes('console-' + persona)) continue
+  await tenantSession(phone)
+  consoleAuth.push({ name: 'console-' + persona, app: 'console', cookieFile: `tenant-${phone}.rt`, paths: ['/onboarding/status'] })
+}
+if (!seeded) console.log('没有 shots/baseline-data.json：企业后台入驻进度这次没有覆盖\n')
+
 const SUITES = [
   { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: menuPaths('ops') },
+  ...consoleAuth,
   { name: 'console-owner', app: 'console', cookieFile: 'tenant-13800000001.rt', paths: menuPaths('console') },
   { name: 'console-pm', app: 'console', cookieFile: 'tenant-13800000002.rt', paths: menuPaths('console') },
   { name: 'console-site', app: 'console', cookieFile: 'tenant-13800000003.rt', paths: menuPaths('console') },
@@ -67,7 +79,8 @@ const SUITES = [
 const report = []
 for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.split(",").includes(x.name))) {
   const b = await openTab(s.mobile ? VIEWPORT.mobile : VIEWPORT.desktop, { timezone: process.env.TZ_OVERRIDE })
-  await b.send('Network.setCookie', { name: 'shitu_rt', value: readRt(s.cookieFile), url: s.base + s.cookiePath, path: s.cookiePath, httpOnly: true })
+  await b.send('Network.clearBrowserCookies')
+  if (s.cookieFile) await b.send('Network.setCookie', { name: 'shitu_rt', value: readRt(s.cookieFile), url: s.base + s.cookiePath, path: s.cookiePath, httpOnly: true })
   for (const item of s.paths) {
     // 字符串是直接打开的地址；{ path, enter } 是要先打开 enter.start、在页面里执行 enter.script 才进得去的页面
     const { path: p, enter } = typeof item === 'string' ? { path: item } : item
@@ -91,6 +104,8 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
             return tops.length > 1 && Math.max(...tops) - Math.min(...tops) > 8
           })
           if (wrapped) out.push('表格操作列按钮折行')
+          // 企业后台的字典标签（DictTag）统一成共享状态标签，不再有改版前的状态点
+          if (document.querySelector('.st-pill') && location.port === '5175') out.push('还在用旧状态点 .st-pill')
           // 页面横向溢出
           if (document.documentElement.scrollWidth > window.innerWidth + 2) out.push('页面横向溢出 ' + (document.documentElement.scrollWidth - window.innerWidth) + 'px')
           // 按钮 / 标签文字被裁切
@@ -105,7 +120,7 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
     const v = r.result?.result?.value ?? {}
     const issues = [...new Set(b.events)]
     if (!v.url || !v.url.startsWith('/') || v.chromeError) issues.push('页面没有打开（dev server 未启动？）')
-    if (v.url === '/login') issues.push('被踢回登录页（会话无效）')
+    if (v.url === '/login' && p !== '/login') issues.push('被踢回登录页（会话无效）')
     if (v.errs?.length) issues.push('页面错误提示: ' + v.errs.join(' | '))
     if (v.empty) issues.push('页面几乎空白')
     for (const w of v.layout ?? []) issues.push('排版: ' + w)
@@ -120,7 +135,7 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
   // 把浏览器轮换后的 refresh cookie 写回，避免旧 token 触发重放吊销
   const ck = await b.send('Network.getCookies', { urls: [s.base + s.cookiePath + '/refresh'] })
   const rt = ck.result.cookies.find((c) => c.name === 'shitu_rt')
-  if (rt) writeRt(s.cookieFile, rt.value)
+  if (rt && s.cookieFile) writeRt(s.cookieFile, rt.value)
   await b.send('Network.clearBrowserCookies')
   await b.close()
 }

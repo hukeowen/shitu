@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowLeftRight,
   ArrowRight,
   Ban,
   Banknote,
@@ -7,6 +8,7 @@ import {
   BookOpen,
   Briefcase,
   BuildingComplex,
+  Calculator,
   Calendar,
   ChartColumn,
   Check,
@@ -54,6 +56,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash,
+  TrendingUp,
   TriangleExclamationPoint,
   Upload,
   User,
@@ -141,3 +144,7 @@ export const IconBookOpen = /*#__PURE__*/ shituIcon(BookOpen)
 export const IconChartColumn = /*#__PURE__*/ shituIcon(ChartColumn)
 export const IconHeadset = /*#__PURE__*/ shituIcon(Headset)
 export const IconFactory = /*#__PURE__*/ shituIcon(Factory)
+// 企业后台侧栏（工单 14）
+export const IconArrowLeftRight = /*#__PURE__*/ shituIcon(ArrowLeftRight)
+export const IconCalculator = /*#__PURE__*/ shituIcon(Calculator)
+export const IconTrendingUp = /*#__PURE__*/ shituIcon(TrendingUp)
