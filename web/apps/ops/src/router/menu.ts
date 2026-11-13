@@ -1,10 +1,36 @@
+import type { Component } from 'vue'
 import type { OpsRole } from '@shitu/api-client'
+import {
+  IconBell,
+  IconBriefcase,
+  IconBuildingComplex,
+  IconCalculator,
+  IconCalendar,
+  IconChartColumn,
+  IconGauge,
+  IconIdCard,
+  IconLayoutDashboard,
+  IconMessageSquare,
+  IconReceipt,
+  IconScale,
+  IconScrollText,
+  IconSearch,
+  IconSettings,
+  IconSlidersHorizontal,
+  IconSparkles,
+  IconTriangleExclamationPoint,
+  IconUserCheck,
+  IconUserCog,
+  IconUsers,
+} from '@shitu/ui-icons'
 
 /** 平台运营中台菜单：沿用原型 platform.html 左侧导航。部署在内网域名 + IP 白名单（docs/02 §3）。 */
 export interface MenuItem {
   path: string
   title: string
   proto: string
+  /** 侧栏图标 */
+  icon: Component
   /** 可见角色；不填 = 所有平台账号可见（未实现的占位页） */
   roles?: OpsRole[]
   /** 侧边栏待办角标 */
@@ -55,15 +81,15 @@ export const MENU: MenuGroup[] = [
     key: 'home',
     title: '工作台',
     en: 'WORKBENCH',
-    items: [{ path: HOME_PATH, title: '工作台', proto: '待办', ready: true }],
+    items: [{ path: HOME_PATH, icon: IconLayoutDashboard, title: '工作台', proto: '待办', ready: true }],
   },
   {
     key: 'ops',
     title: '运营',
     en: 'OPERATIONS',
     items: [
-      { path: '/ops/overview', title: '运营总览', proto: 'P-01', roles: OVERVIEW_ROLES, ready: true },
-      { path: '/ops/attribution', title: '归属治理', proto: 'P-08', roles: ATTRIBUTION_ROLES, ready: true },
+      { path: '/ops/overview', icon: IconChartColumn, title: '运营总览', proto: 'P-01', roles: OVERVIEW_ROLES, ready: true },
+      { path: '/ops/attribution', icon: IconUserCheck, title: '归属治理', proto: 'P-08', roles: ATTRIBUTION_ROLES, ready: true },
     ],
   },
   {
@@ -71,9 +97,9 @@ export const MENU: MenuGroup[] = [
     title: '匹配引擎',
     en: 'ENGINE',
     items: [
-      { path: '/engine/quiz', title: 'AI 问薪题库', proto: 'P-12', roles: QUIZ_ROLES, ready: true },
-      { path: '/engine/match-snapshot', title: '匹配快照查询', proto: 'P-12', roles: SNAPSHOT_ROLES, ready: true },
-      { path: '/engine/params', title: '匹配引擎参数', proto: 'P-13', roles: ENGINE_ROLES, ready: true },
+      { path: '/engine/quiz', icon: IconSparkles, title: 'AI 问薪题库', proto: 'P-12', roles: QUIZ_ROLES, ready: true },
+      { path: '/engine/match-snapshot', icon: IconSearch, title: '匹配快照查询', proto: 'P-12', roles: SNAPSHOT_ROLES, ready: true },
+      { path: '/engine/params', icon: IconSlidersHorizontal, title: '匹配引擎参数', proto: 'P-13', roles: ENGINE_ROLES, ready: true },
     ],
   },
   {
@@ -81,8 +107,8 @@ export const MENU: MenuGroup[] = [
     title: '企业',
     en: 'COMPANIES',
     items: [
-      { path: '/companies/list', title: '公司管理', proto: 'P-02', roles: PENDING_ROLES, badge: 'companies', ready: true },
-      { path: '/companies/stock', title: '花名册与存量锁定', proto: 'P-03', roles: STOCK_ROLES, ready: true },
+      { path: '/companies/list', icon: IconBuildingComplex, title: '公司管理', proto: 'P-02', roles: PENDING_ROLES, badge: 'companies', ready: true },
+      { path: '/companies/stock', icon: IconUsers, title: '花名册与存量锁定', proto: 'P-03', roles: STOCK_ROLES, ready: true },
     ],
   },
   {
@@ -90,12 +116,12 @@ export const MENU: MenuGroup[] = [
     title: '治理',
     en: 'GOVERNANCE',
     items: [
-      { path: '/governance/job-audit', title: '岗位审核', proto: 'P-04', roles: PENDING_ROLES, badge: 'jobAudit', ready: true },
-      { path: '/governance/throttle', title: '降权与限流', proto: 'P-05', roles: RISK_ROLES, ready: true },
-      { path: '/governance/compliance', title: '实名与合规', proto: 'P-14', roles: RISK_ROLES, ready: true },
-      { path: '/governance/complaints', title: '投诉管理', proto: 'P-06', roles: RISK_ROLES, ready: true },
-      { path: '/governance/feedback', title: '问题反馈', proto: 'C-508', roles: ['SUPER', 'OPERATOR'], ready: true },
-      { path: '/governance/credit', title: '诚信与处罚', proto: 'P-07', roles: RISK_ROLES, ready: true },
+      { path: '/governance/job-audit', icon: IconBriefcase, title: '岗位审核', proto: 'P-04', roles: PENDING_ROLES, badge: 'jobAudit', ready: true },
+      { path: '/governance/throttle', icon: IconGauge, title: '降权与限流', proto: 'P-05', roles: RISK_ROLES, ready: true },
+      { path: '/governance/compliance', icon: IconIdCard, title: '实名与合规', proto: 'P-14', roles: RISK_ROLES, ready: true },
+      { path: '/governance/complaints', icon: IconTriangleExclamationPoint, title: '投诉管理', proto: 'P-06', roles: RISK_ROLES, ready: true },
+      { path: '/governance/feedback', icon: IconMessageSquare, title: '问题反馈', proto: 'C-508', roles: ['SUPER', 'OPERATOR'], ready: true },
+      { path: '/governance/credit', icon: IconScale, title: '诚信与处罚', proto: 'P-07', roles: RISK_ROLES, ready: true },
     ],
   },
   {
@@ -103,9 +129,9 @@ export const MENU: MenuGroup[] = [
     title: '结算',
     en: 'SETTLEMENT',
     items: [
-      { path: '/settlement/rules', title: '计费规则', proto: 'P-09', roles: BILLING_ROLES, ready: true },
-      { path: '/settlement/bills', title: '对账管理', proto: 'P-10', roles: BILLING_ROLES, ready: true },
-      { path: '/settlement/audit', title: '审计日志', proto: 'P-11', roles: AUDIT_LOG_ROLES, ready: true },
+      { path: '/settlement/rules', icon: IconCalculator, title: '计费规则', proto: 'P-09', roles: BILLING_ROLES, ready: true },
+      { path: '/settlement/bills', icon: IconReceipt, title: '对账管理', proto: 'P-10', roles: BILLING_ROLES, ready: true },
+      { path: '/settlement/audit', icon: IconScrollText, title: '审计日志', proto: 'P-11', roles: AUDIT_LOG_ROLES, ready: true },
     ],
   },
   {
@@ -113,10 +139,10 @@ export const MENU: MenuGroup[] = [
     title: '系统',
     en: 'SYSTEM',
     items: [
-      { path: '/system/admins', title: '平台账号', proto: 'P-15', roles: ADMIN_ROLES, ready: true },
-      { path: '/system/templates', title: '通知模板', proto: 'P-16', roles: TEMPLATE_ROLES, ready: true },
-      { path: '/system/holidays', title: '节假日', proto: 'P-10', roles: ['SUPER', 'FINANCE', 'OPERATOR'], ready: true },
-      { path: '/system/params', title: '系统参数', proto: 'P-13', roles: ['SUPER', 'OPERATOR'], ready: true },
+      { path: '/system/admins', icon: IconUserCog, title: '平台账号', proto: 'P-15', roles: ADMIN_ROLES, ready: true },
+      { path: '/system/templates', icon: IconBell, title: '通知模板', proto: 'P-16', roles: TEMPLATE_ROLES, ready: true },
+      { path: '/system/holidays', icon: IconCalendar, title: '节假日', proto: 'P-10', roles: ['SUPER', 'FINANCE', 'OPERATOR'], ready: true },
+      { path: '/system/params', icon: IconSettings, title: '系统参数', proto: 'P-13', roles: ['SUPER', 'OPERATOR'], ready: true },
     ],
   },
 ]

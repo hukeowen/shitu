@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { opsApi, type OpsPending } from '@shitu/api-client'
+import { errorMessage, isApiError, opsApi, type OpsPending } from '@shitu/api-client'
 import { useAuthStore } from './auth'
 import { PENDING_ROLES } from '@/router/menu'
 
@@ -9,6 +9,8 @@ export const usePendingStore = defineStore('pending', {
     counts: null as OpsPending | null,
     loading: false,
     error: '' as string,
+    /** 失败是断网、超时（提示检查网络），还是后端给了原因 */
+    offline: false,
   }),
   actions: {
     async refresh() {
@@ -20,10 +22,12 @@ export const usePendingStore = defineStore('pending', {
       if (this.loading) return
       this.loading = true
       this.error = ''
+      this.offline = false
       try {
         this.counts = await opsApi.pending()
       } catch (e) {
-        this.error = e instanceof Error ? e.message : '加载失败'
+        this.error = errorMessage(e, '加载失败')
+        this.offline = isApiError(e) && e.code === 'NETWORK'
       } finally {
         this.loading = false
       }

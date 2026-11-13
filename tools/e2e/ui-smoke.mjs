@@ -66,7 +66,9 @@ for (const persona of seeded ? ['pendingOwner', 'rejectedOwner'] : []) {
 if (!seeded) console.log('没有 shots/baseline-data.json：企业后台入驻进度这次没有覆盖\n')
 
 const SUITES = [
-  { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: menuPaths('ops') },
+  // 中台菜单里工作台写的是常量 HOME_PATH，正则取不到，和无权限页一起补上（工单 21）
+  { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: ['/workbench', ...menuPaths('ops'), '/forbidden?from=/system/admins'] },
+  { name: 'ops-guest', app: 'ops', cookieFile: null, paths: ['/login'] },
   ...consoleAuth,
   { name: 'console-owner', app: 'console', cookieFile: 'tenant-13800000001.rt', paths: menuPaths('console') },
   // 岗位编辑不在菜单里：新建页直接打开，编辑页用截图数据里的岗位（工单 17）

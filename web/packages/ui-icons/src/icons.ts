@@ -30,6 +30,7 @@ import {
   Factory,
   FilePenLine,
   FileText,
+  Gauge,
   Headset,
   House,
   IdCard,
@@ -49,11 +50,14 @@ import {
   QrCode,
   Receipt,
   RefreshCw,
+  Scale,
   ScanLine,
+  ScrollText,
   Search,
   Settings,
   Share2,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Trash,
   TrendingUp,
@@ -61,6 +65,7 @@ import {
   Upload,
   User,
   UserCheck,
+  UserCog,
   UserMinus,
   Users,
   Wallet,
@@ -150,3 +155,9 @@ export const IconArrowLeftRight = /*#__PURE__*/ shituIcon(ArrowLeftRight)
 export const IconCalculator = /*#__PURE__*/ shituIcon(Calculator)
 export const IconTrendingUp = /*#__PURE__*/ shituIcon(TrendingUp)
 export const IconUserMinus = /*#__PURE__*/ shituIcon(UserMinus)
+// 平台中台侧栏（工单 21）
+export const IconGauge = /*#__PURE__*/ shituIcon(Gauge)
+export const IconScale = /*#__PURE__*/ shituIcon(Scale)
+export const IconScrollText = /*#__PURE__*/ shituIcon(ScrollText)
+export const IconSlidersHorizontal = /*#__PURE__*/ shituIcon(SlidersHorizontal)
+export const IconUserCog = /*#__PURE__*/ shituIcon(UserCog)

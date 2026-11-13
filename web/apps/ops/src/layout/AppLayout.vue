@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { logout, useDict } from '@shitu/api-client'
-import { BrandMark } from '@shitu/ui-icons'
+import { BrandMark, IconChevronDown } from '@shitu/ui-icons'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
-import DictTags from '@/components/DictTags.vue'
 import { APP_TITLE, MENU, type MenuItem } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
 import { usePendingStore } from '@/stores/pending'
@@ -13,11 +12,23 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const pending = usePendingStore()
-useDict()
+const { label } = useDict()
 
 const menu = computed(() =>
   MENU.map((g) => ({ ...g, items: g.items.filter((it) => auth.hasAnyRole(it.roles)) })).filter((g) => g.items.length > 0),
 )
+
+/** 进入页面时把选中的菜单项滚进侧栏可视区（1280×800 下菜单比侧栏高，靠下的项会被藏住） */
+const navRef = ref<HTMLElement>()
+function revealActive() {
+  const nav = navRef.value, it = nav?.querySelector<HTMLElement>('.item.is-active')
+  if (!nav || !it) return
+  const n = nav.getBoundingClientRect(), r = it.getBoundingClientRect()
+  if (r.top < n.top) nav.scrollTop -= n.top - r.top + 8
+  else if (r.bottom > n.bottom) nav.scrollTop += r.bottom - n.bottom + 8
+}
+// immediate 的回调在挂载前执行、拿不到 nav，首次进入页面由 onMounted 负责
+watch(() => [route.path, menu.value.length], revealActive, { flush: 'post' })
 
 function badgeOf(it: MenuItem): number {
   const c = pending.counts
@@ -46,20 +57,24 @@ async function onCommand(cmd: string) {
   }
 }
 
-onMounted(() => pending.refresh())
+onMounted(() => {
+  revealActive()
+  pending.refresh()
+})
 </script>
 
 <template>
   <div class="shell">
     <aside class="side">
       <div class="brand">
-        <BrandMark :size="20" />
+        <BrandMark :size="24" />
         <b>{{ APP_TITLE }}</b>
       </div>
-      <nav class="nav">
+      <nav ref="navRef" class="nav" aria-label="主菜单">
         <template v-for="g in menu" :key="g.key">
           <div class="grp">{{ g.title }}</div>
           <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="item" active-class="is-active" :class="{ 'is-active': route.meta.activeMenu === it.path }">
+            <component :is="it.icon" :size="18" />
             <span class="it-t">{{ it.title }}</span>
             <span v-if="badgeOf(it) > 0" class="bdg">{{ badgeOf(it) > 99 ? '99+' : badgeOf(it) }}</span>
             <span v-else-if="!it.ready" class="soon">待建</span>
@@ -70,25 +85,23 @@ onMounted(() => pending.refresh())
         <div class="avatar">{{ avatarChar }}</div>
         <div class="su">
           <b>{{ auth.me?.displayName }}</b>
-          <span class="mono">{{ auth.me?.username }}</span>
+          <span>{{ auth.me?.username }}</span>
         </div>
       </div>
     </aside>
     <section class="main">
       <header class="top">
-        <el-breadcrumb separator="/">
-          <el-breadcrumb-item>{{ route.meta.group ?? APP_TITLE }}</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ route.meta.title }}</el-breadcrumb-item>
-        </el-breadcrumb>
-        <div class="spacer" />
+        <nav class="crumb" aria-label="面包屑">
+          <span>{{ route.meta.group ?? APP_TITLE }}</span>
+          <span aria-hidden="true">/</span>
+          <b>{{ route.meta.title }}</b>
+        </nav>
+        <span class="spacer" />
         <el-dropdown trigger="click" @command="onCommand">
           <button type="button" class="me">
-            <span class="avatar sm">{{ avatarChar }}</span>
-            <span class="me-t">
-              <b>{{ auth.me?.displayName }}</b>
-              <DictTags type="OpsRole" :values="auth.me?.roles" />
-            </span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            <span class="mn">{{ auth.me?.displayName }}</span>
+            <span v-for="r in auth.me?.roles ?? []" :key="r" class="status-tag status-tag--info">{{ label('OpsRole', r) }}</span>
+            <IconChevronDown :size="16" />
           </button>
           <template #dropdown>
             <el-dropdown-menu>
@@ -103,42 +116,43 @@ onMounted(() => pending.refresh())
       </main>
     </section>
 
-    <el-dialog v-model="pwdVisible" title="修改密码" width="420px" destroy-on-close :close-on-click-modal="false">
-      <div class="notice notice--info pwd-tip">修改成功后，所有设备上的登录都会失效，需要用新密码重新登录。</div>
+    <el-dialog v-model="pwdVisible" title="修改密码" width="480px" destroy-on-close :close-on-click-modal="false">
+      <div class="notice-bar pwd-tip">修改成功后，所有设备上的登录都会失效，需要用新密码重新登录。</div>
       <ChangePasswordForm show-cancel @success="onPasswordChanged" @cancel="pwdVisible = false" />
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.shell { display: flex; min-height: 100vh; background: var(--surface-2); }
-.side { width: 228px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--chrome); color: #fff; }
-.brand { display: flex; align-items: center; gap: 9px; padding: 16px 16px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
-.brand b { font-family: var(--f-dis); font-size: 16px; letter-spacing: .02em; }
-.env { margin-left: auto; font-family: var(--f-mono); font-size: 9px; letter-spacing: .1em; border: 1px solid rgba(255, 255, 255, .22); color: rgba(255, 255, 255, .6); padding: 1px 5px; border-radius: 3px; }
-.nav { flex: 1; overflow: auto; padding: 8px 10px 22px; }
-.grp { display: flex; align-items: center; gap: 6px; padding: 14px 8px 5px; font-size: 11px; color: rgba(255, 255, 255, .45); }
-.grp::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, .08); }
-.item { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: var(--r-sm); font-size: 12.5px; color: rgba(255, 255, 255, .68); text-decoration: none; transition: .14s; }
-.item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
-.item.is-active { background: var(--signal); color: #fff; font-weight: 600; }
-.it-t { flex: 1; min-width: 0; }
-.bdg { font-family: var(--f-mono); font-size: 10px; background: var(--danger); color: #fff; padding: 0 5px; height: 15px; line-height: 15px; border-radius: 8px; min-width: 17px; text-align: center; }
-.item.is-active .bdg { background: rgba(0, 0, 0, .35); }
-.soon { font-size: 10px; color: rgba(255, 255, 255, .25); }
-.side-user { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-top: 1px solid rgba(255, 255, 255, .08); }
+/* 外壳和企业后台（console layout/AppLayout.vue）是同一套：侧栏、顶栏、内容区的尺寸和颜色一致 */
+.shell { --layout-top-height: 56px; display: flex; min-height: 100vh; background: var(--bg-page); }
+.side { width: 220px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg-card); border-right: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: var(--space-2); height: 56px; flex: none; padding: 0 var(--space-4); }
+.brand b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.nav { flex: 1; overflow: auto; padding: 0 var(--space-3) var(--space-4); }
+.grp { padding: var(--space-4) var(--space-2) var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
+.item { display: flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-2); border-radius: var(--radius-control); font-size: var(--font-size-body); color: var(--text-2); text-decoration: none; }
+.it-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item:hover { background: var(--bg-hover); color: var(--text-1); }
+.item.is-active { background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
+.item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* 待办角标：危险文字色底配白字（对比度见 design-guard CONTRAST_PAIRS 的组件库实心按钮那一组） */
+.bdg { flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: var(--font-size-min); font-weight: var(--font-weight-medium); line-height: 18px; text-align: center; background: var(--danger-text); color: var(--text-on-primary); }
+.soon { flex: none; font-size: var(--font-size-min); color: var(--text-3); }
+.side-user { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--divider); display: flex; align-items: center; gap: var(--space-2); }
+.avatar { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); background: var(--primary-bg); color: var(--primary-text); }
 .su { flex: 1; min-width: 0; }
-.su b { display: block; font-size: 12.5px; }
-.su span { font-size: 10.5px; color: rgba(255, 255, 255, .42); }
-.avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--temp); color: #fff; font-size: 13px; font-weight: 700; }
-.avatar.sm { width: 26px; height: 26px; font-size: 12px; }
+.su b { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.su span { font-size: var(--font-size-min); color: var(--text-3); }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.top { height: 52px; flex: none; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 14px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top { height: var(--layout-top-height); flex: none; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-6); background: var(--bg-card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+.crumb { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
 .spacer { flex: 1; }
-.me { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 0; background: transparent; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-600); font-family: inherit; }
-.me:hover { background: var(--surface-3); }
-.me-t { display: flex; align-items: center; gap: 8px; }
-.me-t b { font-size: 13px; color: var(--ink-900); }
-.content { flex: 1; padding: 20px 22px 60px; min-width: 0; }
-.pwd-tip { margin-bottom: 14px; }
+.crumb b { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.me { display: flex; align-items: center; gap: var(--space-2); height: var(--control-height); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-family: inherit; font-size: var(--font-size-aux); color: var(--text-2); }
+.me:hover { background: var(--bg-hover); }
+.me:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.me .mn { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.content { flex: 1; min-width: 0; padding: var(--space-page); }
+.pwd-tip { margin-bottom: var(--space-4); }
 </style>

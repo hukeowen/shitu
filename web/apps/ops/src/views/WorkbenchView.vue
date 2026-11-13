@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useDict } from '@shitu/api-client'
+import { IconBriefcase, IconBuildingComplex, IconChevronRight, IconCircleCheck, IconFileText, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { MENU, PENDING_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
 import { usePendingStore } from '@/stores/pending'
@@ -11,15 +12,18 @@ const pending = usePendingStore()
 const { label } = useDict()
 
 const canPending = computed(() => auth.hasAnyRole(PENDING_ROLES))
+/** 数字只在这次拿到了数据时显示：加载中、失败都显示「—」（规范「Page States」） */
+const ready = computed(() => !!pending.counts && !pending.loading && !pending.error)
 
 const cards = computed(() => {
-  const c = pending.counts
+  const c = ready.value ? pending.counts : null
   return [
-    { key: 'companies', title: '待审核入驻', desc: '劳务公司入驻申请，核验营业执照与派遣许可', n: c?.companies, to: { path: '/companies/list', query: { status: 'PENDING_AUDIT' } } },
-    { key: 'contracts', title: '待备案合同', desc: '劳务公司与甲方的合作合同，备案后才能发岗', n: c?.contracts, to: { path: '/governance/job-audit', query: { tab: 'contracts' } } },
-    { key: 'jobs', title: '待审核岗位', desc: '按提交时间排队，通过后进入匹配池', n: c?.jobs, to: { path: '/governance/job-audit', query: { tab: 'jobs' } } },
+    { key: 'companies', icon: IconBuildingComplex, title: '待审核入驻', desc: '劳务公司入驻申请，核验营业执照与派遣许可', n: c?.companies, to: { path: '/companies/list', query: { status: 'PENDING_AUDIT' } } },
+    { key: 'contracts', icon: IconFileText, title: '待备案合同', desc: '劳务公司与甲方的合作合同，备案后才能发岗', n: c?.contracts, to: { path: '/governance/job-audit', query: { tab: 'contracts' } } },
+    { key: 'jobs', icon: IconBriefcase, title: '待审核岗位', desc: '按提交时间排队，通过后进入匹配池', n: c?.jobs, to: { path: '/governance/job-audit', query: { tab: 'jobs' } } },
   ]
 })
+const allDone = computed(() => cards.value.every((c) => c.n === 0))
 
 const modules = computed(() =>
   MENU.flatMap((g) => g.items.filter((it) => it.ready && it.path !== '/workbench' && auth.hasAnyRole(it.roles)).map((it) => ({ ...it, group: g.title }))),
@@ -44,21 +48,30 @@ onMounted(() => pending.refresh())
         </p>
       </div>
       <div class="spacer" />
-      <el-button v-if="canPending" size="small" :loading="pending.loading" @click="pending.refresh()">刷新待办</el-button>
+      <el-button v-if="canPending" :loading="pending.loading" @click="pending.refresh()">刷新待办</el-button>
     </div>
 
     <template v-if="canPending">
-      <div v-if="pending.error" class="notice notice--danger err">待办加载失败：{{ pending.error }}</div>
-      <div class="grid g-3">
-        <router-link v-for="c in cards" :key="c.key" :to="c.to" class="stat todo" :class="{ hot: (c.n ?? 0) > 0 }">
+      <div v-loading="pending.loading" class="grid g-3 kpis">
+        <router-link v-for="c in cards" :key="c.key" :to="c.to" class="stat stat--icon stat--link">
           <div class="stat-l">{{ c.title }}</div>
+          <component :is="c.icon" :size="20" class="stat-i" />
           <div class="stat-v">
-            <el-skeleton v-if="c.n == null && pending.loading" animated :rows="0" class="sk" />
-            <template v-else>{{ c.n ?? '—' }}<small>项</small></template>
+            <template v-if="c.n != null">{{ c.n }}<small>项</small></template>
+            <template v-else>—</template>
           </div>
           <div class="stat-d">{{ c.desc }}</div>
-          <span class="go">去处理 →</span>
+          <span class="go">去处理<IconChevronRight :size="14" /></span>
         </router-link>
+      </div>
+      <div v-if="pending.error && !pending.loading" class="notice-bar notice-bar--danger pend-err" role="alert">
+        <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
+        <span class="pend-t">待办数量加载失败：{{ pending.offline ? '请检查网络后重新加载' : pending.error }}</span>
+        <el-button size="small" @click="pending.refresh()">重新加载</el-button>
+      </div>
+      <div v-else-if="ready && allDone" class="notice-bar notice-bar--ok pend-ok" role="status">
+        <IconCircleCheck :size="16" class="notice-bar-i" />
+        <span>目前没有待处理的入驻审核、合同备案和岗位审核</span>
       </div>
     </template>
 
@@ -67,28 +80,33 @@ onMounted(() => pending.refresh())
       <div class="card__bd">
         <div v-if="modules.length" class="grid g-4">
           <router-link v-for="m in modules" :key="m.path" :to="m.path" class="mod-it">
-            <b>{{ m.title }}</b>
-            <span class="t-xs">{{ m.group }}</span>
+            <component :is="m.icon" :size="20" class="mod-i" />
+            <span class="mod-t">
+              <b>{{ m.title }}</b>
+              <span class="t-xs">{{ m.group }}</span>
+            </span>
           </router-link>
         </div>
-        <el-empty v-else :image-size="72" description="当前角色暂无可用功能，请联系超级管理员分配" />
+        <div v-else class="state-box">
+          <IconInbox :size="48" />
+          <h4>暂无可用功能</h4>
+          <p>当前角色暂无可用功能，请联系超级管理员分配</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.err { margin-bottom: 12px; }
-.todo { position: relative; display: block; text-decoration: none; transition: .15s; box-shadow: var(--sh-1); }
-.todo:hover { border-color: var(--ink-400); box-shadow: var(--sh-2); }
-.todo.hot { border-color: var(--warn-line); }
-.todo.hot .stat-v { color: var(--warn); }
-.stat-v small { font-size: 13px; font-weight: 600; color: var(--ink-500); margin-left: 3px; }
-.sk { width: 60px; }
-.go { position: absolute; right: 16px; top: 14px; font-size: 12px; color: var(--signal-700); font-weight: 600; }
-.mod { margin-top: 14px; }
-.mod-it { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-md); text-decoration: none; background: var(--surface-2); transition: .15s; }
-.mod-it .ref { align-self: flex-start; }
-.mod-it b { color: var(--ink-900); font-size: 14px; }
-.mod-it:hover { border-color: var(--signal-300); background: var(--signal-50); }
+.kpis { gap: var(--space-gap); }
+.go { display: inline-flex; align-items: center; gap: 2px; margin-top: var(--space-2); font-size: var(--font-size-min); font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.pend-err, .pend-ok { margin-top: var(--space-3); align-items: center; }
+.pend-t { flex: 1; min-width: 0; }
+.mod { margin-top: var(--space-gap); }
+.mod-it { display: flex; align-items: center; gap: var(--space-3); padding: 14px var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); text-decoration: none; transition: border-color .14s; }
+.mod-it:hover { border-color: var(--primary-line); background: var(--bg-hover); }
+.mod-it:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mod-i { flex: none; color: var(--text-2); }
+.mod-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mod-t b { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
 </style>
