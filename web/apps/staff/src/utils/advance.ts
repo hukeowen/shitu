@@ -1,16 +1,16 @@
 import { showSuccessToast, showToast } from 'vant'
-import { errorMessage, tenantApi, type AdvanceApprovalStep, type AdvanceRow, type AdvanceStatus, type DebtLogEntry } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, type AdvanceApprovalStep, type AdvanceRow, type AdvanceStatus, type DebtLogEntry } from '@shitu/api-client'
 import type ReasonDialog from '@/components/ReasonDialog.vue'
 
-/** 预支状态徽标配色（中文名取字典 AdvanceStatus） */
-export const ADVANCE_TAG: Record<AdvanceStatus, string> = {
-  SUBMITTED: 'tag-warn',
-  SITE_APPROVED: 'tag-info',
-  PM_APPROVED: 'tag-info',
-  PAID: 'tag-ok',
-  PARTIALLY_REPAID: 'tag-temp',
-  REPAID: 'tag-muted',
-  REJECTED: 'tag-danger',
+/** 预支状态的标签色调（tokens.css 的 .status-tag--*；中文名取字典 AdvanceStatus） */
+export const ADVANCE_TONE: Record<AdvanceStatus, string> = {
+  SUBMITTED: 'status-tag--warning',
+  SITE_APPROVED: 'status-tag--info',
+  PM_APPROVED: 'status-tag--info',
+  PAID: 'status-tag--success',
+  PARTIALLY_REPAID: 'status-tag--pending',
+  REPAID: 'status-tag--neutral',
+  REJECTED: 'status-tag--danger',
 }
 
 /** 审批节点 / 结论 / 流水类型：后端字典暂未提供，先在前端兜底 */
@@ -22,21 +22,25 @@ export const canSiteReview = (a: AdvanceRow) => a.allowedActions.includes('SITE_
 
 type Dialog = InstanceType<typeof ReasonDialog>
 
-async function submitSiteReview(id: string, approve: boolean, opinion: string) {
+/** 后端业务拒绝（不是网络失败）时回调：页面把这一单的初审按钮置灰、原因留在卡片或底部通栏上 */
+export type OnReviewRejected = (reason: string) => void
+
+async function submitSiteReview(id: string, approve: boolean, opinion: string, onRejected?: OnReviewRejected) {
   try {
     await tenantApi.siteReviewAdvance(id, approve, opinion || undefined)
     showSuccessToast(approve ? '初审已通过，已推送项目经理终审' : '已驳回，机会已退回')
   } catch (e) {
     showToast(errorMessage(e, '提交失败，请稍后重试'))
+    if (isApiError(e)) onRejected?.(errorMessage(e))
     throw e
   }
 }
 
 /** M-11 驻场初审：通过（意见选填）/ 驳回（意见必填，驳回退回本次机会）。返回是否已提交 */
-export async function siteReview(dialog: Dialog | null, a: AdvanceRow, approve: boolean, amountText: string): Promise<boolean> {
+export async function siteReview(dialog: Dialog | null, a: AdvanceRow, approve: boolean, amountText: string, onRejected?: OnReviewRejected): Promise<boolean> {
   if (!dialog) return false
   const who = `${a.seekerName ?? '—'} · ${amountText}`
-  const submit = (opinion: string) => submitSiteReview(a.advanceId, approve, opinion)
+  const submit = (opinion: string) => submitSiteReview(a.advanceId, approve, opinion, onRejected)
   const r = await dialog.open(
     approve
       ? {

@@ -15,32 +15,14 @@ ul, ol { list-style: none; }
 .stack > * { min-width: 0; }
 .pad { padding: var(--space-page); }
 
-/* 旧标签：还没迁移的驻场页面（工单 13）在用；新代码用 tokens.css 的 .status-tag */
-.tag { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-tag); font-size: var(--font-size-min); font-weight: var(--font-weight-medium); line-height: 1; background: var(--bg-fill); color: var(--text-2); border: 1px solid transparent; white-space: nowrap; }
-.tag.tag-private { color: var(--domain-private-text); background: var(--domain-private-bg); }
-.tag.tag-public { color: var(--domain-public-text); background: var(--domain-public-bg); }
-.tag.tag-temp { color: var(--domain-pending-text); background: var(--domain-pending-bg); }
-.tag.tag-ok { color: var(--success-text); background: var(--success-soft); }
-.tag.tag-warn { color: var(--warning-text); background: var(--warning-soft); }
-.tag.tag-danger { color: var(--danger-text); background: var(--danger-soft); }
-.tag.tag-info { color: var(--primary-text); background: var(--primary-bg); }
-.tag.tag-muted { color: var(--text-2); background: var(--bg-fill); }
-.tag--lg { height: 24px; padding: 0 var(--space-2); font-size: var(--font-size-min); }
-.tag--glass { background: transparent; color: var(--text-on-primary); border-color: currentColor; }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
-
 /* 头像：浅蓝底加主色字 */
 .avatar { width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--primary-text); background: var(--primary-bg); }
-.avatar--sm { width: 28px; height: 28px; font-size: var(--font-size-min); }
 .avatar--lg { width: 48px; height: 48px; font-size: var(--font-size-section); }
 
 /* 卡片 */
 .acard { background: var(--bg-card); border-radius: var(--radius-card); padding: var(--space-card); box-shadow: var(--shadow-card); }
 .acard-hd { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
 .acard-hd h4 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 24px; }
-
-/* 深色状态头：只剩还没迁移的「我的」页（工单 13）在用 */
-.hero { padding: calc(12px + env(safe-area-inset-top)) var(--space-page) 20px; color: var(--text-on-primary); background: var(--text-1); }
 
 /* 白色身份头（工作台）：头像、姓名 · 角色、公司，右边消息入口 */
 .id-head { display: flex; align-items: center; gap: var(--space-3); padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-page) var(--space-3); background: var(--bg-card); border-bottom: 1px solid var(--divider); }
@@ -92,8 +74,6 @@ ul, ol { list-style: none; }
 
 .note { background: var(--primary-bg); padding: var(--space-3) var(--space-4); border-radius: var(--radius-card); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
 .note b { font-weight: var(--font-weight-semibold); }
-
-.empty-box { padding: var(--space-6) var(--space-3); text-align: center; color: var(--text-3); }
 
 /* 结果 / 空 / 失败：线性图标、标题、一行说明、一个按钮 */
 .state-block { display: flex; flex-direction: column; align-items: center; padding: var(--space-8) var(--space-4); text-align: center; }

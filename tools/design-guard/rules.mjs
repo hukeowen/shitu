@@ -38,8 +38,8 @@ const FAVICON = 'web/packages/ui-icons/public/favicon.svg'
 export const COLOR_ALLOWLIST = [
   { file: FAVICON, value: '#2B6BFF', reason: 'favicon 是独立文件，读不到设计变量；对应 --primary' },
   { file: FAVICON, value: '#FFFFFF', reason: 'favicon 是独立文件，读不到设计变量；对应 --text-on-primary' },
-  { file: 'web/apps/staff/src/components/QrImage.vue', value: '#000000', reason: '二维码码点保持黑白，保证能扫（qrcode 库画在 canvas 上，读不到设计变量）' },
-  { file: 'web/apps/staff/src/components/QrImage.vue', value: '#FFFFFF', reason: '二维码底色保持白色，保证能扫' },
+  { file: 'web/apps/staff/src/utils/qr.ts', value: '#000000', reason: '二维码码点保持黑白，保证能扫（qrcode 库画在 canvas 上，读不到设计变量）；驻场的签署码和专属码都从这里取' },
+  { file: 'web/apps/staff/src/utils/qr.ts', value: '#FFFFFF', reason: '二维码底色保持白色，保证能扫' },
 ]
 
 const TEXT = 4.5 // 正文

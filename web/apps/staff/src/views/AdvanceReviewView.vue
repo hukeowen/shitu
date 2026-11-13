@@ -3,8 +3,9 @@ import { shNow } from '@/utils/time'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceRow } from '@shitu/api-client'
+import { IconChevronRight, IconCircleExclamationPoint, IconLock, IconWallet } from '@shitu/ui-icons'
 import ReasonDialog from '@/components/ReasonDialog.vue'
-import { ADVANCE_TAG, canSiteReview, siteReview } from '@/utils/advance'
+import { ADVANCE_TONE, canSiteReview, siteReview } from '@/utils/advance'
 import { fmtTime, fmtYuan } from '@/utils/time'
 
 /** M-11 薪酬预支初审：本人发起 → 驻场初审 → 项目经理终审 → 拨款（驳回退回机会） */
@@ -20,11 +21,14 @@ const loading = ref(true)
 const loadError = ref('')
 const forbidden = ref(false)
 const refreshing = ref(false)
+/** 被后端拒绝的单：按钮置灰、原因留在卡片上，下拉刷新后重新判断 */
+const blocked = ref<Record<string, string>>({})
 
 async function load() {
   loadError.value = ''
   try {
     rows.value = await tenantApi.advances()
+    blocked.value = {}
   } catch (e) {
     if (isApiError(e) && e.status === 403) forbidden.value = true
     else loadError.value = errorMessage(e, '加载失败，请稍后重试')
@@ -33,6 +37,11 @@ async function load() {
   }
 }
 void load()
+/** 重新加载：先回到加载中，重试期间不闪空状态 */
+function reload() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   try {
     await load()
@@ -47,7 +56,8 @@ const nowDate = shNow()
 
 const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(a: AdvanceRow, approve: boolean) {
-  if (await siteReview(dialog.value, a, approve, fmtYuan(a.amount))) void load()
+  const onRejected = (reason: string) => (blocked.value = { ...blocked.value, [a.advanceId]: `暂时不能${approve ? '初审通过' : '驳回'}：${reason}` })
+  if (await siteReview(dialog.value, a, approve, fmtYuan(a.amount), onRejected)) void load()
 }
 
 function back() {
@@ -59,50 +69,52 @@ function back() {
 <template>
   <div class="adv">
     <van-nav-bar title="预支初审" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
-    <div class="sticky">
-      <div class="atabs" role="tablist">
-        <button type="button" role="tab" :aria-selected="tab === 'todo'" :class="{ on: tab === 'todo' }" @click="tab = 'todo'">
-          待初审<span v-if="!loading" class="mono n">{{ todo.length }}</span>
-        </button>
-        <button type="button" role="tab" :aria-selected="tab === 'all'" :class="{ on: tab === 'all' }" @click="tab = 'all'">
-          全部记录<span v-if="!loading" class="mono n">{{ rows.length }}</span>
-        </button>
-      </div>
-    </div>
+    <van-tabs v-model:active="tab" sticky offset-top="44" shrink class="seg-tabs">
+      <van-tab name="todo"><template #title>待初审<span v-if="!loading && !loadError && !forbidden" class="n">{{ todo.length }}</span></template></van-tab>
+      <van-tab name="all"><template #title>全部记录<span v-if="!loading && !loadError && !forbidden" class="n">{{ rows.length }}</span></template></van-tab>
+    </van-tabs>
 
     <van-pull-refresh v-model="refreshing" class="pr" @refresh="onRefresh">
-      <div class="pad stack">
-        <div v-if="loading" class="state"><van-loading size="24" vertical>加载中…</van-loading></div>
-        <van-empty v-else-if="forbidden" description="你的角色暂无预支审批权限" />
-        <van-empty v-else-if="loadError" image="error" :description="loadError">
-          <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-        </van-empty>
-        <template v-else>
-          <p v-if="tab === 'todo' && todo.length" class="note">流程：本人发起 → <b>驻场初审</b> → 项目经理终审 → 拨款。驳回后本次机会退回给求职者。</p>
-          <article v-for="a in shown" :key="a.advanceId" class="acard row-card">
-            <router-link :to="`/advance/${a.advanceId}`" class="head">
-              <div class="avatar avatar--o">{{ (a.seekerName ?? '?').slice(0, 1) }}</div>
-              <div class="flex1">
-                <b>{{ a.seekerName ?? '—' }}</b>
-                <span>{{ a.projectName ?? '—' }}</span>
-              </div>
-              <div class="amt">
-                <b class="num">{{ fmtYuan(a.amount) }}</b>
-                <span class="tag" :class="ADVANCE_TAG[a.status]">{{ label('AdvanceStatus', a.status) }}</span>
-              </div>
+      <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+      <div v-else-if="forbidden" class="state-block">
+        <IconLock :size="48" />
+        <p class="state-block-t">暂无预支审批权限</p>
+        <p class="state-block-d">你的角色暂无预支审批权限</p>
+      </div>
+      <div v-else-if="loadError" class="state-block">
+        <IconCircleExclamationPoint :size="48" />
+        <p class="state-block-t">{{ loadError }}</p>
+        <p class="state-block-d">请检查网络后重新加载</p>
+        <van-button type="primary" @click="reload">重新加载</van-button>
+      </div>
+      <div v-else class="pad stack">
+        <p v-if="tab === 'todo' && todo.length" class="note">流程：本人发起 → <b>驻场初审</b> → 项目经理终审 → 拨款。驳回后本次机会退回给求职者。</p>
+        <article v-for="a in shown" :key="a.advanceId" class="acard adv-card">
+          <div class="item-hd">
+            <router-link :to="`/advance/${a.advanceId}`" class="name-link">
+              <h3>{{ a.seekerName ?? '—' }}</h3>
+              <IconChevronRight :size="16" class="chev" />
             </router-link>
-            <dl>
-              <div class="kv"><dt>申请时间</dt><dd class="num">{{ fmtTime(a.createdAt, nowDate) }}</dd></div>
-              <div class="kv"><dt>所属月份</dt><dd class="num">{{ a.bizMonth }}</dd></div>
-              <div class="kv"><dt>申请单号</dt><dd class="num">{{ a.advanceId }}</dd></div>
-            </dl>
-            <div v-if="canSiteReview(a)" class="acts">
-              <van-button v-if="a.allowedActions.includes('SITE_REJECT')" size="small" class="act" @click="review(a, false)">驳回</van-button>
-              <van-button v-if="a.allowedActions.includes('SITE_APPROVE')" size="small" type="primary" class="act act--main" @click="review(a, true)">初审通过</van-button>
-            </div>
-          </article>
-          <van-empty v-if="!shown.length" image="search" :description="tab === 'todo' ? '暂无待你初审的预支申请' : '暂无预支记录'" />
-        </template>
+            <span class="status-tag" :class="ADVANCE_TONE[a.status]">{{ label('AdvanceStatus', a.status) }}</span>
+          </div>
+          <p class="item-sub">预支 <b class="amt">{{ fmtYuan(a.amount) }}</b> · {{ a.projectName ?? '—' }}</p>
+          <dl class="facts">
+            <div class="kv"><dt>申请时间</dt><dd>{{ fmtTime(a.createdAt, nowDate) }}</dd></div>
+            <div class="kv"><dt>所属月份</dt><dd>{{ a.bizMonth }}</dd></div>
+            <div class="kv"><dt>申请单号</dt><dd class="code">{{ a.advanceId }}</dd></div>
+          </dl>
+          <div v-if="canSiteReview(a)" class="acts">
+            <van-button v-if="a.allowedActions.includes('SITE_REJECT')" plain type="danger" class="act" :disabled="!!blocked[a.advanceId]" @click="review(a, false)">驳回</van-button>
+            <van-button v-if="a.allowedActions.includes('SITE_APPROVE')" type="primary" class="act" :disabled="!!blocked[a.advanceId]" @click="review(a, true)">初审通过</van-button>
+          </div>
+          <p v-if="blocked[a.advanceId]" class="why" role="status">{{ blocked[a.advanceId] }}</p>
+        </article>
+        <div v-if="!shown.length" class="state-block">
+          <IconWallet :size="48" />
+          <p class="state-block-t">{{ tab === 'todo' ? '暂无待你初审的预支申请' : '暂无预支记录' }}</p>
+          <p class="state-block-d">下拉可刷新</p>
+        </div>
+        <p v-else class="list-end">没有更多了</p>
         <div class="page-bottom-gap" />
       </div>
     </van-pull-refresh>
@@ -112,21 +124,14 @@ function back() {
 
 <style scoped>
 .adv { min-height: 100vh; }
-.sticky { position: sticky; top: calc(46px + env(safe-area-inset-top)); z-index: 20; }
-.atabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.atabs button { flex: none; padding: 5px 12px; border-radius: 20px; border: 0; font-size: 12.5px; color: var(--ink-500); background: var(--surface-3); font-weight: 500; }
-.atabs button.on { background: var(--ink-900); color: #fff; font-weight: 600; }
-.atabs .n { margin-left: 4px; font-size: 11px; opacity: .8; }
+.n { margin-left: var(--space-1); }
 .pr { min-height: calc(100vh - 100px); }
-.head { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.head b { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink-900); }
-.head span { display: block; font-size: 11.5px; color: var(--ink-400); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.amt { text-align: right; flex: none; display: grid; justify-items: end; gap: 3px; }
-.amt b { font-size: 17px; color: var(--signal-700); }
-.head .amt .tag { display: inline-flex; margin-top: 0; }
-.row-card .kv { padding: 6px 0; font-size: 12.5px; }
-.acts { display: flex; gap: 8px; margin-top: 10px; }
-.act { flex: 1; min-width: 0; border-radius: var(--r-sm); font-weight: 600; }
-.act--main { flex: 1.8; }
-.state { padding: 40px 0; }
+.name-link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: calc(var(--space-3) * -1) 0; min-width: 0; color: inherit; text-decoration: none; }
+.name-link .chev { flex: none; color: var(--text-3); }
+.amt { font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.facts { margin-top: var(--space-2); }
+.code { font-family: var(--font-mono); }
+.acts { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.act { flex: 1; min-width: 0; font-weight: var(--font-weight-medium); }
+.why { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--warning-text); }
 </style>

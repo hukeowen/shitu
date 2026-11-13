@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'
-import QRCode from 'qrcode'
+import { qrDataUrl } from '@/utils/qr'
 
 /** 前端按链接生成二维码（签署码等），现场可直接给求职者扫码 */
 const props = withDefaults(defineProps<{ url: string; size?: number; alt?: string }>(), { size: 132, alt: '二维码' })
@@ -11,9 +11,7 @@ watchEffect(async () => {
   const u = props.url
   failed.value = false
   try {
-    src.value = u
-      ? await QRCode.toDataURL(u, { width: props.size * 2, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#FFFFFF' } })
-      : ''
+    src.value = u ? await qrDataUrl(u, props.size * 2) : ''
   } catch {
     failed.value = true
   }

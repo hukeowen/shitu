@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
-import { useDict } from '@shitu/api-client'
+import { errorMessage, useDict } from '@shitu/api-client'
+import { IconBell, IconChevronRight, IconQrCode, IconShieldCheck, IconTriangleExclamationPoint, IconUsers, IconWallet } from '@shitu/ui-icons'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
 
-/** 驻场「我的」：成员身份、所属公司、退出登录（成员接口不返回手机号，故不展示） */
+/** 驻场「我的」：成员身份、所属公司、功能入口、退出登录 */
 const auth = useAuthStore()
 const router = useRouter()
 const { label } = useDict()
@@ -14,12 +15,31 @@ const me = computed(() => auth.me)
 const inbox = useInboxStore()
 if (auth.operational) void inbox.refresh()
 
+/** 成员信息在启动时拉取；没拉到时这里给重新加载 */
+const reloading = ref(false)
+const loadError = ref('')
+async function reload() {
+  reloading.value = true
+  loadError.value = ''
+  try {
+    await auth.loadMe()
+    if (auth.operational) void inbox.refresh()
+  } catch (e) {
+    loadError.value = errorMessage(e, '加载失败')
+  } finally {
+    reloading.value = false
+  }
+}
+
+const loggingOut = ref(false)
 async function onLogout() {
+  if (loggingOut.value) return
   try {
     await showConfirmDialog({ title: '退出登录', message: '确定退出当前账号吗？', confirmButtonText: '退出' })
   } catch {
     return
   }
+  loggingOut.value = true
   try {
     await auth.logout()
   } catch {
@@ -32,67 +52,88 @@ async function onLogout() {
 
 <template>
   <div class="me">
-    <header class="hero">
-      <div class="ttl">我的</div>
-      <div v-if="me" class="row" style="gap: 12px">
-        <div class="avatar avatar--o avatar--lg">{{ me.name.slice(0, 1) }}</div>
-        <div class="flex1">
-          <div class="name">{{ me.name }}</div>
-          <div class="roles">
-            <span v-for="r in me.roles" :key="r" class="tag tag--glass">{{ label('ActorRole', r) }}</span>
-          </div>
-        </div>
-      </div>
-    </header>
+    <van-nav-bar title="我的" safe-area-inset-top fixed placeholder z-index="30" />
 
     <div class="pad stack">
+      <section v-if="me" class="acard me-card">
+        <div class="me-top">
+          <span class="avatar avatar--lg">{{ me.name.slice(0, 1) }}</span>
+          <div class="flex1">
+            <b class="me-name">{{ me.name }}</b>
+            <span v-if="me.phoneMasked" class="me-phone">{{ me.phoneMasked }}</span>
+            <span class="me-tags"><span v-for="r in me.roles" :key="r" class="status-tag status-tag--info">{{ label('ActorRole', r) }}</span></span>
+          </div>
+        </div>
+      </section>
+      <div v-else-if="reloading" class="acard page-state in-card"><van-loading size="28" vertical>加载中…</van-loading></div>
+      <section v-else class="acard">
+        <div class="state-block state-block--sm">
+          <IconTriangleExclamationPoint :size="32" />
+          <p class="state-block-t">{{ loadError || '成员信息加载失败' }}</p>
+          <van-button @click="reload">重新加载</van-button>
+        </div>
+      </section>
+
       <section v-if="me" class="acard">
         <div class="acard-hd"><h4>所属公司</h4></div>
         <dl>
           <div class="kv"><dt>公司</dt><dd>{{ me.company.name }}</dd></div>
           <div v-if="me.company.shortName" class="kv"><dt>简称</dt><dd>{{ me.company.shortName }}</dd></div>
           <div class="kv"><dt>公司状态</dt><dd>{{ label('CompanyStatus', me.company.status) }}</dd></div>
-          <div class="kv"><dt>成员 ID</dt><dd class="num">{{ me.memberId }}</dd></div>
+          <div class="kv"><dt>成员 ID</dt><dd>{{ me.memberId }}</dd></div>
         </dl>
       </section>
 
-      <section v-if="me && auth.operational" class="acard list">
-        <router-link v-if="auth.can('CHANNEL_MINE')" to="/my-code" class="lrow">
-          <div class="lt"><b>我的专属码</b><span>求职者扫码注册成为本公司私域用户</span></div>
-          <van-icon name="arrow" class="chev" />
-        </router-link>
-        <router-link to="/employees" class="lrow">
-          <div class="lt"><b>在岗人员</b><span>请假 / 旷工标记</span></div>
-          <van-icon name="arrow" class="chev" />
-        </router-link>
-        <router-link to="/advance" class="lrow">
-          <div class="lt"><b>预支初审</b><span>求职者薪资预支的驻场初审</span></div>
-          <van-icon name="arrow" class="chev" />
-        </router-link>
-        <router-link to="/incidents" class="lrow">
-          <div class="lt"><b>工伤上报</b><span>现场发生工伤第一时间上报，立刻通知老板</span></div>
-          <van-icon name="arrow" class="chev" />
-        </router-link>
-        <router-link to="/messages" class="lrow">
-          <div class="lt"><b>消息通知</b><span>新报名、释放通知等站内信</span></div>
-          <van-badge v-if="inbox.unread > 0" :content="inbox.unread" :max="99" />
-          <van-icon name="arrow" class="chev" />
-        </router-link>
-      </section>
+      <template v-if="me && auth.operational">
+        <section class="acard me-group">
+          <router-link v-if="auth.can('CHANNEL_MINE')" to="/my-code" class="lrow">
+            <IconQrCode :size="20" class="ic" />
+            <div class="lt"><b>我的专属码</b><span>求职者扫码注册成为本公司私域用户</span></div>
+            <IconChevronRight :size="16" class="chev" />
+          </router-link>
+          <router-link to="/employees" class="lrow">
+            <IconUsers :size="20" class="ic" />
+            <div class="lt"><b>在岗人员</b><span>请假 / 旷工标记</span></div>
+            <IconChevronRight :size="16" class="chev" />
+          </router-link>
+          <router-link to="/advance" class="lrow">
+            <IconWallet :size="20" class="ic" />
+            <div class="lt"><b>预支初审</b><span>求职者薪资预支的驻场初审</span></div>
+            <IconChevronRight :size="16" class="chev" />
+          </router-link>
+          <router-link to="/incidents" class="lrow">
+            <IconShieldCheck :size="20" class="ic" />
+            <div class="lt"><b>工伤上报</b><span>现场发生工伤第一时间上报，立刻通知老板</span></div>
+            <IconChevronRight :size="16" class="chev" />
+          </router-link>
+        </section>
+        <section class="acard me-group">
+          <router-link to="/messages" class="lrow">
+            <IconBell :size="20" class="ic" />
+            <div class="lt"><b>消息通知</b><span>新报名、释放通知等站内信</span></div>
+            <i v-if="inbox.unread > 0" class="cnt">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</i>
+            <IconChevronRight :size="16" class="chev" />
+          </router-link>
+        </section>
+      </template>
 
-      <van-button block class="btn-cta logout" @click="onLogout">退出登录</van-button>
-      <p class="t-xs foot">仕兔驻场 V1.0.0</p>
+      <van-button block plain type="danger" :loading="loggingOut" loading-text="退出登录" @click="onLogout">退出登录</van-button>
+      <p class="foot">仕兔驻场 V1.0.0</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.hero { padding-bottom: 22px; }
-.ttl { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
-.name { font-size: 18px; font-weight: 700; }
-.roles { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-.list { padding: 0; overflow: hidden; }
-.list .lrow { text-decoration: none; color: inherit; border-left: 0; border-right: 0; border-top: 0; }
-.logout { color: var(--danger); border-color: var(--danger-line); }
-.foot { text-align: center; padding: 6px 0 16px; }
+.me { min-height: 100vh; }
+.me-top { display: flex; align-items: center; gap: var(--space-3); }
+.me-name { display: block; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); overflow-wrap: anywhere; }
+.me-phone { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.me-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.in-card { padding: var(--space-6) 0; }
+.me-group { padding: 0; overflow: hidden; }
+.me-group .lrow { text-decoration: none; color: inherit; }
+.ic { flex: none; color: var(--text-2); }
+/* 数字角标：危险文字色底配白字（和求职者端「我的」同一种用法） */
+.cnt { flex: none; min-width: 18px; height: 18px; padding: 0 var(--space-1); border-radius: 9px; background: var(--danger-text); color: var(--text-on-primary); font-size: var(--font-size-min); font-style: normal; line-height: 18px; text-align: center; box-sizing: border-box; }
+.foot { padding: var(--space-1) 0 var(--space-4); font-size: var(--font-size-min); line-height: 20px; color: var(--text-3); text-align: center; }
 </style>

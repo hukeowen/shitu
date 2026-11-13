@@ -49,10 +49,10 @@ for (const [persona, list] of byPersona) {
     paths: list.map((r) => ({ path: typeof r.to === 'function' ? r.to(seeded.ids) : r.route, enter: r.enter?.(seeded.ids, seeded.personas) })) })
 }
 
-// 驻场端带参数的页面（报名详情）：驻场账号固定，地址用截图数据里的单据编号拼，接在 staff-site 那组后面
-const SEEDED_STAFF_ROUTES = ['/applications/:id']
+// 驻场端带参数的页面（报名详情、预支详情）：驻场账号固定，地址用截图数据里的单据编号拼，接在 staff-site 那组后面
+const SEEDED_STAFF_ROUTES = ['/applications/:id', '/advance/:id']
 const staffSeeded = seeded ? ROUTES.filter((x) => x.app === 'staff' && SEEDED_STAFF_ROUTES.includes(x.route)).map((r) => r.to(seeded.ids)) : []
-if (!seeded) console.log('没有 shots/baseline-data.json：驻场报名详情这次没有覆盖\n')
+if (!seeded) console.log('没有 shots/baseline-data.json：驻场报名详情、预支详情这次没有覆盖\n')
 
 const SUITES = [
   { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: menuPaths('ops') },

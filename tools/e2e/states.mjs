@@ -460,11 +460,15 @@ const pageBg = `(() => { const p = document.body.appendChild(document.createElem
   return getComputedStyle(document.body).backgroundColor === c ? '' : '页面底不是浅灰' })()`
 const tabbarIcons = `(() => { const t = document.querySelector('.van-tabbar'); if (!t) return '没有标签栏'
   return t.querySelectorAll('.van-tabbar-item svg').length === 4 && !t.querySelector('.van-icon') ? '' : '标签栏不是 4 个共享图标' })()`
-const staffLegacy = `document.querySelector('#app .tag, #app .num, #app .mono, #app .van-icon:not(.van-icon-arrow-left):not(.van-icon-arrow-down):not(.van-badge__wrapper), #app .van-empty') ? '还在用旧标签、等宽数字类、Vant 图标或 van-empty' : ''`
+// Vant 组件自带的返回箭头、下拉箭头、搜索框放大镜、单元格右箭头保留，其余 van-icon 算业务图标
+const staffLegacy = `document.querySelector('#app .tag, #app .num, #app .mono, #app .avatar--o, #app .hero, #app .van-icon:not(.van-icon-arrow-left):not(.van-icon-arrow-down):not(.van-badge__wrapper):not(.van-field__left-icon .van-icon):not(.van-cell__right-icon), #app .van-empty') ? '还在用旧标签、等宽数字类、深色头、Vant 图标或 van-empty' : ''`
 const staffText = `(() => { const bad = [...document.querySelectorAll('#app .facts li, #app .tipbar-t, #app .tipbar-d, #app .note, #app .kv dt, #app .kv dd, #app .why, #app .bar-why, #app .state-block-d')].find((e) => e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize) < 15)
   return bad ? '正文小于 15px：' + bad.innerText.slice(0, 20) : '' })()`
 const alarm = `(() => { const a = document.querySelector('#app .alarm'); if (!a) return '没有超时提示条'
   if (!/\\d+ 人即将超时，最短还剩 (\\d+ 小时 \\d+ 分|\\d+ 分钟)/.test(a.innerText)) return '提示条没写几人即将超时、最短还剩多久（带单位）：' + a.innerText.slice(0, 40)
+  // 「即将超时」是 4 小时内到期的窗口，最短还剩不能超过 4 小时，否则提示条自相矛盾
+  const left = /最短还剩 (?:(\\d+) 小时 (\\d+) 分|(\\d+) 分钟)/.exec(a.innerText), mins = left[3] ? +left[3] : +left[1] * 60 + +left[2]
+  if (mins > 240) return '提示条说即将超时，最短还剩却超过 4 小时：' + left[0]
   const go = a.querySelector('a'); if (!go?.innerText.includes('立即跟进')) return '提示条没有「立即跟进」'
   const t = a.querySelector('.tipbar-t'), d = a.querySelector('.tipbar-d')
   if (t.getClientRects().length > 1 || t.getBoundingClientRect().height > 30) return '提示条标题被挤成了两行'
@@ -498,6 +502,12 @@ const popInset = (scope, sel) => `(() => { const e = document.querySelector('${s
   const r = e.getBoundingClientRect(); return Math.round(r.left) === 16 && Math.round(innerWidth - r.right) === 16 ? '' : '${sel} 左右边距是 ' + Math.round(r.left) + ' / ' + Math.round(innerWidth - r.right) })()`
 const noToast = `[...document.querySelectorAll('.van-toast')].some((t) => t.getClientRects().length) ? '轻提示盖住了页面上的原因' : ''`
 const fakeWb = (extra = {}) => reply({ pendingAck: 2, pendingInterview: 4, pendingConfirm: 2, windowsDueIn4h: 0, privatePending: 18, arrivedToday: 0, ...extra })
+// 超时提示条：windowsDueIn4h 说 3 人 4 小时内到期，私域待匹配接口就得真有 3 条 4 小时内到期的窗口（其余用真实数据），
+// 否则「最短还剩」取的是演示库里十几小时后的截止时间，提示条自相矛盾。截止时间是北京时间、不带时区，登记时间 = 截止 − 24 小时
+const shIso = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 19)
+const ppReal = (await get(PP_API, await tenantSession(MEMBERS.site))).data
+const ppDueSoon = reply([...[110, 160, 210].map((min, i) => ({ ...ppReal[i], deadline: shIso(Date.now() + min * 60e3), registeredAt: shIso(Date.now() + min * 60e3 - 24 * 3600e3) })), ...ppReal.slice(3)])
+const alarmRules = () => sr({ url: WB_API, action: 'respond', body: fakeWb({ windowsDueIn4h: 3 }) }, { url: PP_API, action: 'respond', body: ppDueSoon })
 const dialogBtn = (text) => `[...document.querySelectorAll('.van-dialog button')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`
 // 弹窗确认按钮连点两次：第二次点的是正在转圈的那个按钮（转圈时文字不显示），没在转就再点一次确认
 const dialogTwice = (text) => `(async () => { ${dialogBtn(text)}; await ${wait(300)}
@@ -527,6 +537,75 @@ const ackChipStable = `(async () => { const t = [...document.querySelectorAll('.
   const w0 = t.getBoundingClientRect().width; t.click(); await ${wait(200)}; const w1 = t.getBoundingClientRect().width; t.click(); await ${wait(200)}
   return Math.abs(w1 - w0) < 0.5 ? '' : '材料标签选中后宽度变了：' + w0.toFixed(1) + ' → ' + w1.toFixed(1) })()`
 const openCancel = [click('更多'), click('取消报名'), `${click('用户误操作报名')}`]
+
+
+// ---- 工单 13：预支初审、在岗人员、工伤、专属码与海报、消息、我的 ----
+const TADV_API = '/tenant/advances', EMP_API = '/tenant/employments?', ABS_API = '/absences', INC_API = '/tenant/incidents', CODE_API = '/tenant/channel-codes/mine'
+const TMSG_API = '/tenant/messages?', TREAD_API = '/tenant/messages/read', TUNREAD_API = '/tenant/messages/unread-count'
+const ADV_DETAIL = `/advance/${data.ids.staffAdvanceId}`
+const advGet = (action, body) => ({ url: TADV_API, method: 'GET', action, body })
+const advReview = (action, body) => ({ url: '/site-review', method: 'POST', action, body })
+const ADV_REASON = '该预支申请已被处理，请刷新后重试'
+const pickReject = [click('驳回'), `[...document.querySelectorAll('.reason-dlg .chip-tap')][0].click()`]
+// 审核详情的底部通栏：「驳回」在左、危险色描边（白底、危险色字和边框）；「初审通过」在右、主色实心
+const reviewBar = `(() => { const btns = [...document.querySelectorAll('.bottom-bar .van-button')]; if (btns.length !== 2) return '底部通栏应当是驳回 / 通过两个按钮，实际 ' + btns.length + ' 个'
+  const [l, r] = btns, lc = getComputedStyle(l), rc = getComputedStyle(r)
+  if (!l.innerText.includes('驳回') || !r.innerText.includes('通过')) return '按钮顺序不对：' + l.innerText + ' / ' + r.innerText
+  if (lc.backgroundColor !== ${tokenColor('--bg-card')} || lc.color !== ${tokenColor('--danger-text')} || lc.borderTopColor !== ${tokenColor('--danger-text')}) return '「驳回」不是危险色描边：' + lc.backgroundColor + ' ' + lc.color + ' ' + lc.borderTopColor
+  if (rc.backgroundColor !== ${tokenColor('--primary')}) return '「通过」不是主色实心：' + rc.backgroundColor
+  const a = l.getBoundingClientRect(), b = r.getBoundingClientRect()
+  if (Math.abs(a.top - b.top) > 1 || a.right > b.left) return '两个按钮不在同一行或左右颠倒'
+  return Math.round(a.height) >= 48 && Math.round(b.height) >= 48 ? '' : '通栏按钮不到 48 高' })()`
+// 列表卡片：驳回在前、主按钮在后，第一行是姓名加状态标签
+const advCards = `(() => { const cards = [...document.querySelectorAll('#app article.adv-card')]; if (!cards.length) return '没有预支卡片'
+  for (const c of cards) { if (!c.querySelector('.item-hd h3') || !c.querySelector('.item-hd .status-tag')) return '卡片第一行没有姓名和状态标签'
+    const bs = [...c.querySelectorAll('.acts .van-button')]; if (bs.length === 2 && !(bs[0].innerText.includes('驳回') && bs[1].classList.contains('van-button--primary') && !bs[1].classList.contains('van-button--plain'))) return '卡片按钮不是「驳回」在前、主按钮在后' }
+  return '' })()`
+const advFake = (status) => ({ advanceId: 'YZ-SHOT-1', userId: 'U-SHOT', seekerName: '刘**', projectId: 'P-SHOT', projectName: '立讯精密昆山二期', amount: 500, bizMonth: '2026-11', status, repaidAmount: 0, createdAt: '2026-11-12T16:57:57', allowedActions: [] })
+// 二维码码点只有纯黑、纯白两种像素
+const qrPure = (sel) => `(async () => { const img = document.querySelector(${JSON.stringify(sel)}); if (!img) return '没有二维码图片'
+  await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
+  const d = x.getImageData(0, 0, c.width, c.height).data; let grey = 0, dark = 0
+  for (let i = 0; i < d.length; i += 4) { const v = d[i]; if (d[i] !== d[i + 1] || d[i] !== d[i + 2] || (v !== 0 && v !== 255)) grey++; else if (v === 0) dark++ }
+  if (grey) return '二维码里有 ' + grey + ' 个不是纯黑白的像素'
+  return dark > d.length / 4 * 0.2 ? '' : '二维码里黑色码点太少' })()`
+// 海报：在页面里调 composePoster 合成，挂到 window.__poster，再盖一层全屏图片截下来
+const composeShot = `(async () => { const m = await import('/src/utils/poster.ts'); const qr = document.querySelector('#app img.qr').src
+  window.__poster = await m.composePoster({ qrDataUrl: qr, name: '王磊', company: '仕兔演示劳务' })
+  const o = document.body.appendChild(document.createElement('img')); o.id = 'poster-shot'; o.src = window.__poster
+  o.style.cssText = 'position:fixed;inset:0;z-index:9999;width:100%;height:100%;object-fit:contain;background:var(--bg-page)'; await o.decode() })()`
+// 海报的二维码区域：码点纯黑白；外圈 48px（加上码自带的 1 模块白边，至少 4 个模块）全白，没有品牌元素压住；
+// 按页面上的专属链接重新编码，逐个模块对照海报上的码点（本机没有扫码库，用这个代替解码）；品牌标是主色
+const posterCheck = `(async () => { const img = new Image(); img.src = window.__poster; await img.decode()
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0)
+  const px = (X, Y) => x.getImageData(X, Y, 1, 1).data
+  const QX = 165, QY = 440, QS = 420, PAD = 48 // 和 web/apps/staff/src/utils/poster.ts 里二维码的位置、大小一致
+  const q = x.getImageData(QX, QY, QS, QS).data; let grey = 0
+  for (let i = 0; i < q.length; i += 4) { if (q[i] !== q[i + 1] || q[i] !== q[i + 2] || (q[i] !== 0 && q[i] !== 255)) grey++ }
+  if (grey) return '海报二维码区域有 ' + grey + ' 个不是纯黑白的像素'
+  const ring = x.getImageData(QX - PAD, QY - PAD, QS + PAD * 2, QS + PAD * 2), W = QS + PAD * 2; let dirty = 0
+  for (let yy = 0; yy < W; yy++) for (let xx = 0; xx < W; xx++) { if (xx >= PAD && xx < PAD + QS && yy >= PAD && yy < PAD + QS) continue; const i = (yy * W + xx) * 4; if (ring.data[i] !== 255 || ring.data[i + 1] !== 255 || ring.data[i + 2] !== 255) dirty++ }
+  if (dirty) return '二维码外圈 ' + PAD + 'px 静区里有 ' + dirty + ' 个不是白色的像素'
+  const QR = (await import('/node_modules/.vite/deps/qrcode.js')).default
+  const url = document.querySelector('#app .url span').innerText.trim(), mod = QR.create(url, { errorCorrectionLevel: 'M' }).modules, n = mod.size, cell = QS / (n + 2)
+  let wrong = 0
+  for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) { const v = px(Math.floor(QX + (col + 1.5) * cell), Math.floor(QY + (r + 1.5) * cell))[0] === 0; if (v !== !!mod.data[r * n + col]) wrong++ }
+  if (wrong) return '海报上的码点和专属链接 ' + url + ' 对不上：' + wrong + ' 个模块不同'
+  const brand = px(60 + 12, 70 + 60), want = ${tokenColor('--primary')}
+  return want === 'rgb(' + brand[0] + ', ' + brand[1] + ', ' + brand[2] + ')' ? '' : '海报品牌标不是主色：' + brand.slice(0, 3).join(',') })()`
+const codeReal = (await get(CODE_API, await tenantSession(MEMBERS.site))).data
+// 消息：未读的左边是主色圆点、标题 500 字重；已读的圆点透明、标题常规
+const msgDot = `(() => { const u = document.querySelector('#app .msg.unread'); if (!u) return '没有未读消息'
+  if (getComputedStyle(u.querySelector('.msg-dot')).backgroundColor !== ${tokenColor('--primary')}) return '未读圆点不是主色'
+  return getComputedStyle(u.querySelector('h3')).fontWeight === '500' ? '' : '未读标题不是 500 字重' })()`
+const fakeTmsg = (id, read, extra = {}) => ({ id, templateCode: 'FOLLOW_UP_REMINDER', title: '24h 跟进提醒', content: '尾号 7439 的用户（私域待匹配）剩余 17 小时 59 分钟，超时将被释放至公域。', link: '/todo', priority: 0, read, createdAt: '2026-11-13T03:24:24', ...extra })
+const allReadMsgs = reply({ records: [fakeTmsg(3, true), fakeTmsg(2, true, { title: '新报名', content: '吴** 报名了成品仓储分拣员，请在 24 小时内知悉并推送面试信息。', link: '/applications/BM-SHOT' }), fakeTmsg(1, true, { title: '系统通知', link: null })], total: 3, page: 1, pageSize: 20 })
+const empFirst = `document.querySelector('#app article.item').click()`
+// 请假弹层：标题栏和月份切换不用 Vant 图标、没有旧标签（单选框自带的勾、单元格箭头是组件自带的，保留）
+const absLegacy = `document.querySelector('.abs .tag, .abs .num, .abs .mono, .abs .hd .van-icon, .abs .rec-hd .van-icon') ? '请假弹层里还在用旧标签、等宽数字类或 Vant 图标' : ''`
+// 退出登录：确认后连点第二次；第二次若又弹确认框也点「退出」，否则 sentOnce 永远不会红
+const logoutTwice = `(async () => { await ${wait(300)}; ${findBtn('退出登录')}.click(); await ${wait(300)}
+  ;[...document.querySelectorAll('.van-dialog button')].find((b) => b.innerText.trim() === '退出' && b.getClientRects().length)?.click() })()`
 
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
@@ -1017,8 +1096,8 @@ const STATES = [
     checks: [whiteBg('#app .id-head'), fourMetrics, todoCards(1), tabbarIcons, pageBg, staffText, staffLegacy, has('待知悉报名'), has('更多事项')] },
   { app: 'staff', screen: 'workbench', state: 'normal', persona: 'site', path: '/', width: NARROW, rules: sr(), checks: [fourMetrics, todoCards(1)] },
   { app: 'staff', screen: 'workbench', state: 'long', persona: 'site', path: '/', rules: sr(), steps: [toBottom], checks: [tabbarIcons] },
-  { app: 'staff', screen: 'workbench', state: 'alarm', persona: 'site', path: '/', rules: sr({ url: WB_API, action: 'respond', body: fakeWb({ windowsDueIn4h: 3 }) }), checks: [alarm, todoCards(1)] },
-  { app: 'staff', screen: 'workbench', state: 'alarm', persona: 'site', path: '/', width: NARROW, rules: sr({ url: WB_API, action: 'respond', body: fakeWb({ windowsDueIn4h: 3 }) }), checks: [alarm] },
+  { app: 'staff', screen: 'workbench', state: 'alarm', persona: 'site', path: '/', rules: alarmRules(), checks: [alarm, todoCards(1)] },
+  { app: 'staff', screen: 'workbench', state: 'alarm', persona: 'site', path: '/', width: NARROW, rules: alarmRules(), checks: [alarm] },
   { app: 'staff', screen: 'workbench', state: 'empty', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, method: 'GET', action: 'respond', body: emptyPage }), checks: [has('暂无待知悉的报名'), staffText, emptyPadded] },
   { app: 'staff', screen: 'workbench', state: 'loading', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, action: 'hang' }, { url: WB_API, action: 'hang' }), quick: true, checks: [spinnerPrimary, hasNot('暂无待知悉的报名')] },
   { app: 'staff', screen: 'workbench', state: 'error', persona: 'site', path: '/', rules: sr({ url: TAPPS_API, action: 'fail' }, { url: WB_API, action: 'fail' }),
@@ -1109,6 +1188,86 @@ const STATES = [
   { app: 'staff', screen: 'reason-dialog', state: 'normal', persona: 'site', path: '/', rules: sr(), steps: openCancel, checks: [popText('.reason-dlg'), popTaps('.reason-dlg .rd')] },
   { app: 'staff', screen: 'reason-dialog', state: 'rejected', persona: 'site', path: '/', rules: sr({ url: '/cancel', action: 'respond', body: refuse('APP_4090', '该报名状态已变化，请刷新后重试') }),
     steps: [...openCancel, dialogBtn('确认取消'), toastGone('该报名状态已变化，请刷新后重试')], checks: [popRejected('.reason-dlg', '该报名状态已变化，请刷新后重试', '确认取消'), popText('.reason-dlg')] },
+  // 工单 13：预支初审列表
+  { app: 'staff', screen: 'advance', state: 'normal', persona: 'site', path: '/advance', rules: sr(), checks: [whiteBg('.van-nav-bar'), pageBg, tabUnderline, advCards, staffText, staffLegacy, has('驻场初审')] },
+  { app: 'staff', screen: 'advance', state: 'normal', persona: 'site', path: '/advance', width: NARROW, rules: sr(), checks: [advCards] },
+  { app: 'staff', screen: 'advance', state: 'all', persona: 'site', path: '/advance?tab=all', rules: sr(), checks: [advCards, has('没有更多了')] },
+  { app: 'staff', screen: 'advance', state: 'empty', persona: 'site', path: '/advance', rules: sr(advGet('respond', reply([]))), checks: [has('暂无待你初审的预支申请'), staffLegacy] },
+  { app: 'staff', screen: 'advance', state: 'loading', persona: 'site', path: '/advance', rules: sr(advGet('hang')), quick: true, checks: [spinnerPrimary, hasNot('暂无')] },
+  { app: 'staff', screen: 'advance', state: 'error', persona: 'site', path: '/advance', rules: sr(advGet('fail')), checks: [has('重新加载'), hasNot('暂无')] },
+  { app: 'staff', screen: 'advance', state: 'submitting', persona: 'site', path: '/advance', rules: sr(), steps: [...pickReject, countXhr, dialogTwice('确认驳回')], quick: true,
+    checks: [popSpin('.reason-dlg', ''), sentOnce] },
+  { app: 'staff', screen: 'advance', state: 'rejected', persona: 'site', path: '/advance', rules: sr(advReview('respond', refuse('ADV_4090', ADV_REASON))),
+    steps: [...pickReject, dialogBtn('确认驳回'), toastGone(ADV_REASON), dialogBtn('取消')],
+    checks: [stays('#app .why', '暂时不能驳回：' + ADV_REASON), disabledBtn('驳回'), disabledBtn('初审通过'), staffText] },
+  // 预支详情（审核）
+  { app: 'staff', screen: 'advance-detail', state: 'normal', persona: 'site', path: ADV_DETAIL, rules: sr(), checks: [whiteBg('.van-nav-bar'), reviewBar, bottomBar('驳回'), staffText, staffLegacy, has('审批记录')] },
+  { app: 'staff', screen: 'advance-detail', state: 'normal', persona: 'site', path: ADV_DETAIL, width: NARROW, rules: sr(), checks: [reviewBar, bottomBar('初审通过')] },
+  { app: 'staff', screen: 'advance-detail', state: 'approve-dialog', persona: 'site', path: ADV_DETAIL, rules: sr(), steps: [click('初审通过')], checks: [popText('.reason-dlg'), popTaps('.reason-dlg .rd')] },
+  { app: 'staff', screen: 'advance-detail', state: 'loading', persona: 'site', path: ADV_DETAIL, rules: sr(advGet('hang')), quick: true, checks: [spinnerPrimary] },
+  { app: 'staff', screen: 'advance-detail', state: 'error', persona: 'site', path: ADV_DETAIL, rules: sr(advGet('fail')), checks: [has('重新加载'), hasNot('返回')] },
+  { app: 'staff', screen: 'advance-detail', state: 'forbidden', persona: 'site', path: '/advance/YZ-NONE', rules: sr(), checks: [has('返回'), hasNot('重新加载')] },
+  { app: 'staff', screen: 'advance-detail', state: 'done', persona: 'site', path: ADV_DETAIL, rules: sr(advGet('respond', reply({ advance: advFake('SITE_APPROVED'), approvals: [{ step: 'SITE', decision: 'APPROVE', opinion: '在岗正常，出勤稳定，同意', at: '2026-11-12T18:00:00' }], ledger: [] }))),
+    checks: [has('驻场初审 · 通过'), has('待处理'), `document.querySelector('.bottom-bar') ? '已初审的单子还有驳回 / 通过通栏' : ''`] },
+  { app: 'staff', screen: 'advance-detail', state: 'submitting', persona: 'site', path: ADV_DETAIL, rules: sr(), steps: [...pickReject, countXhr, dialogTwice('确认驳回')], quick: true,
+    checks: [popSpin('.reason-dlg', ''), sentOnce] },
+  { app: 'staff', screen: 'advance-detail', state: 'rejected', persona: 'site', path: ADV_DETAIL, rules: sr(advReview('respond', refuse('ADV_4090', ADV_REASON))),
+    steps: [...pickReject, dialogBtn('确认驳回'), toastGone(ADV_REASON)], checks: [popRejected('.reason-dlg', ADV_REASON, '确认驳回'), popText('.reason-dlg')] },
+  { app: 'staff', screen: 'advance-detail', state: 'rejected-bar', persona: 'site', path: ADV_DETAIL, rules: sr(advReview('respond', refuse('ADV_4090', ADV_REASON))),
+    steps: [...pickReject, dialogBtn('确认驳回'), toastGone(ADV_REASON), dialogBtn('取消')],
+    checks: [stays('.bottom-bar .bar-why', '暂时不能驳回：' + ADV_REASON), disabledBtn('驳回'), disabledBtn('初审通过'), bottomBar('驳回'), staffText] },
+  // 在岗人员
+  { app: 'staff', screen: 'employees', state: 'normal', persona: 'site', path: '/employees', rules: sr(), checks: [whiteBg('.van-nav-bar'), pageBg, staffText, staffLegacy, tapTall('#app .ft .tel, #app .ft .go'), has('没有更多了')] },
+  { app: 'staff', screen: 'employees', state: 'normal', persona: 'site', path: '/employees', width: NARROW, rules: sr() },
+  { app: 'staff', screen: 'employees', state: 'empty', persona: 'site', path: '/employees', rules: sr({ url: EMP_API, action: 'respond', body: emptyPage }), checks: [has('暂无在岗员工'), staffLegacy] },
+  { app: 'staff', screen: 'employees', state: 'loading', persona: 'site', path: '/employees', rules: sr({ url: EMP_API, action: 'hang' }), quick: true, checks: [spinnerPrimary, hasNot('暂无')] },
+  { app: 'staff', screen: 'employees', state: 'error', persona: 'site', path: '/employees', rules: sr({ url: EMP_API, action: 'fail' }), checks: [has('重新加载'), hasNot('暂无')] },
+  { app: 'staff', screen: 'absence-popup', state: 'normal', persona: 'site', path: '/employees', rules: sr(), steps: [empFirst], checks: [popTaps('.abs'), absLegacy] },
+  { app: 'staff', screen: 'absence-popup', state: 'normal', persona: 'site', path: '/employees', width: NARROW, rules: sr(), steps: [empFirst] },
+  { app: 'staff', screen: 'absence-popup', state: 'submitting', persona: 'site', path: '/employees', rules: sr(), steps: [empFirst, countXhr, clickTwice('标记', '.abs')], quick: true,
+    checks: [popSpin('.abs', '提交中'), sentOnce] },
+  { app: 'staff', screen: 'absence-popup', state: 'rejected', persona: 'site', path: '/employees', rules: sr({ url: ABS_API, method: 'PUT', action: 'respond', body: refuse('EMP_4090', '该员工已离职，不能再标记') }),
+    steps: [empFirst, `${findBtn('标记', '.abs')}.click()`, toastGone('该员工已离职，不能再标记')], checks: [popRejected('.abs', '该员工已离职，不能再标记', '标记')] },
+  // 工伤上报
+  { app: 'staff', screen: 'incidents', state: 'normal', persona: 'site', path: '/incidents', rules: sr(), checks: [whiteBg('.van-nav-bar'), pageBg, bottomBar('上报工伤'), staffText, staffLegacy, has('处理结论')] },
+  { app: 'staff', screen: 'incidents', state: 'normal', persona: 'site', path: '/incidents', width: NARROW, rules: sr(), checks: [bottomBar('上报工伤')] },
+  { app: 'staff', screen: 'incidents', state: 'empty', persona: 'site', path: '/incidents', rules: sr({ url: INC_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [has('暂无工伤记录')] },
+  { app: 'staff', screen: 'incidents', state: 'loading', persona: 'site', path: '/incidents', rules: sr({ url: INC_API, method: 'GET', action: 'hang' }), quick: true, checks: [spinnerPrimary, hasNot('暂无')] },
+  { app: 'staff', screen: 'incidents', state: 'error', persona: 'site', path: '/incidents', rules: sr({ url: INC_API, method: 'GET', action: 'fail' }), checks: [has('重新加载'), hasNot('暂无')] },
+  { app: 'staff', screen: 'incident-form', state: 'normal', persona: 'site', path: '/incidents', rules: sr(), steps: [click('上报工伤')], checks: [allRequired, popTaps('.sheet .seg'), popLegacy('.sheet')] },
+  { app: 'staff', screen: 'incident-form', state: 'normal', persona: 'site', path: '/incidents', width: NARROW, rules: sr(), steps: [click('上报工伤')] },
+  { app: 'staff', screen: 'incident-form', state: 'invalid', persona: 'site', path: '/incidents', rules: sr(), steps: [click('上报工伤'), click('立即上报'), toastGone('请填写受伤人员姓名')],
+    checks: [stays('.sheet [data-field="personName"]', '请填写受伤人员姓名')] },
+  { app: 'staff', screen: 'incident-form', state: 'submitting', persona: 'site', path: '/incidents', rules: sr(),
+    steps: [click('上报工伤'), fill('姓名', '张三'), fillArea('搬运料箱时划伤左手食指，已在厂医务室包扎。', '.sheet'), countXhr, clickTwice('立即上报', '.sheet')], quick: true,
+    checks: [popSpin('.sheet', '上报中'), sentOnce] },
+  { app: 'staff', screen: 'incident-form', state: 'rejected', persona: 'site', path: '/incidents', rules: sr({ url: INC_API, method: 'POST', action: 'respond', body: refuse('SYS_4030', '该项目已结束，不能再上报') }),
+    steps: [click('上报工伤'), fill('姓名', '张三'), fillArea('搬运料箱时划伤左手食指，已在厂医务室包扎。', '.sheet'), `${findBtn('立即上报', '.sheet')}.click()`, toastGone('该项目已结束，不能再上报')],
+    checks: [popRejected('.sheet', '该项目已结束，不能再上报', '立即上报')] },
+  // 专属码与海报
+  { app: 'staff', screen: 'my-code', state: 'normal', persona: 'site', path: '/my-code', rules: sr(), checks: [whiteBg('.van-nav-bar'), pageBg, bottomBar('保存图片'), qrPure('#app img.qr'), onePrimary, staffText, staffLegacy] },
+  { app: 'staff', screen: 'my-code', state: 'normal', persona: 'site', path: '/my-code', width: NARROW, rules: sr(), checks: [bottomBar('复制链接')] },
+  { app: 'staff', screen: 'my-code', state: 'disabled', persona: 'site', path: '/my-code', rules: sr({ url: CODE_API, action: 'respond', body: reply({ ...codeReal, status: 'DISABLED' }) }), checks: [has('已停用'), has('已被公司停用')] },
+  { app: 'staff', screen: 'my-code', state: 'loading', persona: 'site', path: '/my-code', rules: sr({ url: CODE_API, action: 'hang' }), quick: true, checks: [spinnerPrimary] },
+  { app: 'staff', screen: 'my-code', state: 'error', persona: 'site', path: '/my-code', rules: sr({ url: CODE_API, action: 'fail' }), checks: [has('重新加载')] },
+  { app: 'staff', screen: 'poster', state: 'generated', persona: 'site', path: '/my-code', rules: sr(), steps: [composeShot], checks: [posterCheck] },
+  // 消息
+  { app: 'staff', screen: 'messages', state: 'normal', persona: 'site', path: '/messages', rules: sr(), checks: [whiteBg('.van-nav-bar'), pageBg, readAllBtn, msgDot, staffText, staffLegacy] },
+  { app: 'staff', screen: 'messages', state: 'normal', persona: 'site', path: '/messages', width: NARROW, rules: sr() },
+  { app: 'staff', screen: 'messages', state: 'all-read', persona: 'site', path: '/messages', rules: sr({ url: TMSG_API, action: 'respond', body: allReadMsgs }, { url: TUNREAD_API, action: 'respond', body: reply(0) }), checks: [readAllOff, has('没有未读消息')] },
+  { app: 'staff', screen: 'messages', state: 'empty', persona: 'site', path: '/messages', rules: sr({ url: TMSG_API, action: 'respond', body: emptyPage }, { url: TUNREAD_API, action: 'respond', body: reply(0) }), checks: [has('暂无消息'), readAllOff, hasNot('没有更多了')] },
+  { app: 'staff', screen: 'messages', state: 'loading', persona: 'site', path: '/messages', rules: sr({ url: TMSG_API, action: 'hang' }), quick: true, checks: [spinnerPrimary, hasNot('暂无消息')] },
+  { app: 'staff', screen: 'messages', state: 'error', persona: 'site', path: '/messages', rules: sr({ url: TMSG_API, action: 'fail' }), checks: [has('重新加载'), hasNot('暂无消息')] },
+  { app: 'staff', screen: 'messages', state: 'submitting', persona: 'site', path: '/messages', rules: sr(), steps: [countXhr, clickTwice('全部已读', '.van-nav-bar')], quick: true, checks: [readAllOff, sentOnce] },
+  { app: 'staff', screen: 'messages', state: 'rejected', persona: 'site', path: '/messages', rules: sr({ url: TREAD_API, action: 'respond', body: refuse('SYS_4290', '操作太频繁，请稍后再试') }),
+    steps: [click('全部已读'), toastGone('操作太频繁，请稍后再试')], checks: [stays('#app .tipbar--danger', '操作太频繁，请稍后再试'), staffText] },
+  // 我的
+  { app: 'staff', screen: 'me', state: 'normal', persona: 'site', path: '/me', rules: sr(), checks: [whiteBg('.van-nav-bar'), pageBg, profileCard, cellGroups(5), logoutOutlined, tabbarIcons, staffText, staffLegacy] },
+  { app: 'staff', screen: 'me', state: 'normal', persona: 'site', path: '/me', width: NARROW, rules: sr(), checks: [profileCard, cellGroups(5)] },
+  { app: 'staff', screen: 'me', state: 'loading', persona: 'site', path: '/me', rules: sr({ url: TME_API, action: 'hang' }), quick: true, checks: [`document.querySelector('.boot-loading .van-loading') ? '' : '没有加载图标'`] },
+  { app: 'staff', screen: 'me', state: 'error', persona: 'site', path: '/me', rules: sr({ url: TME_API, action: 'fail' }), checks: [has('重新加载'), has('退出登录')] },
+  { app: 'staff', screen: 'me', state: 'submitting', persona: 'site', path: '/me', rules: sr(), steps: [countXhr, click('退出登录'), dialogBtn('退出'), logoutTwice], quick: true,
+    checks: [spinning('退出登录'), sentOnce] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
