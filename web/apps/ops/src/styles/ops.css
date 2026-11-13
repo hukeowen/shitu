@@ -155,3 +155,21 @@
 
 /* 确认框（ElMessageBox）标题和弹窗标题同级：16px / 600（同 console.css） */
 .el-message-box .el-message-box__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); }
+
+/* ---------- 工单 22 起：和 console.css 同义的通用类（新类名，不影响已有页面） ---------- */
+/* 操作列文字按钮的点击区补到 24 高（字号不变，只撑高按钮本身） */
+.el-table .ops-col .el-button.is-link { min-height: 24px; }
+/* 区块里的空 / 失败状态里，被拒原因用提醒色 */
+.state-box .blocked-why { color: var(--warning-text); }
+/* 详情分块（第 5 类）：16px / 600 的块标题，字段用两列的描述列表 */
+.blk + .blk { margin-top: var(--space-6); }
+.blk-t { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.blk-t small { font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.desc-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-6); margin: 0; }
+.desc-list > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.desc-list dt { font-size: var(--font-size-aux); color: var(--text-2); }
+.desc-list dd { margin: 0; font-size: var(--font-size-body); color: var(--text-1); word-break: break-all; }
+/* 驳回和不可逆操作（发布、回滚、删除）的按钮：白底、危险色字和描边，配 type="danger"；确认框里的确认按钮也用它 */
+.el-button.el-button--danger.btn-reject { --el-button-bg-color: var(--bg-card); --el-button-border-color: var(--danger-text); --el-button-text-color: var(--danger-text); }
+/* 数据表行高约 48（规范第 2 类）：单元格上下内边距 12；只给迁移过的页面的表格加，没迁移的页面不变 */
+.el-table.tbl-48 .el-table__cell { padding: var(--space-3) 0; }

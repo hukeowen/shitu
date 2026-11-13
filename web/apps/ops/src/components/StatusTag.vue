@@ -10,7 +10,7 @@ import { useDict } from '@shitu/api-client'
 const props = defineProps<{ type: string; value?: string | null; variant?: 'pill' | 'tag' }>()
 const { label } = useDict()
 
-type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'pending'
 const TONES: Record<string, Record<string, Tone>> = {
   CompanyStatus: { PENDING_AUDIT: 'warning', REJECTED: 'danger', NORMAL: 'success', THROTTLED: 'warning', BANNED: 'danger', DEREGISTERED: 'neutral', BANKRUPT: 'neutral' },
   JobStatus: { PENDING_AUDIT: 'warning', REJECTED: 'danger', RECRUITING: 'success', PAUSED: 'neutral', OFFLINE: 'neutral', FORCE_OFFLINE: 'danger' },
@@ -22,6 +22,8 @@ const TONES: Record<string, Record<string, Tone>> = {
   ComplaintStatus: { PENDING: 'warning', VERIFIED: 'danger', REJECTED: 'neutral' },
   ReviewStatus: { PENDING: 'warning', APPROVED: 'success', REJECTED: 'danger' },
   VersionStatus: { DRAFT: 'info', ACTIVE: 'success', ARCHIVED: 'neutral' },
+  // 报名状态：同 console utils/tone.ts（以 seeker utils/status.ts 的 APPLICATION_TONE 为准）
+  ApplicationStatus: { PENDING_INTERVIEW: 'pending', PENDING_CONFIRM: 'pending', EMPLOYED: 'success', CANCELLED: 'neutral', TIMEOUT: 'danger', INTERVIEW_FAILED: 'neutral', NO_SHOW: 'warning' },
 }
 const tone = computed<Tone>(() => (props.value ? TONES[props.type]?.[props.value] : undefined) ?? 'neutral')
 const text = computed(() => (props.value ? label(props.type, props.value) : '—'))

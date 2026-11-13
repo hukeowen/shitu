@@ -1351,7 +1351,8 @@ const openRow = (text) => [`${findBtn(text, '#app .el-table__body')}.click()`, w
 const OPS_SAFE = [{ url: '/ops/auth/refresh', action: 'continue' }, { url: '/api/v1/ops/', method: '!GET', action: 'hang' }]
 const or = (...rules) => [...rules, ...OPS_SAFE]
 const wantOps = !args.apps.length || args.apps.includes('ops')
-const opsMe = wantOps ? (await get('/ops/me', await opsLogin())).data : null
+const opsTok = wantOps ? await opsLogin() : null
+const opsMe = opsTok ? (await get('/ops/me', opsTok)).data : null
 const O_PENDING_API = '/ops/pending', O_OVERVIEW_API = '/ops/reports/overview', O_LOGIN_API = '/ops/auth/login', O_CAPTCHA_API = '/ops/auth/captcha', O_PWD_API = '/ops/me/password'
 // 两端外壳是同一套：侧栏宽、品牌行高、菜单项高和字号、顶栏高和底边、内容区内边距、页面头标题字号字重颜色，都按规范的同一组数（console 外壳也挂这条）
 const shellSpec = `(() => { const q = (s) => document.querySelector(s), cs = (e) => getComputedStyle(e)
@@ -1449,6 +1450,95 @@ const openPwd = [`document.querySelector('.top button.me').click()`, wait(400), 
 const fakeOverview = (zero) => reply({ companies: zero ? 0 : 12, pendingCompanies: zero ? 0 : 2, employed: zero ? 0 : 1286, hiredToday: zero ? 0 : 9, registeredToday: zero ? 0 : 37, applicationsToday: zero ? 0 : 54,
   publicSeekers: zero ? 0 : 412, recruitingJobs: zero ? 0 : 63, yesterday: { date: '2026-11-13', serviceFee: 0, transferFee: 0, transferCount: 0, platformTake: 0, transferCommission: 0, transferFullIncome: 0 },
   monthServiceFee: 0, monthTransferCommission: 0, monthTransferFullIncome: 0, trend: [] })
+
+
+// ---- 工单 22：归属治理、题库、匹配快照、引擎参数 ----
+// 读接口走真实后端；归属查询会写审计日志，查到人的状态用假数据（形状同 OpsGovernanceController.attribution）
+const A_QUERY = '/ops/attribution?', A_DISPUTES = '/ops/attribution/disputes', Q_LIST = '/ops/quiz/versions', Q_FUNNEL = '/ops/reports/quiz-funnel', SNAP_API = '/ops/match-sessions/', ENG_API = '/ops/engine/versions'
+const QUIZ_EDIT = `/engine/quiz/${data.ids.quizVersionId}`, Q_ONE = `${Q_LIST}/${data.ids.quizVersionId}`
+const fakeAttr = reply({ userId: 'U2026111200004', phoneMasked: '139****8288', realNameMasked: '周**', userStatus: 'PUBLIC_SEEKING', sourceCompanyId: 'C10001', boundCompanyId: null,
+  lastReleaseReason: 'TIMEOUT_24H', kycStatus: 'VERIFIED', registerChannelType: 'COMPANY_QR', registerChannelCode: 'QR10001A', registeredAt: '2026-11-12T09:12:00', matchCycleCount: 2, blacklistFlag: 0,
+  statusLog: [
+    { event: 'RELEASE', fromStatus: 'PENDING_INTERVIEW', toStatus: 'PUBLIC_SEEKING', boundBefore: 'C10001', boundAfter: null, releaseReason: 'TIMEOUT_24H', actorRole: null, actorId: null, actorCompanyId: null, remark: null, createdAt: '2026-11-13T09:30:00' },
+    { event: 'APPLY', fromStatus: 'PRIVATE_PENDING', toStatus: 'PENDING_INTERVIEW', boundBefore: 'C10001', boundAfter: 'C10001', releaseReason: null, actorRole: 'USER', actorId: 'U2026111200004', actorCompanyId: null, remark: null, createdAt: '2026-11-12T09:30:00' },
+    { event: 'REGISTER', fromStatus: 'GUEST', toStatus: 'PRIVATE_PENDING', boundBefore: null, boundAfter: 'C10001', releaseReason: null, actorRole: 'USER', actorId: 'U2026111200004', actorCompanyId: null, remark: '扫码注册', createdAt: '2026-11-12T09:12:00' }],
+  applications: [{ applicationId: 'BM202611120004', companyId: 'C10001', jobId: 'J20261112003', status: 'TIMEOUT', createdAt: '2026-11-12T09:30:00', endedAt: '2026-11-13T09:30:00', endReason: 'TIMEOUT_24H' }],
+  employments: [{ employmentId: 'RZ2026111200001', companyId: 'C10001', projectId: 'P10001', startDate: '2026-10-08', endDate: '2026-11-01', endReason: 'RESIGN', sourceCompanyIdSnapshot: 'C10001', isTransfer: 0, origin: 'APPLICATION' }] })
+const notFoundUser = refuse('SYS_4040', '未找到该用户')
+// 引擎参数只有一个生效版本：用它的配置造出「草稿 v3 / 生效 v2 / 归档 v1」三个版本，看固定操作条在三种状态下的样子
+const engReal = opsTok ? (await get(ENG_API, opsTok)).data : []
+const engBase = engReal.find((v) => v.status === 'ACTIVE') ?? engReal[0]
+const engFake = engBase ? [{ ...engBase, versionId: 3, status: 'DRAFT', publishedAt: null, publishedBy: null, createdAt: '2026-11-13T10:00:00' },
+  { ...engBase, versionId: 2, status: 'ACTIVE' }, { ...engBase, versionId: 1, status: 'ARCHIVED', publishedAt: '2026-11-01T10:00:00' }] : []
+const engRules = (...more) => or(...more, ...engFake.map((v) => ({ url: `${ENG_API}/${v.versionId}`, method: 'GET', action: 'respond', body: reply(v) })), { url: ENG_API, method: 'GET', action: 'respond', body: reply(engFake) })
+const fillTa = (scope, v) => `(() => { const el = document.querySelector(${JSON.stringify(scope + ' textarea')}); el.value = ${JSON.stringify(v)}; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
+const askPhone = (phone) => [oFill('完整 11 位手机号', phone), `${findBtn('查询', '#app .card.query')}.click()`]
+// 查询类页面（第 17 类）：顶部查询卡片带「查询」主按钮；还没查询时结果区是引导空状态，不显示结果
+const lookupGuide = (text) => `(() => { const q = document.querySelector('#app .card.query'), r = document.querySelector('#app .card.result'); if (!q || !r) return '没有查询卡片或结果区'
+  if (q.getBoundingClientRect().top >= r.getBoundingClientRect().top) return '查询卡片不在结果区上面'
+  if (!${findBtn('查询', '#app .card.query')}?.classList.contains('el-button--primary')) return '查询卡片里没有「查询」主按钮'
+  const box = r.querySelector('.state-box'); if (!box) return '还没查询时结果区没有引导空状态'
+  if (!box.querySelector('svg') || !box.querySelector('h4')?.innerText.includes(${JSON.stringify(text)})) return '引导空状态不是图标加「${text}」：' + box.innerText.replace(/\\s+/g, ' ').slice(0, 24)
+  return r.querySelector('.desc-list, .el-table') ? '还没查询就显示了结果' : '' })()`
+// 查不到：空状态写明原因（不是加载失败，不给「重新加载」），不留上一次的结果
+const lookupMiss = (why) => `(() => { const box = document.querySelector('#app .card.result .state-box'); if (!box) return '查不到时结果区没有空状态'
+  if (!box.innerText.includes(${JSON.stringify(why)})) return '查不到时没写明原因：' + box.innerText.replace(/\\s+/g, ' ').slice(0, 40)
+  if ([...box.querySelectorAll('button')].some((b) => b.innerText.includes('重新加载'))) return '查不到不是加载失败，不该给「重新加载」'
+  return document.querySelector('#app .card.result .desc-list') ? '查不到却还显示着结果' : '' })()`
+// 查到了：按第 5 类分块，字段是两列的描述列表
+const lookupFound = `(() => { const r = document.querySelector('#app .card.result'); const d = r?.querySelector('.desc-list'); if (!d) return '查到了却没有描述列表'
+  if (getComputedStyle(d).gridTemplateColumns.split(' ').length !== 2) return '描述列表不是两列'
+  return r.querySelector(':scope > .state-box') ? '查到了还显示着空状态' : '' })()`
+const resultMask = `document.querySelector('#app .card.result .el-loading-mask') && !document.querySelector('#app .card.result .desc-list, #app .card.result .state-box') ? '' : '查询中结果区不是只有加载遮罩'`
+// 题库手机预览和求职者答题页（工单 07，seeker views/match/QuizView.vue）一致：数值取规范第 7 类和 vant-theme.css 的手机端取值
+const quizPhone = `(async () => { const ph = document.querySelector('#app .phone'); if (!ph) return '没有手机预览'
+  const cs = (e) => getComputedStyle(e), px = (v) => parseFloat(v), bad = [], want = (k, got, exp) => { if (got !== exp) bad.push(k + ' ' + got + '，应为 ' + exp) }
+  const opts = [...ph.querySelectorAll('.qopt')]; if (opts.length < 2) return '预览里不到 2 个选项'
+  opts[0].click(); await new Promise((r) => setTimeout(r, 300))
+  const nav = ph.querySelector('.nav'), t = ph.querySelector('.nav-t'), pt = ph.querySelector('.prog-t b'), bar = ph.querySelector('.prog'), fill = bar?.querySelector('i'), stem = ph.querySelector('.stem'), btns = [...ph.querySelectorAll('.bottom button')]
+  if (!nav || !t || !pt || !bar || !fill || !stem || btns.length !== 2) return '预览缺顶栏、进度、题干或底部两个按钮'
+  want('顶栏高', Math.round(nav.getBoundingClientRect().height), 44); want('顶栏底色', cs(nav).backgroundColor, ${bgToken('--bg-card')}); want('顶栏标题字号', px(cs(t).fontSize), 17); want('顶栏标题字重', Number(cs(t).fontWeight), 600)
+  if (!/^第 \\d+ \\/ \\d+ 题$/.test(pt.innerText.trim())) bad.push('进度不是「第 n / N 题」：' + pt.innerText)
+  want('进度字号', px(cs(pt).fontSize), 15); want('进度条高', Math.round(bar.getBoundingClientRect().height), 4); want('进度条颜色', cs(fill).backgroundColor, ${bgToken('--primary')})
+  want('题干字号', px(cs(stem).fontSize), 18); want('题干字重', Number(cs(stem).fontWeight), 600); want('题干颜色', cs(stem).color, ${tokenColor('--text-1')})
+  for (const o of opts) { const c = cs(o); if (o.getBoundingClientRect().height < 52) bad.push('选项高不到 52'); want('选项圆角', px(c.borderTopLeftRadius), 12); want('选项边框', c.borderTopWidth, '1px'); want('选项字号', px(c.fontSize), 16); want('选项字重', Number(c.fontWeight), 500) }
+  const a = cs(opts[0]), b = cs(opts[1])
+  want('选中描边', a.borderTopColor, ${tokenColor('--primary')}); want('选中底色', a.backgroundColor, ${bgToken('--primary-bg')}); want('选中文字', a.color, ${tokenColor('--primary-text')})
+  want('未选中描边', b.borderTopColor, ${tokenColor('--border')}); want('未选中底色', b.backgroundColor, ${bgToken('--bg-card')}); want('未选中文字', b.color, ${tokenColor('--text-1')})
+  if (!opts[0].querySelector('svg') || opts[1].querySelector('svg')) bad.push('选中的选项没有勾，或没选中的也有勾')
+  for (const x of btns) want('底部按钮高', Math.round(x.getBoundingClientRect().height), 48)
+  want('「下一题」底色', cs(btns[1]).backgroundColor, ${bgToken('--primary')})
+  if (!btns[0].innerText.includes('上一题') || !/下一题|生成我的求职画像/.test(btns[1].innerText)) bad.push('底部不是「上一题 / 下一题」')
+  return bad.join('；') })()`
+// 有版本的配置（第 11 类）：顶部信息条写「当前生效版本 · 草稿状态」；保存草稿 / 对比 / 发布 / 回滚四个按钮一直在、顺序固定
+const engBar = `(() => { const bar = document.querySelector('#app .ver-bar'); if (!bar) return '没有顶部信息条'
+  if (!bar.innerText.includes('当前生效版本') || !bar.innerText.includes('草稿状态')) return '信息条没写「当前生效版本 · 草稿状态」'
+  const lay = document.querySelector('#app .layout'); if (lay && bar.getBoundingClientRect().bottom > lay.getBoundingClientRect().top) return '信息条不在版本和参数上面'
+  const names = [...bar.querySelectorAll('.vb-acts .el-button')].map((b) => b.innerText.trim()); return names.join('/') === '保存草稿/对比/发布/回滚' ? '' : '操作条按钮不是「保存草稿 / 对比 / 发布 / 回滚」：' + names.join('/') })()`
+// 依次点开每个版本（草稿、生效、归档），四个按钮的位置都不变；最后回到第一个
+const engFixed = `(async () => { const items = [...document.querySelectorAll('#app .vitem')]; if (items.length < 3) return '版本不到 3 个'
+  const pos = () => [...document.querySelectorAll('#app .ver-bar .vb-acts .el-button')].map((x) => { const r = x.getBoundingClientRect(); return x.innerText.trim() + '@' + Math.round(r.left) + ',' + Math.round(r.top) }).join(' ')
+  const seen = []; for (const it of [...items, items[0]]) { it.click(); await new Promise((r) => setTimeout(r, 500)); seen.push(it.querySelector('.vrow').innerText.replace(/\\s+/g, '') + '：' + pos()) }
+  const first = seen[0].split('：')[1]; if (first.split(' ').length !== 4) return '操作条不是 4 个按钮：' + first
+  return seen.some((x) => x.split('：')[1] !== first) ? '切换版本后按钮位置变了：' + seen.join(' | ') : '' })()`
+// 本来就不能做的操作直接置灰并写原因：生效版本只能新建草稿
+const engActiveOff = `(() => { const off = [...document.querySelectorAll('#app .vb-acts .el-button')].filter((b) => b.disabled).map((b) => b.innerText.trim()).join('/'); if (off !== '保存草稿/对比/发布/回滚') return '生效版本的四个按钮应全部置灰，实际置灰：' + off
+  return document.querySelector('#app .ver-bar')?.innerText.includes('生效版本只读') ? '' : '没写明生效版本为什么不能操作' })()`
+const engTune = [`document.querySelectorAll('#app .factor .el-input-number__increase')[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`, `document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))`, wait(200),
+  `document.querySelectorAll('#app .factor .el-input-number__decrease')[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`, `document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))`, wait(300)]
+// 答题漏斗（第 10 类）：条用 --chart-1，数值 12px 二级文字，有数据时有图例；没拿到数据时不显示漏斗和图例
+const funnelSpec = `(() => { const rows = [...document.querySelectorAll('#app .fn-row')]; if (rows.length !== 4) return '漏斗不是 4 步：' + rows.length
+  for (const r of rows) { const i = r.querySelector('.fn-bar i'), n = r.querySelector('.fn-n'); if (getComputedStyle(i).backgroundColor !== ${bgToken('--chart-1')}) return '漏斗条不是图表配色 --chart-1'
+    if (parseFloat(getComputedStyle(n).fontSize) !== 12 || getComputedStyle(n).color !== ${tokenColor('--text-2')}) return '漏斗数值不是 12px 二级文字' }
+  const lg = document.querySelector('#app .funnel .chart-legend i'); if (!lg) return '有数据却没有图例'
+  return getComputedStyle(lg).backgroundColor === ${bgToken('--chart-1')} ? '' : '图例色块和漏斗条不是同一个颜色' })()`
+const funnelBlank = `document.querySelector('#app .fn-row, #app .funnel .chart-legend') ? '没拿到数据却显示了漏斗或图例' : ''`
+const quizBar = `(() => { const b = document.querySelector('#app .ver-bar'); if (!b) return '没有顶部信息条'; return b.innerText.includes('当前生效版本') && b.innerText.includes('草稿状态') ? '' : '信息条没写「当前生效版本 · 草稿状态」' })()`
+const pickDays = (t) => `[...document.querySelectorAll('#app .funnel .el-radio-button')].find((x) => x.innerText.includes(${JSON.stringify(t)})).click()`
+const daysKept = (t) => `document.querySelector('#app .funnel .el-radio-button.is-active')?.innerText.includes(${JSON.stringify(t)}) ? '' : '时间范围没保留已选的「${t}」'`
+const clickOp = (text) => [`[...document.querySelectorAll('#app td.ops-col .el-button')].find((b) => b.innerText.trim() === ${JSON.stringify(text)} && !b.disabled).click()`, wait(500)]
+const netOnly = (scope, btn) => [`document.querySelector('#app .blocked-why, .el-dialog .blocked-why, .msgbox-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn(btn, scope)}?.disabled === false ? '' : '网络失败后「${btn}」被置灰或框关了'`]
+const QUIZ_REFUSE = refuse('QUIZ_4002', '题库必须包含「地域锁定 locked_region」题')
 
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
@@ -2718,6 +2808,83 @@ const STATES = [
   { app: 'ops', screen: 'otp-dialog', state: 'normal', persona: 'ops', path: '/system/admins', rules: or({ url: '/reset-password', action: 'respond', body: reply({ initialPassword: 'Kp7mQ2xW9a' }) }),
     steps: [`[...document.querySelectorAll('#app .el-table__body button')].find((b) => b.innerText.includes('重置密码') && !b.disabled).click()`, wait(500), `${findBtn('确定', '.el-message-box')}.click()`, wait(800)],
     checks: [dlgWidth, dlgLegacy, `document.querySelector('.el-dialog .pwd')?.innerText === 'Kp7mQ2xW9a' ? '' : '弹窗里没有一次性密码'`, `document.querySelector('.el-dialog .notice-bar--warn') ? '' : '一次性密码弹窗没有提醒提示条'`] },
+  // ---- 工单 22：归属治理（第 17 类查询 + 第 8 类争议处理）----
+  { app: 'ops', screen: 'attribution', state: 'normal', persona: 'ops', path: '/ops/attribution', rules: or(), checks: [cSide('ops'), sideActive, lookupGuide('输入手机号或用户 ID'), cLegacy16, tblFit, opsCol, opsTap, statusTags, opsWriteGuard] },
+  { app: 'ops', screen: 'attribution', state: 'normal', persona: 'ops', path: '/ops/attribution', width: 1280, height: 800, rules: or(), checks: [lookupGuide('输入手机号或用户 ID'), tblFit, opsCol, cFitAny] },
+  { app: 'ops', screen: 'attribution', state: 'invalid', persona: 'ops', path: '/ops/attribution', rules: or(), steps: askPhone('1399'), checks: [formErr('#app .card.query', '请输入 11 位手机号'), lookupGuide('输入手机号或用户 ID')] },
+  { app: 'ops', screen: 'attribution', state: 'found', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'respond', body: fakeAttr }), steps: askPhone('13993468288'), checks: [lookupFound, cLegacy16, has('状态迁移日志')] },
+  { app: 'ops', screen: 'attribution', state: 'found-apps', persona: 'ops', path: '/ops/attribution', width: 1280, height: 800, rules: or({ url: A_QUERY, action: 'respond', body: fakeAttr }),
+    steps: [...askPhone('13993468288'), wait(600), `[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('报名记录')).click()`, wait(300)], checks: [lookupFound, tblFit, statusTags] },
+  { app: 'ops', screen: 'attribution', state: 'add-dispute', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'respond', body: fakeAttr }, { url: A_DISPUTES, method: 'GET', action: 'respond', body: reply([]) }),
+    steps: [...askPhone('13993468288'), wait(600), `${findBtn('登记争议', '#app .disputes')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy, has('该用户没有归属争议')] },
+  { app: 'ops', screen: 'attribution', state: 'not-found', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'respond', body: notFoundUser }), steps: askPhone('13900000000'), checks: [lookupMiss('手机号 13900000000 没有注册过求职者账号')] },
+  { app: 'ops', screen: 'attribution', state: 'loading', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'hang' }), quick: true, steps: [...askPhone('13993468288'), wait(400)], checks: [resultMask, `${findBtn('查询', '#app .card.query')}?.classList.contains('is-loading') ? '' : '查询中「查询」没有转圈'`] },
+  { app: 'ops', screen: 'attribution', state: 'error', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'fail' }), steps: askPhone('13993468288'), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'attribution', state: 'error-server', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'respond', body: serverError }), steps: askPhone('13993468288'), checks: [failHint(false), oneRetry, has('服务器开小差了')] },
+  { app: 'ops', screen: 'attribution', state: 'disputes-loading', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_DISPUTES, action: 'hang' }), quick: true, steps: [wait(600)], checks: [`document.querySelector('#app .disputes .el-loading-mask') ? '' : '争议列表加载中没有遮罩'`, hasNot('没有待处理的归属争议')] },
+  { app: 'ops', screen: 'attribution', state: 'disputes-empty', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_DISPUTES, action: 'respond', body: reply([]) }), checks: [has('没有待处理的归属争议'), `document.querySelector('#app .disputes .el-pagination') ? '没有记录却显示了分页' : ''`] },
+  { app: 'ops', screen: 'attribution', state: 'disputes-error', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_DISPUTES, action: 'fail' }), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'attribution', state: 'resolve', persona: 'ops', path: '/ops/attribution', rules: or(), steps: clickOp('写结论'), checks: [dlgWidth, dlgNoWrap, dlgLegacy, `document.querySelector('.el-dialog .notice-bar svg') ? '' : '结案说明不是带图标的提示条'`] },
+  { app: 'ops', screen: 'attribution', state: 'resolve-submitting', persona: 'ops', path: '/ops/attribution', rules: or(), quick: true,
+    steps: [...clickOp('写结论'), fillTa('.el-dialog', '核查注册渠道与状态日志，来源归属按扫码注册锁定，不予更改'), countXhr, elClickTwice('结案', '.el-dialog')], checks: [elSpinning('结案', '.el-dialog'), sentOnce] },
+  { app: 'ops', screen: 'attribution', state: 'resolve-rejected', persona: 'ops', path: '/ops/attribution', rules: or({ url: '/resolve', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该争议不存在或已处理') }),
+    steps: [...clickOp('写结论'), fillTa('.el-dialog', '核查注册渠道与状态日志，来源归属按扫码注册锁定，不予更改'), `${findBtn('结案', '.el-dialog')}.click()`, toastShown],
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能结案：该争议不存在或已处理'), dlgOff('结案'), dlgIdle, whyStays('#app .tbl-tip', '暂时不能结案'), onlyOff('#app td.ops-col', '写结论')] },
+  { app: 'ops', screen: 'attribution', state: 'resolve-offline', persona: 'ops', path: '/ops/attribution', rules: or({ url: '/resolve', method: 'POST', action: 'fail' }),
+    steps: [...clickOp('写结论'), fillTa('.el-dialog', '核查注册渠道与状态日志，来源归属按扫码注册锁定，不予更改'), `${findBtn('结案', '.el-dialog')}.click()`, toastShown], checks: netOnly('.el-dialog', '结案') },
+  // ---- 工单 22：AI 问薪题库（第 2 类列表 + 第 10 类漏斗 + 第 11 类版本信息条）----
+  { app: 'ops', screen: 'quiz', state: 'normal', persona: 'ops', path: '/engine/quiz', rules: or(), checks: [cSide('ops'), sideActive, quizBar, funnelSpec, cLegacy16, tblFit, opsCol, opsTap, hasPager, statusTags, rowsTallIn('#app .tbl-card')] },
+  { app: 'ops', screen: 'quiz', state: 'normal', persona: 'ops', path: '/engine/quiz', width: 1280, height: 800, rules: or(), checks: [quizBar, funnelSpec, tblFit, opsCol, cFitAny] },
+  { app: 'ops', screen: 'quiz', state: 'loading', persona: 'ops', path: '/engine/quiz', rules: or({ url: Q_LIST, action: 'hang' }, { url: Q_FUNNEL, action: 'hang' }), quick: true, steps: [wait(600)], checks: [eachMask(['.funnel', '.tbl-card']), noNums, funnelBlank, hasNot('还没有题库版本')] },
+  { app: 'ops', screen: 'quiz', state: 'empty', persona: 'ops', path: '/engine/quiz', rules: or({ url: Q_LIST, action: 'respond', body: reply([]) }, { url: Q_FUNNEL, action: 'respond', body: reply({ days: 7, from: '2026-11-08', opened: 0, submitted: 0, matched: 0, applied: 0 }) }),
+    checks: [emptyAct('新建草稿'), has('近 7 天还没有人打开答题页'), funnelBlank, `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
+  { app: 'ops', screen: 'quiz', state: 'error', persona: 'ops', path: '/engine/quiz', rules: or({ url: Q_LIST, action: 'fail' }, { url: Q_FUNNEL, action: 'fail' }), checks: [eachRetry(['.funnel', '.tbl-card']), failHint(true), noNums, funnelBlank] },
+  { app: 'ops', screen: 'quiz', state: 'error-server', persona: 'ops', path: '/engine/quiz', rules: or({ url: Q_LIST, action: 'respond', body: serverError }, { url: Q_FUNNEL, action: 'respond', body: serverError }), checks: [eachRetry(['.funnel', '.tbl-card']), failHint(false)] },
+  { app: 'ops', screen: 'quiz', state: 'funnel-switch', persona: 'ops', path: '/engine/quiz', rules: or(), lateRules: [{ url: Q_FUNNEL, action: 'hang' }], quick: true, steps: [pickDays('近 30 天'), wait(400)], checks: [funnelBlank, daysKept('近 30 天'), `document.querySelector('#app .funnel .el-loading-mask') ? '' : '切换时间范围后没有加载遮罩'`] },
+  { app: 'ops', screen: 'quiz', state: 'publish', persona: 'ops', path: '/engine/quiz', rules: or(), steps: clickOp('发布'), checks: [boxTitle, boxDanger('发布')] },
+  { app: 'ops', screen: 'quiz', state: 'publish-submitting', persona: 'ops', path: '/engine/quiz', rules: or(), quick: true, steps: [...clickOp('发布'), countXhr, boxClickTwice('发布')], checks: [sentOnce, `document.querySelector('.el-message-box .el-button.is-loading') ? '' : '确认框里的「发布」没有转圈'`] },
+  { app: 'ops', screen: 'quiz', state: 'publish-rejected', persona: 'ops', path: '/engine/quiz', rules: or({ url: '/publish', method: 'POST', action: 'respond', body: QUIZ_REFUSE }), steps: [...clickOp('发布'), `${findBtn('发布', '.el-message-box')}.click()`, toastShown],
+    checks: [boxWhy('发布', '暂时不能发布：题库必须包含'), whyStays('#app .tbl-tip', '暂时不能发布'), onlyOff('#app td.ops-col', '发布')] },
+  { app: 'ops', screen: 'quiz', state: 'publish-offline', persona: 'ops', path: '/engine/quiz', rules: or({ url: '/publish', method: 'POST', action: 'fail' }), steps: [...clickOp('发布'), `${findBtn('发布', '.el-message-box')}.click()`, toastShown], checks: netOnly('.el-message-box', '发布') },
+  // ---- 工单 22：题库编辑（第 6 类长表单，手机预览同求职者答题页）----
+  { app: 'ops', screen: 'quiz-editor', state: 'normal', persona: 'ops', path: QUIZ_EDIT, rules: or(), checks: [quizPhone, cLegacy16, cSide('ops')] },
+  { app: 'ops', screen: 'quiz-editor', state: 'normal', persona: 'ops', path: QUIZ_EDIT, width: 1280, height: 800, rules: or(), checks: [quizPhone, cFitAny] },
+  { app: 'ops', screen: 'quiz-editor', state: 'loading', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask] },
+  { app: 'ops', screen: 'quiz-editor', state: 'error', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'fail' }), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'quiz-editor', state: 'error-server', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
+  { app: 'ops', screen: 'quiz-editor', state: 'missing', persona: 'ops', path: '/engine/quiz/99999', rules: or(), checks: [has('题库版本不存在'), `${findBtn('返回列表', '#app .state-box')} ? '' : '版本不存在时没给「返回列表」'`, hasNot('重新加载')] },
+  { app: 'ops', screen: 'quiz-editor', state: 'save-submitting', persona: 'ops', path: QUIZ_EDIT, rules: or(), quick: true, steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), countXhr, elClickTwice('保存草稿', '#app .page-hd')], checks: [elSpinning('保存草稿', '#app .page-hd'), sentOnce] },
+  { app: 'ops', screen: 'quiz-editor', state: 'save-rejected', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'PUT', action: 'respond', body: refuse('SYS_4090', '草稿已被他人修改，请刷新后重试') }),
+    steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), `${findBtn('保存草稿', '#app .page-hd')}.click()`, toastShown], checks: [whyStays('#app .hd-why', '暂时不能保存草稿：草稿已被他人修改'), `${findBtn('保存草稿', '#app .page-hd')}.disabled ? '' : '被拒之后「保存草稿」没有置灰'`, elIdle] },
+  { app: 'ops', screen: 'quiz-editor', state: 'publish', persona: 'ops', path: QUIZ_EDIT, rules: or(), steps: [`${findBtn('发布生效', '#app .page-hd')}.click()`, wait(500)], checks: [boxTitle, boxDanger('发布')] },
+  { app: 'ops', screen: 'quiz-editor', state: 'publish-rejected', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: '/publish', method: 'POST', action: 'respond', body: QUIZ_REFUSE }), steps: [`${findBtn('发布生效', '#app .page-hd')}.click()`, wait(500), `${findBtn('发布', '.el-message-box')}.click()`, toastShown],
+    checks: [boxWhy('发布', '暂时不能发布：题库必须包含'), whyStays('#app .hd-why', '暂时不能发布')] },
+  // ---- 工单 22：匹配快照（第 17 类查询）----
+  { app: 'ops', screen: 'match-snapshot', state: 'normal', persona: 'ops', path: '/engine/match-snapshot', rules: or(), checks: [cSide('ops'), sideActive, lookupGuide('输入 sessionId'), cLegacy16] },
+  { app: 'ops', screen: 'match-snapshot', state: 'normal', persona: 'ops', path: '/engine/match-snapshot', width: 1280, height: 800, rules: or(), checks: [lookupGuide('输入 sessionId'), cFitAny] },
+  { app: 'ops', screen: 'match-snapshot', state: 'found', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, rules: or(), checks: [lookupFound, cLegacy16, tblFit] },
+  { app: 'ops', screen: 'match-snapshot', state: 'found', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, width: 1280, height: 800, rules: or(), checks: [lookupFound, tblFit, cFitAny] },
+  { app: 'ops', screen: 'match-snapshot', state: 'not-found', persona: 'ops', path: '/engine/match-snapshot?sessionId=MS2099010100001', rules: or(), checks: [lookupMiss('没有会话 ID 为「MS2099010100001」的匹配记录')] },
+  { app: 'ops', screen: 'match-snapshot', state: 'loading', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, rules: or({ url: SNAP_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [resultMask] },
+  { app: 'ops', screen: 'match-snapshot', state: 'error', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, rules: or({ url: SNAP_API, action: 'fail' }), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'match-snapshot', state: 'error-server', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, rules: or({ url: SNAP_API, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
+  // ---- 工单 22：匹配引擎参数（第 11 类有版本的配置）----
+  { app: 'ops', screen: 'engine', state: 'normal', persona: 'ops', path: '/engine/params', rules: or(), checks: [cSide('ops'), sideActive, engBar, engActiveOff, cLegacy16] },
+  { app: 'ops', screen: 'engine', state: 'normal', persona: 'ops', path: '/engine/params', width: 1280, height: 800, rules: or(), checks: [engBar, cFitAny] },
+  { app: 'ops', screen: 'engine', state: 'versions', persona: 'ops', path: '/engine/params', rules: engRules(), checks: [engBar, engFixed] },
+  { app: 'ops', screen: 'engine', state: 'versions', persona: 'ops', path: '/engine/params', width: 1280, height: 800, rules: engRules(), checks: [engBar, engFixed, cFitAny] },
+  { app: 'ops', screen: 'engine', state: 'loading', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask] },
+  { app: 'ops', screen: 'engine', state: 'empty', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [emptyAct('新建草稿')] },
+  { app: 'ops', screen: 'engine', state: 'error', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, action: 'fail' }), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'engine', state: 'error-server', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, method: 'GET', action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
+  { app: 'ops', screen: 'engine', state: 'save-submitting', persona: 'ops', path: '/engine/params', rules: engRules(), quick: true, steps: [...engTune, countXhr, elClickTwice('保存草稿', '#app .vb-acts')], checks: [elSpinning('保存草稿', '#app .vb-acts'), sentOnce] },
+  { app: 'ops', screen: 'engine', state: 'save-rejected', persona: 'ops', path: '/engine/params', rules: engRules({ url: `${ENG_API}/3`, method: 'PUT', action: 'respond', body: refuse('SYS_4090', '草稿已被他人修改，请刷新后重试') }),
+    steps: [...engTune, `${findBtn('保存草稿', '#app .vb-acts')}.click()`, toastShown], checks: [whyStays('#app .vb-why', '暂时不能保存草稿：草稿已被他人修改'), `${findBtn('保存草稿', '#app .vb-acts')}.disabled ? '' : '被拒之后「保存草稿」没有置灰'`, elIdle] },
+  { app: 'ops', screen: 'engine', state: 'publish', persona: 'ops', path: '/engine/params', rules: engRules(), steps: [`${findBtn('发布', '#app .vb-acts')}.click()`, wait(500)], checks: [boxTitle, boxDanger('发布')] },
+  { app: 'ops', screen: 'engine', state: 'publish-submitting', persona: 'ops', path: '/engine/params', rules: engRules(), quick: true, steps: [`${findBtn('发布', '#app .vb-acts')}.click()`, wait(500), countXhr, boxClickTwice('发布')], checks: [sentOnce, `document.querySelector('.el-message-box .el-button.is-loading') ? '' : '确认框里的「发布」没有转圈'`] },
+  { app: 'ops', screen: 'engine', state: 'publish-rejected', persona: 'ops', path: '/engine/params', rules: engRules({ url: '/publish', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该版本已不是草稿，请刷新后重试') }),
+    steps: [`${findBtn('发布', '#app .vb-acts')}.click()`, wait(500), `${findBtn('发布', '.el-message-box')}.click()`, toastShown], checks: [boxWhy('发布', '暂时不能发布：该版本已不是草稿'), whyStays('#app .vb-why', '暂时不能发布')] },
+  { app: 'ops', screen: 'engine', state: 'rollback', persona: 'ops', path: '/engine/params', rules: engRules(), steps: [`[...document.querySelectorAll('#app .vitem')].at(-1).click()`, wait(600), `${findBtn('回滚', '#app .vb-acts')}.click()`, wait(500)], checks: [boxTitle, boxDanger('回滚')] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

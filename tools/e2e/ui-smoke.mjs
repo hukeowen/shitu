@@ -67,7 +67,9 @@ if (!seeded) console.log('没有 shots/baseline-data.json：企业后台入驻�
 
 const SUITES = [
   // 中台菜单里工作台写的是常量 HOME_PATH，正则取不到，和无权限页一起补上（工单 21）
-  { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: ['/workbench', ...menuPaths('ops'), '/forbidden?from=/system/admins'] },
+  // 题库版本编辑页和查到结果的匹配快照不在菜单里：地址用截图数据里的题库版本号、匹配会话号拼（工单 22）
+  { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: ['/workbench', ...menuPaths('ops'), '/forbidden?from=/system/admins',
+    ...(seeded ? [`/engine/quiz/${seeded.ids.quizVersionId}`, `/engine/match-snapshot?sessionId=${seeded.ids.matchSessionId}`] : [])] },
   { name: 'ops-guest', app: 'ops', cookieFile: null, paths: ['/login'] },
   ...consoleAuth,
   { name: 'console-owner', app: 'console', cookieFile: 'tenant-13800000001.rt', paths: menuPaths('console') },
