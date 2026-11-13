@@ -146,12 +146,17 @@ a { color: inherit; text-decoration: none; }
 .grid > .el-button + .el-button { margin-left: 0; }
 
 /* 提示条（规范「Key Components」）：浅底 + 一级文字正文，左边图标用对应的文字色；驻场页面起用，替代旧的 .note */
-.notice-bar { display: flex; align-items: flex-start; gap: var(--space-2); padding: 10px var(--space-3); border-radius: var(--radius-control); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); background: var(--primary-bg); }
+.notice-bar { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); background: var(--primary-bg); }
 .notice-bar b { font-weight: var(--font-weight-semibold); }
-.notice-bar-i { flex: none; margin-top: 3px; color: var(--primary-text); }
+/* 图标高度取一行文字的行高，和第一行文字垂直居中 */
+.notice-bar-i { flex: none; height: 1lh; color: var(--primary-text); }
 .notice-bar--warn { background: var(--warning-soft); }
 .notice-bar--warn .notice-bar-i { color: var(--warning-text); }
 .notice-bar--ok { background: var(--success-soft); }
 .notice-bar--ok .notice-bar-i { color: var(--success-text); }
 .notice-bar--danger { background: var(--danger-soft); }
 .notice-bar--danger .notice-bar-i { color: var(--danger-text); }
+
+/* 操作被后端业务拒绝的原因（规范「Page States」）：提醒文字色写「暂时不能…：原因」，留在页面上；msgbox-why 写在确认框提示文字下面 */
+.blocked-why, .msgbox-why { margin: 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--warning-text); }
+.msgbox-why { margin-top: var(--space-2); }

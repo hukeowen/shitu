@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { shNowMs, shNow } from '@/utils/time'
-import { computed, reactive } from 'vue'
+import { computed, h, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type Action, type MessageBoxState } from 'element-plus'
 import {
   errorMessage,
@@ -131,7 +131,8 @@ async function submitAck() {
   } catch (e) {
     ack.saving = false
     const r = failed(ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', app, e)
-    ack.error = r.text
+    // 断网、超时只弹轻提示，不留原因、不置灰
+    ack.error = r.blocked ? r.text : ''
     ack.blocked = r.blocked
   } finally {
     ack.saving = false
@@ -205,7 +206,8 @@ async function submitConfirm() {
   } catch (e) {
     cf.saving = false
     const r = failed(cf.resend ? 'RESEND_CONTRACT' : 'CONFIRM', app, e)
-    cf.error = r.text
+    // 断网、超时只弹轻提示，不留原因、不置灰
+    cf.error = r.blocked ? r.text : ''
     cf.blocked = r.blocked
   } finally {
     cf.saving = false
@@ -225,11 +227,13 @@ function who(app: SiteApplication) {
 }
 
 /**
- * 确认框里提交：点确认后确认按钮转圈、不能重复点，请求结束（成功或失败）再关框；
- * 失败的错误交回调用方，关框后统一处理。提示文字、按钮和原因输入与原来一致。
+ * 确认框里提交：点确认后框不关、确认按钮转圈（不能重复点），请求成功再关框。
+ * 后端业务拒绝：框不关，原因用提醒色写在提示文字下面，确认按钮置灰；断网、超时只弹轻提示，可以直接再点确认。
+ * 提示文字、按钮和原因输入与原来一致。
  */
-function submitIn(api: (input: string) => Promise<unknown>) {
-  const state = { error: null as unknown }
+function boxSubmit(action: SiteApplicationAction, app: SiteApplication, text: string, api: (input: string) => Promise<unknown>) {
+  const why = ref('')
+  const message = () => h('div', [h('p', text), why.value ? h('p', { class: 'msgbox-why', role: 'alert' }, why.value) : null])
   const beforeClose = async (act: Action, box: MessageBoxState, done: () => void) => {
     // 提交中不响应取消、关闭和再次确认
     if (box.confirmButtonLoading) return
@@ -237,82 +241,80 @@ function submitIn(api: (input: string) => Promise<unknown>) {
     box.confirmButtonLoading = true
     try {
       await api(box.inputValue?.trim() ?? '')
-    } catch (e) {
-      state.error = e
-    } finally {
       box.confirmButtonLoading = false
       done()
+    } catch (e) {
+      box.confirmButtonLoading = false
+      const r = failed(action, app, e)
+      if (r.blocked) {
+        why.value = r.text
+        box.confirmButtonDisabled = true
+      }
     }
   }
-  return { beforeClose, state }
+  return { message, beforeClose }
 }
 
 async function simple(action: SiteApplicationAction, app: SiteApplication) {
   try {
     if (action === 'ARRIVE') {
-      const s = submitIn(() => tenantApi.arrive(app.applicationId))
-      await ElMessageBox.confirm(`确认 ${who(app)} 已到厂？`, '到厂确认', { confirmButtonText: '确认到厂', cancelButtonText: '取消', beforeClose: s.beforeClose })
-      if (s.state.error) throw s.state.error
+      const s = boxSubmit(action, app, `确认 ${who(app)} 已到厂？`, () => tenantApi.arrive(app.applicationId))
+      await ElMessageBox.confirm(s.message, '到厂确认', { confirmButtonText: '确认到厂', cancelButtonText: '取消', beforeClose: s.beforeClose })
       ElMessage.success('已确认到厂')
     } else if (action === 'PASS') {
-      const s = submitIn(() => tenantApi.interviewResult(app.applicationId, true))
-      await ElMessageBox.confirm(`确认 ${who(app)} 面试通过？通过后进入「待确权」，请尽快完成入职确权与签约。`, '面试通过', {
+      const s = boxSubmit(action, app, `确认 ${who(app)} 面试通过？通过后进入「待确权」，请尽快完成入职确权与签约。`, () =>
+        tenantApi.interviewResult(app.applicationId, true),
+      )
+      await ElMessageBox.confirm(s.message, '面试通过', {
         confirmButtonText: '面试通过',
         cancelButtonText: '取消',
         beforeClose: s.beforeClose,
       })
-      if (s.state.error) throw s.state.error
       ElMessage.success('已标记面试通过，进入待确权')
     } else if (action === 'FAIL') {
-      const s = submitIn((remark) => tenantApi.interviewResult(app.applicationId, false, remark))
-      await ElMessageBox.prompt(
-        `${who(app)} 面试未通过。本公司渠道来的求职者回到「私域待匹配」继续跟进，其他求职者回到公域。`,
-        '面试未通过',
-        {
-          confirmButtonText: '确认未通过',
-          cancelButtonText: '取消',
-          inputType: 'textarea',
-          inputPlaceholder: '请填写未通过原因（必填）',
-          inputValidator: (v: string) => (v && v.trim().length > 0) || '请填写未通过原因',
-          type: 'warning',
-          beforeClose: s.beforeClose,
-        },
+      const s = boxSubmit(action, app, `${who(app)} 面试未通过。本公司渠道来的求职者回到「私域待匹配」继续跟进，其他求职者回到公域。`, (remark) =>
+        tenantApi.interviewResult(app.applicationId, false, remark),
       )
-      if (s.state.error) throw s.state.error
+      await ElMessageBox.prompt(s.message, '面试未通过', {
+        confirmButtonText: '确认未通过',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '请填写未通过原因（必填）',
+        inputValidator: (v: string) => (v && v.trim().length > 0) || '请填写未通过原因',
+        type: 'warning',
+        beforeClose: s.beforeClose,
+      })
       ElMessage.success('已标记面试未通过')
     } else if (action === 'NO_SHOW') {
-      const s = submitIn(() => tenantApi.noShow(app.applicationId))
-      await ElMessageBox.confirm(`确认 ${who(app)} 爽约？标记后归属清空，简历释放至全平台公域，此操作不可撤销。`, '标记爽约', {
+      const s = boxSubmit(action, app, `确认 ${who(app)} 爽约？标记后归属清空，简历释放至全平台公域，此操作不可撤销。`, () => tenantApi.noShow(app.applicationId))
+      await ElMessageBox.confirm(s.message, '标记爽约', {
         type: 'warning',
         confirmButtonText: '确认爽约',
         cancelButtonText: '取消',
         confirmButtonClass: 'el-button--danger',
         beforeClose: s.beforeClose,
       })
-      if (s.state.error) throw s.state.error
       ElMessage.success('已标记爽约')
     } else if (action === 'CANCEL') {
-      const s = submitIn((reason) => tenantApi.cancelApplication(app.applicationId, reason))
-      await ElMessageBox.prompt(
-        `取消 ${who(app)} 的报名。用户无法自行取消，取消后可重新进入 AI 问薪匹配流程，此操作不可撤销。`,
-        '取消报名',
-        {
-          confirmButtonText: '确认取消',
-          cancelButtonText: '返回',
-          inputType: 'textarea',
-          inputPlaceholder: '请填写取消原因（必填）',
-          inputValidator: (v: string) => (v && v.trim().length > 0) || '请填写取消原因',
-          type: 'warning',
-          beforeClose: s.beforeClose,
-        },
+      const s = boxSubmit(action, app, `取消 ${who(app)} 的报名。用户无法自行取消，取消后可重新进入 AI 问薪匹配流程，此操作不可撤销。`, (reason) =>
+        tenantApi.cancelApplication(app.applicationId, reason),
       )
-      if (s.state.error) throw s.state.error
+      await ElMessageBox.prompt(s.message, '取消报名', {
+        confirmButtonText: '确认取消',
+        cancelButtonText: '返回',
+        inputType: 'textarea',
+        inputPlaceholder: '请填写取消原因（必填）',
+        inputValidator: (v: string) => (v && v.trim().length > 0) || '请填写取消原因',
+        type: 'warning',
+        beforeClose: s.beforeClose,
+      })
       ElMessage.success('报名已取消')
     } else {
       return
     }
     emit('done', action, app)
   } catch (e) {
+    // 取消 / 关闭框；提交失败已在框里处理
     if (e === 'cancel' || e === 'close') return
     failed(action, app, e)
   }
@@ -372,7 +374,7 @@ defineExpose({ run })
       </el-form>
     </template>
     <template #footer>
-      <p v-if="ack.error" class="form-err dlg-err" role="alert">{{ ack.error }}</p>
+      <p v-if="ack.error" class="blocked-why dlg-err" role="alert">{{ ack.error }}</p>
       <el-button @click="ack.visible = false">取消</el-button>
       <el-button type="primary" :loading="ack.saving" :disabled="ack.blocked" @click="submitAck">{{ ack.repush ? '重新推送' : '知悉并推送' }}</el-button>
     </template>
@@ -443,7 +445,7 @@ defineExpose({ run })
     </template>
     <template #footer>
       <template v-if="!cf.result">
-        <p v-if="cf.error" class="form-err dlg-err" role="alert">{{ cf.error }}</p>
+        <p v-if="cf.error" class="blocked-why dlg-err" role="alert">{{ cf.error }}</p>
         <el-button @click="cf.visible = false">取消</el-button>
         <el-button type="primary" :loading="cf.saving" :disabled="cf.blocked" @click="submitConfirm">{{ cf.resend ? '重发签约' : '确认入职并发起电子签约' }}</el-button>
       </template>

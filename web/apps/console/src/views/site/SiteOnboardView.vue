@@ -25,11 +25,15 @@ const total = ref(0)
 const loading = ref(false)
 const loadError = ref('')
 const recent = ref<SiteApplication[]>([])
+/** 待确权列表拿到过数据；最近入职单独一个请求，失败单独说 */
+const ready = ref(false)
+const recentError = ref('')
+const recentLoading = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名的按钮置灰、原因写在表格上方，刷新后重新判断 */
-const blocked = reactive<Record<string, { name: string; text: string }>>({})
+/** 后端拒绝过的操作：这条报名被拒的那个按钮置灰、原因用提醒色写在表格上方，刷新后重新判断 */
+const blocked = reactive<Record<string, { name: string; action: SiteApplicationAction; text: string }>>({})
 function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { name: app.seekerName, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
+  blocked[app.applicationId] = { name: app.seekerName, action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
 }
 
 const signing = (a: SiteApplication) => a.contract?.status === 'PENDING_SIGN' || a.allowedActions.includes('RESEND_CONTRACT')
@@ -49,17 +53,27 @@ async function load() {
     const r = await tenantApi.applications({ status: 'PENDING_CONFIRM', projectId: projectId.value || undefined, page: 1, pageSize: 100 })
     list.value = r.records
     total.value = r.total
+    ready.value = true
   } catch (e) {
     loadError.value = errorMessage(e, '待确权列表加载失败')
+    ready.value = false
     list.value = []
   } finally {
     loading.value = false
   }
+  await loadRecent()
+}
+async function loadRecent() {
+  recentLoading.value = true
+  recentError.value = ''
   try {
     const e = await tenantApi.applications({ status: 'EMPLOYED', projectId: projectId.value || undefined, page: 1, pageSize: 8, sort: 'CREATED_DESC' })
     recent.value = e.records
-  } catch {
+  } catch (e) {
     recent.value = []
+    recentError.value = errorMessage(e, '最近入职加载失败')
+  } finally {
+    recentLoading.value = false
   }
 }
 watch(projectId, load)
@@ -81,16 +95,14 @@ onMounted(load)
     </div>
 
     <div v-loading="loading" class="stats">
-      <div class="stat st"><div class="stat-l">待确权</div><div class="stat-v">{{ loadError ? '—' : total }}</div><div class="stat-d">面试已通过</div></div>
-      <div class="stat stat--warn st"><div class="stat-l">已发起 · 待求职者签署</div><div class="stat-v">{{ loadError ? '—' : waitingSign }}</div><div class="stat-d">可重发签约</div></div>
-      <div class="stat st"><div class="stat-l">待发起签约</div><div class="stat-v">{{ loadError ? '—' : list.length - waitingSign }}</div><div class="stat-d">请尽快确权</div></div>
+      <div class="stat st"><div class="stat-l">待确权</div><div class="stat-v">{{ ready ? total : '—' }}</div><div class="stat-d">面试已通过</div></div>
+      <div class="stat st"><div class="stat-l">已发起 · 待求职者签署</div><div class="stat-v">{{ ready ? waitingSign : '—' }}</div><div class="stat-d">可重发签约</div></div>
+      <div class="stat st"><div class="stat-l">待发起签约</div><div class="stat-v">{{ ready ? list.length - waitingSign : '—' }}</div><div class="stat-d">请尽快确权</div></div>
     </div>
 
     <div class="card tbl-card">
       <div class="card__hd"><h3>待确权</h3><span class="flow">到厂确认 → 面试通过 → <b>入职确权</b> → 电子签约 → 已入职在岗</span></div>
-      <div v-for="(b, id) in blocked" :key="id" class="notice-bar notice-bar--danger tbl-tip" role="status">
-        <IconCircleExclamationPoint :size="16" class="notice-bar-i" /><span>{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</span>
-      </div>
+      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="list" row-key="applicationId">
         <el-table-column label="求职者" min-width="130">
           <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
@@ -131,7 +143,7 @@ onMounted(load)
           <template #default="{ row }"><RemainTag :deadline="row.responseDeadline" :now="now" /></template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><AppActionButtons :app="row" link :disabled="!!blocked[row.applicationId]" @action="(a, r) => dialogs?.run(a, r)" /></template>
+          <template #default="{ row }"><AppActionButtons :app="row" link :blocked="blocked[row.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="tbl-state">
@@ -164,11 +176,14 @@ onMounted(load)
       </div>
       <div class="card">
         <div class="card__hd"><h3>最近入职</h3><span class="t-sm">已完成签约</span></div>
-        <el-table :data="recent" size="small" row-key="applicationId">
+        <el-table v-loading="recentLoading" :data="recent" row-key="applicationId" class="recent">
           <el-table-column label="员工" min-width="80"><template #default="{ row }"><span class="job-t">{{ row.seekerName }}</span></template></el-table-column>
           <el-table-column label="岗位" min-width="120"><template #default="{ row }"><span class="t-sm">{{ row.jobTitle }}</span></template></el-table-column>
           <el-table-column label="报名时间" width="110"><template #default="{ row }"><span class="t-xs">{{ fmtDateTime(row.createdAt).slice(5) }}</span></template></el-table-column>
-          <template #empty><span class="t-sm">暂无</span></template>
+          <template #empty>
+            <span v-if="recentError" class="t-sm">{{ recentError }} <el-button link type="primary" @click="loadRecent">重新加载</el-button></span>
+            <span v-else-if="!recentLoading" class="t-sm">暂无</span>
+          </template>
         </el-table>
       </div>
     </div>
@@ -199,4 +214,5 @@ onMounted(load)
 .auto li { padding: var(--space-1) 0; font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-2); }
 .auto li::marker { color: var(--text-3); }
 .auto b { display: block; color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.recent :deep(.el-table__body .el-table__cell) { padding: var(--space-3) 0; }
 </style>

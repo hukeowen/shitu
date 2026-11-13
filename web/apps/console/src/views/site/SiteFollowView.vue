@@ -29,11 +29,13 @@ const truncated = ref(false)
 const wb = ref<SiteWorkbench | null>(null)
 const loading = ref(false)
 const loadError = ref('')
+/** 报名明细拿到过数据（没拿到时分档卡和页签不显示数字，超时释放条也不下结论） */
+const ready = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名的按钮置灰、原因写在表格上方，刷新后重新判断 */
-const blocked = reactive<Record<string, { name: string; text: string }>>({})
+/** 后端拒绝过的操作：这条报名被拒的那个按钮置灰、原因用提醒色写在表格上方，刷新后重新判断 */
+const blocked = reactive<Record<string, { name: string; action: SiteApplicationAction; text: string }>>({})
 function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { name: app.seekerName, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
+  blocked[app.applicationId] = { name: app.seekerName, action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
 }
 
 /** 有窗口的报名（公域用户没有 responseDeadline） */
@@ -62,10 +64,12 @@ async function load() {
   try {
     const [r, w] = await Promise.all([loadOpenApplications(projectId.value), tenantApi.siteWorkbench().catch(() => null)])
     all.value = r.list
+    ready.value = true
     truncated.value = r.truncated
     wb.value = w
   } catch (e) {
     loadError.value = errorMessage(e, '响应窗口加载失败')
+    ready.value = false
     all.value = []
   } finally {
     loading.value = false
@@ -110,19 +114,20 @@ function barClass(a: SiteApplication) {
     </div>
 
     <div v-loading="loading" class="stats">
-      <button type="button" class="stat stat--danger stat--link st" @click="bucket = 'h1'">
+      <!-- 只有异常卡（有不到 1 小时的）数字用危险色，为 0 不算异常 -->
+      <button type="button" class="stat stat--link st" :class="{ 'stat--danger': ready && counts.h1 > 0 }" @click="bucket = 'h1'">
         <div class="stat-l">&lt; 1 小时（含已超时）</div>
-        <div class="stat-v">{{ counts.h1 }}</div>
+        <div class="stat-v">{{ ready ? counts.h1 : '—' }}</div>
         <div class="stat-d">立即处理</div>
       </button>
-      <button type="button" class="stat stat--warn stat--link st" @click="bucket = 'h6'">
+      <button type="button" class="stat stat--link st" @click="bucket = 'h6'">
         <div class="stat-l">1–6 小时</div>
-        <div class="stat-v">{{ counts.h6 }}</div>
+        <div class="stat-v">{{ ready ? counts.h6 : '—' }}</div>
         <div class="stat-d">优先跟进</div>
       </button>
       <button type="button" class="stat stat--link st" @click="bucket = 'h24'">
         <div class="stat-l">6–24 小时</div>
-        <div class="stat-v">{{ counts.h24 }}</div>
+        <div class="stat-v">{{ ready ? counts.h24 : '—' }}</div>
         <div class="stat-d">正常窗口</div>
       </button>
       <div class="stat st">
@@ -132,7 +137,7 @@ function barClass(a: SiteApplication) {
       </div>
     </div>
 
-    <div v-if="timeouts" class="notice-bar released" :class="timeouts.released > 0 ? 'notice-bar--warn' : 'notice-bar--ok'">
+    <div v-if="timeouts && ready" class="notice-bar released" :class="timeouts.released > 0 ? 'notice-bar--warn' : 'notice-bar--ok'">
       <template v-if="timeouts.released > 0">
         <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
         <span>本月已有 <b>{{ timeouts.released }}</b> 人因超时被释放到公域（上月 {{ timeouts.releasedLastMonth }} 人），其中 <b>{{ timeouts.ownLeadsLost }}</b> 人是本公司自己引流来的 —— 释放后其他公司可以直接匹配。</span>
@@ -143,18 +148,16 @@ function barClass(a: SiteApplication) {
     <div class="card tbl-card">
       <div class="toolbar">
         <div class="filter-tabs" role="tablist">
-          <button type="button" role="tab" :aria-selected="bucket === ''" :class="{ on: bucket === '' }" @click="bucket = ''">全部<span class="n">{{ windowed.length }}</span></button>
-          <button type="button" role="tab" :aria-selected="bucket === 'h1'" :class="{ on: bucket === 'h1' }" @click="bucket = 'h1'">&lt;1h<span class="n">{{ counts.h1 }}</span></button>
-          <button type="button" role="tab" :aria-selected="bucket === 'h6'" :class="{ on: bucket === 'h6' }" @click="bucket = 'h6'">1–6h<span class="n">{{ counts.h6 }}</span></button>
-          <button type="button" role="tab" :aria-selected="bucket === 'h24'" :class="{ on: bucket === 'h24' }" @click="bucket = 'h24'">6–24h<span class="n">{{ counts.h24 }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === ''" :class="{ on: bucket === '' }" @click="bucket = ''">全部<span class="n">{{ ready ? windowed.length : '' }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === 'h1'" :class="{ on: bucket === 'h1' }" @click="bucket = 'h1'">&lt;1h<span class="n">{{ ready ? counts.h1 : '' }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === 'h6'" :class="{ on: bucket === 'h6' }" @click="bucket = 'h6'">1–6h<span class="n">{{ ready ? counts.h6 : '' }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === 'h24'" :class="{ on: bucket === 'h24' }" @click="bucket = 'h24'">6–24h<span class="n">{{ ready ? counts.h24 : '' }}</span></button>
         </div>
         <span class="spacer" />
         <span class="t-sm">按剩余时长升序</span>
       </div>
       <div v-if="truncated" class="notice-bar notice-bar--warn tbl-tip"><IconTriangleExclamationPoint :size="16" class="notice-bar-i" /><span>报名较多，每个状态仅显示响应窗口最紧的 100 条</span></div>
-      <div v-for="(b, id) in blocked" :key="id" class="notice-bar notice-bar--danger tbl-tip" role="status">
-        <IconCircleExclamationPoint :size="16" class="notice-bar-i" /><span>{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</span>
-      </div>
+      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="rows" row-key="applicationId">
         <el-table-column label="求职者" min-width="148">
           <template #default="{ row }"><PersonCell :name="row.seekerName" accent :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
@@ -178,7 +181,7 @@ function barClass(a: SiteApplication) {
           </template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><AppActionButtons :app="row" link :disabled="!!blocked[row.applicationId]" @action="(a, r) => dialogs?.run(a, r)" /></template>
+          <template #default="{ row }"><AppActionButtons :app="row" link :blocked="blocked[row.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="tbl-state">

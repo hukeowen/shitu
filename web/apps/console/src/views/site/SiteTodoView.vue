@@ -37,12 +37,14 @@ const page = reactive({ page: 1, pageSize: 20, total: 0 })
 const list = ref<SiteApplication[]>([])
 const loading = ref(false)
 const loadError = ref('')
+/** 列表拿到过数据（没拿到时页签不显示计数） */
+const ready = ref(false)
 const wb = ref<SiteWorkbench | null>(null)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名的按钮置灰、原因写在表格上方，刷新后重新判断 */
-const blocked = reactive<Record<string, { name: string; text: string }>>({})
+/** 后端拒绝过的操作：这条报名被拒的那个按钮置灰、原因用提醒色写在表格上方，刷新后重新判断 */
+const blocked = reactive<Record<string, { name: string; action: SiteApplicationAction; text: string }>>({})
 function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { name: app.seekerName, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
+  blocked[app.applicationId] = { name: app.seekerName, action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
 }
 
 const current = computed(() => TABS.find((t) => t.key === tab.value) ?? TABS[0])
@@ -65,8 +67,10 @@ async function load() {
     })
     list.value = r.records
     page.total = r.total
+    ready.value = true
   } catch (e) {
     loadError.value = errorMessage(e, '待办加载失败')
+    ready.value = false
     list.value = []
     page.total = 0
   } finally {
@@ -122,7 +126,7 @@ function openInsight(row: SiteApplication) {
       <div class="toolbar">
         <div class="filter-tabs" role="tablist">
           <button v-for="t in TABS" :key="t.key" type="button" role="tab" :aria-selected="tab === t.key" :class="{ on: tab === t.key }" @click="setTab(t.key)">
-            {{ t.label }}<span class="n">{{ wb ? wb[t.count] : '' }}</span>
+            {{ t.label }}<span class="n">{{ wb && ready ? wb[t.count] : '' }}</span>
           </button>
         </div>
         <span class="spacer" />
@@ -130,9 +134,7 @@ function openInsight(row: SiteApplication) {
           <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
         </el-select>
       </div>
-      <div v-for="(b, id) in blocked" :key="id" class="notice-bar notice-bar--danger tbl-tip" role="status">
-        <IconCircleExclamationPoint :size="16" class="notice-bar-i" /><span>{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</span>
-      </div>
+      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="loadError ? [] : list" row-key="applicationId" :row-class-name="rowClass">
         <el-table-column label="求职者 / 来源" min-width="136">
           <template #default="{ row }">
@@ -173,7 +175,7 @@ function openInsight(row: SiteApplication) {
           <template #default="{ row }"><RemainTag :deadline="row.responseDeadline" :now="now" /></template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><AppActionButtons :app="row" link :disabled="!!blocked[row.applicationId]" @action="(a, r) => dialogs?.run(a, r)" /></template>
+          <template #default="{ row }"><AppActionButtons :app="row" link :blocked="blocked[row.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="tbl-state">

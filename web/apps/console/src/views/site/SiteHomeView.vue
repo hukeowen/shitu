@@ -27,9 +27,11 @@ const wbError = ref('')
 const list = ref<SiteApplication[]>([])
 const loading = ref(false)
 const todoError = ref('')
+/** 待办拿到过数据（没拿到时阶段计数、「N 紧急」不显示数字） */
+const ready = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
 /** 后端拒绝过的操作：这条报名的按钮置灰、原因留在详情里，刷新后重新判断 */
-const blocked = reactive<Record<string, string>>({})
+const blocked = reactive<Record<string, { action: SiteApplicationAction; text: string }>>({})
 
 async function load() {
   loading.value = true
@@ -38,9 +40,15 @@ async function load() {
   Object.keys(blocked).forEach((k) => delete blocked[k])
   const [w, t] = await Promise.allSettled([tenantApi.siteWorkbench(), loadOpenApplications()])
   if (w.status === 'fulfilled') wb.value = w.value
-  else wbError.value = errorMessage(w.reason, '工作台数据加载失败')
-  if (t.status === 'fulfilled') list.value = t.value.list
   else {
+    wb.value = null
+    wbError.value = errorMessage(w.reason, '工作台数据加载失败')
+  }
+  if (t.status === 'fulfilled') {
+    list.value = t.value.list
+    ready.value = true
+  } else {
+    ready.value = false
     todoError.value = errorMessage(t.reason, '待办加载失败')
     list.value = []
   }
@@ -53,20 +61,23 @@ function go(path: string, query?: Record<string, string>) {
 }
 
 // ---------------------------------------------------------------- 左列表：阶段筛选
-type Stage = 'all' | 'ack' | 'pushed' | 'confirm'
+// 与列表里每条的阶段文字（stageText）一一对应：报名后未推送 / 已推送待到厂 / 已到厂待面试结果 / 面试通过待确权
+type Stage = 'all' | 'ack' | 'pushed' | 'arrived' | 'confirm'
 function stageOf(a: SiteApplication): Exclude<Stage, 'all'> {
   if (a.status === 'PENDING_CONFIRM') return 'confirm'
+  if (a.arrivedAt) return 'arrived'
   return a.acknowledgedAt ? 'pushed' : 'ack'
 }
 const STAGES: { key: Stage; label: string }[] = [
   { key: 'all', label: '全部' },
   { key: 'ack', label: '待知悉' },
   { key: 'pushed', label: '已推送' },
+  { key: 'arrived', label: '已到厂' },
   { key: 'confirm', label: '待确权' },
 ]
 const stage = ref<Stage>('all')
 const stageCount = computed(() => {
-  const c: Record<Stage, number> = { all: list.value.length, ack: 0, pushed: 0, confirm: 0 }
+  const c: Record<Stage, number> = { all: list.value.length, ack: 0, pushed: 0, arrived: 0, confirm: 0 }
   list.value.forEach((a) => c[stageOf(a)]++)
   return c
 })
@@ -122,7 +133,8 @@ const steps = computed(() => {
     { title: '知悉推送', done: !!a.acknowledgedAt, at: a.acknowledgedAt },
     { title: '到厂确认', done: !!a.arrivedAt, at: a.arrivedAt },
     { title: '面试通过', done: a.status === 'PENDING_CONFIRM' },
-    { title: '入职确权', done: signing, at: a.contract?.createdAt },
+    // 报名上没有确权时间（合同是最近一份，重发后时间会变），完成只写「已完成」
+    { title: '入职确权', done: signing },
     { title: '电子签约', done: !!a.contract?.signedAt, at: a.contract?.signedAt },
   ]
   const cur = raw.reduce((last, s, i) => (s.done ? i : last), 0) + 1
@@ -141,13 +153,14 @@ const logs = computed(() => {
   if (a.acknowledgedAt) rows.push({ at: a.acknowledgedAt, text: '驻场知悉并推送面试信息' })
   if (a.notice?.pushedAt && a.acknowledgedAt && a.notice.pushedAt > a.acknowledgedAt) rows.push({ at: a.notice.pushedAt, text: '修改面试信息并重新推送' })
   if (a.arrivedAt) rows.push({ at: a.arrivedAt, text: '到厂确认' })
-  if (a.contract) rows.push({ at: a.contract.createdAt, text: `入职确权，发起电子签约（${a.contract.contractNo}）` })
+  // 和确权页一样，合同时间只说「发起」：重发签约后这是最近一次发起的时间和合同号
+  if (a.contract) rows.push({ at: a.contract.createdAt, text: `发起电子签约（${a.contract.contractNo}）` })
   if (a.contract?.signedAt) rows.push({ at: a.contract.signedAt, text: '求职者完成电子签约' })
   return rows.sort((x, y) => (x.at < y.at ? 1 : -1))
 })
 
 function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = `暂时不能${ACTION_LABEL[action]}：${reason}`
+  blocked[app.applicationId] = { action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
 }
 </script>
 
@@ -163,12 +176,15 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
       <el-button type="primary" @click="go('/site/todo')">处理待办</el-button>
     </div>
 
+    <!-- 失败只有一个「重新加载」：待办也失败时按钮在左列表的失败态里，这里只写原因 -->
     <div v-if="wbError" class="notice-bar notice-bar--danger wb-err" role="alert">
       <IconCircleExclamationPoint :size="16" class="notice-bar-i" />
       <span class="spacer">{{ wbError }}</span>
-      <el-button size="small" @click="load">重新加载</el-button>
+      <el-button v-if="!todoError" size="small" @click="load">重新加载</el-button>
     </div>
-    <div v-loading="loading" class="kpis">
+    <!-- 指标和分栏共用一个加载遮罩 -->
+    <div v-loading="loading" class="wb-body">
+    <div class="kpis">
       <button type="button" class="stat stat--link kpi" @click="go('/site/todo', { tab: 'ack' })">
         <IconInbox :size="20" class="kpi-i" />
         <div class="stat-l">待知悉</div>
@@ -189,9 +205,9 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
       </button>
       <button type="button" class="stat stat--link kpi" :class="{ 'stat--danger kpi--alert': (wb?.windowsDueIn4h ?? 0) > 0 }" @click="go('/site/follow')">
         <IconClock :size="20" class="kpi-i" />
-        <div class="stat-l">24h 窗口 4 小时内到期</div>
+        <div class="stat-l">4 小时内到期</div>
         <div class="stat-v">{{ wb?.windowsDueIn4h ?? '—' }}</div>
-        <div class="stat-d">超时系统释放至公域</div>
+        <div class="stat-d">24h 窗口 · 超时系统释放至公域</div>
       </button>
       <button type="button" class="stat stat--link kpi" @click="go('/site/follow')">
         <IconUsers :size="20" class="kpi-i" />
@@ -203,15 +219,15 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 
     <div class="work">
       <!-- 左：今日待办。面板高度跟着内容走，不撑到和右侧一样高（原型那处留白） -->
-      <section v-loading="loading" class="card queue" aria-label="今日待办">
+      <section class="card queue" aria-label="今日待办">
         <div class="q-hd">
           <h3>今日待办</h3>
           <span class="q-sub">按响应剩余时间排序</span>
-          <span v-if="urgent" class="status-tag status-tag--danger q-urgent">{{ urgent }} 紧急</span>
+          <span v-if="ready && urgent" class="status-tag status-tag--danger q-urgent">{{ urgent }} 紧急</span>
         </div>
         <div class="filter-tabs q-tabs" role="tablist">
           <button v-for="s in STAGES" :key="s.key" type="button" role="tab" :aria-selected="stage === s.key" :class="{ on: stage === s.key }" @click="stage = s.key">
-            {{ s.label }}<span class="n">{{ stageCount[s.key] }}</span>
+            {{ s.label }}<span class="n">{{ ready ? stageCount[s.key] : '' }}</span>
           </button>
         </div>
         <div v-if="todoError" class="state">
@@ -248,13 +264,20 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
       </section>
 
       <!-- 右：选中人详情 -->
-      <section v-loading="loading" class="card detail" aria-label="报名详情">
-        <div v-if="!selected" class="state">
+      <section class="card detail" aria-label="报名详情">
+        <!-- 加载中不下结论；待办加载失败时不说成「没有选中的报名」 -->
+        <div v-if="todoError" class="state">
+          <h4 class="state-t">暂时看不到报名详情</h4>
+          <p class="state-d">待办没有加载出来，重新加载后点左侧一个人查看进度和处理</p>
+        </div>
+        <div v-else-if="!selected && !loading" class="state">
           <IconClock :size="48" class="state-i" />
           <h4 class="state-t">没有选中的报名</h4>
           <p class="state-d">左侧有待办时，点一个人在这里查看进度和处理</p>
         </div>
-        <template v-else>
+        <template v-else-if="selected">
+          <!-- 详情内容自己滚动，操作区固定在卡片底部，不盖住内容 -->
+          <div class="d-body">
           <div class="d-hd">
             <h3>{{ selected.seekerName }}</h3>
             <span class="d-phone">{{ selected.phone ? fmtPhone(selected.phone) : '—' }}</span>
@@ -297,9 +320,11 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
             </div>
           </div>
 
-          <div v-if="insight" class="d-blk">
+          <div class="d-blk">
             <h4>求职画像</h4>
-            <div v-if="insight.profileTags.length" class="chips"><span v-for="t in insight.profileTags" :key="t" class="status-tag">{{ t }}</span></div>
+            <p v-if="insightError" class="hint">求职画像和匹配记录是一起取的，没有加载出来 <el-button link type="primary" @click="loadInsight(selected.applicationId)">重新加载</el-button></p>
+            <p v-else-if="!insight" class="hint">—</p>
+            <div v-else-if="insight.profileTags.length" class="chips"><span v-for="t in insight.profileTags" :key="t" class="status-tag">{{ t }}</span></div>
             <p v-else class="hint">没有答题记录（由驻场 / 经纪人推荐报名）</p>
           </div>
 
@@ -309,13 +334,15 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
               <li v-for="(l, i) in logs" :key="i"><time>{{ fmtDateTime(l.at) }}</time><span>{{ l.text }}</span></li>
             </ul>
           </div>
+          </div>
 
           <div class="d-acts">
-            <p v-if="blocked[selected.applicationId]" class="form-err" role="status">{{ blocked[selected.applicationId] }}</p>
-            <AppActionButtons :app="selected" size="default" :disabled="!!blocked[selected.applicationId]" @action="(a, r) => dialogs?.run(a, r)" />
+            <p v-if="blocked[selected.applicationId]" class="blocked-why" role="status">{{ blocked[selected.applicationId].text }}</p>
+            <AppActionButtons :app="selected" size="default" :blocked="blocked[selected.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" />
           </div>
         </template>
       </section>
+    </div>
     </div>
 
     <div class="extra">
@@ -347,15 +374,17 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 
 <style scoped>
 .wb-err { align-items: center; margin-bottom: var(--space-4); }
-.wb-err .notice-bar-i { margin-top: 0; }
+.wb-body { position: relative; }
 
 /* 指标卡：标题、26px 大数字、一行说明，右上角图标；异常卡数字和图标用危险色 */
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: auto auto auto; gap: 0 var(--space-gap); }
 /* 每张卡占三行并继承外层行高（subgrid）：1280 宽下某张卡的标题折成两行时，各卡的大数字仍在同一条线上 */
 .kpi { position: relative; display: grid; grid-row: span 3; grid-template-rows: subgrid; align-content: start; width: 100%; padding: var(--space-4); text-align: left; font: inherit; cursor: pointer; min-width: 0; }
 .kpi:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.kpi .stat-l { padding-right: 28px; }
-.kpi .stat-d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 给右上角 20px 的图标让位 */
+.kpi .stat-l { padding-right: var(--space-6); }
+/* 说明放不下时折行，不截断（subgrid 让各卡的说明行一样高） */
+.kpi .stat-d { min-width: 0; }
 .kpi-i { position: absolute; top: var(--space-4); right: var(--space-4); color: var(--primary); }
 .kpi--alert .kpi-i { color: var(--danger-text); }
 
@@ -369,7 +398,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 .q-urgent { margin-left: auto; align-self: center; }
 .q-tabs { flex-wrap: nowrap; margin: var(--space-3) var(--space-4) 0; padding-bottom: var(--space-3); border-bottom: 1px solid var(--divider); }
 .q-list { list-style: none; margin: 0; padding: 0; }
-.q-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px var(--space-3); width: 100%; padding: var(--space-3) var(--space-4); border: 0; border-bottom: 1px solid var(--divider); background: var(--bg-card); text-align: left; font: inherit; color: var(--text-1); cursor: pointer; }
+.q-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-3); width: 100%; padding: var(--space-3) var(--space-4); border: 0; border-bottom: 1px solid var(--divider); background: var(--bg-card); text-align: left; font: inherit; color: var(--text-1); cursor: pointer; }
 .q-item:hover { background: var(--bg-hover); }
 .q-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .q-item.on { background: var(--primary-bg); }
@@ -378,7 +407,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 .who-n { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); white-space: nowrap; }
 .who-p { font-size: var(--font-size-aux); color: var(--text-2); white-space: nowrap; }
 .meta { grid-column: 1; font-size: var(--font-size-aux); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.time { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 6px; }
+.time { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: var(--space-2); }
 .time b { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; }
 .q-bar { width: 64px; height: 4px; border-radius: 2px; background: var(--bg-fill); overflow: hidden; }
 .q-bar i { display: block; height: 100%; border-radius: 2px; background: var(--chart-6); }
@@ -397,7 +426,9 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 .state-d { margin: 0 0 var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
 
 /* 右详情 */
-.detail { min-width: 0; padding: var(--space-5) var(--space-6) 0; }
+/* 详情卡高度到可视区底部为止（294 = 详情卡上沿约 270 + 底部留 24），内容在 .d-body 里滚动，操作区固定在卡片底部 */
+.detail { display: flex; flex-direction: column; min-width: 0; max-height: max(440px, calc(100vh - 294px)); }
+.d-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-5) var(--space-6) var(--space-6); }
 .d-hd { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
 .d-hd h3 { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .d-phone { font-size: var(--font-size-body); color: var(--text-2); }
@@ -405,7 +436,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 .d-left-l { color: var(--text-3); }
 .d-steps { margin: var(--space-6) 0 var(--space-2); }
 .d-steps :deep(.el-step__title) { font-size: var(--font-size-aux); }
-.d-steps :deep(.el-step__description) { font-size: var(--font-size-min); white-space: nowrap; padding: 0; margin-top: 2px; }
+.d-steps :deep(.el-step__description) { font-size: var(--font-size-min); white-space: nowrap; padding: 0; margin-top: var(--space-1); }
 .d-steps :deep(.el-step__title.is-process), .d-steps :deep(.el-step__description.is-process) { color: var(--primary-text); font-weight: var(--font-weight-medium); }
 .d-steps :deep(.el-step__head.is-process) { color: var(--primary); border-color: var(--primary); }
 .d-steps :deep(.el-step__title.is-wait), .d-steps :deep(.el-step__head.is-wait) { color: var(--text-3); border-color: var(--border); }
@@ -424,8 +455,8 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 .log { list-style: none; margin: 0; padding: 0; }
 .log li { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-1) 0; font-size: var(--font-size-body); color: var(--text-2); }
 .log time { color: var(--text-3); }
-/* 底部操作区：详情比一屏长时贴在可视区底部，不用滚到底才能操作 */
-.d-acts { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); margin: var(--space-6) calc(-1 * var(--space-6)) 0; padding: var(--space-4) var(--space-6); border-top: 1px solid var(--divider); border-radius: 0 0 var(--radius-card) var(--radius-card); background: var(--bg-card); }
+/* 底部操作区：在详情卡底部，不随内容滚动 */
+.d-acts { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); padding: var(--space-4) var(--space-6); border-top: 1px solid var(--divider); }
 
 /* 快捷操作、处理时限 */
 .extra { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); }

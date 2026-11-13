@@ -784,14 +784,43 @@ const wbDetail = `(() => { const d = document.querySelector('#app .detail'); if 
 const wbOps = `(() => { const acts = document.querySelector('#app .d-acts'); const t = [...acts.querySelectorAll('button')].map((b) => b.innerText.trim()).filter(Boolean)
   const known = ['知悉推送', '修改面试信息', '到厂确认', '面试通过', '确权签约', '重发签约', '更多']; const odd = t.find((x) => !known.includes(x)); if (odd) return '操作区出现了改版前没有的按钮：' + odd
   return acts.querySelectorAll('.el-button--primary:not(.is-plain):not(.is-link)').length <= 1 ? '' : '操作区不止一个主色实心按钮' })()`
-const wbActsOff = `(() => { const bs = [...document.querySelectorAll('#app .d-acts button')]; return bs.length && bs.every((b) => b.disabled) ? '' : '被拒之后这个人的按钮没有置灰' })()`
 // 1280 宽：左右两栏都在内容区里，不重叠
 // 指标卡标题折成两行时，各卡的大数字仍在同一条线上
-const wbKpiAligned = `(() => { const ys = [...document.querySelectorAll('#app .kpis .stat-v')].map((v) => Math.round(v.getBoundingClientRect().top)); return Math.max(...ys) - Math.min(...ys) <= 1 ? '' : '指标卡的大数字没对齐：' + ys.join(',') })()`
+const wbKpiAligned = `(() => { const cut = [...document.querySelectorAll('#app .kpis .stat-l, #app .kpis .stat-d')].find((e) => e.scrollWidth > e.clientWidth + 1); if (cut) return '指标卡文字被截断：' + cut.innerText
+  const ys = [...document.querySelectorAll('#app .kpis .stat-v')].map((v) => Math.round(v.getBoundingClientRect().top)); return Math.max(...ys) - Math.min(...ys) <= 1 ? '' : '指标卡的大数字没对齐：' + ys.join(',') })()`
 // 改版前今日待办表头的「N 紧急」（最紧急 8 条里剩余不到 6 小时的）还在，数和列表里剩余不到 6 小时的条数一致
 const wbUrgent = `(() => { const n = [...document.querySelectorAll('#app .q-item .time b')].filter((b) => { const m = b.innerText.match(/^(?:(\\d+) 天 )?(?:(\\d+) 小时)?\\s*(?:(\\d+) 分)?/); return !b.innerText.includes('天') && (b.innerText.startsWith('超时') || !b.innerText.includes('小时') || Number(m[2]) < 6) }).length
   const tag = document.querySelector('#app .q-hd .status-tag--danger'); if (!n) return tag ? '没有不到 6 小时的，却显示了紧急' : ''
   return tag?.innerText.trim() === n + ' 紧急' ? '' : '今日待办表头应显示「' + n + ' 紧急」，实际「' + (tag?.innerText.trim() ?? '没有') + '」' })()`
+// 被拒原因：提醒文字色写「暂时不能…：原因」，留在页面上（规范 Page States「列表里某一条的操作被后端业务拒绝」）
+const whyStays = (selector, text) => `(() => { const e = [...document.querySelectorAll(${JSON.stringify(selector)})].find((x) => x.innerText.includes(${JSON.stringify(text)})); if (!e) return '被拒的原因没有留在页面上（${selector}）'
+  return getComputedStyle(e).color === ${tokenColor('--warning-text')} ? '' : '被拒原因不是提醒文字色' })()`
+// 被拒只置灰被拒的那个操作：整页操作按钮里只有一个灰的，就是它；「更多」照常可点
+const onlyOff = (scope, act) => `(() => { const off = [...document.querySelectorAll(${JSON.stringify(scope + ' .el-button')})].filter((b) => b.disabled).map((b) => b.innerText.trim())
+  return off.length === 1 && off[0] === ${JSON.stringify(act)} ? '' : '被拒后应只置灰「${act}」，实际置灰：' + (off.join('、') || '没有') })()`
+// 确认框被拒：框不关，原因写在框里、确认按钮置灰
+const boxWhy = (submit, text) => `(() => { const box = document.querySelector('.el-message-box'); if (!box) return '被拒后确认框关掉了'
+  const why = box.querySelector('.msgbox-why'); if (!why?.innerText.includes(${JSON.stringify(text)})) return '确认框里没有写被拒原因'
+  if (getComputedStyle(why).color !== ${tokenColor('--warning-text')}) return '确认框里的被拒原因不是提醒文字色'
+  return ${findBtn(submit, '.el-message-box')}.disabled ? '' : '被拒后确认框的「${submit}」没有置灰' })()`
+// 操作区一排只有一个主按钮，其余是默认按钮（没有浅色主按钮）
+const wbOneMain = `(() => { const bs = [...document.querySelectorAll('#app .d-acts .el-button')]; if (bs.some((b) => b.classList.contains('is-plain'))) return '操作区有浅色主按钮（规范里没有这种按钮）'
+  return bs.filter((b) => b.classList.contains('el-button--primary')).length <= 1 ? '' : '操作区不止一个主按钮' })()`
+// 操作区不盖住详情内容：操作区在详情滚动区下面，且在可视区里
+const wbActsClear = `(() => { const body = document.querySelector('#app .d-body'), acts = document.querySelector('#app .d-acts'); if (!body || !acts) return '详情没有滚动区或操作区'
+  const b = body.getBoundingClientRect(), a = acts.getBoundingClientRect(); if (a.top < b.bottom - 1) return '操作区盖住了详情内容 ' + Math.round(b.bottom - a.top) + 'px'
+  return a.bottom <= innerHeight + 1 ? '' : '操作区在可视区外，要滚动页面才看得到' })()`
+// 没拿到数据时不显示数字：指标数字是「—」、页签不带计数
+const noNums = `(() => { const v = [...document.querySelectorAll('#app .stat-v')].map((e) => e.innerText.trim()).filter((t) => t !== '—'); if (v.length) return '没拿到数据却显示了数字：' + v.join('、')
+  const n = [...document.querySelectorAll('#app .filter-tabs .n')].map((e) => e.innerText.trim()).filter(Boolean); return n.length ? '没拿到数据，页签却有计数：' + n.join('、') : '' })()`
+// 空状态前后自洽：页签计数和指标都是 0（或没有）
+const allZero = `(() => { const n = [...document.querySelectorAll('#app .filter-tabs .n, #app .stat-v')].map((e) => e.innerText.trim()).filter((t) => t && t !== '0' && t !== '—'); return n.length ? '列表是空的，计数却不是 0：' + n.join('、') : '' })()`
+// 只有异常卡的数字用危险色：没有提醒色数字，危险色的数不为 0
+const statTone = `(() => { if (document.querySelector('#app .stat--warn')) return '指标数字用了提醒色'; const z = [...document.querySelectorAll('#app .stat--danger .stat-v')].find((v) => Number(v.innerText.trim()) === 0); return z ? '数字为 0 也用了危险色' : '' })()`
+// 表格行高约 48
+const rowsTall = `(() => { const r = [...document.querySelectorAll('#app .el-table__body tr')].find((tr) => tr.getBoundingClientRect().height < 44); return r ? '表格行高只有 ' + Math.round(r.getBoundingClientRect().height) + 'px：' + r.innerText.slice(0, 12) : '' })()`
+// 断网的轻提示出来之后再截图
+const toastShown = `(async () => { for (let i = 0; i < 40 && !document.querySelector('.el-message--error'); i++) await ${wait(100)}; await ${wait(400)} })()`
 const wbFit = `(() => { const main = document.querySelector('.main').getBoundingClientRect(), q = document.querySelector('#app .queue').getBoundingClientRect(), d = document.querySelector('#app .detail').getBoundingClientRect()
   if (q.right > d.left) return '左列表和右详情重叠'; return d.right <= main.right + 1 ? '' : '右详情超出内容区 ' + Math.round(d.right - main.right) + 'px' })()`
 const wbPick = (k) => `[...document.querySelectorAll('#app .q-item')].at(${k}).click()`
@@ -802,10 +831,10 @@ const wbPicked = (k) => `(() => { const it = [...document.querySelectorAll('#app
   return document.querySelectorAll('#app .q-item.on').length === 1 ? '' : '选中项不止一个' })()`
 const wbTab = (text) => `[...document.querySelectorAll('#app .q-tabs button')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`
 // 筛「待确权」后列表里只剩面试通过的人，条数和标签上的数一致
-const wbFiltered = (text) => `(() => { const tab = [...document.querySelectorAll('#app .q-tabs button')].find((b) => b.innerText.includes(${JSON.stringify(text)})); const n = Number(tab.querySelector('.n').innerText)
+const wbFiltered = (text, re = '确权|签约') => `(() => { const tab = [...document.querySelectorAll('#app .q-tabs button')].find((b) => b.innerText.includes(${JSON.stringify(text)})); const n = Number(tab.querySelector('.n').innerText)
   const items = [...document.querySelectorAll('#app .q-item')]; if (!items.length) return '筛选后列表是空的'
   if (items.length !== Math.min(n, 8)) return '筛选后 ' + items.length + ' 条，标签上写 ' + n
-  const off = items.find((i) => !/确权|签约/.test(i.querySelector('.meta').innerText)); return off ? '筛「${text}」后还有别的阶段：' + off.innerText.slice(0, 20) : '' })()`
+  const off = items.find((i) => !new RegExp(${JSON.stringify(re)}).test(i.querySelector('.meta').innerText)); return off ? '筛「${text}」后还有别的阶段：' + off.innerText.slice(0, 20) : '' })()`
 // Element 确认框的确认按钮连点两次（第二次点的是正在转圈的那个）
 const boxClickTwice = (text) => `(async () => { ${findBtn(text, '.el-message-box')}.click(); await ${wait(300)}; const again = document.querySelector('.el-message-box .el-button.is-loading') ?? ${findBtn(text, '.el-message-box')}; again?.click() })()`
 // ---- 工单 15 表格页 ----
@@ -826,29 +855,28 @@ const tblFit = `(() => { for (const t of document.querySelectorAll('#app .el-tab
     const c = [...t.querySelectorAll('.el-table__body td:not(.is-hidden) > .cell')].find((x) => x.scrollWidth > x.clientWidth + 1 || cut(x)); if (c) return '表格格子内容被截掉：' + c.innerText.replace(/\\s+/g, ' ').slice(0, 20) + '（内容 ' + c.scrollWidth + 'px，格子 ' + c.clientWidth + 'px）' }
   return '' })()`
 // 被拒之后：表格上方写明谁、为什么，这一行的按钮全部置灰，别的行不受影响
-const rowOff = (why) => `(() => { const tip = [...document.querySelectorAll('#app .tbl-tip')].find((e) => e.innerText.includes(${JSON.stringify(why)})); if (!tip) return '被拒的原因没有留在表格上方'
-  const rows = [...document.querySelectorAll('#app .el-table__body tr')].map((tr) => [...tr.querySelectorAll('td.ops-col .el-button')]).filter((bs) => bs.length)
-  const off = rows.filter((bs) => bs.every((b) => b.disabled)); if (off.length !== 1) return '应该只有被拒的那一行按钮置灰，实际 ' + off.length + ' 行'
-  return rows.some((bs) => bs.some((b) => b.disabled) && !bs.every((b) => b.disabled)) ? '有一行按钮只灰了一半' : '' })()`
+// 被拒之后：表格上方用提醒文字色写明谁、为什么，整张表只有被拒的那个按钮置灰
+const rowOff = (why, act) => [whyStays('#app .tbl-tip', why), onlyOff('#app td.ops-col', act)]
 const fillAckAddr = `(() => { const el = document.querySelector('.el-dialog input[placeholder="详细地址"]'); if (el && !el.value.trim()) { el.value = '昆山开发区前进东路 88 号 2 号门'; el.dispatchEvent(new Event('input', { bubbles: true })) } })()`
 const firstAct = (text) => `${findBtn(text, '#app .el-table__body')}.click()`
 // 一张表格页的状态：正常（1440、1280）、加载、空、失败、提交中、被拒；op 是拿来截提交中和被拒的那个操作
+const zeroWb = fakeWb({ pendingAck: 0, pendingInterview: 0, pendingConfirm: 0, windowsDueIn4h: 0, privatePending: 0, arrivedToday: 0 })
 const siteTable = (screen, path, emptyText, op) => {
   const open = op.dialog ? [firstAct(op.act), wait(500), fillAckAddr] : [firstAct(op.act), wait(400)]
   const scope = op.dialog ? '.el-dialog' : '.el-message-box'
   const twice = op.dialog ? elClickTwice(op.submit, scope) : boxClickTwice(op.submit)
   const refused = refuse('APPLICATION_4091', '报名状态已变化，请刷新后再操作')
   return [
-    { app: 'console', screen, state: 'normal', persona: 'site', path, rules: sr(), checks: [cSide('site'), opsCol, cLegacy, noThrottleWord] },
+    { app: 'console', screen, state: 'normal', persona: 'site', path, rules: sr(), checks: [cSide('site'), opsCol, statTone, rowsTall, cLegacy, noThrottleWord] },
     { app: 'console', screen, state: 'normal', persona: 'site', path, width: 1280, height: 800, rules: sr(), checks: [cSide('site'), cFit, opsCol, tblFit] },
     { app: 'console', screen, state: 'loading', persona: 'site', path, rules: sr({ url: TAPPS_API, action: 'hang' }), quick: true, steps: [wait(600)],
-      checks: [`document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`, hasNot(emptyText)] },
-    { app: 'console', screen, state: 'empty', persona: 'site', path, rules: sr({ url: TAPPS_API, action: 'respond', body: emptyPage }), checks: [has(emptyText), cLegacy] },
-    { app: 'console', screen, state: 'error', persona: 'site', path, rules: sr({ url: TAPPS_API, action: 'fail' }), checks: [has('重新加载'), hasNot(emptyText)] },
+      checks: [`document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`, hasNot(emptyText), noNums, hasNot('本月还没有人')] },
+    { app: 'console', screen, state: 'empty', persona: 'site', path, rules: sr({ url: WB_API, action: 'respond', body: zeroWb }, { url: TAPPS_API, action: 'respond', body: emptyPage }), checks: [has(emptyText), allZero, cLegacy] },
+    { app: 'console', screen, state: 'error', persona: 'site', path, rules: sr({ url: TAPPS_API, action: 'fail' }), checks: [has('重新加载'), hasNot(emptyText), noNums, hasNot('本月还没有人'), hasNot('暂无')] },
     { app: 'console', screen, state: 'submitting', persona: 'site', path, rules: sr(), quick: true, steps: [...open, countXhr, twice], checks: [elSpinning(op.submit, scope), sentOnce] },
     { app: 'console', screen, state: 'rejected', persona: 'site', path, rules: sr({ url: op.api, method: 'POST', action: 'respond', body: refused }),
       steps: [...open, `${findBtn(op.submit, scope)}.click()`, elToastGone('报名状态已变化，请刷新后再操作')],
-      checks: [rowOff(op.why), ...(op.dialog ? [stays('.el-dialog .form-err', op.why + '：报名状态已变化'), `${findBtn(op.submit, '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「${op.submit}」没有置灰'`] : []), elIdle] },
+      checks: [...rowOff(op.why, op.act), ...(op.dialog ? [stays('.el-dialog .blocked-why', op.why + '：报名状态已变化'), `${findBtn(op.submit, '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「${op.submit}」没有置灰'`] : [boxWhy(op.submit, op.why + '：报名状态已变化')]), elIdle] },
   ]
 }
 const C_LOGIN_API = '/tenant/auth/sms-login', C_SMS_API = '/tenant/auth/sms-code', C_CAPTCHA_API = '/tenant/auth/captcha'
@@ -1651,27 +1679,35 @@ const STATES = [
 
   // ---- 工单 15：驻场工作台（左今日待办 + 右选中人详情）----
   { app: 'console', screen: 'site-home', state: 'normal', persona: 'site', path: '/site/home', rules: sr(),
-    checks: [cSide('site'), wbKpis, wbSorted, wbNoGap, wbDetail, wbOps, wbUrgent, cLegacy, noThrottleWord] },
-  { app: 'console', screen: 'site-home', state: 'normal', persona: 'site', path: '/site/home', width: 1280, height: 800, rules: sr(), checks: [cSide('site'), wbKpis, wbKpiAligned, wbNoGap, wbFit] },
-  { app: 'console', screen: 'site-home', state: 'selected', persona: 'site', path: '/site/home', rules: sr(), steps: [wbPick(-1)], checks: [wbPicked(-1), wbDetail, wbOps] },
-  { app: 'console', screen: 'site-home', state: 'filtered', persona: 'site', path: '/site/home', rules: sr(), steps: [wbTab('待确权')], checks: [wbFiltered('待确权'), wbNoGap, wbDetail] },
+    checks: [cSide('site'), wbKpis, wbSorted, wbNoGap, wbDetail, wbOps, wbOneMain, wbActsClear, wbUrgent, statTone, cLegacy, noThrottleWord] },
+  { app: 'console', screen: 'site-home', state: 'normal', persona: 'site', path: '/site/home', width: 1280, height: 800, rules: sr(), checks: [cSide('site'), wbKpis, wbKpiAligned, wbNoGap, wbFit, wbActsClear] },
+  { app: 'console', screen: 'site-home', state: 'selected', persona: 'site', path: '/site/home', rules: sr(), steps: [wbPick(-1)], checks: [wbPicked(-1), wbDetail, wbOps, wbOneMain, wbActsClear] },
+  { app: 'console', screen: 'site-home', state: 'filtered', persona: 'site', path: '/site/home', rules: sr(), steps: [wbTab('待确权')], checks: [wbFiltered('待确权'), wbNoGap, wbDetail, wbActsClear] },
+  { app: 'console', screen: 'site-home', state: 'filtered-pushed', persona: 'site', path: '/site/home', rules: sr(), steps: [wbTab('已推送')], checks: [wbFiltered('已推送', '已推送，待到厂')] },
   { app: 'console', screen: 'site-home', state: 'loading', persona: 'site', path: '/site/home', rules: sr({ url: WB_API, action: 'hang' }, { url: TAPPS_API, action: 'hang' }), quick: true,
-    steps: [wait(600)], checks: [`document.querySelector('#app .queue .el-loading-mask') ? '' : '加载中左列表没有加载遮罩'`] },
+    steps: [wait(600)], checks: [`(() => { const m = [...document.querySelectorAll('#app .el-loading-mask')]; return m.length === 1 && m[0].parentElement.classList.contains('wb-body') ? '' : '加载中应只有指标和分栏共用的一个遮罩，实际 ' + m.length + ' 个' })()`,
+      hasNot('没有选中的报名'), hasNot('暂无待办'), noNums] },
   { app: 'console', screen: 'site-home', state: 'empty', persona: 'site', path: '/site/home', rules: sr({ url: WB_API, action: 'respond', body: fakeWb({ pendingAck: 0, pendingInterview: 0, pendingConfirm: 0, privatePending: 0 }) }, { url: TAPPS_API, action: 'respond', body: emptyPage }),
-    checks: [has('暂无待办，干得漂亮'), has('没有选中的报名'), wbNoGap] },
+    checks: [has('暂无待办，干得漂亮'), has('没有选中的报名'), wbNoGap, allZero] },
   { app: 'console', screen: 'site-home', state: 'error', persona: 'site', path: '/site/home', rules: sr({ url: WB_API, action: 'fail' }, { url: TAPPS_API, action: 'fail' }),
-    checks: [has('重新加载'), `document.querySelectorAll('#app button').length && [...document.querySelectorAll('#app button')].filter((b) => b.innerText.includes('重新加载')).length >= 2 ? '' : '指标和左列表都要有「重新加载」'`] },
+    checks: [`(() => { const n = [...document.querySelectorAll('#app button')].filter((b) => b.innerText.includes('重新加载')).length; return n === 1 ? '' : '失败时应只有一个「重新加载」，实际 ' + n + ' 个' })()`,
+      has('暂时看不到报名详情'), hasNot('没有选中的报名'), hasNot('暂无待办'), noNums] },
+  // 匹配记录（和求职画像同一个接口）加载失败：两块都写明失败、给重新加载，不整块消失
+  { app: 'console', screen: 'site-home', state: 'insight-error', persona: 'site', path: '/site/home', rules: sr({ url: '/insight', action: 'fail' }),
+    checks: [`(() => { const bs = [...document.querySelectorAll('#app .d-blk')].filter((b) => ['匹配记录', '求职画像'].includes(b.querySelector('h4')?.innerText.trim()))
+      if (bs.length !== 2) return '匹配记录失败后求职画像那块不见了'; return bs.every((b) => [...b.querySelectorAll('button')].some((x) => x.innerText.includes('重新加载'))) ? '' : '匹配记录或求职画像没有「重新加载」' })()`] },
   // 提交中：确认框里的确认按钮转圈，连点两次只发一条（写请求一律挂住）
   { app: 'console', screen: 'site-home', state: 'submitting', persona: 'site', path: '/site/home', rules: sr(), quick: true,
     steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), countXhr, boxClickTwice('确认到厂')], checks: [elSpinning('确认到厂', '.el-message-box'), sentOnce] },
-  // 被拒：确认框关掉后原因留在详情的操作区上方，这个人的按钮置灰
+  // 被拒：确认框不关、原因写在框里；详情操作区上方也留原因，只置灰「到厂确认」
   { app: 'console', screen: 'site-home', state: 'rejected', persona: 'site', path: '/site/home', rules: sr({ url: '/arrive', method: 'POST', action: 'respond', body: refuse('APPLICATION_4091', '报名状态已变化，请刷新后再操作') }),
     steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), `${findBtn('确认到厂', '.el-message-box')}.click()`, elToastGone('报名状态已变化，请刷新后再操作')],
-    checks: [stays('#app .d-acts .form-err', '暂时不能到厂确认：报名状态已变化，请刷新后再操作'), wbActsOff, elIdle] },
+    checks: [whyStays('#app .d-acts .blocked-why', '暂时不能到厂确认：报名状态已变化，请刷新后再操作'), onlyOff('#app .d-acts', '到厂确认'), boxWhy('确认到厂', '暂时不能到厂确认'), elIdle] },
   // 网络失败不置灰，可以直接重试
   { app: 'console', screen: 'site-home', state: 'network', persona: 'site', path: '/site/home', rules: sr({ url: '/arrive', method: 'POST', action: 'fail' }),
-    steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), `${findBtn('确认到厂', '.el-message-box')}.click()`, wait(800)],
-    checks: [`document.querySelector('#app .d-acts .form-err') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn('到厂确认', '#app .d-acts')}.disabled ? '网络失败后按钮被置灰了' : ''`] },
+    steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), `${findBtn('确认到厂', '.el-message-box')}.click()`, toastShown],
+    checks: [`document.querySelector('.el-message--error') ? '' : '截图时看不到断网的轻提示'`, `document.querySelector('#app .d-acts .blocked-why, .msgbox-why') ? '网络失败也把原因当成被拒留下了' : ''`,
+      `${findBtn('到厂确认', '#app .d-acts')}.disabled ? '网络失败后按钮被置灰了' : ''`, `${findBtn('确认到厂', '.el-message-box')}?.disabled === false ? '' : '网络失败后确认框关了或确认按钮被置灰'`] },
   // ---- 工单 15：待办清单、24h 响应监控、确权与签约（第 2 / 2 / 8 类：表格，操作列文字按钮）----
   ...siteTable('site-todo', '/site/todo', '暂无待知悉', { act: '知悉推送', api: '/acknowledge', dialog: true, submit: '知悉并推送', why: '暂时不能知悉推送' }),
   // 「待面试」页有「修改面试信息」，是操作列最宽的情况
