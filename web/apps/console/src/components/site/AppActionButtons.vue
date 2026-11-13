@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { SiteApplicationAction as Action } from '@shitu/api-client'
+import { actionsColWidth } from '@/utils/actionsWidth'
 
 /** 按钮文字；被拒原因「暂时不能…」也用它（AppActionDialogs） */
 export const ACTION_LABEL: Record<Action, string> = {
@@ -18,19 +19,15 @@ export const ACTION_LABEL: Record<Action, string> = {
 export const PRIMARY_ACTIONS: Action[] = ['ACKNOWLEDGE', 'REPUSH', 'ARRIVE', 'PASS', 'CONFIRM', 'RESEND_CONTRACT']
 export const MORE_ACTIONS: Action[] = ['FAIL', 'NO_SHOW', 'CANCEL']
 
-/**
- * 表格操作列（文字按钮）的宽度：按这一页实际要出的按钮算，最宽的那一行刚好放下、不折行。
- * 固定写最宽的组合（「修改面试信息」+ 两个 + 更多）时，1280 宽下其他列会被挤到横向滚动里。
- * 实测（小号文字按钮）：每个汉字 13.5px，「更多」加箭头 48px，按钮间距 8px，单元格左右内边距共 24px。
- */
-export function actionsColWidth(apps: { allowedActions: string[] }[], min = 96): number {
-  const widths = apps.map((a) => {
-    const shown = PRIMARY_ACTIONS.filter((x) => a.allowedActions.includes(x))
-    const more = MORE_ACTIONS.some((x) => a.allowedActions.includes(x))
-    const n = shown.length + (more ? 1 : 0)
-    return 24 + shown.reduce((w, x) => w + Math.ceil(ACTION_LABEL[x].length * 13.5), 0) + (more ? 48 : 0) + Math.max(0, n - 1) * 8
-  })
-  return Math.max(min, ...widths)
+/** 报名行操作列宽：按这一页实际要出的按钮算（公式见 utils/actionsWidth.ts，流转池、费用账单共用） */
+export function appActionsColWidth(apps: { allowedActions: string[] }[], min = 96): number {
+  return actionsColWidth(
+    apps.map((a) => ({
+      labels: PRIMARY_ACTIONS.filter((x) => a.allowedActions.includes(x)).map((x) => ACTION_LABEL[x]),
+      more: MORE_ACTIONS.some((x) => a.allowedActions.includes(x)),
+    })),
+    min,
+  )
 }
 </script>
 

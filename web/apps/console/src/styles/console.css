@@ -174,6 +174,7 @@ a { color: inherit; text-decoration: none; }
 .state-box > svg { color: var(--text-3); }
 .state-box h4 { margin: var(--space-2) 0 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .state-box p { margin: 0 0 var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+.state-box .blocked-why { color: var(--warning-text); }
 /* 详情抽屉的分块（第 5 类）：16px / 600 的块标题，字段用两列的描述列表 */
 .blk + .blk { margin-top: var(--space-6); }
 .blk-t { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
@@ -184,4 +185,4 @@ a { color: inherit; text-decoration: none; }
 .desc-list dd { margin: 0; font-size: var(--font-size-body); color: var(--text-1); }
 /* 图表图例（第 10 类）：色块 + 12px 二级文字 */
 .chart-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--font-size-min); color: var(--text-2); }
-.chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: var(--space-1); }
+.chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: var(--radius-tag); margin-right: var(--space-1); }

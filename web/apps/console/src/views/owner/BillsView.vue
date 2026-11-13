@@ -7,7 +7,8 @@ import { errorMessage, tenantApi, type MonthlyBill } from '@shitu/api-client'
 import { IconArrowLeftRight, IconBanknote, IconCircleExclamationPoint, IconInfo, IconReceipt, IconWallet } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import { boxSubmit } from '@/composables/boxSubmit'
-import { fmtDate, fmtSigned, fmtYuan } from '@/utils/format'
+import { actionsColWidth } from '@/utils/actionsWidth'
+import { fmtDate, fmtSigned } from '@/utils/format'
 import { parseLocal } from '@/utils/time'
 import BillDetailDrawer from './BillDetailDrawer.vue'
 
@@ -83,8 +84,8 @@ function openDetail(b: MonthlyBill) {
   drawer.billId = b.billId
   drawer.visible = true
 }
-/** 操作列宽按这一页实际会出的按钮算（本页实测：文字按钮每个字约 16px、按钮间距 8px、格子内边距 24px），1280 宽不横向滚动 */
-const opsWidth = computed(() => Math.max(80, ...list.value.map((b) => 24 + 2 * 16 + (canDispute(b) ? 8 + 4 * 16 : 0))))
+/** 操作列宽按这一页实际会出的按钮算（utils/actionsWidth.ts），1280 宽不横向滚动 */
+const opsWidth = computed(() => actionsColWidth(list.value.map((b) => ({ labels: canDispute(b) ? ['明细', '提出异议'] : ['明细'] })), 80))
 function rowClass({ row }: { row: MonthlyBill }) {
   return row.billId === selected.value?.billId ? 'row-sel' : ''
 }
@@ -128,7 +129,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <div class="stat stat--icon stat--signal">
           <IconBanknote :size="20" class="stat-i" />
           <div class="stat-l">本月应付合计</div>
-          <div class="stat-v money total">{{ fmtYuan(selected.payable) }}</div>
+          <div class="stat-v money total">{{ fmtSigned(selected.payable, 'out') }}</div>
           <div class="stat-d">服务费 + 应付流转费 · 结算截止 {{ fmtDate(selected.settleDeadline) }}</div>
         </div>
       </div>
@@ -158,13 +159,13 @@ function rowClass({ row }: { row: MonthlyBill }) {
           <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferReceivable, 'in') }}</span></template>
         </el-table-column>
         <el-table-column label="应付合计" min-width="110" align="right">
-          <template #default="{ row }"><span class="money">{{ fmtYuan(row.payable) }}</span></template>
+          <template #default="{ row }"><span class="money">{{ fmtSigned(row.payable, 'out') }}</span></template>
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><DictTag type="BillStatus" :value="row.status" /></template>
         </el-table-column>
         <el-table-column label="异议截止" width="104">
-          <template #default="{ row }"><span class="code" :class="{ due: canDispute(row) }">{{ fmtDate(row.disputeDeadline) }}</span></template>
+          <template #default="{ row }"><span class="code" :class="{ due: canDispute(row) }">{{ fmtDate(row.disputeDeadline) }}</span><div v-if="canDispute(row)" class="due-t">异议期内</div></template>
         </el-table-column>
         <el-table-column label="结算截止" width="104">
           <template #default="{ row }"><span class="code">{{ fmtDate(row.settleDeadline) }}</span></template>
@@ -189,6 +190,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
             <h4>暂无账单</h4>
             <p>每月最后一天自动生成，平台下发后会出现在这里</p>
           </div>
+          <span v-else />
         </template>
       </el-table>
       <div v-if="page.total > page.pageSize" class="pager">
@@ -239,12 +241,14 @@ function rowClass({ row }: { row: MonthlyBill }) {
 .code { font-family: var(--font-mono); font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-1); white-space: nowrap; }
 b.code { font-weight: var(--font-weight-semibold); }
 .due { color: var(--warning-text); }
+.due-t { font-size: var(--font-size-min); color: var(--warning-text); }
 .acts { display: inline-flex; gap: var(--space-2); justify-content: flex-end; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
 .explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
 .para { margin: var(--space-3) 0 0; font-size: var(--font-size-aux); line-height: 1.8; color: var(--text-2); }
 .para b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
-:deep(.row-sel) { --el-table-tr-bg-color: var(--primary-bg); }
+/* 选中的账单用中性浅底，不和「已下发」等信息色标签融在一起 */
+:deep(.row-sel) { --el-table-tr-bg-color: var(--bg-hover); }
 :deep(.el-table__row) { cursor: pointer; }
 /* 表格行高约 48（规范 Key Components 表格） */
 .tbl-card :deep(.el-table__body .el-table__cell) { height: 48px; }

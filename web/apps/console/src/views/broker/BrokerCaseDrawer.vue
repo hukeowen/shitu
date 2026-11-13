@@ -43,7 +43,7 @@ async function loadReport(id: number) {
 }
 async function generate() {
   const r = props.row
-  if (!r) return
+  if (!r || generating.value || why.report) return
   generating.value = true
   try {
     report.value = await tenantApi.brokerReport(r.id)
@@ -353,4 +353,10 @@ watch(active, (t) => {
 .reasons { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 .danger { color: var(--danger-text); }
 .ok { color: var(--success-text); }
+</style>
+
+<style>
+/* 抽屉挂在 body 上：标题用区块标题样式（同消息抽屉），标题下不留大块空白 */
+.case-drawer .el-drawer__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.case-drawer .el-drawer__header { margin-bottom: 0; }
 </style>

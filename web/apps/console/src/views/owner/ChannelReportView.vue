@@ -147,10 +147,13 @@ const STAGES = [
         <el-table-column label="注册→入职" width="100" align="right">
           <template #default="{ row }"><b>{{ pct(row.hired, row.registrations) }}</b></template>
         </el-table-column>
-        <el-table-column label="漏斗" min-width="140">
+        <el-table-column label="漏斗" min-width="150">
           <template #default="{ row }">
             <div class="mini">
-              <i v-for="s in STAGES" :key="s.key" :style="{ width: `${barW(row, s.key)}%`, background: s.color }" :title="`${s.label} ${row[s.key]}`" />
+              <template v-for="s in STAGES" :key="s.key">
+                <span class="mini-l">{{ s.label }}</span>
+                <span class="mini-t"><i :style="{ width: `${barW(row, s.key)}%`, background: s.color }" :title="`${s.label} ${row[s.key]}`" /></span>
+              </template>
             </div>
           </template>
         </el-table-column>
@@ -166,6 +169,7 @@ const STAGES = [
             <h4>{{ keyword ? '没有符合条件的渠道' : '暂无渠道码' }}</h4>
             <p>{{ keyword ? '换个渠道名称、渠道码、归属人或项目再试' : '可在「渠道二维码」中创建，扫码带来的访问和注册会统计在这里' }}</p>
           </div>
+          <span v-else />
         </template>
       </el-table>
       <div class="card__ft hint">各列下方小字为相邻上一阶段的转化率；「注册→入职」为整体转化率。报名 / 入职按该渠道注册用户去重计。</div>
@@ -188,7 +192,7 @@ const STAGES = [
           </div>
           <p v-if="ready && !top.length" class="hint">暂无数据</p>
           <p v-else-if="loadError" class="hint">报表加载失败，重新加载后显示</p>
-          <div class="chart-legend">
+          <div v-if="top.length" class="chart-legend">
             <span v-for="s in STAGES" :key="s.key"><i :style="{ background: s.color }" />{{ s.label }}</span>
           </div>
         </div>
@@ -213,14 +217,15 @@ const STAGES = [
 .hint b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
 .cname { color: var(--text-1); font-weight: var(--font-weight-semibold); }
 .code { font-family: var(--font-mono); font-size: var(--font-size-min); color: var(--text-3); }
-.mini { display: flex; flex-direction: column; gap: 2px; }
-.mini i { display: block; height: 4px; border-radius: 2px; }
+/* 每条前面写阶段名，不只靠颜色区分（各阶段人数在左边几列） */
+.mini { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 var(--space-2); font-size: var(--font-size-min); line-height: 1.3; color: var(--text-3); }
+.mini-t i { display: block; height: 4px; border-radius: var(--radius-tag); }
 .explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
 .chart { min-height: 120px; }
 .fn { margin-bottom: var(--space-4); }
 .fn-h { display: flex; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
 .fn-n { font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
-.fn-b { display: flex; gap: 2px; height: 12px; border-radius: var(--radius-tag); overflow: hidden; }
+.fn-b { display: flex; gap: var(--space-1); height: 12px; border-radius: var(--radius-tag); overflow: hidden; }
 .fn-b i { display: block; min-width: 3px; }
 /* 数值标签 12px 二级文字，写在条形下面（白字压在图表色上对比度不够） */
 .fn-v { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-2); font-variant-numeric: tabular-nums; }

@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { errorMessage, tenantApi, type SiteApplication, type SiteApplicationAction, type SiteWorkbench, type TimeoutReleases } from '@shitu/api-client'
 import { IconCircleCheck, IconCircleExclamationPoint, IconClock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL, actionsColWidth } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons, { ACTION_LABEL, appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -55,7 +55,7 @@ const counts = computed(() => {
   return c
 })
 const rows = computed(() => (bucket.value ? windowed.value.filter((a) => bucketOf(a) === bucket.value) : windowed.value))
-const opsWidth = computed(() => actionsColWidth(rows.value))
+const opsWidth = computed(() => appActionsColWidth(rows.value))
 
 async function load() {
   loading.value = true

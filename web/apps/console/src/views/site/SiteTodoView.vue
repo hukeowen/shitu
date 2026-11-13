@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type ApplicationStatus, type SiteApplication, type SiteApplicationAction, type SiteWorkbench } from '@shitu/api-client'
 import { IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL, actionsColWidth } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons, { ACTION_LABEL, appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import ApplicantInsightDrawer from '@/components/site/ApplicantInsightDrawer.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
@@ -48,7 +48,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 }
 
 const current = computed(() => TABS.find((t) => t.key === tab.value) ?? TABS[0])
-const opsWidth = computed(() => actionsColWidth(list.value))
+const opsWidth = computed(() => appActionsColWidth(list.value))
 
 async function load() {
   loading.value = true

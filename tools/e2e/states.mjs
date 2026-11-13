@@ -915,13 +915,12 @@ const chartTokens = `[${[1, 2, 3, 4, 5, 6].map((i) => bgToken('--chart-' + i)).j
 // 图形只用图表分类色
 const chartColors = (sel) => `(() => { const ok = ${chartTokens}, els = [...document.querySelectorAll(${JSON.stringify(sel)})]; if (!els.length) return '没有图形（${sel}）'
   const off = els.find((e) => !ok.includes(getComputedStyle(e).backgroundColor)); return off ? '图形没用图表配色：' + getComputedStyle(off).backgroundColor : '' })()`
-// 金额：套 .money（句中的套 .money-in），颜色是一级文字（合计可以用主色），不靠红绿区分；表格里的金额右对齐。合计行由 Element 画，只查对齐
+// 金额：套 .money（句中的套 .money-in，表格合计行也套），颜色是一级文字（合计可以用主色），不靠红绿区分；表格里的金额右对齐
 const cMoney = (scope = '#app') => `(() => { const ok = [${tokenColor('--text-1')}, ${tokenColor('--primary-text')}]
   const els = [...document.querySelectorAll(${JSON.stringify(scope + ' *')})].filter((e) => e.getClientRects().length && [...e.childNodes].some((n) => n.nodeType === 3 && /¥\\d/.test(n.textContent)))
   if (!els.length) return '页面上没有金额'
   for (const e of els) { const t = e.textContent.trim(), td = e.closest('td')
     if (td && !td.classList.contains('is-right')) return '表格里的金额没右对齐：' + t
-    if (e.closest('.el-table__footer')) continue
     if (!e.closest('.money, .money-in')) return '金额没套金额类：' + t
     if (!ok.includes(getComputedStyle(e).color)) return '金额不是一级文字色（靠颜色区分收支）：' + t + ' ' + getComputedStyle(e).color }
   return '' })()`
@@ -950,6 +949,11 @@ const oneRetry = `(() => { const n = [...document.querySelectorAll('#app button'
 const fillBox = (text) => `(() => { const el = document.querySelector('.el-message-box textarea'); el.value = ${JSON.stringify(text)}; el.dispatchEvent(new Event('input', { bubbles: true })) })()`
 const openDispute = [`${findBtn('提出异议', '#app .el-table__body')}.click()`, wait(400), fillBox('10 月 12 日在岗人数应为 53 人，账单按 54 人计费')]
 const openCase = (text = 'AI 报告') => [`${findBtn(text, '#app .el-table__body')}.click()`, wait(600)]
+// 推荐页签：选第一个招聘中的岗位
+const pickJob = [...openCase('推荐岗位'), `document.querySelector('.case-drawer .el-select__wrapper').click()`, wait(400),
+  `[...document.querySelectorAll('.el-select-dropdown__item')].find((x) => x.getClientRects().length && !x.classList.contains('is-disabled')).click()`, wait(300)]
+const genBtn = `[...document.querySelectorAll('.case-drawer button')].find((b) => /生成报告|重新生成/.test(b.innerText))`
+const drawerIdle = `document.querySelector('.case-drawer .el-button.is-loading') ? '被拒之后抽屉里的按钮还在转' : ''`
 const toRelease = [...openCase(), `document.querySelector('.case-drawer #tab-release').click()`, wait(300), `document.querySelector('.case-drawer .el-radio').click()`, wait(200),
   `${findBtn('确认释放', '.case-drawer')}.click()`, wait(400)]
 // 财务三页、看板、报表：正常（1440、1280）、加载、空、失败
@@ -963,10 +967,25 @@ const cFitAny = `(() => { const side = document.querySelector('.side').getBoundi
 // 空状态前后自洽：指标和页签计数都是 0（金额是 ¥0.00）；keep 是不跟这份数据走的卡（如诚信分）
 const zeroBut = (keep = '') => `(() => { const n = [...document.querySelectorAll('#app .filter-tabs .n'), ...[...document.querySelectorAll('#app .stat')].filter((s) => !${JSON.stringify(keep)} || !s.innerText.includes(${JSON.stringify(keep)})).map((s) => s.querySelector('.stat-v'))]
     .map((e) => e.innerText.trim()).filter((t) => t && !['0', '—', '¥0.00', '¥0.00 / 天'].includes(t)); return n.length ? '列表是空的，计数却不是 0：' + n.join('、') : '' })()`
+// 金额的方向：负数（冲减）也写对（在页面里直接取 utils/format.ts 的 fmtSigned）
+const signedCases = `(async () => { const { fmtSigned } = await import('/src/utils/format.ts')
+  const cases = [[248, 'in', '+¥248.00'], [620, 'out', '−¥620.00'], [-8, 'in', '−¥8.00'], [-20, 'out', '+¥20.00'], [0, 'out', '¥0.00']]
+  const bad = cases.find(([n, d, want]) => fmtSigned(n, d) !== want); return bad ? 'fmtSigned(' + bad[0] + ', ' + bad[1] + ') 应为 ' + bad[2] + '，实际 ' + fmtSigned(bad[0], bad[1]) : '' })()`
+// 底部合计和行的符号一致
+const footSign = (want) => `(() => { const t = document.querySelector('#app .card__ft')?.innerText ?? ''; return t.includes('本月合计') && t.includes(${JSON.stringify(want)}) ? '' : '底部合计和行的符号不一致：' + t.replace(/\s+/g, ' ') })()`
+// 选中的账单行不用主色浅底（和信息色标签融成一片）
+const selTone = `(() => { const r = document.querySelector('#app .row-sel'); if (!r) return '没有选中的账单行'; const bg = ${bgToken('--primary-bg')}
+  return [r, ...r.querySelectorAll('td')].some((e) => getComputedStyle(e).backgroundColor === bg) ? '选中行铺了主色浅底' : '' })()`
+// 渠道报表的迷你漏斗：每条前面写阶段名，不只靠颜色
+const funnelText = `(() => { const ls = [...document.querySelectorAll('#app .mini')].map((m) => [...m.querySelectorAll('.mini-l')].map((x) => x.innerText.trim()).join('/'))
+  if (!ls.length) return '没有迷你漏斗'; return ls.every((t) => t === '访问/注册/报名/入职') ? '' : '迷你漏斗没写阶段名：' + ls[0] })()`
+// 格子里的文字不折行（如 1280 宽下的手机号）
+const noWrap = (sel) => `(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => { const cs = getComputedStyle(x); return x.getBoundingClientRect().height > (parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2) * 1.5 })
+  return e ? '文字折行了：' + e.innerText : '' })()`
 const ownerPage = (screen, path, api, { fake, empty, emptyText, checks = [], wide = [], nums = noNums, errNot = ['暂无'], keep = '', fit = cFitAny }) => [
   { app: 'console', screen, state: 'normal', persona: 'owner', path, rules: sr(...(fake ?? [])), checks: [cSide('owner'), kpiCards, tblFit, statTone, cLegacy16, noThrottleWord, ...checks] },
   { app: 'console', screen, state: 'normal', persona: 'owner', path, width: 1280, height: 800, rules: sr(...(fake ?? [])), checks: [cSide('owner'), fit, kpiCards, tblFit, ...wide] },
-  { app: 'console', screen, state: 'loading', persona: 'owner', path, rules: sr({ url: api, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask, nums, hasNot(emptyText)] },
+  { app: 'console', screen, state: 'loading', persona: 'owner', path, rules: sr({ url: api, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask, nums, hasNot(emptyText), hasNot('暂无')] },
   { app: 'console', screen, state: 'empty', persona: 'owner', path, rules: sr({ url: api, action: 'respond', body: empty }), checks: [has(emptyText), zeroBut(keep), cLegacy16] },
   { app: 'console', screen, state: 'error', persona: 'owner', path, rules: sr({ url: api, action: 'fail' }), checks: [oneRetry, nums, hasNot(emptyText), ...errNot.map(hasNot)] },
 ]
@@ -1812,9 +1831,9 @@ const STATES = [
     checks: [has('本月已有 3 人因超时被释放到公域'), cLegacy] },
   // ---- 工单 16：流转池（第 4 类：表格 + 工单抽屉），经纪人看 ----
   { app: 'console', screen: 'broker-pool', state: 'normal', persona: 'broker', path: '/broker/pool', rules: sr(), checks: [cSide('broker'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord] },
-  { app: 'console', screen: 'broker-pool', state: 'normal', persona: 'broker', path: '/broker/pool', width: 1280, height: 800, rules: sr(), checks: [cSide('broker'), cFit, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'broker-pool', state: 'normal', persona: 'broker', path: '/broker/pool', width: 1280, height: 800, rules: sr(), checks: [cSide('broker'), cFit, kpiCards, opsCol, tblFit, noWrap('#app .person .t-xs'), has('流转于')] },
   { app: 'console', screen: 'broker-pool', state: 'rematch', persona: 'broker', path: '/broker/rematch', rules: sr(), checks: [has('二次匹配与释放在工单详情中操作'), opsCol, cLegacy16] },
-  { app: 'console', screen: 'broker-pool', state: 'loading', persona: 'broker', path: '/broker/pool', rules: sr({ url: CASES_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask, noNums, hasNot('流转池暂无工单')] },
+  { app: 'console', screen: 'broker-pool', state: 'loading', persona: 'broker', path: '/broker/pool', rules: sr({ url: CASES_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask, noNums, hasNot('流转池暂无工单'), hasNot('暂无')] },
   { app: 'console', screen: 'broker-pool', state: 'empty', persona: 'broker', path: '/broker/pool', rules: sr({ url: CASES_API, action: 'respond', body: reply([]) }), checks: [has('流转池暂无工单'), allZero, cLegacy16] },
   { app: 'console', screen: 'broker-pool', state: 'error', persona: 'broker', path: '/broker/pool', rules: sr({ url: CASES_API, action: 'fail' }), checks: [oneRetry, noNums, hasNot('流转池暂无工单')] },
   // 标记已联系：确认框里提交，连点只发一条；被拒时框不关、原因写在框里，表格上方留原因、只置灰这一条的「标记已联系」
@@ -1833,17 +1852,30 @@ const STATES = [
   { app: 'console', screen: 'broker-drawer', state: 'release-rejected', persona: 'broker', path: '/broker/pool', rules: sr({ url: '/release', method: 'POST', action: 'respond', body: refuse('LC_4001', '工单已结束') }),
     steps: [...toRelease, `${findBtn('确认释放', '.el-message-box')}.click()`, elToastGone('工单已结束')],
     checks: [boxWhy('确认释放', '暂时不能释放：工单已结束'), whyStays('.case-drawer .blocked-why', '暂时不能释放：工单已结束'), `${findBtn('确认释放', '.case-drawer')}.disabled ? '' : '被拒后抽屉里的「确认释放」没有置灰'`] },
+  // 抽屉里的推送推荐、生成报告：提交中只转这一个、连点只发一条；被拒时原因留在抽屉里、按钮置灰
+  { app: 'console', screen: 'broker-drawer', state: 'recommend-submitting', persona: 'broker', path: '/broker/pool', rules: sr(), quick: true,
+    steps: [...pickJob, countXhr, elClickTwice('推送推荐给用户', '.case-drawer')], checks: [elSpinning('推送推荐给用户', '.case-drawer'), sentOnce] },
+  { app: 'console', screen: 'broker-drawer', state: 'recommend-rejected', persona: 'broker', path: '/broker/pool', rules: sr({ url: '/recommend', method: 'POST', action: 'respond', body: refuse('LC_4001', '工单已结束') }),
+    steps: [...pickJob, `${findBtn('推送推荐给用户', '.case-drawer')}.click()`, elToastGone('工单已结束')],
+    checks: [whyStays('.case-drawer .blocked-why', '暂时不能推送推荐：工单已结束'), `${findBtn('推送推荐给用户', '.case-drawer')}.disabled ? '' : '被拒后「推送推荐给用户」没有置灰'`, drawerIdle] },
+  { app: 'console', screen: 'broker-drawer', state: 'report-submitting', persona: 'broker', path: '/broker/pool', rules: sr(), quick: true,
+    steps: [...openCase(), countXhr, `(async () => { ${genBtn}.click(); await ${wait(300)}; (document.querySelector('.case-drawer .el-button.is-loading') ?? ${genBtn}).click() })()`],
+    checks: [`(() => { const b = [...document.querySelectorAll('.case-drawer .el-button.is-loading')]; return b.length === 1 && /生成报告|重新生成/.test(b[0].innerText) ? '' : '提交中应当只有生成报告在转，实际 ' + b.length + ' 个' })()`, sentOnce] },
+  { app: 'console', screen: 'broker-drawer', state: 'report-rejected', persona: 'broker', path: '/broker/pool', rules: sr({ url: '/report', method: 'POST', action: 'respond', body: refuse('LC_4001', '工单已结束') }),
+    steps: [...openCase(), `${genBtn}.click()`, elToastGone('工单已结束')],
+    checks: [whyStays('.case-drawer .blocked-why', '暂时不能生成报告：工单已结束'), `${genBtn}.disabled ? '' : '被拒后生成报告按钮没有置灰'`, drawerIdle] },
   // ---- 工单 16：流转账本、流转人员、费用账单（第 9 类）----
-  ...ownerPage('ledger', '/circulation/ledger', LEDGER_API, { fake: [{ url: LEDGER_API, action: 'respond', body: fakeCircLedger }], empty: reply([]), emptyText: '本月无记录',
-    checks: [cMoney(), cSigns(), rowsTall], wide: [cMoney()] }),
+  ...ownerPage('ledger', '/circulation/ledger', LEDGER_API, { fake: [{ url: LEDGER_API, action: 'respond', body: fakeCircLedger }], empty: reply([]), emptyText: '没有流转记录',
+    checks: [cMoney(), cSigns(), rowsTall, signedCases], wide: [cMoney()] }),
   ...ownerPage('circulation-people', '/circulation/people', PEOPLE_API, { fake: [{ url: PEOPLE_API, action: 'respond', body: fakePeople }], empty: reply([]), emptyText: '目前没有我司引入、在别的公司任职的人',
     checks: [cMoney(), cSigns()] }),
   { app: 'console', screen: 'circulation-people', state: 'in', persona: 'owner', path: '/circulation/people', width: 1280, height: 800, rules: sr({ url: PEOPLE_API, action: 'respond', body: fakePeople }),
     steps: [`[...document.querySelectorAll('#app .filter-tabs button')][1].click()`], checks: [has('鑫诚劳务'), tblFit, cMoney()] },
   { app: 'console', screen: 'circulation-people', state: 'ended', persona: 'owner', path: '/circulation/people', width: 1280, height: 800, rules: sr({ url: PEOPLE_API, action: 'respond', body: fakePeople }),
-    steps: [`[...document.querySelectorAll('#app .filter-tabs button')][2].click()`], checks: [has('流入 · 我付'), tblFit, cMoney()] },
+    steps: [`[...document.querySelectorAll('#app .filter-tabs button')][2].click()`], checks: [has('流入 · 我付'), tblFit, cMoney(), footSign('−¥180.00'),
+      `document.querySelector('#app .el-table__body .status-tag--danger') ? '「流入 · 我付」是正常方向，不该用危险色' : ''`] },
   ...ownerPage('bills', '/owner/bills', BILLS_API, { fake: [{ url: BILLS_API, action: 'respond', body: fakeBills }], empty: emptyPage, emptyText: '暂无账单', fit: cFit,
-    checks: [opsCol, rowsTall, cMoney(), cSigns()], wide: [opsCol, cMoney()] }),
+    checks: [opsCol, rowsTall, cMoney(), cSigns(), has('异议期内'), selTone], wide: [opsCol, cMoney()] }),
   { app: 'console', screen: 'bills', state: 'submitting', persona: 'owner', path: '/owner/bills', rules: sr({ url: BILLS_API, action: 'respond', body: fakeBills }), quick: true,
     steps: [...openDispute, countXhr, boxClickTwice('提交异议')], checks: [elSpinning('提交异议', '.el-message-box'), sentOnce] },
   { app: 'console', screen: 'bills', state: 'rejected', persona: 'owner', path: '/owner/bills', rules: sr({ url: '/disputes', method: 'POST', action: 'respond', body: refuse('SYS_4000', '已过异议期（2026-11-20）') }, { url: BILLS_API, action: 'respond', body: fakeBills }),
@@ -1854,11 +1886,12 @@ const STATES = [
   { app: 'console', screen: 'bill-drawer', state: 'error', persona: 'owner', path: '/owner/bills', rules: sr({ url: BILLS_API, action: 'respond', body: fakeBills }, { url: BILL_API, action: 'fail' }),
     steps: [`${findBtn('明细', '#app .el-table__body')}.click()`, wait(600)], checks: [`[...document.querySelectorAll('.bill-drawer button')].some((b) => b.innerText.includes('重新加载')) ? '' : '账单详情失败时没有「重新加载」'`] },
   // ---- 工单 16：数据总览（第 1 类看板 + 第 10 类横条图）、渠道报表（第 10 类）----
-  ...ownerPage('overview', '/owner/overview', OVERVIEW_API, { fake: [{ url: BILLS_API, action: 'respond', body: fakeBills }], empty: zeroOverview, emptyText: '暂无在岗人员', nums: noNumsBut('诚信分'), keep: '诚信分', errNot: ['暂无在岗人员', '暂无项目'],
+  ...ownerPage('overview', '/owner/overview', OVERVIEW_API, { fake: [{ url: BILLS_API, action: 'respond', body: fakeBills }], empty: zeroOverview, emptyText: '还没有项目在岗数据', nums: noNumsBut('诚信分'), keep: '诚信分', errNot: ['暂无在岗人员', '暂无项目'],
     checks: [chartColors('#app .hbar .track i, #app .stack i'), cMoney(), cSigns()] }),
   { app: 'console', screen: 'overview', state: 'bill-error', persona: 'owner', path: '/owner/overview', rules: sr({ url: BILLS_API, action: 'fail' }), checks: [has('最近账单加载失败'), hasNot('暂无账单')] },
+  { app: 'console', screen: 'channel-report', state: 'error-legend', persona: 'owner', path: '/owner/channel-report', rules: sr({ url: CHANNELS_API, action: 'fail' }), checks: [`document.querySelector('#app .chart-legend') ? '没数据却显示了图例' : ''`] },
   ...ownerPage('channel-report', '/owner/channel-report', CHANNELS_API, { empty: reply([]), emptyText: '暂无渠道码',
-    checks: [chartColors('#app .mini i, #app .fn-b i, #app .chart-legend i')] }),
+    checks: [chartColors('#app .mini-t i, #app .fn-b i, #app .chart-legend i'), funnelText] }),
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

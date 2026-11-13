@@ -2,9 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type MonthlyBill, type OwnerOverview } from '@shitu/api-client'
-import { IconCheck, IconChevronRight, IconCircleExclamationPoint, IconShieldCheck, IconTrendingUp, IconUserCheck, IconUserMinus, IconUsers, IconX } from '@shitu/ui-icons'
+import { IconBuildingComplex, IconCheck, IconChevronRight, IconCircleExclamationPoint, IconShieldCheck, IconTrendingUp, IconUserCheck, IconUserMinus, IconUsers, IconX } from '@shitu/ui-icons'
 import { useMeStore } from '@/stores/me'
-import { fmtSigned, fmtYuan } from '@/utils/format'
+import { fmtSigned } from '@/utils/format'
 
 /**
  * A-14 公司数据总览（T-401，仅老板）：只展示聚合统计，不含单个求职者隐私信息。
@@ -18,6 +18,8 @@ const loadError = ref('')
 const bill = ref<MonthlyBill | null>(null)
 const billLoading = ref(false)
 const billError = ref('')
+/** 账单接口返回过（没返回前不说「暂无账单」） */
+const billReady = ref(false)
 
 /** 图表分类色：前 4 个项目 --chart-1…4，「其他」用灰蓝 --chart-6（规范 Color Roles 图表分类色） */
 const PALETTE = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-6)']
@@ -52,9 +54,11 @@ async function load() {
 async function loadBill() {
   billLoading.value = true
   billError.value = ''
+  billReady.value = false
   try {
     const r = await tenantApi.bills(1, 12)
     bill.value = [...r.records].sort((a, b) => b.billMonth.localeCompare(a.billMonth))[0] ?? null
+    billReady.value = true
   } catch (e) {
     bill.value = null
     billError.value = errorMessage(e, '最近账单加载失败')
@@ -110,6 +114,14 @@ function signed(n: number) {
           <h4>{{ loadError }}</h4>
           <p>请检查网络后重新加载</p>
           <el-button @click="load">重新加载</el-button>
+        </div>
+      </div>
+      <div v-else-if="data && !projects.length" class="card fail">
+        <div class="state-box">
+          <IconBuildingComplex :size="48" />
+          <h4>还没有项目在岗数据</h4>
+          <p>公司还没有项目，或项目下还没有员工入职；在「项目与甲方」建好项目、员工入职后，这里按项目显示在岗人数</p>
+          <el-button @click="router.push('/settings/projects')">前往项目与甲方</el-button>
         </div>
       </div>
       <template v-else>
@@ -181,14 +193,14 @@ function signed(n: number) {
             <dl class="kv"><dt>增长技术服务费</dt><dd class="money">{{ fmtSigned(bill.serviceFee, 'out') }}</dd></dl>
             <dl class="kv"><dt>流转费应付</dt><dd class="money">{{ fmtSigned(bill.transferPayable, 'out') }}</dd></dl>
             <dl class="kv"><dt>流转费应收</dt><dd class="money">{{ fmtSigned(bill.transferReceivable, 'in') }}</dd></dl>
-            <dl class="kv"><dt><b>应付合计</b></dt><dd class="money total">{{ fmtYuan(bill.payable) }}</dd></dl>
+            <dl class="kv"><dt><b>应付合计</b></dt><dd class="money total">{{ fmtSigned(bill.payable, 'out') }}</dd></dl>
             <p class="hint fine">应收与应付不轧差，应收流转费单独结算到账。</p>
           </template>
           <div v-else-if="billError" class="bill-fail">
             <span class="hint" :title="billError">最近账单加载失败</span>
             <el-button size="small" @click="loadBill">重新加载</el-button>
           </div>
-          <p v-else-if="!billLoading" class="hint">暂无账单 · 每月最后一天自动生成</p>
+          <p v-else-if="billReady" class="hint">暂无账单 · 每月最后一天自动生成</p>
         </div>
       </div>
       <div class="card">
@@ -223,12 +235,12 @@ function signed(n: number) {
 .charts { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-gap); align-items: start; }
 .sub { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: stretch; }
 .hint { font-size: var(--font-size-aux); color: var(--text-3); }
-.stack { display: flex; gap: 2px; height: 12px; border-radius: var(--radius-tag); overflow: hidden; margin-bottom: var(--space-3); }
+.stack { display: flex; gap: var(--space-1); height: 12px; border-radius: var(--radius-tag); overflow: hidden; margin-bottom: var(--space-3); }
 .stack i { display: block; min-width: 3px; }
 .hbar { display: grid; grid-template-columns: minmax(120px, 38%) minmax(0, 1fr) 48px; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; }
 .hn { font-size: var(--font-size-aux); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hv { text-align: right; font-size: var(--font-size-min); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: var(--space-2); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--radius-tag); margin-right: var(--space-2); }
 .track { height: 8px; border-radius: var(--radius-tag); background: var(--divider); overflow: hidden; }
 .track > i { display: block; height: 100%; border-radius: var(--radius-tag); }
 .track--sm { height: 4px; margin-top: var(--space-1); }
@@ -238,7 +250,7 @@ function signed(n: number) {
 .lnk:last-child { border-bottom: 0; }
 .lnk:hover .lnk-t { color: var(--primary-text); }
 .lnk:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.lnk-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--font-size-body); color: var(--text-1); }
+.lnk-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-body); color: var(--text-1); }
 .lnk-t small { font-size: var(--font-size-min); color: var(--text-3); }
 .lnk b { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); font-variant-numeric: tabular-nums; }
 .bill { min-height: 120px; }

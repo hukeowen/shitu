@@ -8,6 +8,7 @@ import DictTag from '@/components/DictTag.vue'
 import PersonCell from '@/components/PersonCell.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import { boxSubmit } from '@/composables/boxSubmit'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { useNow } from '@/composables/useNow'
 import { useMeStore } from '@/stores/me'
 import { fmtDateTime } from '@/utils/format'
@@ -100,23 +101,11 @@ async function contact(c: BrokerCaseRow) {
   load()
 }
 
-/**
- * 操作列：文字按钮平铺「标记已联系 / AI 报告 / 推荐岗位」，「释放」收进「更多」（规范第 2 类：最多平铺 3 个）。
- * 列宽按这一页实际会出的按钮算（实测同 AppActionButtons 的 actionsColWidth：每个字 13.5px、「更多」加箭头 48px、间距 8px、格子内边距 24px），1280 宽不横向滚动
- */
+/** 操作列：文字按钮平铺「标记已联系 / AI 报告 / 推荐岗位」，「释放」收进「更多」（规范第 2 类：最多平铺 3 个）；列宽按本页实际按钮算 */
 function tiled(c: BrokerCaseRow): string[] {
   return [canContact(c) ? '标记已联系' : '', 'AI 报告', c.allowedActions.includes('RECOMMEND') ? '推荐岗位' : ''].filter(Boolean)
 }
-const opsWidth = computed(() =>
-  Math.max(
-    96,
-    ...rows.value.map((c) => {
-      const t = tiled(c)
-      const more = c.allowedActions.includes('RELEASE')
-      return 24 + t.reduce((w, x) => w + Math.ceil(x.length * 13.5), 0) + (more ? 48 : 0) + (t.length + (more ? 1 : 0) - 1) * 8
-    }),
-  ),
-)
+const opsWidth = computed(() => actionsColWidth(rows.value.map((c) => ({ labels: tiled(c), more: c.allowedActions.includes('RELEASE') }))))
 
 const drawer = reactive({ visible: false, row: null as BrokerCaseRow | null, tab: 'report' as CaseTab })
 function open(c: BrokerCaseRow, tab?: CaseTab) {
@@ -176,16 +165,16 @@ function open(c: BrokerCaseRow, tab?: CaseTab) {
       </div>
       <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（工单 #{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="rows" row-key="id" :row-class-name="rowClass">
-        <el-table-column label="求职者" min-width="112">
+        <el-table-column label="求职者" min-width="136">
           <template #default="{ row }"><PersonCell :name="row.seekerName" :sub="row.phoneMasked" accent /></template>
         </el-table-column>
-        <el-table-column label="流转原因" width="120">
+        <el-table-column label="流转原因" width="140">
           <template #default="{ row }">
             <DictTag type="BrokerTriggerType" :value="row.triggerType" />
-            <div class="t-xs sub">{{ fmtDateTime(row.createdAt).slice(5) }}</div>
+            <div class="t-xs sub">流转于 {{ fmtDateTime(row.createdAt).slice(5) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="画像摘要" min-width="120">
+        <el-table-column label="画像摘要" min-width="100">
           <template #default="{ row }">
             <el-tooltip :content="row.profileSummary" placement="top" :show-after="300">
               <div class="summary">{{ row.profileSummary }}</div>
@@ -240,6 +229,7 @@ function open(c: BrokerCaseRow, tab?: CaseTab) {
             <h4>流转池暂无工单</h4>
             <p>驻场流转、匹配度不足 80% 或多次匹配未报名的求职者会进入这里</p>
           </div>
+          <span v-else />
         </template>
       </el-table>
     </div>
@@ -272,6 +262,8 @@ function open(c: BrokerCaseRow, tab?: CaseTab) {
 .tbl-card { margin-top: var(--space-gap); }
 .tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .sub { margin-top: var(--space-1); white-space: nowrap; }
+/* 1280 宽下手机号不折行 */
+:deep(.person .t-xs) { white-space: nowrap; }
 .summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.6; color: var(--text-2); }
 .due { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 .due + .due { margin-top: var(--space-1); }

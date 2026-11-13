@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type CirculationPerson } from '@shitu/api-client'
 import { IconArrowLeftRight, IconCircleExclamationPoint, IconInfo, IconUserMinus, IconUsers } from '@shitu/ui-icons'
-import { fmtSigned, fmtYuan, toNum } from '@/utils/format'
+import { fmtSigned, toNum } from '@/utils/format'
 
 /**
  * 流转人员台账（T-404 的按人累计视图，老板）：逐人看流转费从哪天计到哪天、每天多少、本月多少、累计多少。
@@ -61,8 +61,10 @@ const list = computed(() => {
 const sum = (xs: CirculationPerson[], f: (r: CirculationPerson) => number | string) => xs.reduce((s, r) => s + toNum(f(r)), 0)
 const outDaily = computed(() => sum(outActive.value, (r) => r.dailyAmount))
 const inDaily = computed(() => sum(inActive.value, (r) => r.dailyAmount))
-const listMonth = computed(() => sum(list.value, (r) => r.monthAmount))
-const listTotal = computed(() => sum(list.value, (r) => r.totalAmount))
+/** 底部合计按方向算净额（我收为正、我付为负），和每行的 +/− 一致 */
+const net = (f: (r: CirculationPerson) => number | string) => list.value.reduce((s, r) => s + (r.direction === 'RECEIVABLE' ? 1 : -1) * toNum(f(r)), 0)
+const listMonth = computed(() => net((r) => r.monthAmount))
+const listTotal = computed(() => net((r) => r.totalAmount))
 
 /** 金额方向：流出是我收（+），流入是我付（−）；已停止计费页按每行自己的方向 */
 const dirOf = (r: CirculationPerson) => (r.direction === 'RECEIVABLE' ? 'in' : 'out') as 'in' | 'out'
@@ -150,26 +152,26 @@ function exportCsv() {
       </div>
 
       <el-table v-loading="loading" :data="list" :row-key="(r: CirculationPerson) => `${r.direction}-${r.userId}-${r.firstDate}`" max-height="620">
-        <el-table-column v-if="tab === 'ended'" label="方向" width="104">
-          <template #default="{ row }"><span class="status-tag" :class="row.direction === 'PAYABLE' ? 'status-tag--danger' : 'status-tag--success'">{{ row.direction === 'PAYABLE' ? '流入 · 我付' : '流出 · 我收' }}</span></template>
+        <el-table-column v-if="tab === 'ended'" label="方向" width="100">
+          <template #default="{ row }"><span class="status-tag" :class="row.direction === 'PAYABLE' ? 'status-tag--neutral' : 'status-tag--info'">{{ row.direction === 'PAYABLE' ? '流入 · 我付' : '流出 · 我收' }}</span></template>
         </el-table-column>
-        <el-table-column :label="tab === 'out' ? '用户编号' : '人员'" min-width="140">
+        <el-table-column :label="tab === 'out' ? '用户编号' : '人员'" min-width="130">
           <template #default="{ row }">
             <div v-if="tab !== 'out'" class="who">{{ row.name ?? '—' }}</div>
             <span class="code" :class="{ 'code--sub': tab !== 'out' }">{{ row.userId }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="tab !== 'out'" label="来源归属（付给谁）" min-width="110">
+        <el-table-column v-if="tab !== 'out'" label="来源归属（付给谁）" min-width="100">
           <template #default="{ row }">{{ row.counterpartCompanyName ?? row.counterpartCompanyId ?? '—' }}</template>
         </el-table-column>
         <el-table-column v-if="tab !== 'out'" label="我司岗位" min-width="100"><template #default="{ row }">{{ row.jobTitle ?? '—' }}</template></el-table-column>
-        <el-table-column label="计费起止" width="124">
-          <template #default="{ row }"><div class="code">{{ row.firstDate }}</div><div class="code code--sub">至 {{ row.lastDate }}</div></template>
+        <el-table-column label="计费起止" width="156">
+          <template #default="{ row }"><div class="code">{{ row.firstDate }}</div><div class="code code--sub">{{ row.active ? '最近计费' : '至' }} {{ row.lastDate }}</div></template>
         </el-table-column>
         <el-table-column label="计费天数" width="84" align="right"><template #default="{ row }">{{ row.days }}</template></el-table-column>
         <el-table-column :label="tab === 'out' ? '日收' : tab === 'in' ? '日付' : '日金额'" width="96" align="right"><template #default="{ row }"><span class="money">{{ fmtSigned(row.dailyAmount, dirOf(row)) }}</span></template></el-table-column>
         <el-table-column label="本月" width="112" align="right"><template #default="{ row }"><span class="money">{{ fmtSigned(row.monthAmount, dirOf(row)) }}</span></template></el-table-column>
-        <el-table-column label="累计" width="120" align="right"><template #default="{ row }"><span class="money">{{ fmtSigned(row.totalAmount, dirOf(row)) }}</span></template></el-table-column>
+        <el-table-column label="累计" width="112" align="right"><template #default="{ row }"><span class="money">{{ fmtSigned(row.totalAmount, dirOf(row)) }}</span></template></el-table-column>
         <!-- 已停止计费页的人全是「已停止计费」，状态由页签说明，这一列给「方向」让位 -->
         <el-table-column v-if="tab !== 'ended'" label="状态" width="92">
           <template #default="{ row }"><span class="status-tag" :class="row.active ? 'status-tag--success' : 'status-tag--neutral'">{{ row.active ? '计费中' : '已停止计费' }}</span></template>
@@ -186,13 +188,14 @@ function exportCsv() {
             <h4>{{ keyword || counterpart ? '没有符合条件的人员' : tab === 'out' ? '目前没有我司引入、在别的公司任职的人' : tab === 'in' ? '目前没有其他来源的人在我司任职' : '没有已停止计费的记录' }}</h4>
             <p>{{ keyword || counterpart ? '换个姓名、用户编号或来源公司再试' : '流转费按每日计费明细生成，有人开始计费后会出现在这里' }}</p>
           </div>
+          <span v-else />
         </template>
       </el-table>
       <div class="card__ft total">
         <span class="hint">共 {{ ready ? list.length : '—' }} 人</span>
         <span class="spacer" />
-        <span class="hint">本月合计 <b class="money">{{ ready ? (tab === 'ended' ? fmtYuan(listMonth) : fmtSigned(listMonth, tab === 'out' ? 'in' : 'out')) : '—' }}</b></span>
-        <span class="hint">累计合计 <b class="money">{{ ready ? (tab === 'ended' ? fmtYuan(listTotal) : fmtSigned(listTotal, tab === 'out' ? 'in' : 'out')) : '—' }}</b></span>
+        <span class="hint">本月合计 <b class="money">{{ ready ? fmtSigned(listMonth, 'in') : '—' }}</b></span>
+        <span class="hint">累计合计 <b class="money">{{ ready ? fmtSigned(listTotal, 'in') : '—' }}</b></span>
       </div>
     </div>
 

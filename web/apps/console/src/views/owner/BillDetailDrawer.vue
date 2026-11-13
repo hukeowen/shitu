@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, h, ref, watch, type VNode } from 'vue'
 import { errorMessage, tenantApi, type BillDayLine, type BillDetail } from '@shitu/api-client'
 import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
-import { fmtDate, fmtDateTime, fmtSigned, fmtYuan, toNum } from '@/utils/format'
+import { fmtDate, fmtDateTime, fmtSigned, toNum } from '@/utils/format'
 
 /** 账单详情：每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 异议记录。blockedWhy：这张账单的异议被后端拒绝过的原因（置灰「提出异议」） */
 const props = defineProps<{ billId: string | null; canDispute: boolean; blockedWhy?: string }>()
@@ -41,11 +41,11 @@ const freeDays = computed(() => days.value.filter((d) => d.inFreePeriod).length)
 type SummaryParam = { columns: { property?: string }[]; data: BillDayLine[] }
 /** 合计行：应付的两列带「−」，应收带「+」，和明细行一致 */
 const MONEY: Record<string, 'in' | 'out'> = { serviceFee: 'out', transferPayable: 'out', transferReceivable: 'in' }
-function summary({ columns, data }: SummaryParam): string[] {
+function summary({ columns, data }: SummaryParam): (string | VNode)[] {
   return columns.map((c, i) => {
     if (i === 0) return '合计'
     const p = c.property as keyof BillDayLine | undefined
-    if (p && MONEY[p]) return fmtSigned(data.reduce((s, d) => s + toNum(d[p]), 0), MONEY[p])
+    if (p && MONEY[p]) return h('span', { class: 'money' }, fmtSigned(data.reduce((s, d) => s + toNum(d[p]), 0), MONEY[p]))
     if (p === 'incrementCount') return `${data.reduce((s, d) => s + toNum(d.incrementCount), 0)} 人天`
     return ''
   })
@@ -76,7 +76,7 @@ function summary({ columns, data }: SummaryParam): string[] {
             <div><dt>增长技术服务费（应付）</dt><dd class="money">{{ fmtSigned(detail.bill.serviceFee, 'out') }}</dd></div>
             <div><dt>流转费 · 应付</dt><dd class="money">{{ fmtSigned(detail.bill.transferPayable, 'out') }}</dd></div>
             <div><dt>流转费 · 应收</dt><dd class="money">{{ fmtSigned(detail.bill.transferReceivable, 'in') }}</dd></div>
-            <div><dt>应付合计</dt><dd class="money total">{{ fmtYuan(detail.bill.payable) }}</dd></div>
+            <div><dt>应付合计</dt><dd class="money total">{{ fmtSigned(detail.bill.payable, 'out') }}</dd></div>
           </dl>
           <p class="hint fine">应付合计 = 服务费 + 应付流转费；应收流转费由平台另行结算，<b>不与应付轧差</b>。</p>
         </section>
@@ -93,7 +93,7 @@ function summary({ columns, data }: SummaryParam): string[] {
 
         <section class="blk">
           <h4 class="blk-t">每日计费明细<small>{{ days.length }} 天{{ freeDays ? `，其中免费期 ${freeDays} 天` : '' }}</small></h4>
-          <el-table :data="days" max-height="380" show-summary :summary-method="summary" row-key="bizDate">
+          <el-table class="days" :data="days" max-height="380" show-summary :summary-method="summary" row-key="bizDate">
             <el-table-column label="日期" width="72" prop="bizDate">
               <template #default="{ row }"><span class="code">{{ row.bizDate.slice(5) }}</span></template>
             </el-table-column>
@@ -104,7 +104,7 @@ function summary({ columns, data }: SummaryParam): string[] {
             <el-table-column label="存量" width="60" align="right" prop="stockBase">
               <template #default="{ row }"><span class="hint">{{ row.stockBase }}</span></template>
             </el-table-column>
-            <el-table-column label="增量" width="60" align="right" prop="incrementCount" />
+            <el-table-column label="增量" width="84" align="right" prop="incrementCount" />
             <el-table-column label="服务费" min-width="96" align="right" prop="serviceFee">
               <template #default="{ row }"><span class="money">{{ fmtSigned(row.serviceFee, 'out') }}</span></template>
             </el-table-column>
@@ -143,7 +143,8 @@ function summary({ columns, data }: SummaryParam): string[] {
 .hd + .blk, .hd-why + .blk { margin-top: var(--space-6); }
 .hint { font-size: var(--font-size-aux); color: var(--text-3); }
 .code { font-family: var(--font-mono); }
-.money { font-size: var(--font-size-body); }
+/* 合计行：600 字重、一级文字（Element 默认比正文还淡） */
+.days :deep(.el-table__footer .cell) { font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; }
 .total { font-size: var(--font-size-section); color: var(--primary-text); }
 .fine { margin: var(--space-3) 0 0; line-height: 1.6; }
 .fine b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
@@ -153,4 +154,10 @@ function summary({ columns, data }: SummaryParam): string[] {
 .reply { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); }
 .reply b { font-weight: var(--font-weight-semibold); }
 .reply-at { margin-left: var(--space-2); }
+</style>
+
+<style>
+/* 抽屉挂在 body 上：标题用区块标题样式（同消息抽屉），标题下不留大块空白 */
+.bill-drawer .el-drawer__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.bill-drawer .el-drawer__header { margin-bottom: 0; }
 </style>

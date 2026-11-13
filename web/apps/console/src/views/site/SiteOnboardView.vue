@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
 import { IconCircleExclamationPoint, IconCopy, IconShieldCheck } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL, actionsColWidth } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons, { ACTION_LABEL, appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -38,7 +38,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
 
 const signing = (a: SiteApplication) => a.contract?.status === 'PENDING_SIGN' || a.allowedActions.includes('RESEND_CONTRACT')
 const waitingSign = computed(() => list.value.filter(signing).length)
-const opsWidth = computed(() => actionsColWidth(list.value))
+const opsWidth = computed(() => appActionsColWidth(list.value))
 
 async function copySign(url: string) {
   if (await copyText(url)) ElMessage.success('签署链接已复制')

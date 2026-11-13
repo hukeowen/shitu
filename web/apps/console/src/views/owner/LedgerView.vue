@@ -121,6 +121,14 @@ const disabledMonth = (d: Date) => d.getTime() > shNowMs()
           <el-button @click="load">重新加载</el-button>
         </div>
       </div>
+      <div v-else-if="ready && !lines.length" class="card fail">
+        <div class="state-box">
+          <IconArrowLeftRight :size="48" />
+          <h4>{{ month }} 没有流转记录</h4>
+          <p>这个月没有别的公司的人在我司计费，也没有我司引入的人在别家计费；换个月份看看，或到「流转人员台账」查逐人记录</p>
+          <el-button @click="router.push('/circulation/people')">查看流转人员台账</el-button>
+        </div>
+      </div>
       <div v-else class="sides">
         <div v-for="s in sides" :key="s.key" class="card side-card">
           <div class="card__hd"><h3>{{ s.title }}</h3><span class="hint">{{ s.sub }}</span></div>
