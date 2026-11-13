@@ -230,6 +230,10 @@ function toRequest(): JobRequest {
   }
 }
 
+/** 项目甲方没有有效合同（TEN_4004）时，原因后面接的下一步（两条保存路径同一句） */
+const CONTRACT_HINT = '请先在「项目与甲方 → 合作合同」上传合同并等待平台审核通过。'
+const contractHint = (e: unknown) => (isApiError(e, 'TEN_4004') ? CONTRACT_HINT : undefined)
+
 /** 保存被后端业务拒绝的原因：写在底部操作条上，保存置灰，改了表单再放开 */
 const saveWhy = ref('')
 watch(form, () => (saveWhy.value = ''), { deep: true })
@@ -256,7 +260,7 @@ async function submit() {
   }
   if (reauditWarn.value) {
     // 确认框里提交（规范 Page States「后台确认框一律在框内提交」）：确认按钮转圈，被拒时原因留在框里和操作条上
-    const s = boxSubmit('保存后将重新提交平台审核，审核期间暂停匹配。确定保存？', '保存', request, (why) => (saveWhy.value = why))
+    const s = boxSubmit('保存后将重新提交平台审核，审核期间暂停匹配。确定保存？', '保存', request, (why) => (saveWhy.value = why), contractHint)
     try {
       await ElMessageBox.confirm(s.message, '重新提交审核', {
         type: 'warning',
@@ -276,9 +280,9 @@ async function submit() {
     done()
   } catch (e) {
     saving.value = false
-    if (isBlocked(e)) saveWhy.value = `暂时不能保存：${errorMessage(e)}`
+    if (isBlocked(e)) saveWhy.value = `暂时不能保存：${errorMessage(e)}${contractHint(e) ? `。${CONTRACT_HINT}` : ''}`
     if (isApiError(e, 'TEN_4004')) {
-      ElMessageBox.alert(`${errorMessage(e)}。请先在「项目与甲方 → 合作合同」上传合同并等待平台审核通过。`, '无法发布', {
+      ElMessageBox.alert(`${errorMessage(e)}。${CONTRACT_HINT}`, '无法发布', {
         confirmButtonText: '知道了',
       })
     } else {
@@ -302,7 +306,7 @@ const preview = computed(() => {
 </script>
 
 <template>
-  <div v-loading="loading" class="page">
+  <div class="page">
     <div class="page-hd">
       <div>
         <h2>{{ isEdit ? '编辑岗位' : '创建岗位' }}</h2>
@@ -310,6 +314,7 @@ const preview = computed(() => {
       </div>
     </div>
 
+    <div v-loading="loading" class="body">
     <div v-if="loadError" class="card">
       <div class="state-box">
         <IconCircleExclamationPoint :size="48" />
@@ -385,18 +390,20 @@ const preview = computed(() => {
 
             <section class="card">
               <div class="card__hd"><h3>食宿</h3></div>
-              <div class="card__bd">
-                <div class="checks">
-                  <el-checkbox v-model="form.mealProvided">包吃</el-checkbox>
-                  <el-checkbox v-model="form.dormProvided">包住</el-checkbox>
-                </div>
-                <div v-if="form.dormProvided" class="dorm">
+              <div class="card__bd fields">
+                <el-form-item label="吃"><el-checkbox v-model="form.mealProvided">包吃</el-checkbox></el-form-item>
+                <el-form-item label="住"><el-checkbox v-model="form.dormProvided">包住</el-checkbox></el-form-item>
+                <template v-if="form.dormProvided">
                   <el-form-item label="宿舍人数（人/间）">
                     <el-input-number v-model="form.dormRoomSize" :min="1" :max="20" placeholder="如 4" />
                   </el-form-item>
-                  <el-checkbox v-model="form.dormAircon">空调</el-checkbox>
-                  <el-checkbox v-model="form.dormPrivateBath">独立卫浴</el-checkbox>
-                </div>
+                  <el-form-item label="宿舍设施">
+                    <div class="checks">
+                      <el-checkbox v-model="form.dormAircon">空调</el-checkbox>
+                      <el-checkbox v-model="form.dormPrivateBath">独立卫浴</el-checkbox>
+                    </div>
+                  </el-form-item>
+                </template>
               </div>
             </section>
 
@@ -481,7 +488,7 @@ const preview = computed(() => {
                   <div class="pv-main">
                     <b class="pv-title">{{ form.title || '岗位名称' }}</b>
                     <div class="pv-sub">{{ project?.name ?? '所属项目' }} · {{ meStore.me?.company.shortName || meStore.me?.company.name }}</div>
-                    <div class="pv-salary">{{ form.salaryMin || form.salaryMax ? salaryRange(form.salaryMin, form.salaryMax) : '— –  —' }}<small> 元/月</small></div>
+                    <div class="pv-salary">{{ form.salaryMin || form.salaryMax ? salaryRange(form.salaryMin, form.salaryMax) : '— –  —' }}<small>元/月（综合）</small></div>
                     <div class="pv-tags"><span v-for="c in preview" :key="c" class="status-tag">{{ c }}</span></div>
                   </div>
                   <div class="pv-ft"><span class="pv-sub">{{ form.interviewAddress || '面试地址' }}</span><span class="status-tag status-tag--info">报名面试</span></div>
@@ -493,6 +500,7 @@ const preview = computed(() => {
         </div>
       </el-form>
     </template>
+    </div>
 
     <!-- 底部固定操作条（规范第 6 类）：取消 / 保存，保存用主色；被拒原因写在按钮左边 -->
     <div class="save-bar">
@@ -507,20 +515,20 @@ const preview = computed(() => {
 </template>
 
 <style scoped>
-.page { min-height: calc(100vh - 56px - var(--space-page) * 2); display: flex; flex-direction: column; }
+.page { min-height: calc(100vh - var(--layout-top-height) - var(--space-page) * 2); display: flex; flex-direction: column; }
 .tip { margin-bottom: var(--space-gap); }
-.job-form { margin-bottom: var(--space-gap); }
+.body { margin-bottom: var(--space-gap); }
+/* 加载遮罩：只盖页面头以下；表单很长时转圈不落到首屏以下 */
+.body :deep(.el-loading-spinner) { top: min(50%, 40vh); }
 .layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-gap); align-items: start; }
 .cards, .col-r { display: grid; gap: var(--space-gap); align-content: start; }
-.col-r { position: sticky; top: calc(56px + var(--space-page)); }
+.col-r { position: sticky; top: calc(var(--layout-top-height) + var(--space-page)); }
 /* 每区两列字段；长文本占满一行 */
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-4); }
 .fields .full { grid-column: 1 / -1; }
 .field-hint { margin: var(--space-1) 0 0; font-size: var(--font-size-min); line-height: 1.5; color: var(--text-3); }
 .opt-r { float: right; font-size: var(--font-size-min); color: var(--text-3); }
 .checks { display: flex; gap: var(--space-6); }
-.dorm { display: flex; align-items: flex-end; gap: var(--space-5); margin-top: var(--space-3); padding: var(--space-3) var(--space-4) 0; background: var(--bg-fill); border-radius: var(--radius-control); }
-.dorm .el-checkbox { margin-bottom: 18px; }
 .para { margin: 0 0 var(--space-3); font-size: var(--font-size-aux); line-height: 1.8; color: var(--text-2); }
 .para b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
 .side-tip { margin-top: var(--space-3); }
@@ -528,9 +536,9 @@ const preview = computed(() => {
 .pv { border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; margin-bottom: var(--space-3); }
 .pv-main { padding: var(--space-3); }
 .pv-title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
-.pv-sub { display: block; margin-top: 2px; font-size: var(--font-size-min); color: var(--text-3); }
+.pv-sub { display: block; margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
 .pv-salary { margin-top: var(--space-2); font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--salary); }
-.pv-salary small { margin-left: 2px; font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.pv-salary small { margin-left: var(--space-1); font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--text-3); }
 .pv-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
 .pv-ft { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--bg-fill); border-top: 1px solid var(--divider); }
 .pv-ft .pv-sub { margin-top: 0; }

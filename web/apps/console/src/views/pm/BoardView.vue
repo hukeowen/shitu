@@ -28,7 +28,7 @@ const loading = ref(false)
 const loadError = ref('')
 const todo = ref<{ advances: number | null; resign: number | null; kb: number | null }>({ advances: null, resign: null, kb: null })
 /** 待我处理拿到结果之前不下「暂无待处理事项」的结论 */
-const todoLoading = ref(false)
+const todoLoading = ref(true)
 
 const empty = computed(() => board.value != null && Object.keys(board.value).length === 0)
 
@@ -70,6 +70,8 @@ const net = computed(() => (board.value?.hiredThisMonth ?? 0) - (board.value?.re
 const netText = computed(() => (!ready.value ? '—' : net.value > 0 ? `+${net.value}` : net.value < 0 ? `−${-net.value}` : '0'))
 
 async function load() {
+  // 待我处理是独立请求的区块，和看板同时取，各自带加载遮罩
+  loadTodo()
   loading.value = true
   loadError.value = ''
   board.value = null
@@ -81,7 +83,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-  loadTodo()
 }
 async function loadTodo() {
   todoLoading.value = true
@@ -159,22 +160,22 @@ const noTodo = computed(() => todo.value.advances == null && todo.value.resign =
         <div class="card__hd"><h3>待我处理</h3><span class="hint">按你的角色与负责项目</span></div>
         <div v-loading="todoLoading" class="card__bd todo">
           <div v-if="todo.advances != null" class="lrow">
-            <span class="status-tag status-tag--warning">预支审批</span>
+            <span class="lrow-tag status-tag status-tag--warning">预支审批</span>
             <div class="lt"><b>{{ todo.advances }} 笔预支待处理</b><span>初审 / 终审 / 登记拨款</span></div>
             <el-button size="small" @click="go({ path: '/pm/advance' })">去处理</el-button>
           </div>
           <div v-if="todo.resign != null" class="lrow">
-            <span class="status-tag status-tag--info">离职审核</span>
+            <span class="lrow-tag status-tag status-tag--info">离职审核</span>
             <div class="lt"><b>{{ todo.resign }} 份离职申请待审核</b><span>审核通过后结束任职</span></div>
             <el-button size="small" @click="go({ path: '/pm/resign' })">去审核</el-button>
           </div>
           <div v-if="todo.kb != null" class="lrow">
-            <span class="status-tag status-tag--pending">知识库</span>
+            <span class="lrow-tag status-tag status-tag--pending">知识库</span>
             <div class="lt"><b>{{ todo.kb }} 个求职者问题待补充答案</b><span>未命中知识库，补充后自动通知提问人</span></div>
             <el-button size="small" @click="go({ path: '/pm/kb', query: { tab: 'pending' } })">去补充</el-button>
           </div>
           <div v-if="board && (board.pendingConfirm ?? 0) > 0 && can('/site/onboard')" class="lrow">
-            <span class="status-tag status-tag--info">入职确权</span>
+            <span class="lrow-tag status-tag status-tag--info">入职确权</span>
             <div class="lt"><b>{{ board.pendingConfirm }} 人面试通过待确权</b><span>24 小时内未确权将释放至公域</span></div>
             <el-button size="small" @click="go({ path: '/site/onboard' })">去确权</el-button>
           </div>
@@ -232,7 +233,8 @@ const noTodo = computed(() => todo.value.advances == null && todo.value.resign =
 .todo { min-height: 120px; padding-top: var(--space-1); padding-bottom: var(--space-1); }
 .lrow { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--divider); }
 .lrow:last-of-type { border-bottom: 0; }
-.lt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lrow-tag { flex: none; width: 72px; justify-content: center; }
+.lt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 .lt b { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .lt span { font-size: var(--font-size-min); color: var(--text-3); }
 .none { margin: 0; padding: var(--space-6) 0; text-align: center; }

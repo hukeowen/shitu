@@ -56,6 +56,22 @@ const entriesReady = ref(false)
 const blocked = reactive<Record<number, { q: string; text: string }>>({})
 const blockedPending = reactive<Record<number, { q: string; text: string }>>({})
 
+/** 知识库接口一次返回全部条目（不分页），表格在前端分页 */
+const entryPage = reactive({ page: 1, pageSize: 20 })
+const pendingPage = reactive({ page: 1, pageSize: 20 })
+const slice = <T,>(rows: T[], p: { page: number; pageSize: number }) => rows.slice((p.page - 1) * p.pageSize, p.page * p.pageSize)
+const entryRows = computed(() => slice(entries.value, entryPage))
+
+/** 重置：筛选条件清回默认值后重新查询（清项目时由项目的 watch 带着清岗位并查询） */
+function reset() {
+  filter.keyword = ''
+  if (filter.projectId) filter.projectId = ''
+  else {
+    filter.jobId = ''
+    load()
+  }
+}
+
 async function load() {
   loading.value = true
   loadError.value = ''
@@ -68,6 +84,7 @@ async function load() {
       keyword: filter.keyword.trim() || undefined,
     })
     entriesReady.value = true
+    entryPage.page = 1
   } catch (e) {
     loadError.value = errorMessage(e, '知识库加载失败')
     entries.value = []
@@ -212,6 +229,8 @@ const pendingReady = ref(false)
 const pendingMax = computed(() => Math.max(1, ...pending.value.map((p) => p.askedTimes)))
 const projectName = (id: string) => projects.value.find((p) => p.projectId === id)?.name ?? ''
 
+const pendingRows = computed(() => slice(pending.value, pendingPage))
+
 async function loadPending() {
   pendingLoading.value = true
   pendingError.value = ''
@@ -220,6 +239,7 @@ async function loadPending() {
   try {
     pending.value = await tenantApi.kbPending()
     pendingReady.value = true
+    pendingPage.page = 1
   } catch (e) {
     pendingError.value = errorMessage(e, '待补充问题加载失败')
     pending.value = []
@@ -338,6 +358,7 @@ onMounted(async () => {
           </el-select>
           <el-input v-model="filter.keyword" placeholder="搜索问题 / 答案" clearable style="width: 160px" @keyup.enter="load" @clear="load" />
           <el-button @click="load">查询</el-button>
+          <el-button @click="reset">重置</el-button>
         </template>
         <el-button v-else @click="loadPending">刷新</el-button>
       </div>
@@ -348,7 +369,7 @@ onMounted(async () => {
           <span>按项目筛选时同时显示公司通用条目（求职者提问时三级条目都会参与匹配）。</span>
         </div>
         <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.q }}」{{ b.text }}。刷新后重新判断</p>
-        <el-table v-loading="loading" :data="entries" row-key="id">
+        <el-table v-loading="loading" :data="entryRows" row-key="id">
           <el-table-column label="问题 / 答案" min-width="300">
             <template #default="{ row }">
               <b class="q">{{ row.question }}</b>
@@ -396,11 +417,23 @@ onMounted(async () => {
             <span v-else />
           </template>
         </el-table>
+        <div v-if="entries.length > 0" class="pager">
+          <el-pagination
+            v-model:current-page="entryPage.page"
+            v-model:page-size="entryPage.pageSize"
+            :total="entries.length"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            background
+            size="small"
+            @size-change="entryPage.page = 1"
+          />
+        </div>
       </template>
 
       <template v-else>
         <p v-for="(b, id) in blockedPending" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.q }}」{{ b.text }}。刷新后重新判断</p>
-        <el-table v-loading="pendingLoading" :data="pending" row-key="id">
+        <el-table v-loading="pendingLoading" :data="pendingRows" row-key="id">
           <el-table-column label="求职者提问" min-width="260">
             <template #default="{ row }"><b class="q">{{ row.question }}</b></template>
           </el-table-column>
@@ -444,6 +477,18 @@ onMounted(async () => {
             <span v-else />
           </template>
         </el-table>
+        <div v-if="pending.length > 0" class="pager">
+          <el-pagination
+            v-model:current-page="pendingPage.page"
+            v-model:page-size="pendingPage.pageSize"
+            :total="pending.length"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            background
+            size="small"
+            @size-change="pendingPage.page = 1"
+          />
+        </div>
         <div class="card__ft foot">同一岗位的相同问题合并显示；补充答案后写入该岗位的知识库条目，并以站内信通知所有提过此问题的求职者。</div>
       </template>
     </div>
@@ -514,17 +559,18 @@ onMounted(async () => {
 .btn-i { margin-right: var(--space-1); }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-gap); }
 .tbl-card { margin-top: var(--space-gap); }
+.toolbar .el-button + .el-button { margin-left: 0; }
 .tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .q { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .a { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-2); white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .scope-n { color: var(--text-1); }
-.sub { margin-top: 2px; font-size: var(--font-size-min); color: var(--text-3); }
+.sub { margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
 .acts { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: flex-end; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
 /* 提问次数横条（规范第 10 类）：单一系列用 --chart-1，数值 12px 二级文字 */
 .asked { display: flex; align-items: center; gap: var(--space-2); }
-.track { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-fill); overflow: hidden; }
-.track i { display: block; height: 100%; border-radius: 3px; background: var(--chart-1); }
+.track { flex: 1; height: 6px; border-radius: var(--radius-tag); background: var(--bg-fill); overflow: hidden; }
+.track i { display: block; height: 100%; border-radius: var(--radius-tag); background: var(--chart-1); }
 .asked-n { min-width: 16px; text-align: right; font-size: var(--font-size-min); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .foot { font-size: var(--font-size-min); color: var(--text-3); }
 .field-hint { width: 100%; margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 1.5; color: var(--text-3); }

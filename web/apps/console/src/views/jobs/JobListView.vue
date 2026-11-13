@@ -81,6 +81,13 @@ function search() {
   page.page = 1
   load()
 }
+/** 重置：筛选条件清回默认值后重新查询（项目变了，统计也重新取） */
+function reset() {
+  const projectChanged = !!filter.projectId
+  Object.assign(filter, { status: '', projectId: '', keyword: '' })
+  search()
+  if (projectChanged) loadCounts()
+}
 function setStatus(s: JobStatus | '') {
   filter.status = s
   search()
@@ -247,48 +254,52 @@ function openDetail(j: JobView) {
           </button>
         </div>
         <span class="spacer" />
-        <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 180px" @change="onProject">
+        <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 140px" @change="onProject">
           <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
         </el-select>
-        <el-input v-model="filter.keyword" placeholder="岗位名称" clearable style="width: 160px" @keyup.enter="search" @clear="search" />
+        <el-input v-model="filter.keyword" placeholder="岗位名称" clearable style="width: 128px" @keyup.enter="search" @clear="search" />
         <el-button @click="search">查询</el-button>
+        <el-button @click="reset">重置</el-button>
       </div>
       <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.title }}」{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="list" row-key="jobId">
-        <el-table-column label="岗位名称" min-width="136">
+        <el-table-column label="岗位名称" min-width="175">
           <template #default="{ row }">
             <el-button link class="title" @click="openDetail(row)">{{ row.title }}</el-button>
-            <div class="sub">{{ label('JobType', row.jobType) }}{{ row.mealProvided || row.dormProvided ? ' · ' : '' }}{{ row.mealProvided ? '包吃' : '' }}{{ row.dormProvided ? '包住' : '' }}</div>
+            <!-- 班次并进岗位副行（1280 宽把宽度让给项目列，甲方名称不折行） -->
+            <div class="sub">{{ label('JobType', row.jobType) }} · {{ label('ShiftType', row.shiftType) }}{{ row.mealProvided || row.dormProvided ? ' · ' : '' }}{{ row.mealProvided ? '包吃' : '' }}{{ row.dormProvided ? '包住' : '' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="所属项目" min-width="134">
+        <el-table-column label="所属项目" min-width="192">
           <template #default="{ row }">
             <div class="strong-t">{{ row.projectName }}</div>
             <div class="sub">{{ row.clientName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="薪资（元/月）" width="112" align="right">
+        <el-table-column label="薪资（元/月）" width="108" align="right" class-name="salary-col">
           <template #default="{ row }"><span class="nowrap">{{ salaryRange(row.salaryMin, row.salaryMax) }}</span></template>
         </el-table-column>
-        <el-table-column label="班次" width="64">
-          <template #default="{ row }">{{ label('ShiftType', row.shiftType) }}</template>
-        </el-table-column>
-        <el-table-column label="名额 占用/总数" width="120" align="right">
+        <el-table-column label="名额 占用/总数" width="92" align="right">
           <template #default="{ row }">
             <div class="nowrap">{{ row.quotaOccupied }} / {{ row.quotaTotal }}</div>
             <div class="sub">剩余 {{ row.quotaRemaining }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" min-width="104">
+        <el-table-column label="状态" min-width="110">
           <template #default="{ row }">
             <DictTag type="JobStatus" :value="row.status" />
-            <el-tooltip v-if="row.auditRemark && rejected(row)" :content="row.auditRemark" placement="top">
-              <div class="remark">{{ row.auditRemark }}</div>
-            </el-tooltip>
+            <div v-if="row.auditRemark && rejected(row)" class="remark">{{ row.auditRemark }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="上架时间" width="148">
-          <template #default="{ row }"><span class="nowrap">{{ fmtDateTime(row.postedAt) }}</span></template>
+        <!-- 日期、时间分两行，1280 宽把宽度让给岗位名和项目 -->
+        <el-table-column label="上架时间" width="104">
+          <template #default="{ row }">
+            <template v-if="row.postedAt">
+              <div class="nowrap">{{ fmtDateTime(row.postedAt).slice(0, 10) }}</div>
+              <div class="sub">{{ fmtDateTime(row.postedAt).slice(11) }}</div>
+            </template>
+            <span v-else>—</span>
+          </template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
           <template #default="{ row }">
@@ -389,16 +400,18 @@ function openDetail(j: JobView) {
 .btn-i { margin-right: var(--space-1); }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-gap); }
 .tbl-card { margin-top: var(--space-gap); }
+.toolbar .el-button + .el-button { margin-left: 0; }
 .tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .title { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); padding: 0; height: auto; white-space: normal; text-align: left; }
 /* 岗位名称太长时在格子里折行，不被截掉 */
-.title { max-width: 100%; border: 0; }
-.title :deep(> span) { min-width: 0; white-space: normal; text-align: left; line-height: 1.5; }
+.title { display: block; max-width: 100%; border: 0; }
+.title :deep(> span) { display: inline; white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.5; }
 .title:hover { color: var(--primary-text); }
-.sub { margin-top: 2px; font-size: var(--font-size-min); color: var(--text-3); }
+.sub { margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
 .strong-t { color: var(--text-1); }
 /* 驳回 / 下架原因：最多两行，完整内容在悬停提示里 */
-.remark { margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 1.5; color: var(--danger-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* 驳回 / 下架原因整段折行显示，不截断 */
+.remark { margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 1.5; color: var(--danger-text); }
 .acts { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: flex-end; flex-wrap: nowrap; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
 .more-i { margin-left: var(--space-1); }

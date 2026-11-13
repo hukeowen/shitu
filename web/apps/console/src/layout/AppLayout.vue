@@ -92,7 +92,8 @@ async function doLogout() {
 </template>
 
 <style scoped>
-.shell { display: flex; min-height: 100vh; background: var(--bg-page); }
+/* 顶栏高度只在这里定义一次，页面里的吸顶 / 贴底计算也读它 */
+.shell { --layout-top-height: 56px; display: flex; min-height: 100vh; background: var(--bg-page); }
 .side { width: 220px; flex: none; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg-card); border-right: 1px solid var(--border); }
 .brand { display: flex; align-items: center; gap: var(--space-2); height: 56px; padding: 0 var(--space-4); }
 .brand b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
@@ -112,7 +113,7 @@ async function doLogout() {
 .su b { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .su span { font-size: var(--font-size-min); color: var(--text-3); }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.top { height: 56px; flex: none; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-6); background: var(--bg-card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+.top { height: var(--layout-top-height); flex: none; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-6); background: var(--bg-card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
 .crumb { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
 .crumb b { color: var(--text-1); font-weight: var(--font-weight-medium); }
 .who { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); }

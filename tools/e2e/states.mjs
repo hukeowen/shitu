@@ -850,9 +850,14 @@ const opsCol = `(() => { const t = [...document.querySelectorAll('#app .el-table
     if (c.scrollWidth > c.clientWidth + 1) return '操作列按钮被截断（内容 ' + c.scrollWidth + 'px，格子 ' + c.clientWidth + 'px）' }
   return '' })()`
 // 1280 宽表格不横向滚动（被固定的操作列压住的列也算看不见），每一格的内容不被截掉
-const tblFit = `(() => { for (const t of document.querySelectorAll('#app .el-table')) { const w = t.querySelector('.el-table__body-wrapper .el-scrollbar__wrap'); if (w && w.scrollWidth > w.clientWidth + 1) return '表格要横向滚动 ' + (w.scrollWidth - w.clientWidth) + 'px'
-    const cut = (x) => { const r = x.getBoundingClientRect(), pad = parseFloat(getComputedStyle(x).paddingRight), rg = document.createRange(); rg.selectNodeContents(x); return [...rg.getClientRects()].some((q) => q.width && q.right > r.right - pad + 1) }
-    const c = [...t.querySelectorAll('.el-table__body td:not(.is-hidden) > .cell')].find((x) => x.scrollWidth > x.clientWidth + 1 || cut(x)); if (c) return '表格格子内容被截掉：' + c.innerText.replace(/\\s+/g, ' ').slice(0, 20) + '（内容 ' + c.scrollWidth + 'px，格子 ' + c.clientWidth + 'px）' }
+const tblFit = `(() => { for (const t of document.querySelectorAll('#app .el-table')) { const w = t.querySelector('.el-table__body-wrapper .el-scrollbar__wrap'); if (w && w.scrollWidth > w.clientWidth) return '表格要横向滚动 ' + (w.scrollWidth - w.clientWidth) + 'px'
+    // 逐个文字节点看有没有越过格子内边距；行尾的全角收尾标点（「）」「。」等）Chrome 会挤掉半个字宽，那半个字不算截断
+    const cut = (x) => { const r = x.getBoundingClientRect(), pad = parseFloat(getComputedStyle(x).paddingRight), tw = document.createTreeWalker(x, NodeFilter.SHOW_TEXT); let n
+      while ((n = tw.nextNode())) { const t = n.textContent.trim(); if (!t) continue; const rg = document.createRange(); rg.selectNodeContents(n)
+        const slack = /[）」』】》〉，。、；：！？]$/.test(t) ? parseFloat(getComputedStyle(n.parentElement).fontSize) / 2 : 0
+        if ([...rg.getClientRects()].some((q) => q.width && q.right > r.right - pad + 0.5 + slack)) return true }
+      return false }
+    const c = [...t.querySelectorAll('.el-table__body td:not(.is-hidden) > .cell')].find((x) => x.scrollWidth > x.clientWidth || cut(x)); if (c) return '表格格子内容被截掉：' + c.innerText.replace(/\\s+/g, ' ').slice(0, 20) + '（内容 ' + c.scrollWidth + 'px，格子 ' + c.clientWidth + 'px）' }
   return '' })()`
 // 被拒之后：表格上方写明谁、为什么，这一行的按钮全部置灰，别的行不受影响
 // 被拒之后：表格上方用提醒文字色写明谁、为什么，整张表只有被拒的那个按钮置灰
@@ -1000,9 +1005,9 @@ const netSigned = `(() => { const c = [...document.querySelectorAll('#app .m-cel
   return getComputedStyle(v).color === ${tokenColor('--text-1')} ? '' : '本月净增靠颜色区分增减：' + getComputedStyle(v).color })()`
 // 长表单（第 6 类）：卡片分区、每区块标题加两列字段、必填项带红星、底部固定「取消 / 保存」操作条
 const JOB_REQUIRED = ['岗位名称', '所属项目', '工种', '岗位职责', '月综合薪资下限（元）', '月综合薪资上限（元）', '班次', '面试地址', '招聘总名额']
-const jobForm = `(() => { const cards = [...document.querySelectorAll('#app .job-form section.card')]; if (cards.length < 5) return '表单没有按卡片分区：' + cards.length + ' 张'
+const jobForm = `(() => { const cards = [...document.querySelectorAll('#app .job-form .cards > section.card')]; if (cards.length < 5) return '表单没有按卡片分区：' + cards.length + ' 张'
   const bare = cards.find((c) => !c.querySelector('.card__hd h3')); if (bare) return '有分区没有区块标题'
-  const one = [...document.querySelectorAll('#app .job-form .fields')].find((f) => getComputedStyle(f).gridTemplateColumns.split(' ').length !== 2); if (one) return '有分区的字段不是两列：' + one.closest('section').querySelector('h3').innerText
+  const one = cards.find((c) => { const bd = c.querySelector('.card__bd'); return !bd || getComputedStyle(bd).display !== 'grid' || getComputedStyle(bd).gridTemplateColumns.split(' ').length !== 2 }); if (one) return '有分区的字段不是两列：' + one.querySelector('h3').innerText
   const red = ${tokenColor('--el-color-danger')}
   for (const name of ${JSON.stringify(JOB_REQUIRED)}) { const it = [...document.querySelectorAll('#app .job-form .el-form-item')].find((x) => x.querySelector('.el-form-item__label')?.innerText.trim() === name); if (!it) return '没有「' + name + '」'
     const st = getComputedStyle(it.querySelector('.el-form-item__label'), '::before'); if (!it.classList.contains('is-required') || !st.content.includes('*')) return '必填项「' + name + '」没有红星'
@@ -1018,6 +1023,22 @@ const jobBar = `(() => { const bar = document.querySelector('#app .save-bar'); i
 const drawerSalary = `(() => { const e = document.querySelector('.job-drawer .salary'); if (!e) return '抽屉里没有薪资'; const cs = getComputedStyle(e)
   if (parseFloat(cs.fontSize) < 18 || Number(cs.fontWeight) < 600) return '薪资不够大或不够粗：' + cs.fontSize + ' ' + cs.fontWeight
   return cs.color === ${tokenColor('--salary')} ? '' : '薪资不是薪资色：' + cs.color })()`
+// 操作列文字按钮的点击区至少 24 高
+const opsTap = `(() => { const b = [...document.querySelectorAll('#app td.ops-col .el-button')].find((x) => x.getBoundingClientRect().height < 24); return b ? '操作列「' + b.innerText.trim() + '」点击区只有 ' + Math.round(b.getBoundingClientRect().height) + 'px 高' : '' })()`
+// 岗位表薪资列右对齐；驳回原因整段显示（不截断、不省略）
+const salaryRight = `(() => { const tds = [...document.querySelectorAll('#app .el-table__body td.salary-col')]; if (!tds.length) return '没有薪资列'; return tds.every((td) => td.classList.contains('is-right')) ? '' : '薪资列没有右对齐' })()`
+const remarkFull = `(() => { const e = [...document.querySelectorAll('#app .remark')]; if (!e.length) return '没有驳回原因'
+  const cut = e.find((x) => x.scrollHeight > x.clientHeight + 1 || x.scrollWidth > x.clientWidth + 1 || getComputedStyle(x).webkitLineClamp !== 'none'); return cut ? '驳回原因被截断：' + cut.innerText : '' })()`
+// 筛选栏右侧是「查询 / 重置」
+const queryReset = `(() => { const bs = [...document.querySelectorAll('#app .toolbar > .el-button')].map((b) => b.innerText.trim()); return bs.slice(-2).join('/') === '查询/重置' ? '' : '筛选栏右侧不是「查询 / 重置」：' + bs.join('/') })()`
+const hasPager = `document.querySelector('#app .tbl-card .el-pagination') ? '' : '表格下面没有分页'`
+// 看板「待我处理」的标签一样宽，标题左边对齐
+const todoAligned = `(() => { const ts = [...document.querySelectorAll('#app .lrow .lt')].map((x) => Math.round(x.getBoundingClientRect().left)); if (ts.length < 2) return '待我处理不到 2 行'; return new Set(ts).size === 1 ? '' : '待我处理的标题左右错开：' + ts.join(',') })()`
+// 编辑页加载：遮罩不盖页面头，转圈在视口里
+const editSpinner = `(() => { const m = document.querySelector('#app .el-loading-mask'), hd = document.querySelector('#app .page-hd'); if (!m) return '没有加载遮罩'
+  if (m.getBoundingClientRect().top < hd.getBoundingClientRect().bottom - 1) return '加载遮罩盖住了页面头'
+  const sp = m.querySelector('.el-loading-spinner svg, .el-loading-spinner .circular').getBoundingClientRect(); return sp.top >= 0 && sp.bottom <= innerHeight ? '' : '加载的转圈不在视口里（' + Math.round(sp.top) + '）' })()`
+const drawerUnit = `(() => { const t = document.querySelector('.job-drawer .salary')?.innerText.replace(/\s+/g, ''); return t?.endsWith('元/月（综合）') ? '' : '抽屉薪资没写「元/月（综合）」：' + t })()`
 const openJobRow = (text) => [`${findBtn(text, '#app .el-table__body')}.click()`, wait(500)]
 const openJobTitle = [`document.querySelector('#app .el-table__body .title').click()`, wait(700)]
 const KB_WHY = '暂时不能删除：条目已被他人修改'
@@ -1928,7 +1949,9 @@ const STATES = [
   ...ownerPage('channel-report', '/owner/channel-report', CHANNELS_API, { empty: reply([]), emptyText: '暂无渠道码',
     checks: [chartColors('#app .mini-t i, #app .fn-b i, #app .chart-legend i'), funnelText] }),
   // ---- 工单 17：项目数据看板 ----
-  { app: 'console', screen: 'pm-board', state: 'normal', persona: 'pm', path: '/pm/board', rules: sr(), checks: [cSide('pm'), kpiCards, statTone, cLegacy16, noThrottleWord, netSigned, has('本月人员变动'), has('待我处理')] },
+  { app: 'console', screen: 'pm-board', state: 'normal', persona: 'pm', path: '/pm/board', rules: sr(), checks: [cSide('pm'), kpiCards, statTone, cLegacy16, noThrottleWord, netSigned, has('本月人员变动'), has('待我处理'), todoAligned] },
+  { app: 'console', screen: 'pm-board', state: 'todo-loading', persona: 'pm', path: '/pm/board', rules: sr({ url: KB_PENDING_API, action: 'hang' }), quick: true, steps: [wait(600)],
+    checks: [`document.querySelector('#app .todo .el-loading-mask') ? '' : '待我处理加载时没有自己的加载遮罩'`, hasNot('暂无待处理事项')] },
   { app: 'console', screen: 'pm-board', state: 'normal', persona: 'pm', path: '/pm/board', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFitAny, kpiCards, wbKpiAligned] },
   { app: 'console', screen: 'pm-board', state: 'loading', persona: 'pm', path: '/pm/board', rules: sr({ url: BOARD_API, action: 'hang' }), quick: true, steps: [wait(600)],
     checks: [loadMask, noNums, monthBlank, hasNot('暂无待处理事项'), hasNot('你还没有被分配负责项目')] },
@@ -1936,8 +1959,9 @@ const STATES = [
     checks: [has('你还没有被分配负责项目'), has('组织与权限'), allZero, monthBlank, cLegacy16] },
   { app: 'console', screen: 'pm-board', state: 'error', persona: 'pm', path: '/pm/board', rules: sr({ url: BOARD_API, action: 'fail' }), checks: [oneRetry, noNums, monthBlank, hasNot('你还没有被分配负责项目')] },
   // ---- 工单 17：岗位管理 ----
-  { app: 'console', screen: 'pm-jobs', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord] },
-  { app: 'console', screen: 'pm-jobs', state: 'normal', persona: 'pm', path: '/pm/jobs', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, kpiCards, opsCol, tblFit] },
+  { app: 'console', screen: 'pm-jobs', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord, opsTap, salaryRight, remarkFull, queryReset] },
+  { app: 'console', screen: 'pm-jobs', state: 'normal', persona: 'pm', path: '/pm/jobs', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, kpiCards, opsCol, tblFit, remarkFull,
+    `(() => { const r = [...document.querySelectorAll('#app .el-table__body tr')].find((tr) => !tr.querySelector('.remark') && tr.getBoundingClientRect().height > 90); return r ? '1280 宽行高 ' + Math.round(r.getBoundingClientRect().height) + '：' + r.innerText.slice(0, 12) : '' })()`] },
   { app: 'console', screen: 'pm-jobs', state: 'more', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: [`${findBtn('更多', '#app .el-table__body')}.click()`, wait(400)],
     checks: [`[...document.querySelectorAll('.el-dropdown-menu__item')].some((x) => x.getClientRects().length && x.innerText.trim() === '下架') ? '' : '「更多」里没有「下架」'`] },
   { app: 'console', screen: 'pm-jobs', state: 'loading', persona: 'pm', path: '/pm/jobs', rules: sr({ url: JOBS_API, action: 'hang' }), quick: true, steps: [wait(600)],
@@ -1961,14 +1985,14 @@ const STATES = [
     checks: [whyStays('.el-dialog .blocked-why', '暂时不能调整名额：名额不能少于已占用数'), `${findBtn('保存', '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「保存」没有置灰'`, elIdle] },
   // 岗位详情抽屉（第 5 类）
   { app: 'console', screen: 'job-drawer', state: 'normal', persona: 'pm', path: '/pm/jobs', rules: sr(), steps: openJobTitle,
-    checks: [drawerBlocks('.job-drawer', ['基本信息', '食宿', '要求', '面试', '岗位职责', '时间', '审核轨迹']), drawerSalary] },
+    checks: [drawerBlocks('.job-drawer', ['基本信息', '食宿', '要求', '面试', '岗位职责', '时间', '审核轨迹']), drawerSalary, drawerUnit] },
   { app: 'console', screen: 'job-drawer', state: 'error', persona: 'pm', path: '/pm/jobs', rules: sr({ url: '/audits', action: 'fail' }), steps: openJobTitle,
     checks: [`[...document.querySelectorAll('.job-drawer button')].some((b) => b.innerText.includes('重新加载')) ? '' : '岗位详情失败时没有「重新加载」'`] },
   // ---- 工单 17：岗位编辑（第 6 类长表单）----
-  { app: 'console', screen: 'pm-job-edit', state: 'normal', persona: 'pm', path: MATCHED_EDIT, rules: sr(), checks: [cSide('pm'), jobForm, jobBar, elPrimary, cLegacy16] },
+  { app: 'console', screen: 'pm-job-edit', state: 'normal', persona: 'pm', path: MATCHED_EDIT, rules: sr(), checks: [cSide('pm'), jobForm, jobBar, elPrimary, cLegacy16, has('元/月（综合）')] },
   { app: 'console', screen: 'pm-job-edit', state: 'normal', persona: 'pm', path: MATCHED_EDIT, width: 1280, height: 800, rules: sr(), checks: [cFitAny, jobForm, jobBar] },
   { app: 'console', screen: 'pm-job-edit', state: 'create', persona: 'pm', path: '/pm/jobs/edit', rules: sr(), checks: [jobForm, jobBar, has('提交审核并发布')] },
-  { app: 'console', screen: 'pm-job-edit', state: 'loading', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: PROJECTS_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask] },
+  { app: 'console', screen: 'pm-job-edit', state: 'loading', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: PROJECTS_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [loadMask, editSpinner] },
   { app: 'console', screen: 'pm-job-edit', state: 'empty', persona: 'pm', path: '/pm/jobs/edit', rules: sr({ url: PROJECTS_API, action: 'respond', body: reply([]) }), checks: [has('暂无进行中的项目'), jobBar] },
   { app: 'console', screen: 'pm-job-edit', state: 'error', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: PROJECTS_API, action: 'fail' }), checks: [oneRetry, jobBar] },
   { app: 'console', screen: 'pm-job-edit', state: 'invalid', persona: 'pm', path: '/pm/jobs/edit', rules: sr(), steps: [`${findBtn('提交审核并发布', '#app .save-bar')}.click()`],
@@ -1979,6 +2003,9 @@ const STATES = [
   { app: 'console', screen: 'pm-job-edit', state: 'rejected', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: JOBS_API + '/', method: 'PUT', action: 'respond', body: refuse('JOB_4091', '岗位状态已变化，请刷新后再操作') }),
     steps: [`${findBtn('保存并提交审核', '#app .save-bar')}.click()`, wait(600), `${findBtn('保存并提交审核', '.el-message-box')}.click()`, elToastGone('岗位状态已变化')],
     checks: [boxWhy('保存并提交审核', '暂时不能保存：岗位状态已变化'), whyStays('#app .save-bar .blocked-why', '暂时不能保存：岗位状态已变化'), elIdle] },
+  { app: 'console', screen: 'pm-job-edit', state: 'rejected-contract', persona: 'pm', path: MATCHED_EDIT, rules: sr({ url: JOBS_API + '/', method: 'PUT', action: 'respond', body: refuse('TEN_4004', '甲方没有有效的合作合同') }),
+    steps: [`${findBtn('保存并提交审核', '#app .save-bar')}.click()`, wait(600), `${findBtn('保存并提交审核', '.el-message-box')}.click()`, elToastGone('甲方没有有效的合作合同')],
+    checks: [boxWhy('保存并提交审核', '请先在「项目与甲方 → 合作合同」上传合同并等待平台审核通过'), whyStays('#app .save-bar .blocked-why', '请先在「项目与甲方 → 合作合同」上传合同')] },
   // 被驳回的岗位：不弹框，直接保存
   ...(rejectedJobId ? [
     { app: 'console', screen: 'pm-job-edit', state: 'direct-submitting', persona: 'pm', path: `/pm/jobs/edit?id=${rejectedJobId}`, rules: sr(), quick: true,
@@ -1989,9 +2016,9 @@ const STATES = [
       checks: [whyStays('#app .save-bar .blocked-why', '暂时不能保存：岗位状态已变化'), `${findBtn('保存并提交审核', '#app .save-bar')}.disabled ? '' : '被拒之后「保存并提交审核」没有置灰'`, elIdle] },
   ] : []),
   // ---- 工单 17：知识库 ----
-  { app: 'console', screen: 'pm-kb', state: 'normal', persona: 'pm', path: '/pm/kb', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord] },
+  { app: 'console', screen: 'pm-kb', state: 'normal', persona: 'pm', path: '/pm/kb', rules: sr(), checks: [cSide('pm'), kpiCards, opsCol, tblFit, statTone, rowsTall, cLegacy16, noThrottleWord, opsTap, queryReset, hasPager] },
   { app: 'console', screen: 'pm-kb', state: 'normal', persona: 'pm', path: '/pm/kb', width: 1280, height: 800, rules: sr(), checks: [cSide('pm'), cFit, kpiCards, opsCol, tblFit] },
-  { app: 'console', screen: 'pm-kb', state: 'pending', persona: 'pm', path: '/pm/kb?tab=pending', rules: sr(), checks: [opsCol, tblFit, rowsTall, chartColors('#app .track i'), cLegacy16] },
+  { app: 'console', screen: 'pm-kb', state: 'pending', persona: 'pm', path: '/pm/kb?tab=pending', rules: sr(), checks: [opsCol, tblFit, rowsTall, chartColors('#app .track i'), cLegacy16, opsTap, hasPager] },
   { app: 'console', screen: 'pm-kb', state: 'pending', persona: 'pm', path: '/pm/kb?tab=pending', width: 1280, height: 800, rules: sr(), checks: [cFit, opsCol, tblFit] },
   { app: 'console', screen: 'pm-kb', state: 'loading', persona: 'pm', path: '/pm/kb', rules: sr({ url: KB_API, action: 'hang' }), quick: true, steps: [wait(600)],
     checks: [`document.querySelector('#app .el-table .el-loading-mask') ? '' : '加载中表格上没有加载遮罩'`, noNums, hasNot('暂无问答条目')] },

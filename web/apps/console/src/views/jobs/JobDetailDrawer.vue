@@ -71,7 +71,7 @@ const dorm = computed(() => {
           <span class="status-tag">{{ label('JobType', job.jobType) }}</span>
           <span class="status-tag">{{ label('ShiftType', job.shiftType) }}</span>
           <span class="spacer" />
-          <span class="salary">{{ salaryRange(job.salaryMin, job.salaryMax) }}<small> 元/月</small></span>
+          <span class="salary">{{ salaryRange(job.salaryMin, job.salaryMax) }}<small>元/月（综合）</small></span>
         </div>
         <div v-if="job.auditRemark && (job.status === 'REJECTED' || job.status === 'FORCE_OFFLINE')" class="notice-bar notice-bar--danger hd-tip">
           <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
@@ -165,14 +165,14 @@ const dorm = computed(() => {
 .hd + .blk, .hd-tip + .blk { margin-top: var(--space-6); }
 /* 薪资：白底上 20px / 600 的薪资色（规范 Color Roles：薪资色只给 18px 以上加粗的数字） */
 .salary { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--salary); white-space: nowrap; }
-.salary small { margin-left: 2px; font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.salary small { margin-left: var(--space-1); font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--text-3); }
 .desc-list .full { grid-column: 1 / -1; }
 .docs { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .pre { margin: 0; white-space: pre-wrap; font-size: var(--font-size-body); line-height: 1.7; color: var(--text-1); }
 .hint { margin: 0; font-size: var(--font-size-aux); color: var(--text-3); }
 .tline { padding-left: var(--space-1); }
 .tl-a { font-weight: var(--font-weight-semibold); color: var(--text-1); }
-.tl-r { margin: 2px 0 0; font-size: var(--font-size-aux); color: var(--text-2); }
+.tl-r { margin: var(--space-1) 0 0; font-size: var(--font-size-aux); color: var(--text-2); }
 </style>
 
 <style>

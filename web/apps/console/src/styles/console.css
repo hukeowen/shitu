@@ -141,6 +141,8 @@ a { color: inherit; text-decoration: none; }
 
 /* 操作列按钮不折行 */
 .el-table .ops-col .cell { white-space: nowrap; }
+/* 操作列文字按钮的点击区补到 24 高（字号不变，只撑高按钮本身） */
+.el-table .ops-col .el-button.is-link { min-height: 24px; }
 
 /* 栅格里的按钮：去掉 Element 相邻按钮的左外边距，保证对齐 */
 .grid > .el-button + .el-button { margin-left: 0; }
