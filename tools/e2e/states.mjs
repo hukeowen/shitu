@@ -1538,6 +1538,45 @@ const pickDays = (t) => `[...document.querySelectorAll('#app .funnel .el-radio-b
 const daysKept = (t) => `document.querySelector('#app .funnel .el-radio-button.is-active')?.innerText.includes(${JSON.stringify(t)}) ? '' : '时间范围没保留已选的「${t}」'`
 const clickOp = (text) => [`[...document.querySelectorAll('#app td.ops-col .el-button')].find((b) => b.innerText.trim() === ${JSON.stringify(text)} && !b.disabled).click()`, wait(500)]
 const netOnly = (scope, btn) => [`document.querySelector('#app .blocked-why, .el-dialog .blocked-why, .msgbox-why') ? '网络失败也把原因当成被拒留下了' : ''`, `${findBtn(btn, scope)}?.disabled === false ? '' : '网络失败后「${btn}」被置灰或框关了'`]
+// ---- 工单 22 修复轮 ----
+// 操作条吸顶：页面往下滚以后，操作条贴在顶栏下面
+const barSticky = (sel) => `(async () => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return '没有操作条'
+  window.scrollTo(0, 900); await new Promise((r) => setTimeout(r, 300)); const t = b.getBoundingClientRect().top, top = document.querySelector('.top').getBoundingClientRect().bottom; window.scrollTo(0, 0); await new Promise((r) => setTimeout(r, 200))
+  return Math.abs(t - top) <= 1 ? '' : '往下滚以后操作条没有吸顶（距顶栏 ' + Math.round(t - top) + 'px）' })()`
+// 题库编辑：保存草稿 / 发布生效 / 回滚至此版本一直在，用不了的置灰，左边写原因
+const quizOps = `(() => { const bar = document.querySelector('#app .op-bar'); if (!bar) return '没有操作条'
+  const bs = [...bar.querySelectorAll('.op-acts .el-button')]; const names = bs.map((b) => b.innerText.trim()).join('/'); if (names !== '保存草稿/发布生效/回滚至此版本') return '操作条按钮不是「保存草稿 / 发布生效 / 回滚至此版本」：' + names
+  return bs.some((b) => b.disabled) && !bar.querySelector('.op-why')?.innerText.trim() ? '有按钮置灰却没写原因' : '' })()`
+// 提交前记下按钮位置和宽度 / 内容区位置；提交中、被拒后不变
+const keepPos = (scope, text) => `(() => { const r = ${findBtn(text, scope)}.getBoundingClientRect(); window.__pos = [Math.round(r.left), Math.round(r.width)] })()`
+const samePos = (text) => `(() => { const b = ${findBtn(text, '#app .op-bar')}; if (!b) return '提交中「${text}」的文字变了'; const r = b.getBoundingClientRect(), now = [Math.round(r.left), Math.round(r.width)]
+  return now.join() === window.__pos.join() ? '' : '提交中「${text}」位置或宽度变了：' + window.__pos.join('/') + ' → ' + now.join('/') })()`
+const keepTop = `window.__top = Math.round(document.querySelector('#app .layout').getBoundingClientRect().top)`
+const sameTop = `(() => { const t = Math.round(document.querySelector('#app .layout').getBoundingClientRect().top); return t === window.__top ? '' : '被拒原因把内容推下去了 ' + (t - window.__top) + 'px' })()`
+// 1280 宽：左表单、右预览两栏
+const twoCols = `(() => { const l = document.querySelector('#app .layout .left'), r = document.querySelector('#app .layout .right'); if (!l || !r) return '没有表单或预览'
+  const a = l.getBoundingClientRect(), b = r.getBoundingClientRect(); if (b.left < a.right) return '预览不在表单右边'; return Math.abs(b.width - 320) <= 1 ? '' : '预览栏宽 ' + Math.round(b.width) + '，应约 320' })()`
+// 选项行的上移、下移、删除图标点击区至少 24
+const optTap = `(() => { const b = [...document.querySelectorAll('#app .oops .el-button')].find((x) => x.getBoundingClientRect().height < 24 || x.getBoundingClientRect().width < 24); return b ? '选项操作图标点击区不到 24：' + (b.getAttribute('aria-label') ?? '') : '' })()`
+// 页面上的按钮不用危险色描边（只给确认框里的确认按钮）
+const noRejectBtn = `document.querySelector('#app .btn-reject') ? '页面上的按钮用了危险色描边 .btn-reject' : ''`
+// 页面头：标题一块、按钮一组在右边一行放下
+const hdOneRow = `(() => { const bs = [...document.querySelectorAll('#app .page-hd .hd-acts .el-button')]; if (bs.length < 2) return '页面头没有按钮组'
+  if (new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size > 1) return '页面头按钮折行'
+  const hd = document.querySelector('#app .page-hd').getBoundingClientRect(), last = bs.at(-1).getBoundingClientRect(), main = document.querySelector('#app .page-hd .hd-main').getBoundingClientRect()
+  if (hd.right - last.right > 1) return '页面头按钮没有右对齐'; return last.top < main.bottom && bs[0].getBoundingClientRect().left > main.right ? '' : '页面头按钮折到标题下面去了' })()`
+// 引擎参数：没拿到数据时信息条显示「—」；四个按钮全部置灰并写原因
+const engBlank = `(() => { const t = document.querySelector('#app .ver-bar')?.innerText ?? ''; return /当前生效版本\\s*—/.test(t) && /草稿状态\\s*—/.test(t) ? '' : '没拿到数据时信息条不是「—」：' + t.replace(/\\s+/g, ' ').slice(0, 40) })()`
+const allOffWhy = `(() => { const on = [...document.querySelectorAll('#app .vb-acts .el-button')].filter((b) => !b.disabled).map((b) => b.innerText.trim()); if (on.length) return '没有版本时这些按钮还能点：' + on.join('、')
+  return document.querySelector('#app .ver-bar .vb-hint')?.innerText.trim() ? '' : '按钮置灰了却没写原因' })()`
+// 只读的数值用一级文字色；复选框选中后文字不变色；分档数字框是控件标准高 32
+const roText = `(() => { const i = document.querySelector('#app .tiers .el-input__inner'); if (!i) return '没有分档数值'; const c = getComputedStyle(i)
+  if (c.color !== ${tokenColor('--text-1')} || c.webkitTextFillColor !== ${tokenColor('--text-1')}) return '只读数值不是一级文字色：' + c.webkitTextFillColor
+  const l = document.querySelector('#app .el-checkbox.is-checked .el-checkbox__label'); return !l || getComputedStyle(l).color === ${tokenColor('--text-1')} ? '' : '复选框选中后文字变了颜色：' + getComputedStyle(l).color })()`
+const numH32 = `(() => { const n = [...document.querySelectorAll('#app .tiers .el-input-number, #app .fields .el-input-number')].find((x) => Math.round(x.getBoundingClientRect().height) !== 32); return n ? '数字框高 ' + Math.round(n.getBoundingClientRect().height) + '，应为 32' : '' })()`
+// 弹窗标题和确认框同级：16px / 600
+const dlgTitle16 = `(() => { const t = [...document.querySelectorAll('.el-dialog__title')].find((x) => x.getClientRects().length); if (!t) return '没有弹窗标题'; const c = getComputedStyle(t)
+  return parseFloat(c.fontSize) === 16 && Number(c.fontWeight) === 600 ? '' : '弹窗标题不是 16px / 600：' + c.fontSize + ' ' + c.fontWeight })()`
 const QUIZ_REFUSE = refuse('QUIZ_4002', '题库必须包含「地域锁定 locked_region」题')
 
 const STATES = [
@@ -2816,7 +2855,7 @@ const STATES = [
   { app: 'ops', screen: 'attribution', state: 'found-apps', persona: 'ops', path: '/ops/attribution', width: 1280, height: 800, rules: or({ url: A_QUERY, action: 'respond', body: fakeAttr }),
     steps: [...askPhone('13993468288'), wait(600), `[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes('报名记录')).click()`, wait(300)], checks: [lookupFound, tblFit, statusTags] },
   { app: 'ops', screen: 'attribution', state: 'add-dispute', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'respond', body: fakeAttr }, { url: A_DISPUTES, method: 'GET', action: 'respond', body: reply([]) }),
-    steps: [...askPhone('13993468288'), wait(600), `${findBtn('登记争议', '#app .disputes')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy, has('该用户没有归属争议')] },
+    steps: [...askPhone('13993468288'), wait(600), `${findBtn('登记争议', '#app .disputes')}.click()`, wait(500)], checks: [dlgWidth, dlgNoWrap, dlgLegacy, dlgTitle16, has('该用户没有归属争议')] },
   { app: 'ops', screen: 'attribution', state: 'not-found', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'respond', body: notFoundUser }), steps: askPhone('13900000000'), checks: [lookupMiss('手机号 13900000000 没有注册过求职者账号')] },
   { app: 'ops', screen: 'attribution', state: 'loading', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'hang' }), quick: true, steps: [...askPhone('13993468288'), wait(400)], checks: [resultMask, `${findBtn('查询', '#app .card.query')}?.classList.contains('is-loading') ? '' : '查询中「查询」没有转圈'`] },
   { app: 'ops', screen: 'attribution', state: 'error', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_QUERY, action: 'fail' }), steps: askPhone('13993468288'), checks: [failHint(true), oneRetry] },
@@ -2824,7 +2863,7 @@ const STATES = [
   { app: 'ops', screen: 'attribution', state: 'disputes-loading', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_DISPUTES, action: 'hang' }), quick: true, steps: [wait(600)], checks: [`document.querySelector('#app .disputes .el-loading-mask') ? '' : '争议列表加载中没有遮罩'`, hasNot('没有待处理的归属争议')] },
   { app: 'ops', screen: 'attribution', state: 'disputes-empty', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_DISPUTES, action: 'respond', body: reply([]) }), checks: [has('没有待处理的归属争议'), `document.querySelector('#app .disputes .el-pagination') ? '没有记录却显示了分页' : ''`] },
   { app: 'ops', screen: 'attribution', state: 'disputes-error', persona: 'ops', path: '/ops/attribution', rules: or({ url: A_DISPUTES, action: 'fail' }), checks: [failHint(true), oneRetry] },
-  { app: 'ops', screen: 'attribution', state: 'resolve', persona: 'ops', path: '/ops/attribution', rules: or(), steps: clickOp('写结论'), checks: [dlgWidth, dlgNoWrap, dlgLegacy, `document.querySelector('.el-dialog .notice-bar svg') ? '' : '结案说明不是带图标的提示条'`] },
+  { app: 'ops', screen: 'attribution', state: 'resolve', persona: 'ops', path: '/ops/attribution', rules: or(), steps: clickOp('写结论'), checks: [dlgWidth, dlgNoWrap, dlgLegacy, dlgTitle16, `document.querySelector('.el-dialog .notice-bar svg') ? '' : '结案说明不是带图标的提示条'`] },
   { app: 'ops', screen: 'attribution', state: 'resolve-submitting', persona: 'ops', path: '/ops/attribution', rules: or(), quick: true,
     steps: [...clickOp('写结论'), fillTa('.el-dialog', '核查注册渠道与状态日志，来源归属按扫码注册锁定，不予更改'), countXhr, elClickTwice('结案', '.el-dialog')], checks: [elSpinning('结案', '.el-dialog'), sentOnce] },
   { app: 'ops', screen: 'attribution', state: 'resolve-rejected', persona: 'ops', path: '/ops/attribution', rules: or({ url: '/resolve', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该争议不存在或已处理') }),
@@ -2833,8 +2872,8 @@ const STATES = [
   { app: 'ops', screen: 'attribution', state: 'resolve-offline', persona: 'ops', path: '/ops/attribution', rules: or({ url: '/resolve', method: 'POST', action: 'fail' }),
     steps: [...clickOp('写结论'), fillTa('.el-dialog', '核查注册渠道与状态日志，来源归属按扫码注册锁定，不予更改'), `${findBtn('结案', '.el-dialog')}.click()`, toastShown], checks: netOnly('.el-dialog', '结案') },
   // ---- 工单 22：AI 问薪题库（第 2 类列表 + 第 10 类漏斗 + 第 11 类版本信息条）----
-  { app: 'ops', screen: 'quiz', state: 'normal', persona: 'ops', path: '/engine/quiz', rules: or(), checks: [cSide('ops'), sideActive, quizBar, funnelSpec, cLegacy16, tblFit, opsCol, opsTap, hasPager, statusTags, rowsTallIn('#app .tbl-card')] },
-  { app: 'ops', screen: 'quiz', state: 'normal', persona: 'ops', path: '/engine/quiz', width: 1280, height: 800, rules: or(), checks: [quizBar, funnelSpec, tblFit, opsCol, cFitAny] },
+  { app: 'ops', screen: 'quiz', state: 'normal', persona: 'ops', path: '/engine/quiz', rules: or(), checks: [cSide('ops'), sideActive, quizBar, funnelSpec, cLegacy16, tblFit, opsCol, opsTap, hasPager, statusTags, rowsTall, hdOneRow] },
+  { app: 'ops', screen: 'quiz', state: 'normal', persona: 'ops', path: '/engine/quiz', width: 1280, height: 800, rules: or(), checks: [quizBar, funnelSpec, tblFit, opsCol, cFitAny, hdOneRow] },
   { app: 'ops', screen: 'quiz', state: 'loading', persona: 'ops', path: '/engine/quiz', rules: or({ url: Q_LIST, action: 'hang' }, { url: Q_FUNNEL, action: 'hang' }), quick: true, steps: [wait(600)], checks: [eachMask(['.funnel', '.tbl-card']), noNums, funnelBlank, hasNot('还没有题库版本')] },
   { app: 'ops', screen: 'quiz', state: 'empty', persona: 'ops', path: '/engine/quiz', rules: or({ url: Q_LIST, action: 'respond', body: reply([]) }, { url: Q_FUNNEL, action: 'respond', body: reply({ days: 7, from: '2026-11-08', opened: 0, submitted: 0, matched: 0, applied: 0 }) }),
     checks: [emptyAct('新建草稿'), has('近 7 天还没有人打开答题页'), funnelBlank, `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
@@ -2847,18 +2886,19 @@ const STATES = [
     checks: [boxWhy('发布', '暂时不能发布：题库必须包含'), whyStays('#app .tbl-tip', '暂时不能发布'), onlyOff('#app td.ops-col', '发布')] },
   { app: 'ops', screen: 'quiz', state: 'publish-offline', persona: 'ops', path: '/engine/quiz', rules: or({ url: '/publish', method: 'POST', action: 'fail' }), steps: [...clickOp('发布'), `${findBtn('发布', '.el-message-box')}.click()`, toastShown], checks: netOnly('.el-message-box', '发布') },
   // ---- 工单 22：题库编辑（第 6 类长表单，手机预览同求职者答题页）----
-  { app: 'ops', screen: 'quiz-editor', state: 'normal', persona: 'ops', path: QUIZ_EDIT, rules: or(), checks: [quizPhone, cLegacy16, cSide('ops')] },
-  { app: 'ops', screen: 'quiz-editor', state: 'normal', persona: 'ops', path: QUIZ_EDIT, width: 1280, height: 800, rules: or(), checks: [quizPhone, cFitAny] },
-  { app: 'ops', screen: 'quiz-editor', state: 'loading', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask] },
+  { app: 'ops', screen: 'quiz-editor', state: 'normal', persona: 'ops', path: QUIZ_EDIT, rules: or(), checks: [quizPhone, cLegacy16, cSide('ops'), quizOps, optTap, noRejectBtn, barSticky('#app .op-bar')] },
+  { app: 'ops', screen: 'quiz-editor', state: 'normal', persona: 'ops', path: QUIZ_EDIT, width: 1280, height: 800, rules: or(), checks: [quizPhone, cFitAny, twoCols, quizOps] },
+  { app: 'ops', screen: 'quiz-editor', state: 'loading', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask, quizOps] },
   { app: 'ops', screen: 'quiz-editor', state: 'error', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'fail' }), checks: [failHint(true), oneRetry] },
   { app: 'ops', screen: 'quiz-editor', state: 'error-server', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'GET', action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
   { app: 'ops', screen: 'quiz-editor', state: 'missing', persona: 'ops', path: '/engine/quiz/99999', rules: or(), checks: [has('题库版本不存在'), `${findBtn('返回列表', '#app .state-box')} ? '' : '版本不存在时没给「返回列表」'`, hasNot('重新加载')] },
-  { app: 'ops', screen: 'quiz-editor', state: 'save-submitting', persona: 'ops', path: QUIZ_EDIT, rules: or(), quick: true, steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), countXhr, elClickTwice('保存草稿', '#app .page-hd')], checks: [elSpinning('保存草稿', '#app .page-hd'), sentOnce] },
+  { app: 'ops', screen: 'quiz-editor', state: 'save-submitting', persona: 'ops', path: QUIZ_EDIT, rules: or(), quick: true, steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), countXhr, elClickTwice('保存草稿', '#app .op-bar')], checks: [elSpinning('保存草稿', '#app .op-bar'), sentOnce] },
+  { app: 'ops', screen: 'quiz-editor', state: 'publish-saving', persona: 'ops', path: QUIZ_EDIT, rules: or(), quick: true, steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), keepPos('#app .op-bar', '发布生效'), elClickTwice('发布生效', '#app .op-bar')], checks: [samePos('发布生效'), elSpinning('发布生效', '#app .op-bar')] },
   { app: 'ops', screen: 'quiz-editor', state: 'save-rejected', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: Q_ONE, method: 'PUT', action: 'respond', body: refuse('SYS_4090', '草稿已被他人修改，请刷新后重试') }),
-    steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), `${findBtn('保存草稿', '#app .page-hd')}.click()`, toastShown], checks: [whyStays('#app .hd-why', '暂时不能保存草稿：草稿已被他人修改'), `${findBtn('保存草稿', '#app .page-hd')}.disabled ? '' : '被拒之后「保存草稿」没有置灰'`, elIdle] },
-  { app: 'ops', screen: 'quiz-editor', state: 'publish', persona: 'ops', path: QUIZ_EDIT, rules: or(), steps: [`${findBtn('发布生效', '#app .page-hd')}.click()`, wait(500)], checks: [boxTitle, boxDanger('发布')] },
-  { app: 'ops', screen: 'quiz-editor', state: 'publish-rejected', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: '/publish', method: 'POST', action: 'respond', body: QUIZ_REFUSE }), steps: [`${findBtn('发布生效', '#app .page-hd')}.click()`, wait(500), `${findBtn('发布', '.el-message-box')}.click()`, toastShown],
-    checks: [boxWhy('发布', '暂时不能发布：题库必须包含'), whyStays('#app .hd-why', '暂时不能发布')] },
+    steps: [oFill('如：v1.3 住宿题简化', '2026 冬季版（草稿二）'), wait(200), keepTop, `${findBtn('保存草稿', '#app .op-bar')}.click()`, toastShown], checks: [whyStays('#app .hd-why', '暂时不能保存草稿：草稿已被他人修改'), `${findBtn('保存草稿', '#app .op-bar')}.disabled ? '' : '被拒之后「保存草稿」没有置灰'`, elIdle, sameTop] },
+  { app: 'ops', screen: 'quiz-editor', state: 'publish', persona: 'ops', path: QUIZ_EDIT, rules: or(), steps: [`${findBtn('发布生效', '#app .op-bar')}.click()`, wait(500)], checks: [boxTitle, boxDanger('发布')] },
+  { app: 'ops', screen: 'quiz-editor', state: 'publish-rejected', persona: 'ops', path: QUIZ_EDIT, rules: or({ url: '/publish', method: 'POST', action: 'respond', body: QUIZ_REFUSE }), steps: [keepTop, `${findBtn('发布生效', '#app .op-bar')}.click()`, wait(500), `${findBtn('发布', '.el-message-box')}.click()`, toastShown],
+    checks: [boxWhy('发布', '暂时不能发布：题库必须包含'), whyStays('#app .hd-why', '暂时不能发布'), sameTop] },
   // ---- 工单 22：匹配快照（第 17 类查询）----
   { app: 'ops', screen: 'match-snapshot', state: 'normal', persona: 'ops', path: '/engine/match-snapshot', rules: or(), checks: [cSide('ops'), sideActive, lookupGuide('输入 sessionId'), cLegacy16] },
   { app: 'ops', screen: 'match-snapshot', state: 'normal', persona: 'ops', path: '/engine/match-snapshot', width: 1280, height: 800, rules: or(), checks: [lookupGuide('输入 sessionId'), cFitAny] },
@@ -2869,14 +2909,14 @@ const STATES = [
   { app: 'ops', screen: 'match-snapshot', state: 'error', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, rules: or({ url: SNAP_API, action: 'fail' }), checks: [failHint(true), oneRetry] },
   { app: 'ops', screen: 'match-snapshot', state: 'error-server', persona: 'ops', path: `/engine/match-snapshot?sessionId=${data.ids.matchSessionId}`, rules: or({ url: SNAP_API, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
   // ---- 工单 22：匹配引擎参数（第 11 类有版本的配置）----
-  { app: 'ops', screen: 'engine', state: 'normal', persona: 'ops', path: '/engine/params', rules: or(), checks: [cSide('ops'), sideActive, engBar, engActiveOff, cLegacy16] },
+  { app: 'ops', screen: 'engine', state: 'normal', persona: 'ops', path: '/engine/params', rules: or(), checks: [cSide('ops'), sideActive, engBar, engActiveOff, cLegacy16, roText, numH32, noRejectBtn, barSticky('#app .ver-bar')] },
   { app: 'ops', screen: 'engine', state: 'normal', persona: 'ops', path: '/engine/params', width: 1280, height: 800, rules: or(), checks: [engBar, cFitAny] },
   { app: 'ops', screen: 'engine', state: 'versions', persona: 'ops', path: '/engine/params', rules: engRules(), checks: [engBar, engFixed] },
   { app: 'ops', screen: 'engine', state: 'versions', persona: 'ops', path: '/engine/params', width: 1280, height: 800, rules: engRules(), checks: [engBar, engFixed, cFitAny] },
-  { app: 'ops', screen: 'engine', state: 'loading', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask] },
-  { app: 'ops', screen: 'engine', state: 'empty', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [emptyAct('新建草稿')] },
-  { app: 'ops', screen: 'engine', state: 'error', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, action: 'fail' }), checks: [failHint(true), oneRetry] },
-  { app: 'ops', screen: 'engine', state: 'error-server', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, method: 'GET', action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
+  { app: 'ops', screen: 'engine', state: 'loading', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [oneMask, engBar, engBlank, allOffWhy] },
+  { app: 'ops', screen: 'engine', state: 'empty', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, method: 'GET', action: 'respond', body: reply([]) }), checks: [emptyAct('新建草稿'), engBar, allOffWhy] },
+  { app: 'ops', screen: 'engine', state: 'error', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, action: 'fail' }), checks: [failHint(true), oneRetry, engBar, engBlank, allOffWhy] },
+  { app: 'ops', screen: 'engine', state: 'error-server', persona: 'ops', path: '/engine/params', rules: or({ url: ENG_API, method: 'GET', action: 'respond', body: serverError }), checks: [failHint(false), oneRetry, engBar, engBlank, allOffWhy] },
   { app: 'ops', screen: 'engine', state: 'save-submitting', persona: 'ops', path: '/engine/params', rules: engRules(), quick: true, steps: [...engTune, countXhr, elClickTwice('保存草稿', '#app .vb-acts')], checks: [elSpinning('保存草稿', '#app .vb-acts'), sentOnce] },
   { app: 'ops', screen: 'engine', state: 'save-rejected', persona: 'ops', path: '/engine/params', rules: engRules({ url: `${ENG_API}/3`, method: 'PUT', action: 'respond', body: refuse('SYS_4090', '草稿已被他人修改，请刷新后重试') }),
     steps: [...engTune, `${findBtn('保存草稿', '#app .vb-acts')}.click()`, toastShown], checks: [whyStays('#app .vb-why', '暂时不能保存草稿：草稿已被他人修改'), `${findBtn('保存草稿', '#app .vb-acts')}.disabled ? '' : '被拒之后「保存草稿」没有置灰'`, elIdle] },
@@ -2885,6 +2925,9 @@ const STATES = [
   { app: 'ops', screen: 'engine', state: 'publish-rejected', persona: 'ops', path: '/engine/params', rules: engRules({ url: '/publish', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该版本已不是草稿，请刷新后重试') }),
     steps: [`${findBtn('发布', '#app .vb-acts')}.click()`, wait(500), `${findBtn('发布', '.el-message-box')}.click()`, toastShown], checks: [boxWhy('发布', '暂时不能发布：该版本已不是草稿'), whyStays('#app .vb-why', '暂时不能发布')] },
   { app: 'ops', screen: 'engine', state: 'rollback', persona: 'ops', path: '/engine/params', rules: engRules(), steps: [`[...document.querySelectorAll('#app .vitem')].at(-1).click()`, wait(600), `${findBtn('回滚', '#app .vb-acts')}.click()`, wait(500)], checks: [boxTitle, boxDanger('回滚')] },
+  { app: 'ops', screen: 'engine', state: 'delete', persona: 'ops', path: '/engine/params', rules: engRules(), steps: [`${findBtn('删除草稿', '#app .ver-bar')}.click()`, wait(500)], checks: [boxTitle, boxDanger('删除')] },
+  { app: 'ops', screen: 'engine', state: 'delete-rejected', persona: 'ops', path: '/engine/params', rules: engRules({ url: `${ENG_API}/3`, method: 'DELETE', action: 'respond', body: refuse('SYS_4090', '草稿已被发布，请刷新后再操作') }),
+    steps: [`${findBtn('删除草稿', '#app .ver-bar')}.click()`, wait(500), `${findBtn('删除', '.el-message-box')}.click()`, toastShown], checks: [boxWhy('删除', '暂时不能删除：草稿已被发布'), whyStays('#app .vb-why', '暂时不能删除'), `${findBtn('删除草稿', '#app .ver-bar')}?.disabled ? '' : '被拒之后「删除草稿」没有置灰'`] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

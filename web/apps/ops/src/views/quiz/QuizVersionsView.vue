@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, type QuizFunnel, type QuizView } from '@shitu/api-client'
 import { IconChartColumn, IconClipboardList, IconInbox, IconListFilter, IconPlus, IconTriangleExclamationPoint } from '@shitu/ui-icons'
-import { boxSubmit, isNetwork } from '@/composables/boxSubmit'
+import { confirmInBox, isNetwork } from '@/composables/boxSubmit'
 import { QUIZ_PUBLISH_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
 import { actionsColWidth } from '@/utils/actionsWidth'
@@ -121,30 +121,16 @@ async function createDraft() {
 /** 发布 / 回滚：确认框里提交，确认按钮危险色描边（立即对全平台生效） */
 async function publish(v: QuizView) {
   const rollback = v.status === 'ARCHIVED'
-  const act = rollback ? '回滚' : '发布'
   const cur = active.value ? `当前生效版本「${active.value.name}」将被归档。` : ''
-  let done = false
-  const s = boxSubmit(
-    `${rollback ? '回滚至' : '发布'}「${v.name}」（${v.questions.length} 道题）后将立即影响全平台所有用户的问薪与匹配结果。${cur}确定继续？`,
-    act,
-    async () => {
-      await opsApi.publishQuiz(v.versionId)
-      done = true
-    },
-    (why) => (blocked.value = { ...blocked.value, [v.versionId]: why }),
-  )
-  try {
-    await ElMessageBox.confirm(s.message, rollback ? '回滚题库版本' : '发布题库版本', {
-      type: 'warning',
-      confirmButtonText: rollback ? '回滚' : '发布',
-      confirmButtonClass: 'el-button--danger is-plain btn-reject',
-      cancelButtonText: '取消',
-      beforeClose: s.beforeClose,
-    })
-  } catch {
-    // 取消
-  }
-  if (!done) return
+  const ok = await confirmInBox({
+    title: rollback ? '回滚题库版本' : '发布题库版本',
+    text: `${rollback ? '回滚至' : '发布'}「${v.name}」（${v.questions.length} 道题）后将立即影响全平台所有用户的问薪与匹配结果。${cur}确定继续？`,
+    action: rollback ? '回滚' : '发布',
+    danger: true,
+    api: () => opsApi.publishQuiz(v.versionId),
+    onBlocked: (why) => (blocked.value = { ...blocked.value, [v.versionId]: why }),
+  })
+  if (!ok) return
   ElMessage.success(rollback ? `已回滚至「${v.name}」` : `「${v.name}」已发布生效`)
   await load()
 }
@@ -153,13 +139,14 @@ async function publish(v: QuizView) {
 <template>
   <div>
     <div class="page-hd">
-      <div>
+      <div class="hd-main">
         <h2>AI 问薪题库配置</h2>
         <p>平台唯一核心引擎的入口层 —— 最多 {{ MAX_QUESTIONS }} 道题决定用户画像，画像决定匹配范围与结果。题库版本化：草稿 → 发布，可回滚到任一归档版本</p>
       </div>
-      <div class="spacer" />
-      <el-button @click="router.push('/engine/match-snapshot')">匹配快照查询</el-button>
-      <el-button type="primary" :loading="creating" @click="createDraft">{{ draft ? '继续编辑草稿' : '新建草稿' }}</el-button>
+      <div class="hd-acts">
+        <el-button @click="router.push('/engine/match-snapshot')">匹配快照查询</el-button>
+        <el-button type="primary" :loading="creating" @click="createDraft">{{ draft ? '继续编辑草稿' : '新建草稿' }}</el-button>
+      </div>
     </div>
 
     <!-- 有版本的配置（第 11 类）：顶部信息条「当前生效版本 · 草稿状态」 -->
@@ -253,8 +240,8 @@ async function publish(v: QuizView) {
         <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="open(row)">{{ row.status === 'DRAFT' ? '编辑' : '查看' }}</el-button>
-            <el-button v-if="row.status === 'DRAFT' && canPublish" link type="danger" size="small" :disabled="!!blocked[row.versionId]" @click="publish(row)">发布</el-button>
-            <el-button v-if="row.status === 'ARCHIVED' && canPublish" link type="danger" size="small" :disabled="!!blocked[row.versionId]" @click="publish(row)">回滚至此版本</el-button>
+            <el-button v-if="row.status === 'DRAFT' && canPublish" link type="primary" size="small" :disabled="!!blocked[row.versionId]" @click="publish(row)">发布</el-button>
+            <el-button v-if="row.status === 'ARCHIVED' && canPublish" link type="primary" size="small" :disabled="!!blocked[row.versionId]" @click="publish(row)">回滚至此版本</el-button>
           </template>
         </el-table-column>
         <template #empty>
@@ -280,9 +267,9 @@ async function publish(v: QuizView) {
 
     <div class="grid g-2 below">
       <div class="card">
-        <div class="card__hd"><h3>答题漏斗</h3><span class="status-tag">待埋点</span></div>
+        <div class="card__hd"><h3>各题进入 / 放弃人数</h3><span class="status-tag">待埋点</span></div>
         <div class="card__bd">
-          <p class="plain">各题进入 / 放弃人数需 C 端答题埋点，后续版本接入</p>
+          <p class="plain">需 C 端答题埋点，后续版本接入</p>
         </div>
       </div>
       <div class="card">
@@ -302,6 +289,10 @@ async function publish(v: QuizView) {
 </template>
 
 <style scoped>
+.page-hd { flex-wrap: nowrap; }
+.hd-main { flex: 1; min-width: 0; }
+.hd-acts { display: flex; gap: var(--space-2); flex: none; margin-left: auto; }
+.hd-acts .el-button + .el-button { margin-left: 0; }
 .ver-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-gap); font-size: var(--font-size-aux); }
 .vb-k { color: var(--text-2); }
 .vb-v { color: var(--text-1); font-weight: var(--font-weight-semibold); }

@@ -173,3 +173,9 @@
 .el-button.el-button--danger.btn-reject { --el-button-bg-color: var(--bg-card); --el-button-border-color: var(--danger-text); --el-button-text-color: var(--danger-text); }
 /* 数据表行高约 48（规范第 2 类）：单元格上下内边距 12；只给迁移过的页面的表格加，没迁移的页面不变 */
 .el-table.tbl-48 .el-table__cell { padding: var(--space-3) 0; }
+/* 弹窗标题和确认框同级：16px / 600（只给迁移过的页面的弹窗加 dlg-16，没迁移的页面不变） */
+.el-dialog.dlg-16 .el-dialog__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); }
+/* 位置固定的操作条按钮（btn-steady）：提交中只转圈，转圈图标叠在左内边距里，文字和按钮宽度都不变 */
+.el-button.btn-steady.is-loading { position: relative; }
+.el-button.btn-steady.is-loading > .el-icon { position: absolute; left: 0; }
+.el-button.btn-steady.is-loading > .el-icon + span { margin-left: 0; }

@@ -86,32 +86,36 @@ function next() {
 
 <style scoped>
 /* 手机端的字号、圆角、间距：取值同 @shitu/ui-tokens 的 vant-theme.css（后台的同名变量是 element-theme.css 的桌面取值） */
+/* 手机端的字号、圆角、间距：取 tokens.css 的 --mobile-*（和 vant-theme.css 同一来源；后台的同名变量是 element-theme.css 的桌面取值） */
 .phone {
-  --font-size-title: 18px;
-  --font-size-body: 15px;
-  --radius-card: 12px;
-  --radius-control: 8px;
+  --font-size-title: var(--mobile-font-size-title);
+  --font-size-body: var(--mobile-font-size-body);
+  --radius-card: var(--mobile-radius-card);
+  --radius-control: var(--mobile-radius-control);
   --space-page: var(--space-4);
-  width: 336px;
+  width: 100%;
+  max-width: 336px;
   margin: 0 auto;
   padding: var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 28px;
+  /* 外框圆角 = 屏幕圆角 + 外框内边距，两圈同心 */
+  border-radius: calc(var(--radius-card) + var(--space-2));
   background: var(--bg-card);
   box-shadow: var(--shadow-card);
 }
-.screen { height: 620px; border-radius: 20px; overflow: hidden; background: var(--bg-page); display: flex; flex-direction: column; }
+/* 矮屏（1280×800）上整台手机仍放得进吸顶区 */
+.screen { height: min(620px, calc(100vh - 260px)); border-radius: var(--radius-card); overflow: hidden; background: var(--bg-page); display: flex; flex-direction: column; }
 /* 顶栏：白底、高 44、标题居中 17px / 600、左侧返回、下边 1px 分隔线（同 van-nav-bar） */
-.nav { position: relative; flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-4); background: var(--bg-card); border-bottom: 1px solid var(--border); }
-.nav-back { display: grid; place-items: center; width: 44px; height: 44px; margin-left: calc(-1 * var(--space-3)); padding: 0; border: 0; background: none; color: var(--text-1); cursor: pointer; }
+.nav { position: relative; flex: none; height: var(--mobile-nav-height); display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-4); background: var(--bg-card); border-bottom: 1px solid var(--border); }
+.nav-back { display: grid; place-items: center; width: var(--mobile-control-height); height: var(--mobile-control-height); margin-left: calc(-1 * var(--space-3)); padding: 0; border: 0; background: none; color: var(--text-1); cursor: pointer; }
 .nav-back:disabled { color: var(--text-placeholder); cursor: default; }
-.nav-t { position: absolute; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.nav-t { position: absolute; left: 50%; transform: translateX(-50%); font-size: var(--mobile-nav-title-size); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .nav-act { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
 .pad { flex: 1; overflow: auto; padding: var(--space-page); }
 .prog-t { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
 .prog-t b { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
-.prog { height: 4px; margin-top: var(--space-2); border-radius: 3px; background: var(--border); overflow: hidden; }
-.prog i { display: block; height: 100%; border-radius: 3px; background: var(--primary); transition: width .3s; }
+.prog { height: 4px; margin-top: var(--space-2); border-radius: var(--radius-tag); background: var(--border); overflow: hidden; }
+.prog i { display: block; height: 100%; border-radius: var(--radius-tag); background: var(--primary); transition: width .3s; }
 .stem { margin: var(--space-6) 0 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); word-break: break-all; }
 .stem-d { margin: var(--space-1) 0 0; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .opts { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
@@ -128,7 +132,7 @@ function next() {
 .empty-d { font-size: var(--font-size-aux); }
 /* 底部通栏：白底、上边框，「上一题」占 1 份、「下一题」占 2 份，按钮高 48（同 van-button size="large"） */
 .bottom { flex: none; display: flex; gap: var(--space-3); padding: var(--space-2) var(--space-page); background: var(--bg-card); border-top: 1px solid var(--border); }
-.btn { height: 48px; padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-family: inherit; font-size: var(--font-size-section); color: var(--text-1); cursor: pointer; white-space: nowrap; }
+.btn { height: var(--mobile-bottom-bar-button-height); padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-family: inherit; font-size: var(--font-size-section); color: var(--text-1); cursor: pointer; white-space: nowrap; }
 .btn--primary { border-color: var(--primary); background: var(--primary); color: var(--text-on-primary); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .prev { flex: 1; }

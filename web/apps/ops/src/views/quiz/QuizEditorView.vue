@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { errorMessage, isApiError, opsApi, type QuizView } from '@shitu/api-client'
 import { IconChevronDown, IconChevronUp, IconInbox, IconPlus, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
-import { boxSubmit, isBlocked, isNetwork } from '@/composables/boxSubmit'
+import { confirmInBox, isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { confirmAction } from '@/composables/useRemark'
 import { QUIZ_PUBLISH_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -152,36 +152,38 @@ async function publish() {
   const v = view.value
   if (!v || v.status === 'ACTIVE') return
   const rollback = v.status === 'ARCHIVED'
-  if (dirty.value && !(await save())) return
-  let done = false
-  // 确认框里提交（规范「Page States」），确认按钮危险色描边：发布 / 回滚立即对全平台生效
-  const s = boxSubmit(
-    `${rollback ? '回滚至' : '发布'}「${v.name}」（${v.questions.length} 道题）后将立即影响全平台所有用户的问薪与匹配结果，原生效版本将被归档。确定继续？`,
-    rollback ? '回滚' : '发布',
-    async () => {
-      publishing.value = true
-      try {
-        apply(await opsApi.publishQuiz(v.versionId))
-        done = true
-      } finally {
-        publishing.value = false
-      }
-    },
-    (why) => (publishWhy.value = why),
-  )
+  publishing.value = true
   try {
-    await ElMessageBox.confirm(s.message, rollback ? '回滚题库版本' : '发布题库版本', {
-      type: 'warning',
-      confirmButtonText: rollback ? '回滚' : '发布',
-      confirmButtonClass: 'el-button--danger is-plain btn-reject',
-      cancelButtonText: '取消',
-      beforeClose: s.beforeClose,
+    if (dirty.value && !(await save())) return
+    // 确认框里提交（规范「Page States」），确认按钮危险色描边：发布 / 回滚立即对全平台生效
+    const ok = await confirmInBox({
+      title: rollback ? '回滚题库版本' : '发布题库版本',
+      text: `${rollback ? '回滚至' : '发布'}「${v.name}」（${v.questions.length} 道题）后将立即影响全平台所有用户的问薪与匹配结果，原生效版本将被归档。确定继续？`,
+      action: rollback ? '回滚' : '发布',
+      danger: true,
+      api: async () => apply(await opsApi.publishQuiz(v.versionId)),
+      onBlocked: (why) => (publishWhy.value = why),
     })
-  } catch {
-    // 取消
+    if (ok) ElMessage.success(rollback ? '已回滚，该版本已生效' : '已发布生效')
+  } finally {
+    publishing.value = false
   }
-  if (done) ElMessage.success(rollback ? '已回滚，该版本已生效' : '已发布生效')
 }
+
+/** 操作条里置灰的按钮为什么不能点（规范「本来就不能做的操作直接置灰写原因」） */
+const opHint = computed(() => {
+  const v = view.value
+  if (!v) return loading.value ? '题库版本加载中…' : '题库版本没加载出来，不能保存或发布'
+  const r: string[] = []
+  if (v.status === 'ACTIVE') r.push('生效版本只读：修改请新建草稿')
+  else if (v.status === 'ARCHIVED') r.push('归档版本只读，不能保存或发布')
+  else if (!dirty.value) r.push('草稿没有未保存的修改')
+  else r.push('有未保存的修改，发布时会先保存')
+  if (v.status === 'DRAFT' && errors.value.length) r.push(`还有 ${errors.value.length} 处错误，修正后才能保存和发布`)
+  if (v.status !== 'ARCHIVED') r.push('回滚只针对归档版本')
+  if (!canPublish.value) r.push('发布 / 回滚需超级管理员操作')
+  return r.join('；')
+})
 
 async function newDraft() {
   try {
@@ -206,7 +208,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 </script>
 
 <template>
-  <div>
+  <div class="editor">
     <div class="page-hd">
       <div>
         <h2 class="ttl">
@@ -222,25 +224,29 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         </p>
       </div>
       <div class="spacer" />
-      <el-button @click="router.push('/engine/quiz')">返回列表</el-button>
-      <template v-if="view">
-        <el-button v-if="view.status === 'ACTIVE'" @click="newDraft">基于此版本新建草稿</el-button>
-        <el-button v-if="view.status === 'DRAFT'" type="primary" :loading="saving" :disabled="!dirty || !!saveWhy" @click="save">保存草稿</el-button>
-        <el-tooltip v-if="view.status !== 'ACTIVE' && !canPublish" content="仅超级管理员可发布 / 回滚" placement="bottom">
-          <span><el-button disabled>{{ view.status === 'DRAFT' ? '发布生效' : '回滚至此版本' }}</el-button></span>
-        </el-tooltip>
-        <el-button
-          v-else-if="view.status !== 'ACTIVE'"
-          type="danger"
-          plain
-          class="btn-reject"
-          :loading="publishing"
-          :disabled="saving || !!publishWhy || (view.status === 'DRAFT' && errors.length > 0)"
-          @click="publish"
-        >{{ view.status === 'DRAFT' ? (dirty ? '保存并发布' : '发布生效') : '回滚至此版本' }}</el-button>
-      </template>
+      <div class="hd-acts">
+        <el-button v-if="view?.status === 'ACTIVE'" @click="newDraft">基于此版本新建草稿</el-button>
+        <el-button @click="router.push('/engine/quiz')">返回列表</el-button>
+      </div>
     </div>
-    <p v-if="saveWhy || publishWhy" class="blocked-why hd-why" role="alert">{{ saveWhy || publishWhy }}</p>
+
+    <!-- 有版本的配置（第 11 类）：保存草稿 / 发布 / 回滚的位置固定，长表单往下滚时吸顶；用不了时置灰，原因写在左边 -->
+    <div class="card op-bar">
+      <div class="op-why">
+        <span v-if="saveWhy || publishWhy" class="blocked-why hd-why" role="alert">{{ saveWhy || publishWhy }}</span>
+        <span v-else class="t-xs">{{ opHint }}</span>
+      </div>
+      <div class="op-acts">
+        <el-button class="btn-steady" type="primary" :loading="saving && !publishing" :disabled="view?.status !== 'DRAFT' || !dirty || !!saveWhy || publishing" @click="save">保存草稿</el-button>
+        <el-button
+          class="btn-steady"
+          :loading="publishing && view?.status === 'DRAFT'"
+          :disabled="view?.status !== 'DRAFT' || !canPublish || !!publishWhy || errors.length > 0 || (saving && !publishing)"
+          @click="publish"
+        >发布生效</el-button>
+        <el-button class="btn-steady" :loading="publishing && view?.status === 'ARCHIVED'" :disabled="view?.status !== 'ARCHIVED' || !canPublish || !!publishWhy" @click="publish">回滚至此版本</el-button>
+      </div>
+    </div>
 
     <div v-if="loading && !view" v-loading="true" class="card loading-box" />
     <div v-else-if="!view" class="card">
@@ -290,7 +296,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             <div v-if="!readonly" class="qops">
               <el-button size="small" :disabled="i === 0" @click="move(qs, i, -1)">上移</el-button>
               <el-button size="small" :disabled="i === qs.length - 1" @click="move(qs, i, 1)">下移</el-button>
-              <el-button size="small" type="danger" plain class="btn-reject" @click="removeQuestion(i)">删除</el-button>
+              <el-button size="small" @click="removeQuestion(i)">删除</el-button>
             </div>
           </div>
           <div class="card__bd">
@@ -396,12 +402,21 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 
 <style scoped>
 .ttl { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-.hd-why { margin: calc(-1 * var(--space-2)) 0 var(--space-4); text-align: right; }
+/* 操作条定高（按钮一行、原因最多两行），被拒原因出现时不推动下面的内容；右侧预览吸在它下面 */
+.editor { --op-bar-h: calc(2 * var(--space-3) + 2lh); }
+.op-bar { font-size: var(--font-size-aux); line-height: 1.6; }
+.hd-acts { display: flex; gap: var(--space-2); flex: none; }
+.hd-acts .el-button + .el-button { margin-left: 0; }
+.op-bar { position: sticky; top: var(--layout-top-height); z-index: 10; display: flex; align-items: center; gap: var(--space-4); height: var(--op-bar-h); padding: 0 var(--space-4); margin-bottom: var(--space-gap); }
+.op-why { flex: 1; min-width: 0; line-height: 1.6; }
+.op-acts { display: flex; gap: var(--space-2); flex: none; }
+.op-acts .el-button + .el-button { margin-left: 0; }
 .loading-box { height: 320px; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 352px; gap: var(--space-gap); align-items: start; }
-@media (max-width: 1280px) { .layout { grid-template-columns: 1fr; } .right { order: -1; } }
+/* 1280 宽也保持左表单、右预览两栏，预览缩到 320 */
+@media (max-width: 1280px) { .layout { grid-template-columns: minmax(0, 1fr) 320px; } }
 .left { display: grid; gap: var(--space-3); min-width: 0; }
-.sticky { position: sticky; top: calc(var(--layout-top-height) + var(--space-4)); }
+.sticky { position: sticky; top: calc(var(--layout-top-height) + var(--op-bar-h) + var(--space-gap)); }
 .row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .spacer { flex: 1; }
 .lbl { font-size: var(--font-size-aux); color: var(--text-2); font-weight: var(--font-weight-medium); }
@@ -421,12 +436,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .fdesc { margin: calc(-1 * var(--space-2)) 0 var(--space-3) 76px; }
 .opts { margin-top: var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-control); padding: var(--space-2) var(--space-3) var(--space-3); background: var(--bg-fill); }
 .orow { display: grid; gap: var(--space-2); align-items: center; padding: var(--space-1) 0; }
-.orow.k-enum, .orow.k-number { grid-template-columns: 64px minmax(160px, 2fr) minmax(90px, 1fr) minmax(150px, 1.4fr) 64px 84px; }
-.orow.k-range { grid-template-columns: 64px minmax(160px, 2fr) minmax(90px, 1fr) 120px 120px 0 84px; }
-.ohd { font-size: var(--font-size-min); color: var(--text-2); font-weight: var(--font-weight-medium); padding-bottom: 2px; }
+.orow.k-enum, .orow.k-number { grid-template-columns: 64px minmax(140px, 2fr) minmax(72px, 1fr) minmax(130px, 1.4fr) 64px 84px; }
+.orow.k-range { grid-template-columns: 64px minmax(140px, 2fr) minmax(72px, 1fr) 110px 110px 0 84px; }
+.ohd { font-size: var(--font-size-min); color: var(--text-2); font-weight: var(--font-weight-medium); padding-bottom: var(--space-1); }
 .orow :deep(.el-input-number) { width: 100%; }
 .cc { display: flex; justify-content: center; }
 .oops { display: flex; justify-content: flex-end; }
+/* 上移、下移、删除图标的点击区补到 24 */
+.oops .el-button { min-width: 24px; min-height: 24px; }
 .oops .el-button + .el-button { margin-left: var(--space-1); }
 .addopt { margin-top: var(--space-2); }
 .addopt svg, .addq .el-button svg { margin-right: var(--space-1); }

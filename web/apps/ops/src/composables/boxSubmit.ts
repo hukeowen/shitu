@@ -1,6 +1,6 @@
 import { h, ref } from 'vue'
 import type { Action, MessageBoxState } from 'element-plus'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, isApiError } from '@shitu/api-client'
 
 /**
@@ -44,4 +44,42 @@ export function isBlocked(e: unknown): boolean {
 /** 断网、超时：加载失败时提示「请检查网络后重新加载」；别的错误只写原因，不往网络上引 */
 export function isNetwork(e: unknown): boolean {
   return isApiError(e) && e.code === 'NETWORK'
+}
+
+export interface ConfirmInBoxOptions {
+  title: string
+  /** 确认框正文 */
+  text: string
+  /** 被拒时写成「暂时不能{action}：原因」；也是确认按钮的默认文字 */
+  action: string
+  confirmText?: string
+  /** 不可撤回的操作（发布、回滚、删除）：确认按钮用危险色描边（.btn-reject） */
+  danger?: boolean
+  api: () => Promise<unknown>
+  onBlocked?: (why: string) => void
+}
+
+/**
+ * 弹确认框并在框里提交（boxSubmit 的整套用法）。返回 true：请求成功、框已关；false：用户取消或关掉了框。
+ * 只把取消（'cancel'）和关闭（'close'）当正常返回，其他异常照常抛出。
+ */
+export async function confirmInBox(o: ConfirmInBoxOptions): Promise<boolean> {
+  let done = false
+  const s = boxSubmit(o.text, o.action, async () => {
+    await o.api()
+    done = true
+  }, o.onBlocked)
+  try {
+    await ElMessageBox.confirm(s.message, o.title, {
+      type: 'warning',
+      confirmButtonText: o.confirmText ?? o.action,
+      cancelButtonText: '取消',
+      beforeClose: s.beforeClose,
+      ...(o.danger ? { confirmButtonClass: 'el-button--danger is-plain btn-reject' } : {}),
+    })
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return false
+    throw e
+  }
+  return done
 }

@@ -2,13 +2,13 @@
  * 选择器用 :root:root 提高优先级：按需引入的组件样式在本文件之后加载，
  * 其中也在 :root 上定义了 --van-button-* 这类变量，同优先级时后加载的会盖掉这里的值。 */
 :root:root {
-  /* 手机端的字号、圆角、控件高度、间距 */
-  --font-size-title: 18px;
-  --font-size-body:  15px;
-  --radius-card:     12px;
-  --radius-control:  8px;
-  --control-height:  44px;   /* 主按钮；也是最小点击区 */
-  --bottom-bar-button-height: 48px;   /* 页面底部通栏按钮 */
+  /* 手机端的字号、圆角、控件高度、间距：取值在 tokens.css 的 --mobile-*（后台的手机预览也读那里） */
+  --font-size-title: var(--mobile-font-size-title);
+  --font-size-body:  var(--mobile-font-size-body);
+  --radius-card:     var(--mobile-radius-card);
+  --radius-control:  var(--mobile-radius-control);
+  --control-height:  var(--mobile-control-height);   /* 主按钮；也是最小点击区 */
+  --bottom-bar-button-height: var(--mobile-bottom-bar-button-height);   /* 页面底部通栏按钮 */
   --space-page: var(--space-4);   /* 页面左右边距 */
   --space-card: var(--space-4);   /* 卡片内边距 */
   --space-gap:  var(--space-3);   /* 卡片间距 */
@@ -81,9 +81,9 @@
   --van-tag-primary-color: var(--primary);
 
   /* 顶栏、底部标签栏、分段标签 */
-  --van-nav-bar-height: 44px;
+  --van-nav-bar-height: var(--mobile-nav-height);
   --van-nav-bar-background: var(--bg-card);
-  --van-nav-bar-title-font-size: 17px;
+  --van-nav-bar-title-font-size: var(--mobile-nav-title-size);
   --van-nav-bar-title-text-color: var(--text-1);
   --van-nav-bar-icon-color: var(--text-1);
   --van-nav-bar-text-color: var(--text-1);

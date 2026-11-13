@@ -155,7 +155,7 @@ async function submitResolve() {
       <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="rows.length" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" background />
     </div>
 
-    <el-dialog v-model="add.open" title="登记归属争议" width="520px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-model="add.open" title="登记归属争议" width="520px" class="dlg-16" destroy-on-close :close-on-click-modal="false">
       <el-form label-width="120px" @submit.prevent>
         <el-form-item label="用户">{{ userId }}</el-form-item>
         <el-form-item label="提出异议的公司">
@@ -173,7 +173,7 @@ async function submitResolve() {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="res.open" title="写处理结论" width="520px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-model="res.open" title="写处理结论" width="520px" class="dlg-16" destroy-on-close :close-on-click-modal="false">
       <template v-if="res.row">
         <div class="content box">{{ res.row.content }}</div>
         <el-input v-model="res.conclusion" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="核查了什么（注册渠道、状态日志、报名与任职记录）、结论是什么" class="concl" @input="res.error = ''" />

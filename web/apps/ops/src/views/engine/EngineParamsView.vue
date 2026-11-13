@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, type EngineVersion } from '@shitu/api-client'
 import { IconInbox, IconPlus, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import StatusTag from '@/components/StatusTag.vue'
-import { boxSubmit, isBlocked, isNetwork } from '@/composables/boxSubmit'
+import { confirmInBox, isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { confirmAction } from '@/composables/useRemark'
 import { ENGINE_PUBLISH_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -34,6 +34,7 @@ const acting = ref(false)
 /** 保存 / 发布 / 回滚被后端业务拒绝的原因：留在操作条下面，被拒的按钮置灰（断网只弹提示） */
 const saveWhy = ref('')
 const publishWhy = ref('')
+const deleteWhy = ref('')
 
 const readonly = computed(() => current.value?.status !== 'DRAFT')
 const snapshot = () => (form.value ? JSON.stringify(toPayload(form.value)) : '')
@@ -66,6 +67,7 @@ function show(v: EngineVersion) {
   saved.value = snapshot()
   saveWhy.value = ''
   publishWhy.value = ''
+  deleteWhy.value = ''
   if (route.query.v !== String(v.versionId)) void router.replace({ query: { v: String(v.versionId) } })
 }
 
@@ -136,35 +138,21 @@ function discard() {
   if (current.value) show(current.value)
 }
 
-/** 确认框里提交（规范「Page States」）；删除、发布、回滚不可撤回，确认按钮危险色描边 */
-async function confirmIn(title: string, text: string, act: string, api: () => Promise<void>, onBlocked?: (why: string) => void): Promise<boolean> {
-  let done = false
-  const s = boxSubmit(text, act, async () => {
-    await api()
-    done = true
-  }, onBlocked)
-  try {
-    await ElMessageBox.confirm(s.message, title, {
-      type: 'warning',
-      confirmButtonText: act,
-      confirmButtonClass: 'el-button--danger is-plain btn-reject',
-      cancelButtonText: '取消',
-      beforeClose: s.beforeClose,
-    })
-  } catch {
-    // 取消
-  }
-  return done
-}
-
 async function remove(v: EngineVersion) {
-  const ok = await confirmIn('删除草稿', `确定删除草稿 v${v.versionId}？删除后不可恢复。`, '删除', async () => {
-    acting.value = true
-    try {
-      await opsApi.engineDelete(v.versionId)
-    } finally {
-      acting.value = false
-    }
+  const ok = await confirmInBox({
+    title: '删除草稿',
+    text: `确定删除草稿 v${v.versionId}？删除后不可恢复。`,
+    action: '删除',
+    danger: true,
+    api: async () => {
+      acting.value = true
+      try {
+        await opsApi.engineDelete(v.versionId)
+      } finally {
+        acting.value = false
+      }
+    },
+    onBlocked: (why) => (deleteWhy.value = why),
   })
   if (!ok) return
   ElMessage.success('草稿已删除')
@@ -182,11 +170,12 @@ async function publish(v: EngineVersion) {
   const rollback = v.status === 'ARCHIVED'
   const changes = active.value ? diff(normalize(active.value.config), normalize(v.config)).length : 0
   const out: { v: EngineVersion | null } = { v: null }
-  const ok = await confirmIn(
-    rollback ? '回滚引擎参数' : '发布引擎参数',
-    `${rollback ? '回滚至' : '发布'} v${v.versionId}（相对当前生效版本 ${changes} 项变化）后，将立即影响全平台的匹配打分、岗位权重与展示结果。${active.value ? `当前生效版本 v${active.value.versionId} 将被归档。` : ''}确定继续？`,
-    rollback ? '回滚' : '发布',
-    async () => {
+  const ok = await confirmInBox({
+    title: rollback ? '回滚引擎参数' : '发布引擎参数',
+    text: `${rollback ? '回滚至' : '发布'} v${v.versionId}（相对当前生效版本 ${changes} 项变化）后，将立即影响全平台的匹配打分、岗位权重与展示结果。${active.value ? `当前生效版本 v${active.value.versionId} 将被归档。` : ''}确定继续？`,
+    action: rollback ? '回滚' : '发布',
+    danger: true,
+    api: async () => {
       acting.value = true
       try {
         out.v = await opsApi.enginePublish(v.versionId)
@@ -194,8 +183,8 @@ async function publish(v: EngineVersion) {
         acting.value = false
       }
     },
-    (why) => (publishWhy.value = why),
-  )
+    onBlocked: (why) => (publishWhy.value = why),
+  })
   const done = out.v
   if (!ok || !done) return
   ElMessage.success(rollback ? `已回滚至 v${done.versionId}` : `v${done.versionId} 已发布生效`)
@@ -212,15 +201,23 @@ function compare() {
 /** 固定操作条「保存草稿 / 对比 / 发布 / 回滚」：按钮一直在，不能用时置灰，原因写在操作条里 */
 const isActive = computed(() => !!current.value && current.value.versionId === active.value?.versionId)
 const canCompare = computed(() => !!active.value && !!current.value && !isActive.value)
+/** 操作条里置灰的按钮为什么不能点（规范「本来就不能做的操作直接置灰写原因」），每个置灰都写到 */
 const barHint = computed(() => {
+  if (!loaded.value) return loading.value ? '版本加载中…' : '版本没有加载出来，重新加载后再操作'
   const c = current.value
-  if (!c) return ''
-  if (c.status === 'ACTIVE') return '生效版本只读：如需调整请新建草稿；对比、发布、回滚针对草稿或归档版本'
-  if (c.status === 'ARCHIVED') return canPublish.value ? '归档版本只读，可回滚至此版本' : '归档版本只读；回滚需超级管理员操作'
-  if (!canPublish.value) return '发布需超级管理员操作'
-  return dirty.value ? '' : '草稿没有未保存的修改'
+  if (!c) return versions.value.length ? '在左边的版本列表里选一个版本' : '还没有版本，先新建草稿'
+  const r: string[] = []
+  if (c.status === 'ACTIVE') r.push('生效版本只读：如需调整请新建草稿')
+  else if (c.status === 'ARCHIVED') r.push('归档版本只读，不能保存或发布')
+  else if (!dirty.value) r.push('草稿没有未保存的修改，不用保存')
+  if (!active.value) r.push('还没有生效版本，没有可对比的')
+  else if (isActive.value) r.push('正在看的就是生效版本，不用对比')
+  if (c.status !== 'ARCHIVED') r.push('回滚只针对归档版本')
+  if (!canPublish.value) r.push('发布、回滚需超级管理员操作')
+  return r.join('；')
 })
 const draftState = computed(() => {
+  if (!loaded.value) return '—'
   const d = draft.value
   if (!d) return '无草稿'
   if (current.value?.versionId === d.versionId && dirty.value) return `v${d.versionId} 有未保存的修改`
@@ -275,14 +272,49 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 </script>
 
 <template>
-  <div>
+  <div :class="{ ro: readonly }">
     <div class="page-hd">
       <div>
         <h2>匹配引擎参数</h2>
         <p>软打分因子权重、距离分档、挂岗衰减、诚信 / 处罚 / 名额系数、展示阈值与同公司上限 · 版本化：草稿 → 发布（仅超管），可回滚</p>
       </div>
       <div class="spacer" />
-      <el-button :type="current?.status === 'DRAFT' ? 'default' : 'primary'" :loading="acting && !current" :disabled="!loaded" @click="createDraft">{{ draft ? '继续编辑草稿' : '新建草稿' }}</el-button>
+      <el-button :type="current?.status === 'DRAFT' ? 'default' : 'primary'" :loading="acting && !current" @click="createDraft">{{ draft ? '继续编辑草稿' : '新建草稿' }}</el-button>
+    </div>
+
+    <!-- 有版本的配置（第 11 类）：顶部信息条「当前生效版本 · 草稿状态」一直在、长表单往下滚时吸顶；
+         保存草稿 / 对比 / 发布 / 回滚四个按钮位置固定，用不了时置灰，原因写在下面一行 -->
+    <div class="card ver-bar">
+      <div class="vb-row">
+        <div class="vb-info">
+          <span class="vb-k">当前生效版本</span>
+          <b class="vb-v">{{ !loaded ? '—' : active ? `v${active.versionId}` : '暂无' }}</b>
+          <span v-if="active?.publishedAt" class="t-xs">{{ fmtDateTime(active.publishedAt) }} 发布</span>
+          <span class="vb-sep">·</span>
+          <span class="vb-k">草稿状态</span>
+          <b class="vb-v">{{ draftState }}</b>
+        </div>
+        <div class="vb-acts">
+          <el-button class="btn-steady" type="primary" :loading="saving" :disabled="current?.status !== 'DRAFT' || !dirty || !!saveWhy" @click="save">保存草稿</el-button>
+          <el-button class="btn-steady" :disabled="!canCompare" @click="compare">对比</el-button>
+          <el-button class="btn-steady" :loading="acting && current?.status === 'DRAFT'" :disabled="current?.status !== 'DRAFT' || !canPublish || saving || !!publishWhy" @click="current && publish(current)">发布</el-button>
+          <el-button class="btn-steady" :loading="acting && current?.status === 'ARCHIVED'" :disabled="current?.status !== 'ARCHIVED' || !canPublish || !!publishWhy" @click="current && publish(current)">回滚</el-button>
+        </div>
+      </div>
+      <div class="vb-row vb-sub">
+        <div class="vb-info">
+          <span class="vb-k">正在查看</span>
+          <b class="vb-v">{{ current ? `v${current.versionId}` : '—' }}</b>
+          <StatusTag v-if="current" type="VersionStatus" :value="current.status" />
+          <span v-if="dirty" class="status-tag status-tag--warning">未保存</span>
+          <template v-if="current?.status === 'DRAFT'">
+            <el-button link type="primary" :disabled="!dirty" @click="discard">撤销修改</el-button>
+            <el-button link type="danger" :disabled="acting || saving || !!deleteWhy" @click="remove(current)">删除草稿</el-button>
+          </template>
+        </div>
+        <span v-if="saveWhy || publishWhy || deleteWhy" class="blocked-why vb-why" role="alert">{{ saveWhy || publishWhy || deleteWhy }}</span>
+        <span v-else class="t-xs vb-hint">{{ barHint }}</span>
+      </div>
     </div>
 
     <div v-if="!loaded" v-loading="loading" class="card">
@@ -305,40 +337,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
     </div>
 
     <template v-else>
-      <!-- 有版本的配置（第 11 类）：顶部信息条「当前生效版本 · 草稿状态」，保存草稿 / 对比 / 发布 / 回滚的位置固定 -->
-      <div class="card ver-bar">
-        <div class="vb-row">
-          <div class="vb-info">
-            <span class="vb-k">当前生效版本</span>
-            <b class="vb-v">{{ active ? `v${active.versionId}` : '暂无' }}</b>
-            <span v-if="active?.publishedAt" class="t-xs">{{ fmtDateTime(active.publishedAt) }} 发布</span>
-            <span class="vb-sep">·</span>
-            <span class="vb-k">草稿状态</span>
-            <b class="vb-v">{{ draftState }}</b>
-          </div>
-          <div class="vb-acts">
-            <el-button type="primary" :loading="saving" :disabled="current?.status !== 'DRAFT' || !dirty || !!saveWhy" @click="save">保存草稿</el-button>
-            <el-button :disabled="!canCompare" @click="compare">对比</el-button>
-            <el-button type="danger" plain class="btn-reject" :loading="acting && current?.status === 'DRAFT'" :disabled="current?.status !== 'DRAFT' || !canPublish || saving || !!publishWhy" @click="current && publish(current)">发布</el-button>
-            <el-button type="danger" plain class="btn-reject" :loading="acting && current?.status === 'ARCHIVED'" :disabled="current?.status !== 'ARCHIVED' || !canPublish || !!publishWhy" @click="current && publish(current)">回滚</el-button>
-          </div>
-        </div>
-        <div v-if="current" class="vb-row vb-sub">
-          <div class="vb-info">
-            <span class="vb-k">正在查看</span>
-            <b class="vb-v">v{{ current.versionId }}</b>
-            <StatusTag type="VersionStatus" :value="current.status" />
-            <span v-if="dirty" class="status-tag status-tag--warning">未保存</span>
-            <template v-if="current.status === 'DRAFT'">
-              <el-button link type="primary" :disabled="!dirty" @click="discard">撤销修改</el-button>
-              <el-button link type="danger" :disabled="acting || saving" @click="remove(current)">删除草稿</el-button>
-            </template>
-          </div>
-          <span v-if="barHint" class="t-xs">{{ barHint }}</span>
-        </div>
-        <p v-if="saveWhy || publishWhy" class="blocked-why vb-why" role="alert">{{ saveWhy || publishWhy }}</p>
-      </div>
-
       <div class="layout">
         <div class="card side">
           <div class="card__hd"><h3>版本</h3><span v-if="!canPublish" class="t-xs">发布需超管</span></div>
@@ -409,9 +407,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                       <tr v-for="(t, i) in form.distanceScore" :key="i">
                         <td>
                           <span v-if="i === form.distanceScore.length - 1" class="above">以上（不限）</span>
-                          <el-input-number v-else :model-value="t.maxKm ?? undefined" @update:model-value="(v: number | undefined) => (t.maxKm = v ?? null)" :min="1" :step="5" :precision="0" size="small" :disabled="readonly" controls-position="right" />
+                          <el-input-number v-else :model-value="t.maxKm ?? undefined" @update:model-value="(v: number | undefined) => (t.maxKm = v ?? null)" :min="1" :step="5" :precision="0" :disabled="readonly" controls-position="right" />
                         </td>
-                        <td><el-input-number v-model="t.score" :min="0" :max="100" :step="5" :precision="0" size="small" :disabled="readonly" controls-position="right" /></td>
+                        <td><el-input-number v-model="t.score" :min="0" :max="100" :step="5" :precision="0" :disabled="readonly" controls-position="right" /></td>
                         <td><el-button v-if="!readonly && form.distanceScore.length > 1" link size="small" type="danger" @click="form.distanceScore.splice(i, 1)">删除</el-button></td>
                       </tr>
                     </tbody>
@@ -429,9 +427,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                       <tr v-for="(t, i) in form.decay" :key="i">
                         <td>
                           <span v-if="i === form.decay.length - 1" class="above">以上（不限）</span>
-                          <el-input-number v-else :model-value="t.maxDays ?? undefined" @update:model-value="(v: number | undefined) => (t.maxDays = v ?? null)" :min="1" :step="1" :precision="0" size="small" :disabled="readonly" controls-position="right" />
+                          <el-input-number v-else :model-value="t.maxDays ?? undefined" @update:model-value="(v: number | undefined) => (t.maxDays = v ?? null)" :min="1" :step="1" :precision="0" :disabled="readonly" controls-position="right" />
                         </td>
-                        <td><el-input-number v-model="t.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></td>
+                        <td><el-input-number v-model="t.factor" :min="0" :max="1" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></td>
                         <td><el-button v-if="!readonly && form.decay.length > 1" link size="small" type="danger" @click="form.decay.splice(i, 1)">删除</el-button></td>
                       </tr>
                     </tbody>
@@ -451,9 +449,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 <div class="card__bd">
                   <template v-if="form.lowConversion">
                     <div class="fields">
-                      <label>挂岗满（天）<el-input-number v-model="form.lowConversion.minPostedDays" :min="0" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                      <label>且转化率 ≤<el-input-number v-model="form.lowConversion.maxConversionRate" :min="0" :max="1" :step="0.01" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
-                      <label>乘以系数<el-input-number v-model="form.lowConversion.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                      <label>挂岗满（天）<el-input-number v-model="form.lowConversion.minPostedDays" :min="0" :precision="0" :disabled="readonly" controls-position="right" /></label>
+                      <label>且转化率 ≤<el-input-number v-model="form.lowConversion.maxConversionRate" :min="0" :max="1" :step="0.01" :precision="2" :disabled="readonly" controls-position="right" /></label>
+                      <label>乘以系数<el-input-number v-model="form.lowConversion.factor" :min="0" :max="1" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></label>
                     </div>
                     <div class="fields">
                       <label>与挂岗衰减合并方式
@@ -476,8 +474,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                     <thead><tr><th>诚信分 ≥</th><th>系数 0–2</th><th /></tr></thead>
                     <tbody>
                       <tr v-for="(t, i) in form.credit" :key="i">
-                        <td><el-input-number v-model="t.minScore" :min="0" :max="100" :precision="0" size="small" :disabled="readonly" controls-position="right" @blur="sortCredit" /></td>
-                        <td><el-input-number v-model="t.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></td>
+                        <td><el-input-number v-model="t.minScore" :min="0" :max="100" :precision="0" :disabled="readonly" controls-position="right" @blur="sortCredit" /></td>
+                        <td><el-input-number v-model="t.factor" :min="0" :max="2" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></td>
                         <td><el-button v-if="!readonly && form.credit.length > 1" link size="small" type="danger" @click="form.credit.splice(i, 1)">删除</el-button></td>
                       </tr>
                     </tbody>
@@ -494,8 +492,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 </div>
                 <div class="card__bd">
                   <div v-if="form.penalty" class="fields">
-                    <label>二级（限流）<el-input-number v-model="form.penalty.level2" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
-                    <label>三级（封禁）<el-input-number v-model="form.penalty.level3" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                    <label>二级（限流）<el-input-number v-model="form.penalty.level2" :min="0" :max="1" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></label>
+                    <label>三级（封禁）<el-input-number v-model="form.penalty.level3" :min="0" :max="1" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></label>
                   </div>
                   <div v-else class="t-xs">未启用：处罚不影响匹配权重</div>
                 </div>
@@ -510,15 +508,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                     <el-switch :model-value="form.quota != null" :disabled="readonly" active-text="名额将满降权" @update:model-value="(v: string | number | boolean) => toggle('quota', !!v)" />
                   </div>
                   <div v-if="form.quota" class="fields">
-                    <label>剩余名额 ≤<el-input-number v-model="form.quota.lowRemaining" :min="0" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                    <label>乘以系数<el-input-number v-model="form.quota.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                    <label>剩余名额 ≤<el-input-number v-model="form.quota.lowRemaining" :min="0" :precision="0" :disabled="readonly" controls-position="right" /></label>
+                    <label>乘以系数<el-input-number v-model="form.quota.factor" :min="0" :max="1" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></label>
                   </div>
                   <div class="fields">
                     <el-switch :model-value="form.newJobBoost != null" :disabled="readonly" active-text="新岗位加权" @update:model-value="(v: string | number | boolean) => toggle('newJobBoost', !!v)" />
                   </div>
                   <div v-if="form.newJobBoost" class="fields">
-                    <label>上架 ≤（天）<el-input-number v-model="form.newJobBoost.maxDays" :min="0" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                    <label>乘以系数<el-input-number v-model="form.newJobBoost.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" controls-position="right" /></label>
+                    <label>上架 ≤（天）<el-input-number v-model="form.newJobBoost.maxDays" :min="0" :precision="0" :disabled="readonly" controls-position="right" /></label>
+                    <label>乘以系数<el-input-number v-model="form.newJobBoost.factor" :min="0" :max="2" :step="0.05" :precision="2" :disabled="readonly" controls-position="right" /></label>
                   </div>
                 </div>
               </div>
@@ -529,9 +527,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               <div class="card__hd"><h3>结果展示</h3></div>
               <div class="card__bd">
                 <div class="fields">
-                  <label>展示阈值（匹配分 ≥）<el-input-number v-model="form.displayThreshold" :min="0" :max="100" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                  <label>结果条数（1–20）<el-input-number v-model="form.resultCount" :min="1" :max="20" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
-                  <label>公域同公司上限（≤ 结果条数）<el-input-number v-model="form.maxPerCompanyPublic" :min="1" :max="form.resultCount" :precision="0" size="small" :disabled="readonly" controls-position="right" /></label>
+                  <label>展示阈值（匹配分 ≥）<el-input-number v-model="form.displayThreshold" :min="0" :max="100" :precision="0" :disabled="readonly" controls-position="right" /></label>
+                  <label>结果条数（1–20）<el-input-number v-model="form.resultCount" :min="1" :max="20" :precision="0" :disabled="readonly" controls-position="right" /></label>
+                  <label>公域同公司上限（≤ 结果条数）<el-input-number v-model="form.maxPerCompanyPublic" :min="1" :max="form.resultCount" :precision="0" :disabled="readonly" controls-position="right" /></label>
                 </div>
               </div>
             </div>
@@ -559,7 +557,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 
 <style scoped>
 .wait { height: 320px; }
-.ver-bar { padding: var(--space-3) var(--space-4); margin-bottom: var(--space-gap); }
+.ver-bar { position: sticky; top: var(--layout-top-height); z-index: 10; padding: var(--space-3) var(--space-4); margin-bottom: var(--space-gap); }
 .vb-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .vb-sub { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
 .vb-info { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: var(--font-size-aux); min-width: 0; }
@@ -570,14 +568,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 /* 四个按钮固定在操作条右侧，同一顺序，不能用时只置灰不隐藏 */
 .vb-acts { display: flex; gap: var(--space-2); margin-left: auto; }
 .vb-acts .el-button + .el-button { margin-left: 0; }
-.vb-why { margin-top: var(--space-2); text-align: right; }
+.vb-why, .vb-hint { text-align: right; }
 .layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-gap); align-items: start; }
-.side { position: sticky; top: calc(var(--layout-top-height) + var(--space-4)); }
 .vlist { padding: var(--space-2); }
-.vitem { display: block; width: 100%; text-align: left; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-family: inherit; margin-bottom: 2px; }
+.vitem { display: block; width: 100%; text-align: left; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-family: inherit; margin-bottom: var(--space-1); }
 .vitem:hover { background: var(--bg-hover); }
 .vitem.on { border-color: var(--primary-line); background: var(--primary-bg); }
-.vrow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.vrow { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-1); }
 .vrow b { color: var(--text-1); font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); }
 .main { min-width: 0; }
 .gap { margin-bottom: var(--space-3); }
@@ -614,4 +611,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .fields { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); align-items: center; margin-bottom: var(--space-2); }
 .fields label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-2); }
 .fields :deep(.el-input-number) { width: 130px; }
+/* 复选框选中后文字不变色 */
+:deep(.el-checkbox__input.is-checked + .el-checkbox__label) { color: var(--text-1); }
+/* 只读版本：数值用一级文字色（Element 置灰的浅灰字在灰底上只有约 2:1） */
+.ro :deep(.el-input.is-disabled .el-input__inner) { color: var(--text-1); -webkit-text-fill-color: var(--text-1); }
 </style>
