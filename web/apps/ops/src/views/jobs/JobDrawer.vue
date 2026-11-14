@@ -150,6 +150,24 @@ async function forceOffline() {
         </div>
 
         <section class="blk">
+          <h4 class="blk-t">合作合同<small>{{ j.companyName ?? j.companyId }} ↔ {{ j.clientName ?? j.clientId }}</small></h4>
+          <el-table :data="detail.contracts" class="ops-table contract-tbl">
+            <el-table-column label="甲方 / 合同编号" min-width="220">
+              <template #default="{ row }">{{ row.clientName ?? row.clientId }}<div class="t-xs">{{ row.contractId }}</div></template>
+            </el-table-column>
+            <el-table-column label="有效期" width="200">
+              <template #default="{ row }"><span class="tnum cell-one">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span></template>
+            </el-table-column>
+            <el-table-column label="备案" width="76"><template #default="{ row }"><StatusTag type="ClientContractStatus" :value="row.auditStatus" /></template></el-table-column>
+            <el-table-column label="生效" width="76">
+              <template #default="{ row }"><span class="status-tag" :class="{ 'status-tag--success': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></template>
+            </el-table-column>
+            <el-table-column label="文件" width="60"><template #default="{ row }"><FileViewButton :file-key="row.fileKey" /></template></el-table-column>
+            <template #empty><span class="t-sm none">该公司与此甲方没有任何合作合同</span></template>
+          </el-table>
+        </section>
+
+        <section class="blk">
           <h4 class="blk-t">基本信息</h4>
           <dl class="desc-list">
             <div><dt>发布企业</dt><dd>{{ j.companyName ?? '—' }}<span class="t-xs co-id">{{ j.companyId }}</span></dd></div>
@@ -203,24 +221,6 @@ async function forceOffline() {
         </section>
 
         <section class="blk">
-          <h4 class="blk-t">合作合同<small>{{ j.companyName ?? j.companyId }} ↔ {{ j.clientName ?? j.clientId }}</small></h4>
-          <el-table :data="detail.contracts" class="ops-table contract-tbl">
-            <el-table-column label="甲方 / 合同编号" min-width="170">
-              <template #default="{ row }">{{ row.clientName ?? row.clientId }}<div class="t-xs">{{ row.contractId }}</div></template>
-            </el-table-column>
-            <el-table-column label="有效期" min-width="190">
-              <template #default="{ row }"><span class="tnum">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span></template>
-            </el-table-column>
-            <el-table-column label="备案" width="80"><template #default="{ row }"><StatusTag type="ClientContractStatus" :value="row.auditStatus" /></template></el-table-column>
-            <el-table-column label="生效" width="80">
-              <template #default="{ row }"><span class="status-tag" :class="{ 'status-tag--success': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></template>
-            </el-table-column>
-            <el-table-column label="文件" width="64"><template #default="{ row }"><FileViewButton :file-key="row.fileKey" /></template></el-table-column>
-            <template #empty><span class="t-sm none">该公司与此甲方没有任何合作合同</span></template>
-          </el-table>
-        </section>
-
-        <section class="blk">
           <h4 class="blk-t">审核记录</h4>
           <ul v-if="detail.audits.length" class="tl">
             <li v-for="(a, i) in detail.audits" :key="i" :class="AUDIT_ACTION[a.action]?.cls">
@@ -239,8 +239,9 @@ async function forceOffline() {
         <p v-if="blocked.why" class="blocked-why" role="status">{{ blocked.why }}</p>
         <div class="rv-acts">
           <el-button @click="visible = false">关闭</el-button>
-          <span class="rv-gap" />
+          <!-- 强制下架不是审核结论：放在左边「关闭」旁，和右边的驳回 / 通过分开 -->
           <el-button v-if="actions.has('FORCE_OFFLINE')" type="danger" plain class="btn-reject" :disabled="blocked.act === 'FORCE_OFFLINE'" @click="forceOffline">强制下架</el-button>
+          <span class="rv-gap" />
           <el-button v-if="actions.has('REJECT')" type="danger" plain class="btn-reject" :disabled="blocked.act === 'REJECT'" @click="reject">驳回</el-button>
           <el-button v-if="actions.has('APPROVE')" type="primary" :disabled="blocked.act === 'APPROVE'" @click="approve">审核通过</el-button>
         </div>

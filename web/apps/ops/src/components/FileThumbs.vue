@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { errorMessage } from '@shitu/api-client'
-import { IconFileText } from '@shitu/ui-icons'
+import { IconFileText, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { guessKind, useFileUrls, type FileBlob } from '@/composables/useFileUrls'
 
 /**
@@ -65,7 +65,7 @@ function caption(it: Item, i: number) {
     <figure v-for="(it, i) in items" :key="it.key" class="mat" :title="fileName(it.key)">
       <div class="thumb">
         <div v-if="it.state === 'loading'" class="ph">加载中…</div>
-        <div v-else-if="it.state === 'error'" class="ph err">{{ it.err }}</div>
+        <div v-else-if="it.state === 'error'" class="ph err"><IconTriangleExclamationPoint :size="20" /><span>{{ it.err }}</span></div>
         <el-image
           v-else-if="it.blob?.kind === 'image'"
           :src="it.blob.url"
@@ -75,7 +75,9 @@ function caption(it: Item, i: number) {
           preview-teleported
           hide-on-click-modal
           class="img"
-        />
+        >
+          <template #error><div class="ph err"><IconTriangleExclamationPoint :size="20" /><span>图片打不开</span></div></template>
+        </el-image>
         <button v-else type="button" class="ph doc" @click="files.openInTab(it.key)">
           <IconFileText :size="24" />
           <span>点击查看</span>
@@ -94,7 +96,7 @@ function caption(it: Item, i: number) {
 .mat figcaption { margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .img { width: 100%; height: 100%; display: block; cursor: zoom-in; }
 .ph { width: 100%; height: 100%; display: grid; place-items: center; font-size: var(--font-size-min); color: var(--text-3); text-align: center; padding: var(--space-1); }
-.ph.err { color: var(--danger-text); }
+.ph.err { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--text-3); }
 .doc { border: 0; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); font-family: inherit; color: var(--text-2); }
 .doc:hover { background: var(--bg-hover); color: var(--primary-text); }
 </style>

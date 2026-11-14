@@ -104,14 +104,14 @@ function toCredit(id: string) {
         <el-input v-model="companyId" clearable placeholder="公司 ID" style="width: 160px" @keyup.enter="load" @clear="load" />
         <el-checkbox v-model="onlyZombie">只看僵尸岗位</el-checkbox>
         <div class="spacer" />
-        <el-button type="primary" @click="load">查询</el-button>
+        <el-button @click="load">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>
       <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="jobId">
         <el-table-column label="岗位" min-width="190">
           <template #default="{ row }"><span class="strong">{{ row.title }}</span><div class="t-xs">{{ row.jobId }}</div></template>
         </el-table-column>
-        <el-table-column label="公司" min-width="200">
+        <el-table-column label="公司" min-width="230">
           <template #default="{ row }">
             <span class="link-cell" @click="toCredit(row.companyId)">{{ row.companyName }}</span>
             <div class="t-xs">{{ row.companyId }}</div>
@@ -126,9 +126,9 @@ function toCredit(id: string) {
             <span v-if="row.zombie" class="status-tag status-tag--danger">僵尸岗位</span>
           </template>
         </el-table-column>
-        <el-table-column label="挂岗天数" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.postedDays }}</span></template></el-table-column>
-        <el-table-column label="剩余名额" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.quotaRemaining ?? '—' }}</span></template></el-table-column>
-        <el-table-column label="投诉属实" width="90" align="right">
+        <el-table-column label="挂岗天数" width="80" align="right"><template #default="{ row }"><span class="tnum">{{ row.postedDays }}</span></template></el-table-column>
+        <el-table-column label="剩余名额" width="80" align="right"><template #default="{ row }"><span class="tnum">{{ row.quotaRemaining ?? '—' }}</span></template></el-table-column>
+        <el-table-column label="投诉属实" width="80" align="right">
           <template #default="{ row }"><span class="tnum" :class="row.complaintVerified > 0 ? 'warn-t' : 'dim'">{{ row.complaintVerified }}</span></template>
         </el-table-column>
         <el-table-column label="公司诚信 / 处罚" min-width="170">

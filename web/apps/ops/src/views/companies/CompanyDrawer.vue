@@ -27,7 +27,7 @@ const loading = ref(false)
 const error = ref('')
 const offline = ref(false)
 /** 被后端拒绝的审核操作：只置灰这一个按钮，原因写在底部按钮上方 */
-const blocked = reactive<{ act: '' | 'approve' | 'reject' | 'status'; why: string }>({ act: '', why: '' })
+const blocked = reactive<{ act: '' | 'approve' | 'reject'; why: string }>({ act: '', why: '' })
 
 async function load() {
   if (!props.companyId) return
@@ -125,8 +125,8 @@ async function submitStatus() {
     ElMessage.error(errorMessage(e))
     // 后端业务拒绝：原因留在弹窗里、「确认调整」置灰，改了选项或原因再放开；断网只提示
     if (isBlocked(e)) {
+      // 置灰只留在弹窗里被拒的「确认调整」上；关掉弹窗可以重新打开换个状态再试
       statusDlg.why = `暂时不能调整状态：${errorMessage(e)}`
-      Object.assign(blocked, { act: 'status', why: statusDlg.why })
     }
   } finally {
     statusDlg.saving = false
@@ -161,6 +161,29 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
         <div v-else-if="c.status === 'REJECTED' && c.auditRemark" class="notice-bar notice-bar--danger top-tip"><IconInfo :size="16" class="notice-bar-i" />驳回原因：{{ c.auditRemark }}</div>
         <div v-else-if="c.statusRemark && c.status !== 'NORMAL'" class="notice-bar notice-bar--warn top-tip"><IconInfo :size="16" class="notice-bar-i" />状态说明：{{ c.statusRemark }}</div>
 
+        <section class="blk mat-blk">
+          <h4 class="blk-t">营业执照 / 资质文件<small>点击图片放大，PDF 在新标签页打开</small></h4>
+          <FileThumbs :keys="c.licenseFiles" label="资质文件" />
+        </section>
+
+        <section class="blk">
+          <h4 class="blk-t">合作合同<small>{{ detail.contracts.length }} 份</small></h4>
+          <el-table :data="detail.contracts" class="ops-table contract-tbl">
+            <el-table-column label="甲方 / 合同编号" min-width="220">
+              <template #default="{ row }">{{ row.clientName ?? row.clientId }}<div class="t-xs">{{ row.contractId }}</div></template>
+            </el-table-column>
+            <el-table-column label="有效期" width="200">
+              <template #default="{ row }"><span class="tnum cell-one">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span></template>
+            </el-table-column>
+            <el-table-column label="备案" width="76"><template #default="{ row }"><StatusTag type="ClientContractStatus" :value="row.auditStatus" /></template></el-table-column>
+            <el-table-column label="生效" width="76">
+              <template #default="{ row }"><span class="status-tag" :class="{ 'status-tag--success': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></template>
+            </el-table-column>
+            <el-table-column label="文件" width="60"><template #default="{ row }"><FileViewButton :file-key="row.fileKey" /></template></el-table-column>
+            <template #empty><span class="t-sm dim">暂无合同</span></template>
+          </el-table>
+        </section>
+
         <section class="blk">
           <h4 class="blk-t">基本信息</h4>
           <dl class="desc-list">
@@ -186,29 +209,6 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
             <div><dt>处罚等级</dt><dd>{{ c.penaltyLevel ?? '—' }}</dd></div>
             <div v-if="c.auditRemark && c.status !== 'REJECTED'" class="full"><dt>审核备注</dt><dd>{{ c.auditRemark }}</dd></div>
           </dl>
-        </section>
-
-        <section class="blk mat-blk">
-          <h4 class="blk-t">营业执照 / 资质文件<small>点击图片放大，PDF 在新标签页打开</small></h4>
-          <FileThumbs :keys="c.licenseFiles" label="营业执照" />
-        </section>
-
-        <section class="blk">
-          <h4 class="blk-t">合作合同<small>{{ detail.contracts.length }} 份</small></h4>
-          <el-table :data="detail.contracts" class="ops-table contract-tbl">
-            <el-table-column label="甲方 / 合同编号" min-width="170">
-              <template #default="{ row }">{{ row.clientName ?? row.clientId }}<div class="t-xs">{{ row.contractId }}</div></template>
-            </el-table-column>
-            <el-table-column label="有效期" min-width="190">
-              <template #default="{ row }"><span class="tnum">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span></template>
-            </el-table-column>
-            <el-table-column label="备案" width="80"><template #default="{ row }"><StatusTag type="ClientContractStatus" :value="row.auditStatus" /></template></el-table-column>
-            <el-table-column label="生效" width="80">
-              <template #default="{ row }"><span class="status-tag" :class="{ 'status-tag--success': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></template>
-            </el-table-column>
-            <el-table-column label="文件" width="64"><template #default="{ row }"><FileViewButton :file-key="row.fileKey" /></template></el-table-column>
-            <template #empty><span class="t-sm dim">暂无合同</span></template>
-          </el-table>
         </section>
 
         <section class="blk">
@@ -239,7 +239,7 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
             <el-button type="danger" plain class="btn-reject" :disabled="blocked.act === 'reject'" @click="reject">驳回</el-button>
             <el-button type="primary" :disabled="blocked.act === 'approve'" @click="approve">通过入驻</el-button>
           </template>
-          <el-button v-else-if="canAdjust" type="primary" :disabled="blocked.act === 'status'" @click="openStatus">调整状态</el-button>
+          <el-button v-else-if="canAdjust" type="primary" @click="openStatus">调整状态</el-button>
         </div>
       </div>
     </template>

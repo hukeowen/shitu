@@ -186,7 +186,7 @@
 .rv-hd h3 { margin: 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 /* 底部操作区：左边「关闭」，右边审核按钮（驳回在左、通过在右）；被拒原因写在按钮上方 */
 .rv-foot { display: flex; flex-direction: column; gap: var(--space-2); }
-.rv-foot .blocked-why { text-align: right; }
+.rv-foot .blocked-why { text-align: left; padding-top: var(--space-2); border-top: 1px solid var(--divider); }
 .rv-acts { display: flex; align-items: center; gap: var(--space-2); }
 .rv-acts .rv-gap { flex: 1; }
 .rv-acts .el-button + .el-button { margin-left: 0; }
@@ -195,3 +195,7 @@
 .desc-list .pre { white-space: pre-wrap; line-height: 1.7; }
 /* 表格里的数字：等宽 */
 .tnum { font-variant-numeric: tabular-nums; }
+/* 表格里的编号行：不换行，超长用省略号 */
+.cell-one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 复选框未勾选的边框用三级文字色，对比度约 5:1（同 console.css） */
+html .el-checkbox { --el-checkbox-input-border: var(--el-border-width) var(--el-border-style) var(--text-3); }

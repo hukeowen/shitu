@@ -48,6 +48,8 @@ function onChanged() {
 function freeLeft(row: CompanyView): number | null {
   return daysUntil(row.freePeriodEnd)
 }
+/** 待审核页签的数：列表拿到数据后才显示（加载中、失败不带数）；停在待审核页签时就是列表的条数，和表格一致 */
+const pendN = computed(() => (list.loading.value || list.error.value ? null : status.value === 'PENDING_AUDIT' ? list.total.value : pending.counts?.companies))
 const opsWidth = computed(() => actionsColWidth([{ labels: ['审核'] }], 72))
 const EMPTY: Record<string, { title: string; desc: string }> = {
   PENDING_AUDIT: { title: '暂无待审核的入驻申请', desc: '劳务公司提交入驻申请后会出现在这里' },
@@ -66,12 +68,12 @@ onMounted(() => list.load())
       <div class="toolbar">
         <div class="filter-tabs">
           <button v-for="t in tabs" :key="t.value" type="button" :class="{ on: status === t.value }" @click="setStatus(t.value)">
-            {{ t.label }}<span v-if="t.value === 'PENDING_AUDIT' && pending.counts" class="n">{{ pending.counts.companies }}</span>
+            {{ t.label }}<span v-if="t.value === 'PENDING_AUDIT' && pendN != null" class="n">{{ pendN }}</span>
           </button>
         </div>
         <div class="spacer" />
         <el-input v-model="keyword" clearable placeholder="公司名称 / 公司 ID / 统一社会信用代码" style="width: 280px" @keyup.enter="list.search()" @clear="list.search()" />
-        <el-button type="primary" @click="list.search()">查询</el-button>
+        <el-button @click="list.search()">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>
 

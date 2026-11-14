@@ -22,24 +22,42 @@ const tabs = computed(() => [...options('ClientContractStatus'), { value: '', la
 const list = usePagedList<ContractView>((p) =>
   opsApi.contracts({ ...p, status: status.value || undefined, companyId: companyId.value.trim() || undefined }),
 )
-watch(status, () => list.search())
+watch(status, () => search())
 function reset() {
   companyId.value = ''
-  list.search()
+  search()
 }
 
 /** 后端拒绝过的通过 / 驳回：只置灰这一条的这个操作，原因用提醒色写在表格上方，重新加载后重新判断 */
 const blocked = reactive<Record<string, { name: string; act: 'approve' | 'reject'; text: string }>>({})
+// 重新加载、查询、切页签、翻页都清掉被拒记录，换了一批数据重新判断
+const clearBlocked = () => Object.keys(blocked).forEach((k) => delete blocked[k])
 async function load() {
-  Object.keys(blocked).forEach((k) => delete blocked[k])
+  clearBlocked()
   await list.load()
 }
+function search() {
+  clearBlocked()
+  return list.search()
+}
+function onPage(p: number) {
+  clearBlocked()
+  return list.onPageChange(p)
+}
+function onSize(s: number) {
+  clearBlocked()
+  return list.onSizeChange(s)
+}
+/** 待审核页签的数：列表拿到数据后才显示；停在待审核页签时就是列表的条数 */
+const pendN = computed(() => (list.loading.value || list.error.value ? null : status.value === 'PENDING' ? list.total.value : pending.counts?.contracts))
 function done(okMsg: string) {
   ElMessage.success(okMsg)
   void load()
   pending.refresh()
 }
 const who = (row: ContractView) => `${row.companyName ?? row.companyId} ↔ ${row.clientName ?? row.clientId}`
+/** 被拒原因写明是哪一条：同一家公司常有几份合同，带上合同编号 */
+const whoId = (row: ContractView) => `合同 ${row.contractId}（${who(row)}）`
 
 async function approve(row: ContractView) {
   const expired = (daysUntil(row.validTo) ?? 0) < 0
@@ -48,7 +66,7 @@ async function approve(row: ContractView) {
     text: `${who(row)}，有效期 ${fmtDate(row.validFrom)} ~ ${fmtDate(row.validTo)}。${expired ? '注意：该合同已过有效期，备案后也不会生效。' : '请确认已查看合同文件，甲乙双方与有效期无误。'}`,
     action: '通过',
     api: (remark) => opsApi.approveContract(row.contractId, remark || undefined),
-    onBlocked: (text) => (blocked[row.contractId] = { name: who(row), act: 'approve', text }),
+    onBlocked: (text) => (blocked[row.contractId] = { name: whoId(row), act: 'approve', text }),
   })
   if (ok) done('合同已备案')
 }
@@ -60,7 +78,7 @@ async function reject(row: ContractView) {
     required: true,
     danger: true,
     api: (remark) => opsApi.rejectContract(row.contractId, remark),
-    onBlocked: (text) => (blocked[row.contractId] = { name: who(row), act: 'reject', text }),
+    onBlocked: (text) => (blocked[row.contractId] = { name: whoId(row), act: 'reject', text }),
   })
   if (ok) done('已驳回')
 }
@@ -76,24 +94,24 @@ onMounted(load)
     <div class="toolbar">
       <div class="filter-tabs">
         <button v-for="t in tabs" :key="t.value" type="button" :class="{ on: status === t.value }" @click="status = t.value as ClientContractStatus | ''">
-          {{ t.label }}<span v-if="t.value === 'PENDING' && pending.counts" class="n">{{ pending.counts.contracts }}</span>
+          {{ t.label }}<span v-if="t.value === 'PENDING' && pendN != null" class="n">{{ pendN }}</span>
         </button>
       </div>
       <div class="spacer" />
-      <el-input v-model="companyId" clearable placeholder="公司 ID" style="width: 140px" @keyup.enter="list.search()" @clear="list.search()" />
-      <el-button type="primary" @click="list.search()">查询</el-button>
+      <el-input v-model="companyId" clearable placeholder="公司 ID" style="width: 140px" @keyup.enter="search" @clear="search" />
+      <el-button @click="search">查询</el-button>
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}</p>
+    <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}：{{ b.text }}</p>
     <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table tbl-48" row-key="contractId">
-      <el-table-column label="劳务公司 / 甲方" min-width="200">
+      <el-table-column label="劳务公司 / 甲方" min-width="230">
         <template #default="{ row }">
           <span class="strong">{{ row.companyName ?? '—' }}</span>
           <div class="t-xs">{{ row.companyId }} · {{ row.clientName ?? row.clientId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="有效期" min-width="200">
+      <el-table-column label="有效期" min-width="190">
         <template #default="{ row }">
           <span class="tnum">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span>
           <div v-if="(daysUntil(row.validTo) ?? 0) < 0"><span class="status-tag status-tag--danger">已过期</span></div>
@@ -108,7 +126,7 @@ onMounted(load)
       <el-table-column label="提交时间" width="150">
         <template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.createdAt) }}</span></template>
       </el-table-column>
-      <el-table-column label="审核说明" min-width="150">
+      <el-table-column label="审核说明" min-width="130">
         <template #default="{ row }">
           <span class="t-sm">{{ row.auditRemark || '—' }}</span>
           <div v-if="row.auditedAt" class="t-xs">{{ fmtDateTime(row.auditedAt) }}</div>
@@ -149,8 +167,8 @@ onMounted(load)
         :current-page="list.page.value"
         :page-size="list.pageSize.value"
         :page-sizes="[20, 50, 100]"
-        @current-change="list.onPageChange"
-        @size-change="list.onSizeChange"
+        @current-change="onPage"
+        @size-change="onSize"
       />
     </div>
   </div>

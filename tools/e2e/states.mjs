@@ -1385,7 +1385,9 @@ const kpiGrid = (n, cols) => `(() => { const ks = [...document.querySelectorAll(
   for (const k of ks) { const l = k.querySelector('.stat-l'), v = k.querySelector('.stat-v'), d = k.querySelector('.stat-d'), i = k.querySelector('svg')
     if (!l || !v || !d || !i) return '指标卡缺标题、数字、说明或图标：' + k.innerText.slice(0, 10)
     if (parseFloat(getComputedStyle(l).fontSize) !== 13 || getComputedStyle(l).color !== ${tokenColor('--text-2')}) return '指标标题不是 13px 二级文字'
-    if (parseFloat(getComputedStyle(v).fontSize) !== 26 || Number(getComputedStyle(v).fontWeight) !== 600 || getComputedStyle(v).color !== ${tokenColor('--text-1')}) return '指标数字不是 26px / 600 一级文字：' + v.innerText
+    // 异常卡（.stat--danger，规范第 1 类）的数字放行危险色，其余一律一级文字色
+    const vc = k.classList.contains('stat--danger') ? ${tokenColor('--danger-text')} : ${tokenColor('--text-1')}
+    if (parseFloat(getComputedStyle(v).fontSize) !== 26 || Number(getComputedStyle(v).fontWeight) !== 600 || getComputedStyle(v).color !== vc) return '指标数字不是 26px / 600 ' + (k.classList.contains('stat--danger') ? '危险色' : '一级文字') + '：' + v.innerText
     if (parseFloat(getComputedStyle(d).fontSize) !== 12 || getComputedStyle(d).color !== ${tokenColor('--text-3')}) return '指标说明不是 12px 三级文字：' + d.innerText
     const kr = k.getBoundingClientRect(), ir = i.getBoundingClientRect(); if (kr.right - ir.right > 24 || ir.top - kr.top > 24) return '指标图标不在右上角'
     if (v.scrollWidth > v.clientWidth + 1 || d.scrollWidth > d.clientWidth + 1) return '指标被截断：' + k.innerText.slice(0, 10) }
@@ -1585,11 +1587,10 @@ const C_LIST = '/ops/companies?', C_ONE = '/ops/companies/', J_LIST = '/ops/jobs
 // 合同备案：演示库里没有待备案的合同，用真实那份合同的形状造两份待备案（一份已过期）和一份已驳回
 const kReal = opsTok ? (await get(K_LIST + 'page=1&pageSize=20', opsTok)).data.records : []
 const kBase = kReal[0] ?? { contractId: 'HT-SHOT', companyId: 'C10001', companyName: '昆山仕兔演示劳务派遣有限公司', clientId: 'K1001', clientName: '立讯精密工业（昆山）有限公司', fileKey: 'contract/demo.pdf', validFrom: '2026-11-11', validTo: '2027-11-12', effective: true }
-const kFake = reply({ page: 1, pageSize: 20, total: 4, records: [
+// 页面默认停在「待审核」页签：假数据只放待备案的（和后端按状态筛的结果一致）
+const kFake = reply({ page: 1, pageSize: 20, total: 2, records: [
   { ...kBase, contractId: 'HT-SHOT-3', auditStatus: 'PENDING', auditRemark: null, auditedAt: null, effective: false, createdAt: '2026-11-14T09:20:00' },
-  { ...kBase, contractId: 'HT-SHOT-2', auditStatus: 'PENDING', auditRemark: null, auditedAt: null, effective: false, validFrom: '2025-10-01', validTo: '2026-09-30', createdAt: '2026-11-13T16:05:00' },
-  { ...kBase, contractId: 'HT-SHOT-1', auditStatus: 'REJECTED', auditRemark: '合同盖章页不清晰，请重新上传', auditedAt: '2026-11-13T10:00:00', effective: false, createdAt: '2026-11-12T18:00:00' },
-  { ...kBase, auditStatus: 'APPROVED' }] })
+  { ...kBase, contractId: 'HT-SHOT-2', auditStatus: 'PENDING', auditRemark: null, auditedAt: null, effective: false, validFrom: '2025-10-01', validTo: '2026-09-30', createdAt: '2026-11-13T16:05:00' }] })
 const kRules = (...more) => or(...more, { url: K_LIST, method: 'GET', action: 'respond', body: kFake })
 // 降权与限流：演示库的岗位都没降权，造一组权重高低不一、带处罚和僵尸岗位的数据（形状同 OpsGovernanceController.jobWeights）
 const wReal = opsTok ? (await get(WEIGHT_API, opsTok)).data : []
@@ -1638,7 +1639,7 @@ const inDrawer = (sel, text) => [`${findBtn(text, sel + ' .el-drawer__footer')}.
 const boxFill = (v) => fillTa('.el-message-box', v)
 const boxOk = (text) => `${findBtn(text, '.el-message-box')}.click()`
 // 带说明的确认框：有输入框；必填的不填就点确认，框里提示「请填写原因」且请求不发出去
-const boxHasInput = `document.querySelector('.el-message-box textarea') ? '' : '确认框里没有说明输入框'`
+const boxReasonInput = `[...document.querySelectorAll('.el-message-box textarea')].some((t) => t.getClientRects().length) ? '' : '确认框里没有看得见的说明输入框'`
 const boxNoSend = `(() => { if (window.__sent !== 0) return '没填原因也发出了请求'; return document.querySelector('.el-message-box__errormsg')?.innerText.includes('请填写原因') ? '' : '没填原因时框里没有提示' })()`
 // 被拒只置灰抽屉里被拒的那个按钮（「关闭」照常可点）
 const drawerOnlyOff = (sel, act) => onlyOff(sel + ' .el-drawer__footer', act)
@@ -1646,6 +1647,32 @@ const drawerNoWhy = (sel) => `document.querySelector(${JSON.stringify(sel + ' .b
 const pickStatus = (text) => [`[...document.querySelectorAll('.el-dialog .el-radio')].find((r) => r.innerText.includes(${JSON.stringify(text)})).click()`, wait(200)]
 const pickTab = (text) => [`[...document.querySelectorAll('#app .filter-tabs button')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`, wait(600)]
 const CD = '.company-drawer', JD = '.job-audit-drawer'
+// 演示库的执照文件在本机存储里不存在：截图时给一张能显示的执照图（只在截图里）
+const LICENSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="560" height="420"><rect width="560" height="420" fill="#F4F1E8"/><rect x="20" y="20" width="520" height="380" fill="none" stroke="#B8962E" stroke-width="6"/><text x="280" y="120" font-size="44" text-anchor="middle" fill="#8A1F11">营业执照</text><rect x="70" y="170" width="420" height="14" fill="#C9C2B0"/><rect x="70" y="210" width="360" height="14" fill="#C9C2B0"/><rect x="70" y="250" width="400" height="14" fill="#C9C2B0"/><circle cx="430" cy="330" r="44" fill="none" stroke="#C0392B" stroke-width="5"/></svg>'
+const cdR = (...more) => or(...more, { url: '/ops/files', method: 'GET', action: 'respond', raw: LICENSE_SVG, type: 'image/svg+xml' })
+// 缩略图真的显示出了图片
+const thumbShown = `(() => { const im = [...document.querySelectorAll('${'.company-drawer'} .mat img')]; if (!im.length) return '缩略图里没有图片'; return im.every((i) => i.complete && i.naturalWidth > 0) ? '' : '缩略图图片没加载出来' })()`
+// 筛选栏「查询」和 console 一致是默认按钮（主色只给主操作）
+const queryPlain = `(() => { const b = [...document.querySelectorAll('#app .toolbar > .el-button')].find((x) => x.innerText.trim() === '查询'); if (!b) return '筛选栏没有「查询」'; return b.classList.contains('el-button--primary') ? '筛选栏「查询」是主色按钮，应为默认按钮' : '' })()`
+// 名称不折行：公司名、岗位名一行放下（1280 宽也是）
+const nameOneLine = `(() => { for (const e of document.querySelectorAll('#app .el-table__body .strong, #app .el-table__body .link-cell, #app .el-table__body .cell-one')) { const rg = document.createRange(); rg.selectNodeContents(e)
+    const tops = new Set([...rg.getClientRects()].filter((q) => q.width).map((q) => Math.round(q.top))); if (tops.size > 1) return '名称或编号折行了：' + e.innerText.trim() }
+  return '' })()`
+// 抽屉第一屏就看得到材料区（合同表整张在底部操作区上面）
+const matFirst = (sel) => `(() => { const d = document.querySelector(${JSON.stringify(sel)}); const t = d?.querySelector('.contract-tbl'), f = d?.querySelector('.el-drawer__footer'); if (!t || !f) return '没有合同表或底部操作区'
+  return t.getBoundingClientRect().bottom <= f.getBoundingClientRect().top + 1 ? '' : '第一屏看不全合同表（被底部操作区盖住 ' + Math.round(t.getBoundingClientRect().bottom - f.getBoundingClientRect().top) + 'px）' })()`
+// 抽屉底部被拒原因：左对齐，上方有分隔线
+const footWhy = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel + ' .rv-foot .blocked-why')}); if (!e) return '底部没有被拒原因'; const c = getComputedStyle(e)
+  if (c.textAlign !== 'left' && c.textAlign !== 'start') return '底部被拒原因不是左对齐：' + c.textAlign
+  return c.borderTopStyle === 'solid' && c.borderTopColor === ${tokenColor('--divider')} ? '' : '底部被拒原因上方没有分隔线' })()`
+// 「强制下架」挨着左边的「关闭」，和右边的驳回 / 通过分开
+const forceLeft = (sel) => `(() => { const f = ${JSON.stringify(sel + ' .el-drawer__footer')}; const x = [...document.querySelectorAll(f + ' button')].find((b) => b.innerText.includes('强制下架')), r = [...document.querySelectorAll(f + ' button')].find((b) => b.innerText.trim() === '驳回')
+  if (!x || !r) return '没有「强制下架」或「驳回」'; const cl = [...document.querySelectorAll(f + ' button')].find((b) => b.innerText.trim() === '关闭').getBoundingClientRect(), xr = x.getBoundingClientRect(), rr = r.getBoundingClientRect()
+  if (xr.left - cl.right > 16) return '「强制下架」没挨着「关闭」'; return rr.left - xr.right > 80 ? '' : '「强制下架」和「驳回」挤在一起' })()`
+// 未勾选的复选框边框对比度不低于 3:1（同 console checkboxContrast，查页面上的）
+const pageCheckbox = `(() => { const box = document.querySelector('#app .el-checkbox:not(.is-checked) .el-checkbox__inner'); if (!box) return '没有未勾选的复选框'
+  const lum = (c) => { const [r, g, b] = c.match(/\\d+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const ratio = 1.05 / (lum(getComputedStyle(box).borderTopColor) + 0.05); return ratio >= 3 ? '' : '复选框边框对比度只有 ' + ratio.toFixed(2) + ':1' })()`
 // 降权与限流：有僵尸岗位时这张卡是异常卡（规范第 1 类：异常卡的数字用危险色），其余三张一级文字色
 const zombieDanger = `(() => { const ks = [...document.querySelectorAll('#app .kpis > .stat')], z = ks.find((k) => k.innerText.includes('僵尸岗位')); if (!z) return '没有僵尸岗位指标卡'
   if (getComputedStyle(z.querySelector('.stat-v')).color !== ${tokenColor('--danger-text')}) return '有僵尸岗位时数字不是危险色'
@@ -2710,7 +2737,7 @@ const STATES = [
   { app: 'console', screen: 'pm-advance', state: 'rejected', persona: 'pm', path: '/pm/advance', rules: sr({ url: '/pm-review', method: 'POST', action: 'respond', body: advRefused }),
     steps: [...openJobRow('终审通过'), `${findBtn('终审通过', '.el-message-box')}.click()`, elToastGone(ADV_WHY)],
     checks: [boxTitle, has('暂时不能终审通过'), hasNot('请刷新后再操作。刷新后重新判断'), ...rowOff('暂时不能终审通过：' + ADV_WHY, '终审通过'), boxWhy('终审通过', '暂时不能终审通过：' + ADV_WHY), elIdle] },
-  { app: 'console', screen: 'pm-advance', state: 'reject-box', persona: 'pm', path: '/pm/advance', rules: sr(), steps: openJobRow('驳回'), checks: [boxReject, boxTitle, boxHasInput] },
+  { app: 'console', screen: 'pm-advance', state: 'reject-box', persona: 'pm', path: '/pm/advance', rules: sr(), steps: openJobRow('驳回'), checks: [boxReject, boxTitle, boxInput] },
   { app: 'console', screen: 'pm-advance', state: 'reject-submitting', persona: 'pm', path: '/pm/advance', rules: sr(), quick: true,
     steps: [...openJobRow('驳回'), fillBox('本月已预支过一次，请下月再申请'), countXhr, boxClickTwice('确认驳回')], checks: [elSpinning('确认驳回', '.el-message-box'), sentOnce] },
   { app: 'console', screen: 'pm-advance', state: 'reject-rejected', persona: 'pm', path: '/pm/advance', rules: sr({ url: '/pm-review', method: 'POST', action: 'respond', body: advRefused }),
@@ -3004,26 +3031,29 @@ const STATES = [
   { app: 'ops', screen: 'engine', state: 'delete-rejected', persona: 'ops', path: '/engine/params', rules: engRules({ url: `${ENG_API}/3`, method: 'DELETE', action: 'respond', body: refuse('SYS_4090', '草稿已被发布，请刷新后再操作') }),
     steps: [`${findBtn('删除草稿', '#app .ver-bar')}.click()`, wait(500), `${findBtn('删除', '.el-message-box')}.click()`, toastShown], checks: [boxWhy('删除', '暂时不能删除：草稿已被发布'), whyStays('#app .vb-why', '暂时不能删除'), `${findBtn('删除草稿', '#app .ver-bar')}?.disabled ? '' : '被拒之后「删除草稿」没有置灰'`] },
   // ---- 工单 23：公司入驻审核与管理（第 8 类：页签 + 表格 → 抽屉看材料 → 底部驳回 / 通过）----
-  { app: 'ops', screen: 'companies', state: 'normal', persona: 'ops', path: '/companies/list', rules: or(), checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsCol, opsTap, statusTags, rowsTall, queryReset, hasPager, opsWriteGuard] },
+  { app: 'ops', screen: 'companies', state: 'normal', persona: 'ops', path: '/companies/list', rules: or(), checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsCol, opsTap, statusTags, rowsTall, queryReset, queryPlain, hasPager, opsWriteGuard] },
   { app: 'ops', screen: 'companies', state: 'normal', persona: 'ops', path: '/companies/list', width: 1280, height: 800, rules: or(), checks: [tblFit, opsCol, cFitAny] },
-  { app: 'ops', screen: 'companies', state: 'all', persona: 'ops', path: '/companies/list?status=', width: 1280, height: 800, rules: or(), checks: [tblFit, opsCol, statusTags, rowsTall, cFitAny] },
-  { app: 'ops', screen: 'companies', state: 'loading', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无待审核'), `document.querySelector('#app .tbl-card .el-pagination') ? '加载中却显示了分页' : ''`] },
-  { app: 'ops', screen: 'companies', state: 'empty', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待审核的入驻申请'), `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
-  { app: 'ops', screen: 'companies', state: 'error', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'fail' }), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'companies', state: 'all', persona: 'ops', path: '/companies/list?status=', width: 1280, height: 800, rules: or(), checks: [tblFit, opsCol, statusTags, rowsTall, cFitAny, nameOneLine] },
+  { app: 'ops', screen: 'companies', state: 'loading', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, tabsBlank, hasNot('暂无待审核'), `document.querySelector('#app .tbl-card .el-pagination') ? '加载中却显示了分页' : ''`] },
+  { app: 'ops', screen: 'companies', state: 'empty', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待审核的入驻申请'), allZero, `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
+  { app: 'ops', screen: 'companies', state: 'error', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'fail' }), checks: [failHint(true), oneRetry, tabsBlank] },
   { app: 'ops', screen: 'companies', state: 'error-server', persona: 'ops', path: '/companies/list', rules: or({ url: C_LIST, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry, has('服务器开小差了')] },
-  { app: 'ops', screen: 'company-drawer', state: 'review', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600)],
-    checks: [drawerBlocks(CD, ['基本信息', '营业执照 / 资质文件', '合作合同', '成员']), rvTitle(CD), reviewFoot(CD, '通过入驻'), matSpec(CD, { thumbs: true })] },
-  { app: 'ops', screen: 'company-drawer', state: 'review', persona: 'ops', path: '/companies/list', width: 1280, height: 800, rules: or(), steps: [...openAudit, wait(600)], checks: [reviewFoot(CD, '通过入驻'), matSpec(CD, { thumbs: true })] },
-  { app: 'ops', screen: 'company-drawer', state: 'normal', persona: 'ops', path: '/companies/list?status=NORMAL', rules: or(), steps: [...clickOp('详情'), wait(600)],
-    checks: [drawerBlocks(CD, ['基本信息', '营业执照 / 资质文件', '合作合同', '成员']), rvTitle(CD), matSpec(CD, { thumbs: true }), `${findBtn('调整状态', CD + ' .el-drawer__footer')}?.classList.contains('el-button--primary') ? '' : '正常公司底部没有「调整状态」'`] },
+  { app: 'ops', screen: 'company-drawer', state: 'review', persona: 'ops', path: '/companies/list', rules: cdR(), steps: [...openAudit, wait(800)],
+    checks: [drawerBlocks(CD, ['基本信息', '营业执照 / 资质文件', '合作合同', '成员']), rvTitle(CD), reviewFoot(CD, '通过入驻'), matSpec(CD, { thumbs: true }), thumbShown, matFirst(CD)] },
+  { app: 'ops', screen: 'company-drawer', state: 'review', persona: 'ops', path: '/companies/list', width: 1280, height: 800, rules: cdR(), steps: [...openAudit, wait(800)], checks: [reviewFoot(CD, '通过入驻'), matSpec(CD, { thumbs: true }), thumbShown, matFirst(CD)] },
+  // 执照文件取不到：缩略图里三级文字色加图标写原因，不用危险色
+  { app: 'ops', screen: 'company-drawer', state: 'thumb-error', persona: 'ops', path: '/companies/list', rules: or({ url: '/ops/files', method: 'GET', action: 'fail' }), steps: [...openAudit, wait(800)],
+    checks: [`(() => { const e = document.querySelector('${CD} .ph.err'); if (!e?.querySelector('svg')) return '缩略图失败没有图标'; return getComputedStyle(e).color === ${tokenColor('--text-3')} ? '' : '缩略图失败不是三级文字色' })()`] },
+  { app: 'ops', screen: 'company-drawer', state: 'normal', persona: 'ops', path: '/companies/list?status=NORMAL', rules: cdR(), steps: [...clickOp('详情'), wait(800)],
+    checks: [drawerBlocks(CD, ['基本信息', '营业执照 / 资质文件', '合作合同', '成员']), rvTitle(CD), matSpec(CD, { thumbs: true }), thumbShown, matFirst(CD), `${findBtn('调整状态', CD + ' .el-drawer__footer')}?.classList.contains('el-button--primary') ? '' : '正常公司底部没有「调整状态」'`] },
   { app: 'ops', screen: 'company-drawer', state: 'loading', persona: 'ops', path: '/companies/list', rules: or({ url: C_ONE, action: 'hang' }), quick: true, steps: [openAudit[0]],
     checks: [`document.querySelector('${CD} .el-loading-mask') ? '' : '抽屉加载中没有遮罩'`, `document.querySelector('${CD} .el-drawer__footer .el-button') ? '没拿到数据却显示了审核按钮' : ''`] },
   { app: 'ops', screen: 'company-drawer', state: 'error', persona: 'ops', path: '/companies/list', rules: or({ url: C_ONE, action: 'fail' }), steps: [...openAudit, wait(600)], checks: [drawerFail(CD, true)] },
   { app: 'ops', screen: 'company-drawer', state: 'error-server', persona: 'ops', path: '/companies/list', rules: or({ url: C_ONE, action: 'respond', body: serverError }), steps: [...openAudit, wait(600)], checks: [drawerFail(CD, false)] },
-  { app: 'ops', screen: 'company-drawer', state: 'approve', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(CD, '通过入驻')], checks: [boxTitle, boxHasInput, `${findBtn('通过', '.el-message-box')}?.classList.contains('el-button--primary') ? '' : '确认框里的「通过」不是主色'`] },
+  { app: 'ops', screen: 'company-drawer', state: 'approve', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(CD, '通过入驻')], checks: [boxTitle, boxReasonInput, `${findBtn('通过', '.el-message-box')}?.classList.contains('el-button--primary') ? '' : '确认框里的「通过」不是主色'`] },
   { app: 'ops', screen: 'company-drawer', state: 'approve-submitting', persona: 'ops', path: '/companies/list', rules: or(), quick: true, steps: [...openAudit, wait(600), ...inDrawer(CD, '通过入驻'), countXhr, boxClickTwice('通过')],
     checks: [sentOnce, `document.querySelector('.el-message-box .el-button.is-loading') ? '' : '确认框里的「通过」没有转圈'`] },
-  { app: 'ops', screen: 'company-drawer', state: 'reject', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回')], checks: [boxTitle, boxHasInput, boxReject] },
+  { app: 'ops', screen: 'company-drawer', state: 'reject', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回')], checks: [boxTitle, boxReasonInput, boxReject] },
   { app: 'ops', screen: 'company-drawer', state: 'reject-invalid', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回'), countXhr, boxOk('驳回'), wait(400)], checks: [boxNoSend] },
   { app: 'ops', screen: 'company-drawer', state: 'reject-rejected', persona: 'ops', path: '/companies/list', rules: or({ url: '/reject', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该公司已被审核，请刷新后再操作') }),
     steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回'), boxFill('营业执照照片不清晰，请重新上传'), boxOk('驳回'), toastShown],
@@ -3035,53 +3065,62 @@ const STATES = [
   { app: 'ops', screen: 'company-drawer', state: 'status-rejected', persona: 'ops', path: '/companies/list?status=NORMAL', rules: or({ url: '/status', method: 'POST', action: 'respond', body: refuse('SYS_4090', '公司状态已变化，请刷新后再操作') }),
     steps: [...clickOp('详情'), wait(600), ...inDrawer(CD, '调整状态'), ...pickStatus('封禁'), fillTa('.el-dialog', '多次虚假招聘，投诉属实'), `${findBtn('确认调整', '.el-dialog')}.click()`, toastShown],
     checks: [whyStays('.el-dialog .blocked-why', '暂时不能调整状态：公司状态已变化'), dlgOff('确认调整'), dlgIdle] },
+  // 调整状态被拒后关掉弹窗：抽屉上的「调整状态」照常可点，重新打开后能换个状态再试
+  { app: 'ops', screen: 'company-drawer', state: 'status-retry', persona: 'ops', path: '/companies/list?status=NORMAL', rules: or({ url: '/status', method: 'POST', action: 'respond', body: refuse('SYS_4090', '公司状态已变化，请刷新后再操作') }),
+    steps: [...clickOp('详情'), wait(600), ...inDrawer(CD, '调整状态'), ...pickStatus('封禁'), fillTa('.el-dialog', '多次虚假招聘，投诉属实'), `${findBtn('确认调整', '.el-dialog')}.click()`, toastShown, `${findBtn('取消', '.el-dialog__footer')}.click()`, wait(500),
+      `(() => { const b = ${findBtn('调整状态', CD + ' .el-drawer__footer')}; if (b.disabled) throw new Error('关掉弹窗后「调整状态」还是灰的'); b.click() })()`, wait(500), ...pickStatus('限流')],
+    checks: [`${findBtn('确认调整', '.el-dialog__footer')}?.disabled === false ? '' : '重新打开后「确认调整」还是灰的'`, `document.querySelector('.el-dialog .blocked-why') ? '重新打开后还留着上次的被拒原因' : ''`] },
   // ---- 工单 23：岗位审核 · 合同备案（第 8 类：标签页 → 表格 → 岗位抽屉 / 合同表格里审核）----
-  { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', rules: or(), checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsCol, opsTap, statusTags, rowsTall, queryReset, hasPager] },
+  { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', rules: or(), checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsCol, opsTap, statusTags, rowsTall, queryReset, queryPlain, hasPager] },
   { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), checks: [tblFit, opsCol, cFitAny] },
-  { app: 'ops', screen: 'job-audit', state: 'all', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), steps: pickTab('全部'), checks: [tblFit, opsCol, statusTags, rowsTall, cFitAny] },
-  { app: 'ops', screen: 'job-audit', state: 'loading', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无待审核')] },
-  { app: 'ops', screen: 'job-audit', state: 'empty', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待审核岗位'), `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
-  { app: 'ops', screen: 'job-audit', state: 'error', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'fail' }), checks: [failHint(true), oneRetry] },
+  { app: 'ops', screen: 'job-audit', state: 'all', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), steps: pickTab('全部'), checks: [tblFit, opsCol, statusTags, rowsTall, cFitAny, nameOneLine] },
+  { app: 'ops', screen: 'job-audit', state: 'loading', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, tabsBlank, hasNot('暂无待审核')] },
+  { app: 'ops', screen: 'job-audit', state: 'empty', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待审核岗位'), allZero, `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
+  { app: 'ops', screen: 'job-audit', state: 'error', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'fail' }), checks: [failHint(true), oneRetry, tabsBlank] },
   { app: 'ops', screen: 'job-audit', state: 'error-server', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
   { app: 'ops', screen: 'job-drawer', state: 'review', persona: 'ops', path: '/governance/job-audit', rules: or(), steps: [...openAudit, wait(600)],
-    checks: [drawerBlocks(JD, ['基本信息', '薪资 · 班次 · 食宿', '要求', '面试与名额', '合作合同', '审核记录']), rvTitle(JD), reviewFoot(JD, '审核通过'), matSpec(JD)] },
+    checks: [drawerBlocks(JD, ['基本信息', '薪资 · 班次 · 食宿', '要求', '面试与名额', '合作合同', '审核记录']), rvTitle(JD), reviewFoot(JD, '审核通过'), matSpec(JD), matFirst(JD), forceLeft(JD)] },
   { app: 'ops', screen: 'job-drawer', state: 'review', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), steps: [...openAudit, wait(600)], checks: [reviewFoot(JD, '审核通过'), matSpec(JD)] },
   { app: 'ops', screen: 'job-drawer', state: 'error', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_ONE, action: 'fail' }), steps: [...openAudit, wait(600)], checks: [drawerFail(JD, true)] },
   { app: 'ops', screen: 'job-drawer', state: 'loading', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_ONE, action: 'hang' }), quick: true, steps: [openAudit[0]],
     checks: [`document.querySelector('${JD} .el-loading-mask') ? '' : '抽屉加载中没有遮罩'`, `document.querySelector('${JD} .el-drawer__footer .el-button') ? '没拿到数据却显示了审核按钮' : ''`] },
-  { app: 'ops', screen: 'job-drawer', state: 'reject', persona: 'ops', path: '/governance/job-audit', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(JD, '驳回')], checks: [boxTitle, boxHasInput, boxReject] },
+  { app: 'ops', screen: 'job-drawer', state: 'reject', persona: 'ops', path: '/governance/job-audit', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(JD, '驳回')], checks: [boxTitle, boxReasonInput, boxReject] },
   { app: 'ops', screen: 'job-drawer', state: 'approve-submitting', persona: 'ops', path: '/governance/job-audit', rules: or(), quick: true, steps: [...openAudit, wait(600), ...inDrawer(JD, '审核通过'), countXhr, boxClickTwice('通过')],
     checks: [sentOnce, `document.querySelector('.el-message-box .el-button.is-loading') ? '' : '确认框里的「通过」没有转圈'`] },
   // 没有生效合同（TEN_4004）：原来抽屉里给的「去合同备案」指引一并写进框里
   { app: 'ops', screen: 'job-drawer', state: 'approve-rejected', persona: 'ops', path: '/governance/job-audit', rules: or({ url: '/approve', method: 'POST', action: 'respond', body: refuse('TEN_4004', '该公司与甲方没有生效中的合作合同') }),
     steps: [...openAudit, wait(600), ...inDrawer(JD, '审核通过'), boxOk('通过'), toastShown],
-    checks: [boxWhy('通过', '暂时不能审核通过：该公司与甲方没有生效中的合作合同。请先在「合同备案」中审核'), whyStays(JD + ' .rv-foot .blocked-why', '请先在「合同备案」中审核'), drawerOnlyOff(JD, '审核通过')] },
-  { app: 'ops', screen: 'job-drawer', state: 'force-offline', persona: 'ops', path: '/governance/job-audit', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(JD, '强制下架')], checks: [boxTitle, boxHasInput, boxDanger('强制下架')] },
-  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), checks: [cLegacy16, tblFit, opsTap, statusTags, reviewOpsFor('通过'), queryReset, hasPager, matSpec('#app .tbl-card', { cols: false })] },
-  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: kRules(), checks: [tblFit, reviewOpsFor('通过'), cFitAny] },
-  { app: 'ops', screen: 'contracts', state: 'real', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: or(), steps: pickTab('全部'), checks: [tblFit, statusTags, cFitAny] },
+    checks: [boxWhy('通过', '暂时不能审核通过：该公司与甲方没有生效中的合作合同。请先在「合同备案」中审核'), whyStays(JD + ' .rv-foot .blocked-why', '请先在「合同备案」中审核'), drawerOnlyOff(JD, '审核通过'), footWhy(JD)] },
+  { app: 'ops', screen: 'job-drawer', state: 'force-offline', persona: 'ops', path: '/governance/job-audit', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(JD, '强制下架')], checks: [boxTitle, boxReasonInput, boxDanger('强制下架')] },
+  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), checks: [cLegacy16, tblFit, opsTap, statusTags, reviewOpsFor('通过'), queryReset, queryPlain, hasPager, `(() => { const n = document.querySelector('#app .filter-tabs button.on .n')?.innerText.trim(), r = document.querySelectorAll('#app .el-table__body tr').length; return n === String(r) ? '' : '待审核页签写 ' + n + '，表格里 ' + r + ' 行' })()`, matSpec('#app .tbl-card', { cols: false })] },
+  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: kRules(), checks: [tblFit, reviewOpsFor('通过'), cFitAny, nameOneLine] },
+  { app: 'ops', screen: 'contracts', state: 'real', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: or(), steps: pickTab('全部'), checks: [tblFit, statusTags, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'contracts', state: 'empty', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: or({ url: K_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待备案合同')] },
   { app: 'ops', screen: 'contracts', state: 'error', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: or({ url: K_LIST, action: 'fail' }), checks: [failHint(true), oneRetry] },
   { app: 'ops', screen: 'contracts', state: 'loading', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: or({ url: K_LIST, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, hasNot('暂无待备案')] },
-  { app: 'ops', screen: 'contracts', state: 'reject', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), steps: [`${findBtn('驳回', '#app td.ops-col')}.click()`, wait(500)], checks: [boxTitle, boxHasInput, boxReject] },
+  { app: 'ops', screen: 'contracts', state: 'reject', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), steps: [`${findBtn('驳回', '#app td.ops-col')}.click()`, wait(500)], checks: [boxTitle, boxReasonInput, boxReject] },
   { app: 'ops', screen: 'contracts', state: 'approve-submitting', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), quick: true, steps: [`${findBtn('通过', '#app td.ops-col')}.click()`, wait(500), countXhr, boxClickTwice('通过')],
     checks: [sentOnce, `document.querySelector('.el-message-box .el-button.is-loading') ? '' : '确认框里的「通过」没有转圈'`] },
   { app: 'ops', screen: 'contracts', state: 'approve-rejected', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules({ url: '/approve', method: 'POST', action: 'respond', body: refuse('SYS_4090', '合同已被审核，请刷新后再操作') }),
-    steps: [`${findBtn('通过', '#app td.ops-col')}.click()`, wait(500), boxOk('通过'), toastShown], checks: [boxWhy('通过', '暂时不能通过：合同已被审核'), ...rowOff('暂时不能通过', '通过')] },
+    steps: [`${findBtn('通过', '#app td.ops-col')}.click()`, wait(500), boxOk('通过'), toastShown], checks: [boxWhy('通过', '暂时不能通过：合同已被审核'), ...rowOff('合同 HT-SHOT-3', '通过')] },
+  // 被拒之后切到别的页签再切回来：被拒记录清掉，按钮重新可点
+  { app: 'ops', screen: 'contracts', state: 'rejected-then-tab', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules({ url: '/approve', method: 'POST', action: 'respond', body: refuse('SYS_4090', '合同已被审核，请刷新后再操作') }),
+    steps: [`${findBtn('通过', '#app td.ops-col')}.click()`, wait(500), boxOk('通过'), toastShown, `${findBtn('取消', '.el-message-box')}.click()`, wait(400), ...pickTab('全部'), ...pickTab('待审核')],
+    checks: [`document.querySelector('#app .tbl-tip') ? '换了页签还留着上一批的被拒原因' : ''`, `[...document.querySelectorAll('#app td.ops-col .el-button')].some((b) => b.disabled) ? '换了页签还有按钮置灰' : ''`] },
   { app: 'ops', screen: 'contracts', state: 'approve-offline', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules({ url: '/approve', method: 'POST', action: 'fail' }),
     steps: [`${findBtn('通过', '#app td.ops-col')}.click()`, wait(500), boxOk('通过'), toastShown], checks: netOnly('.el-message-box', '通过') },
   // ---- 工单 23：花名册与存量锁定（第 2 类：统计卡 → 筛选栏 → 表格 → 分页）----
-  { app: 'ops', screen: 'stock', state: 'normal', persona: 'ops', path: '/companies/stock', rules: or(), checks: [cSide('ops'), sideActive, kpiGrid(4, 4), cLegacy16, tblFit, statusTags, rowsTall, queryReset, hasPager] },
-  { app: 'ops', screen: 'stock', state: 'normal', persona: 'ops', path: '/companies/stock', width: 1280, height: 800, rules: or(), checks: [kpiGrid(4, 4), tblFit, cFitAny] },
+  { app: 'ops', screen: 'stock', state: 'normal', persona: 'ops', path: '/companies/stock', rules: or(), checks: [cSide('ops'), sideActive, kpiGrid(4, 4), cLegacy16, tblFit, statusTags, rowsTall, queryReset, queryPlain, hasPager] },
+  { app: 'ops', screen: 'stock', state: 'normal', persona: 'ops', path: '/companies/stock', width: 1280, height: 800, rules: or(), checks: [kpiGrid(4, 4), tblFit, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'stock', state: 'loading', persona: 'ops', path: '/companies/stock', rules: or({ url: STOCK_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, hasNot('还没有已入驻的企业')] },
   { app: 'ops', screen: 'stock', state: 'empty', persona: 'ops', path: '/companies/stock', rules: or({ url: STOCK_API, action: 'respond', body: reply([]) }), checks: [has('还没有已入驻的企业'), allZero, `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
   { app: 'ops', screen: 'stock', state: 'error', persona: 'ops', path: '/companies/stock', rules: or({ url: STOCK_API, action: 'fail' }), checks: [failHint(true), oneRetry, noNums] },
   { app: 'ops', screen: 'stock', state: 'error-server', persona: 'ops', path: '/companies/stock', rules: or({ url: STOCK_API, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry, noNums] },
   // ---- 工单 23：降权与限流（第 2 类）。演示库的岗位都没降权，另截一张权重高低不一的假数据 ----
-  { app: 'ops', screen: 'throttle', state: 'normal', persona: 'ops', path: '/governance/throttle', rules: or(), checks: [cSide('ops'), sideActive, kpiGrid(4, 4), cLegacy16, tblFit, rowsTall, queryReset, hasPager, statTone] },
-  { app: 'ops', screen: 'throttle', state: 'normal', persona: 'ops', path: '/governance/throttle', width: 1280, height: 800, rules: or(), checks: [kpiGrid(4, 4), tblFit, cFitAny] },
-  { app: 'ops', screen: 'throttle', state: 'weights', persona: 'ops', path: '/governance/throttle', rules: or({ url: WEIGHT_API, action: 'respond', body: wFake }), checks: [tblFit, rowsTall, statTone, cLegacy16, zombieDanger] },
-  { app: 'ops', screen: 'throttle', state: 'weights', persona: 'ops', path: '/governance/throttle', width: 1280, height: 800, rules: or({ url: WEIGHT_API, action: 'respond', body: wFake }), checks: [tblFit, cFitAny] },
+  { app: 'ops', screen: 'throttle', state: 'normal', persona: 'ops', path: '/governance/throttle', rules: or(), checks: [cSide('ops'), sideActive, kpiGrid(4, 4), cLegacy16, tblFit, rowsTall, queryReset, queryPlain, hasPager, statTone, pageCheckbox] },
+  { app: 'ops', screen: 'throttle', state: 'normal', persona: 'ops', path: '/governance/throttle', width: 1280, height: 800, rules: or(), checks: [kpiGrid(4, 4), tblFit, cFitAny, nameOneLine] },
+  { app: 'ops', screen: 'throttle', state: 'weights', persona: 'ops', path: '/governance/throttle', rules: or({ url: WEIGHT_API, action: 'respond', body: wFake }), checks: [kpiGrid(4, 4), tblFit, rowsTall, statTone, cLegacy16, zombieDanger] },
+  { app: 'ops', screen: 'throttle', state: 'weights', persona: 'ops', path: '/governance/throttle', width: 1280, height: 800, rules: or({ url: WEIGHT_API, action: 'respond', body: wFake }), checks: [kpiGrid(4, 4), tblFit, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'throttle', state: 'loading', persona: 'ops', path: '/governance/throttle', rules: or({ url: WEIGHT_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, noNums, hasNot('暂无招聘中岗位')] },
   { app: 'ops', screen: 'throttle', state: 'empty', persona: 'ops', path: '/governance/throttle', rules: or({ url: WEIGHT_API, action: 'respond', body: reply([]) }), checks: [has('暂无招聘中岗位'), `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
   { app: 'ops', screen: 'throttle', state: 'error', persona: 'ops', path: '/governance/throttle', rules: or({ url: WEIGHT_API, action: 'fail' }), checks: [failHint(true), oneRetry, noNums] },

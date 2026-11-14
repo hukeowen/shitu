@@ -24,8 +24,9 @@ export async function openTab(viewport, { timezone = 'Asia/Shanghai' } = {}) {
       const requestId = m.params.requestId
       if (!rule || rule.action === 'continue') send('Fetch.continueRequest', { requestId })
       else if (rule.action === 'fail') send('Fetch.failRequest', { requestId, errorReason: 'Failed' })
+      // raw：直接给出文件内容（如截图用的执照图片），type 是它的 Content-Type；否则 body 按 JSON 返回
       else if (rule.action === 'respond') send('Fetch.fulfillRequest', { requestId, responseCode: 200,
-        responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify(rule.body)).toString('base64') })
+        responseHeaders: [{ name: 'Content-Type', value: rule.raw ? rule.type : 'application/json' }], body: rule.raw ? Buffer.from(rule.raw).toString('base64') : Buffer.from(JSON.stringify(rule.body)).toString('base64') })
       // action === 'hang'：一直不放行，页面停在加载中
     }
     else if (m.method === 'Runtime.exceptionThrown') {

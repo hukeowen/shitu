@@ -113,16 +113,16 @@ const n = (v: number) => (loaded.value ? String(v) : '—')
         </div>
         <div class="spacer" />
         <el-input v-model="companyId" clearable placeholder="公司 ID" style="width: 160px" @keyup.enter="load" @clear="load" />
-        <el-button type="primary" @click="load">查询</el-button>
+        <el-button @click="load">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>
       <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="companyId">
-        <el-table-column label="公司" min-width="180">
+        <el-table-column label="公司" min-width="230">
           <template #default="{ row }"><span class="strong">{{ row.name }}</span><div class="t-xs">{{ row.companyId }}</div></template>
         </el-table-column>
         <el-table-column label="状态" width="90"><template #default="{ row }"><StatusTag type="CompanyStatus" :value="row.companyStatus" /></template></el-table-column>
-        <el-table-column label="入驻日" width="120"><template #default="{ row }"><span class="tnum">{{ fmtDate(row.onboardDate) }}</span></template></el-table-column>
-        <el-table-column label="免费期" min-width="150">
+        <el-table-column label="入驻日" width="110"><template #default="{ row }"><span class="tnum">{{ fmtDate(row.onboardDate) }}</span></template></el-table-column>
+        <el-table-column label="免费期" min-width="140">
           <template #default="{ row }">
             <span class="tnum">至 {{ fmtDate(row.freePeriodEnd) }}</span>
             <div class="free">
@@ -132,12 +132,12 @@ const n = (v: number) => (loaded.value ? String(v) : '—')
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="花名册导入" width="110" align="right"><template #default="{ row }"><span class="tnum">{{ fmtNum(row.stockImported) }}</span></template></el-table-column>
+        <el-table-column label="花名册导入" width="100" align="right"><template #default="{ row }"><span class="tnum">{{ fmtNum(row.stockImported) }}</span></template></el-table-column>
         <el-table-column label="当前在岗" width="100" align="right"><template #default="{ row }"><span class="tnum">{{ fmtNum(row.activeCount) }}</span></template></el-table-column>
         <el-table-column label="存量基数" width="100" align="right">
           <template #default="{ row }"><span v-if="row.baseCount != null" class="tnum strong">{{ fmtNum(row.baseCount) }}</span><span v-else class="dim">未锁定</span></template>
         </el-table-column>
-        <el-table-column label="锁定记录" min-width="150">
+        <el-table-column label="锁定记录" min-width="130">
           <template #default="{ row }">
             <template v-if="row.lockedAt"><span class="tnum">{{ fmtDateTime(row.lockedAt) }}</span><div class="t-xs">{{ row.lockedBy ?? '系统自动' }}</div></template>
             <span v-else class="dim">—</span>
