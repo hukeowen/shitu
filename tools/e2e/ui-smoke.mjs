@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { openTab, sleep } from './cdp.mjs'
-import { companyCode, seekerSession, tenantSession, readRt, writeRt } from './lib.mjs'
+import { companyCode, get, seekerSession, tenantSession, readRt, writeRt } from './lib.mjs'
 import { APPS, ROUTES, VIEWPORT } from './routes.mjs'
 
 const DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -68,7 +68,9 @@ if (!seeded) console.log('没有 shots/baseline-data.json：企业后台入驻�
 const SUITES = [
   // 中台菜单里工作台写的是常量 HOME_PATH，正则取不到，和无权限页一起补上（工单 21）
   // 题库版本编辑页和查到结果的匹配快照不在菜单里：地址用截图数据里的题库版本号、匹配会话号拼（工单 22）
+  // 诚信与处罚查到结果的样子：公司编号不写死，取演示公司老板的 /tenant/company（工单 24）
   { name: 'ops-super', app: 'ops', cookieFile: 'ops.cookies', paths: ['/workbench', ...menuPaths('ops'), '/forbidden?from=/system/admins',
+    `/governance/credit?companyId=${(await get('/tenant/company', await tenantSession('13800000001'))).data.companyId}`,
     ...(seeded ? [`/engine/quiz/${seeded.ids.quizVersionId}`, `/engine/match-snapshot?sessionId=${seeded.ids.matchSessionId}`] : [])] },
   { name: 'ops-guest', app: 'ops', cookieFile: null, paths: ['/login'] },
   ...consoleAuth,
