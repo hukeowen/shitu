@@ -283,7 +283,9 @@ onMounted(() => {
           <button v-for="t in statusTabs" :key="t.value" type="button" :class="{ on: rStatus === t.value }" @click="setRStatus(t.value)">{{ t.label }}</button>
         </div>
         <div class="spacer" />
-        <el-select v-model="rType" clearable placeholder="全部类型" style="width: 180px" @change="loadReviews">
+        <!-- 「全部类型」是真实选项（空串不当成没选），显示成正文文字色，不是占位灰 -->
+        <el-select v-model="rType" :empty-values="[null, undefined]" style="width: 180px" @change="loadReviews">
+          <el-option value="" label="全部类型" />
           <el-option v-for="o in options('KycReviewType')" :key="o.value" :label="o.label" :value="o.value" />
         </el-select>
         <el-button @click="loadReviews">查询</el-button>
@@ -338,16 +340,16 @@ onMounted(() => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="类型" width="140"><template #default="{ row }"><span class="status-tag status-tag--info">{{ label('KycReviewType', row.reviewType) }}</span></template></el-table-column>
-        <el-table-column label="账号" min-width="150">
+        <el-table-column label="类型" width="136"><template #default="{ row }"><span class="status-tag status-tag--info">{{ label('KycReviewType', row.reviewType) }}</span></template></el-table-column>
+        <el-table-column label="账号" min-width="160">
           <template #default="{ row }">
             <span v-if="canAttribution" class="link-cell cell-one" @click="toAttribution(row.userId)">{{ row.userId }}</span>
             <span v-else class="strong cell-one">{{ row.userId }}</span>
-            <div class="t-xs">{{ row.phoneMasked }} · {{ label('UserStatus', row.userStatus) }}</div>
+            <div class="t-xs one">{{ row.phoneMasked }} · {{ label('UserStatus', row.userStatus) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="申诉理由 / 触发原因" min-width="176"><template #default="{ row }"><div class="pre">{{ row.remark }}</div></template></el-table-column>
-        <el-table-column label="关键信息" min-width="150">
+        <el-table-column label="申诉理由 / 触发原因" min-width="154"><template #default="{ row }"><div class="pre">{{ row.remark }}</div></template></el-table-column>
+        <el-table-column label="关键信息" min-width="136">
           <template #default="{ row }">
             <template v-if="row.reviewType === 'ID_OCCUPIED_APPEAL'">
               <template v-if="row.occupant">
@@ -369,10 +371,8 @@ onMounted(() => {
             <span v-else class="dim t-sm">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="提交时间" width="100">
-          <template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.createdAt).slice(0, 10) }}</span><div class="t-xs tnum">{{ fmtDateTime(row.createdAt).slice(11) }}</div></template>
-        </el-table-column>
-        <el-table-column label="状态" width="90"><template #default="{ row }"><StatusTag type="ReviewStatus" :value="row.status" /></template></el-table-column>
+        <el-table-column label="提交时间" width="146"><template #default="{ row }"><span class="tnum one">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="状态" width="84"><template #default="{ row }"><StatusTag type="ReviewStatus" :value="row.status" /></template></el-table-column>
         <el-table-column label="操作" :width="rOpsWidth" class-name="ops-col">
           <template #default="{ row }">
             <template v-if="row.status === 'PENDING'">
@@ -406,7 +406,8 @@ onMounted(() => {
     <div v-show="tab === 'blocked'" class="card tbl-card intercepts">
       <div class="card__hd"><h3>拦截记录</h3><span class="t-xs">最近 300 条实名被拦截的记录，只读</span></div>
       <div class="toolbar">
-        <el-select v-model="blockType" clearable placeholder="全部类型" style="width: 180px" @change="loadBlocked">
+        <el-select v-model="blockType" :empty-values="[null, undefined]" style="width: 180px" @change="loadBlocked">
+          <el-option value="" label="全部类型" />
           <el-option v-for="t in BLOCK_TYPES" :key="t" :label="label('KycResult', t)" :value="t" />
         </el-select>
         <div class="spacer" />
@@ -519,8 +520,8 @@ onMounted(() => {
       </template>
       <template #footer>
         <el-button @click="dec.visible = false">取消</el-button>
-        <el-button v-if="dec.approve" type="primary" :loading="dec.loading" :disabled="!!dec.why" @click="submitDecide">{{ decAction }}</el-button>
-        <el-button v-else type="danger" plain class="btn-reject" :loading="dec.loading" :disabled="!!dec.why" @click="submitDecide">{{ decAction }}</el-button>
+        <el-button v-if="dec.approve" type="primary" class="btn-steady" :loading="dec.loading" :disabled="!!dec.why" @click="submitDecide">{{ decAction }}</el-button>
+        <el-button v-else type="danger" plain class="btn-reject btn-steady" :loading="dec.loading" :disabled="!!dec.why" @click="submitDecide">{{ decAction }}</el-button>
       </template>
     </el-dialog>
 
@@ -541,7 +542,7 @@ onMounted(() => {
       <p v-if="add.why" class="blocked-why" role="alert">{{ add.why }}</p>
       <template #footer>
         <el-button @click="add.visible = false">取消</el-button>
-        <el-button type="danger" plain class="btn-reject" :loading="add.loading" :disabled="!!add.why" @click="submitAdd">确认拉黑</el-button>
+        <el-button type="danger" plain class="btn-reject btn-steady" :loading="add.loading" :disabled="!!add.why" @click="submitAdd">确认拉黑</el-button>
       </template>
     </el-dialog>
   </div>
@@ -551,10 +552,12 @@ onMounted(() => {
 .main-tabs { margin-bottom: var(--space-3); }
 .tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .tbl-wait { height: 160px; }
-.expand { padding: var(--space-2) var(--space-5) var(--space-3) 52px; }
+.expand { padding: var(--space-2) var(--space-5) var(--space-3) calc(var(--space-8) + var(--space-5)); }
 .gap { margin-top: var(--space-3); }
 .add-tip { margin-bottom: var(--space-4); }
 .pre { white-space: pre-wrap; color: var(--text-1); }
+/* 时间、账号状态这类短行不折行 */
+.one { white-space: nowrap; }
 .rr { margin: var(--space-3) 0 0; color: var(--text-2); }
 /* 本来就不能做的「通过」：原因用提醒文字色写在这一行 */
 .why-off { margin: var(--space-1) 0 0; font-size: var(--font-size-min); line-height: 1.5; color: var(--warning-text); }

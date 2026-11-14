@@ -1705,7 +1705,10 @@ const creditReal = opsTok && DEMO_CO ? (await get(CREDIT_API, opsTok)).data : nu
 const penFake = [{ level: 2, reason: '岗位薪资与实际发放不符，经核实属实', startDate: '2026-11-01', endDate: '2026-12-01', createdBy: 'A1001', createdAt: '2026-11-01T10:00:00', companyId: DEMO_CO },
   { level: 1, reason: '面试地址与岗位描述不一致', startDate: '2026-10-12', endDate: null, createdBy: 'A1001', createdAt: '2026-10-12T15:20:00', companyId: DEMO_CO }]
 const creditFake = creditReal ? reply({ ...creditReal, company: { ...creditReal.company, creditScore: 52, penaltyLevel: 2, penaltyUntil: '2026-12-01' },
-  logs: [{ delta: -10, scoreAfter: 52, ruleCode: 'COMPLAINT_3X', refType: 'JOB', refId: 'J20261112003', operatorId: null, createdAt: '2026-11-01T09:58:00' }, { delta: 5, scoreAfter: 62, ruleCode: 'MANUAL', remark: '申诉核实后返还', operatorId: 'A1001', createdAt: '2026-10-20T11:00:00' }, ...creditReal.logs],
+  // 分数前后接得上（98 → 62 → 52），按时间倒序（同后端）
+  logs: [{ delta: -10, scoreAfter: 52, ruleCode: 'COMPLAINT_3X', refType: 'JOB', refId: 'J20261112003', operatorId: null, createdAt: '2026-11-13T09:58:00' },
+    { delta: -36, scoreAfter: 62, ruleCode: 'MANUAL', remark: '多次私下导流，核实属实', operatorId: 'A1001', createdAt: '2026-11-12T18:00:00' },
+    { delta: -2, scoreAfter: 98, ruleCode: 'MANUAL', remark: '一起岗位信息投诉核实属实，按规则扣 2 分。', operatorId: 'A1001', createdAt: '2026-10-20T11:00:00' }],
   penalties: penFake }) : null
 const crR = (...more) => or(...more, { url: CREDIT_API, method: 'GET', action: 'respond', body: creditFake }, { url: PEN_API, method: 'GET', action: 'respond', body: reply(penFake) })
 // 一页多表：每张看得见的表（不算展开行里的小表）各在一张白卡片里，卡片有 16px / 600 的区块标题，一张卡片只放一张表；titles 是这一屏应有的区块标题
@@ -1749,6 +1752,39 @@ const dlgCancel = [`${findBtn('取消', '.el-dialog__footer')}?.click() ?? docum
 const noTip = [`document.querySelector('#app .tbl-tip') ? '换了一批数据还留着上一批的被拒原因' : ''`]
 const CO = '/governance/compliance', CPL = '/governance/complaints', FBK = '/governance/feedback', CRD = '/governance/credit'
 const COFF = 'U2026111300031' // 失信申诉那条（假数据）
+
+// ---- 工单 24 修复轮 ----
+// 审核弹窗底部和其他审核页一致：「取消」在左，右边驳回（危险色描边）在左、通过（主色实心）在最右
+const dlgRvFoot = (rej, ok) => `(() => { const d = [...document.querySelectorAll('.el-dialog')].filter((x) => x.getClientRects().length).at(-1); if (!d) return '没有弹窗'
+  const bs = [...d.querySelectorAll('.el-dialog__footer .el-button')], names = bs.map((b) => b.innerText.trim()).join('/'); if (names !== ${JSON.stringify('取消/' + rej + '/' + ok)}) return '弹窗底部不是「取消 / ${rej} / ${ok}」：' + names
+  const [c, a, b] = bs.map((x) => x.getBoundingClientRect()); if (a.left - c.right < 40) return '「取消」和审核按钮挤在一起'; if (a.right > b.left || Math.abs(a.top - b.top) > 1) return '「${rej}」不在「${ok}」左边'
+  const lc = getComputedStyle(bs[1]), rc = getComputedStyle(bs[2])
+  if (lc.backgroundColor !== ${bgToken('--bg-card')} || lc.color !== ${tokenColor('--danger-text')} || lc.borderTopColor !== ${tokenColor('--danger-text')}) return '「${rej}」不是危险色描边：' + lc.backgroundColor + ' ' + lc.color
+  return rc.backgroundColor === ${bgToken('--primary')} && !bs[2].classList.contains('is-plain') ? '' : '「${ok}」不是主色实心：' + rc.backgroundColor })()`
+// 提交前记下弹窗底部各按钮的位置和宽度；提交中只转圈，按钮不变宽、不挪位置
+const keepFoot = `window.__foot = [...document.querySelectorAll('.el-dialog__footer .el-button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(); return Math.round(r.left) + '+' + Math.round(r.width) }).join(' ')`
+const sameFoot = `(() => { const now = [...document.querySelectorAll('.el-dialog__footer .el-button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(); return Math.round(r.left) + '+' + Math.round(r.width) }).join(' ')
+  return now === window.__foot ? '' : '提交中弹窗底部按钮位置或宽度变了：' + window.__foot + ' → ' + now })()`
+// 某一列每一格都是一行（按文字实际排出的行数）
+const colOneLine = (head) => `(() => { const t = [...document.querySelectorAll('#app .el-table')].find((x) => x.getClientRects().length); const i = [...t.querySelectorAll('.el-table__header th')].findIndex((th) => th.innerText.trim() === ${JSON.stringify(head)}); if (i < 0) return '没有「${head}」列'
+  for (const tr of t.querySelectorAll('.el-table__body tr')) { const td = tr.children[i]; if (!td) continue; for (const e of td.querySelectorAll('.cell > *')) { const rg = document.createRange(); rg.selectNodeContents(e)
+    if (new Set([...rg.getClientRects()].filter((q) => q.width).map((q) => Math.round(q.top))).size > 1) return '「${head}」列折行了：' + e.innerText.trim() } }
+  return '' })()`
+// 筛选框的默认值「全部类型」是真实选项，按已选值的文字色显示（同其他筛选框的已选值，Element 的 --el-text-color-regular），不是占位灰
+const selAll = (scope) => `(() => { const p = document.querySelector(${JSON.stringify(scope + ' .toolbar .el-select__placeholder')}); if (!p) return '筛选框没有显示值'
+  if (p.innerText.trim() !== '全部类型') return '筛选框默认不是「全部类型」：' + p.innerText; return !p.classList.contains('is-transparent') && getComputedStyle(p).color === ${tokenColor('--el-text-color-regular')} ? '' : '「全部类型」是占位灰：' + getComputedStyle(p).color })()`
+// 诚信页：变更记录、处罚记录两张卡底边对齐；概览的诚信分卡和信息均分三列
+const cardsEven = `(() => { const cs = [...document.querySelectorAll('#app .lists > .card')].map((c) => c.getBoundingClientRect()); if (cs.length !== 2) return '不是两张并排的卡片'
+  if (Math.abs(cs[0].bottom - cs[1].bottom) > 1) return '两张卡片底边差 ' + Math.round(Math.abs(cs[0].bottom - cs[1].bottom)) + 'px'
+  const h = document.querySelector('#app .head').getBoundingClientRect(), s = document.querySelector('#app .score').getBoundingClientRect(), gap = parseFloat(getComputedStyle(document.querySelector('#app .head')).columnGap)
+  return Math.abs(s.width - (h.width - 2 * gap) / 3) <= 1 ? '' : '诚信分卡宽 ' + Math.round(s.width) + '，不是概览的三分之一' })()`
+// 变更记录按时间倒序
+const logsDesc = `(() => { const ts = [...document.querySelectorAll('#app .logs .el-table__body tr td:first-child')].map((td) => td.innerText.trim()); if (ts.length < 2) return '变更记录不到 2 条'
+  const bad = ts.findIndex((t, i) => i && t > ts[i - 1]); return bad < 0 ? '' : '变更记录没按时间倒序：' + ts.join(' / ') })()`
+// 被拒之后关掉弹窗：入口照常可点，重新打开没有上次的被拒原因，两个按钮都能点
+const retryOpen = (entry) => [`(() => { const b = [...document.querySelectorAll('#app td.ops-col .el-button')].find((x) => x.innerText.trim() === ${JSON.stringify(entry)}); if (b.disabled) throw new Error('关掉弹窗后「${entry}」还是灰的'); b.click() })()`, wait(500)]
+const retryClean = `(() => { if (document.querySelector('#app .tbl-tip')) return '表格上方留着被拒原因'; if (document.querySelector('.el-dialog .blocked-why')) return '重新打开后还留着上次的被拒原因'
+  const off = [...document.querySelectorAll('.el-dialog__footer .el-button')].filter((b) => b.disabled).map((b) => b.innerText.trim()); return off.length ? '重新打开后还有按钮置灰：' + off.join('、') : '' })()`
 
 const STATES = [
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
@@ -3196,8 +3232,8 @@ const STATES = [
   { app: 'ops', screen: 'throttle', state: 'error-server', persona: 'ops', path: '/governance/throttle', rules: or({ url: WEIGHT_API, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry, noNums] },
   // ---- 工单 24：实名与合规（第 8 类：标签页 → 表格展开看材料 → 操作列驳回在左、通过在右 → 弹窗填意见）----
   { app: 'ops', screen: 'compliance', state: 'normal', persona: 'ops', path: CO, rules: coR(),
-    checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsTap, statusTags, rowsTall, reviewPair('驳回', '通过'), reviewPair('误报', '确认刷单'), occupantOff, cardTitles(['人工复核队列']), queryResetIn('#app .reviews'), hasPager, opsWriteGuard] },
-  { app: 'ops', screen: 'compliance', state: 'normal', persona: 'ops', path: CO, width: 1280, height: 800, rules: coR(), checks: [tblFit, cFitAny, nameOneLine, reviewPair('驳回', '通过'), reviewPair('误报', '确认刷单')] },
+    checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsTap, statusTags, rowsTall, reviewPair('驳回', '通过'), reviewPair('误报', '确认刷单'), occupantOff, cardTitles(['人工复核队列']), queryResetIn('#app .reviews'), hasPager, selAll('#app .reviews'), colOneLine('提交时间'), opsWriteGuard] },
+  { app: 'ops', screen: 'compliance', state: 'normal', persona: 'ops', path: CO, width: 1280, height: 800, rules: coR(), checks: [tblFit, cFitAny, nameOneLine, reviewPair('驳回', '通过'), reviewPair('误报', '确认刷单'), colOneLine('提交时间'), colOneLine('账号')] },
   { app: 'ops', screen: 'compliance', state: 'real', persona: 'ops', path: CO, width: 1280, height: 800, rules: or(), checks: [tblFit, cFitAny, occupantOff] },
   { app: 'ops', screen: 'compliance', state: 'expand-fraud', persona: 'ops', path: CO, width: 1280, height: 800, rules: coR(),
     steps: [`[...document.querySelectorAll('#app .el-table__body tr')].find((tr) => tr.innerText.includes('疑似')).querySelector('.el-table__expand-icon').click()`, wait(500)], checks: [tblFit, cLegacy16] },
@@ -3211,7 +3247,7 @@ const STATES = [
   { app: 'ops', screen: 'compliance', state: 'fraud-false', persona: 'ops', path: CO, rules: coR(), steps: rowBtn('疑似', '误报'), checks: [dlgConfirm('标记误报', 'reject')] },
   { app: 'ops', screen: 'compliance', state: 'reject-invalid', persona: 'ops', path: CO, rules: coR(), steps: [...rowBtn(COFF, '驳回'), countXhr, `${exactBtn('驳回', '.el-dialog__footer')}.click()`, wait(300)], checks: [dlgErr('请填写处理意见')] },
   { app: 'ops', screen: 'compliance', state: 'approve-submitting', persona: 'ops', path: CO, rules: coR(), quick: true,
-    steps: [...rowBtn(COFF, '通过'), fillTa('.el-dialog', '核实为误拉黑'), countXhr, exactTwice('通过', '.el-dialog__footer')], checks: [elSpinning('通过', '.el-dialog'), sentOnce] },
+    steps: [...rowBtn(COFF, '通过'), fillTa('.el-dialog', '核实为误拉黑'), keepFoot, countXhr, exactTwice('通过', '.el-dialog__footer')], checks: [elSpinning('通过', '.el-dialog'), sentOnce, sameFoot] },
   { app: 'ops', screen: 'compliance', state: 'reject-rejected', persona: 'ops', path: CO, rules: coR({ url: '/decide', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该申诉已被处理，请刷新后再操作') }),
     steps: [...rowBtn(COFF, '驳回'), fillTa('.el-dialog', '证据不足'), `${exactBtn('驳回', '.el-dialog__footer')}.click()`, toastShown], checks: [whyStays('.el-dialog .blocked-why', '暂时不能驳回：该申诉已被处理'), dlgOff('驳回'), dlgIdle] },
   { app: 'ops', screen: 'compliance', state: 'rejected-row', persona: 'ops', path: CO, rules: coR({ url: '/decide', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该申诉已被处理，请刷新后再操作') }),
@@ -3237,7 +3273,7 @@ const STATES = [
     checks: [boxTitle, boxReasonInput, `${findBtn('解除', '.el-message-box')}?.classList.contains('el-button--primary') ? '' : '确认框里的「解除」不是主色'`] },
   { app: 'ops', screen: 'blacklist', state: 'lift-rejected', persona: 'ops', path: CO, rules: coR({ url: '/lift', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该记录已解除') }),
     steps: [...mainTab('平台黑名单'), ...clickOp('解除'), boxFill('核实为误拉黑'), boxOk('解除'), toastShown], checks: [boxWhy('解除', '暂时不能解除：该记录已解除'), whyStays('#app .tbl-tip', '黑名单 #41'), onlyOff('#app .blacklist td.ops-col', '解除')] },
-  { app: 'ops', screen: 'intercepts', state: 'normal', persona: 'ops', path: CO, rules: or(), steps: mainTab('拦截记录'), checks: [cLegacy16, tblFit, rowsTall, cardTitles(['拦截记录']), queryResetIn('#app .intercepts'), `document.querySelector('#app .intercepts .el-pagination') ? '' : '有记录却没有分页'`] },
+  { app: 'ops', screen: 'intercepts', state: 'normal', persona: 'ops', path: CO, rules: or(), steps: mainTab('拦截记录'), checks: [cLegacy16, tblFit, rowsTall, cardTitles(['拦截记录']), queryResetIn('#app .intercepts'), selAll('#app .intercepts'), `document.querySelector('#app .intercepts .el-pagination') ? '' : '有记录却没有分页'`] },
   { app: 'ops', screen: 'intercepts', state: 'normal', persona: 'ops', path: CO, width: 1280, height: 800, rules: or(), steps: mainTab('拦截记录'), checks: [tblFit, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'intercepts', state: 'empty', persona: 'ops', path: CO, rules: or({ url: KR_API, action: 'respond', body: reply([]) }), steps: mainTab('拦截记录'), checks: [has('暂无拦截记录')] },
   { app: 'ops', screen: 'intercepts', state: 'error', persona: 'ops', path: CO, rules: or({ url: KR_API, action: 'fail' }), steps: mainTab('拦截记录'), checks: [failHint(true), oneRetry] },
@@ -3249,19 +3285,15 @@ const STATES = [
   { app: 'ops', screen: 'complaints', state: 'empty', persona: 'ops', path: CPL, rules: or({ url: CP_API, action: 'respond', body: reply([]) }), checks: [has('暂无待核实投诉'), `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
   { app: 'ops', screen: 'complaints', state: 'error', persona: 'ops', path: CPL, rules: or({ url: CP_API, action: 'fail' }), checks: [failHint(true), oneRetry] },
   { app: 'ops', screen: 'complaints', state: 'error-server', persona: 'ops', path: CPL, rules: or({ url: CP_API, action: 'respond', body: serverError }), checks: [failHint(false), oneRetry] },
-  { app: 'ops', screen: 'complaints', state: 'handle', persona: 'ops', path: CPL, rules: or(), steps: clickOp('核实处理'), checks: [dlgWidth, dlgTitle16, dlgNoWrap, dlgLegacy, dlgConfirm('确认属实', 'primary')] },
-  { app: 'ops', screen: 'complaints', state: 'handle-reject', persona: 'ops', path: CPL, rules: or(), steps: [...clickOp('核实处理'), ...pickStatus('不属实')], checks: [dlgConfirm('驳回投诉', 'reject')] },
+  { app: 'ops', screen: 'complaints', state: 'handle', persona: 'ops', path: CPL, rules: or(), steps: clickOp('核实处理'), checks: [dlgWidth, dlgTitle16, dlgNoWrap, dlgLegacy, dlgRvFoot('驳回投诉', '确认属实')] },
   { app: 'ops', screen: 'complaints', state: 'handle-invalid', persona: 'ops', path: CPL, rules: or(), steps: [...clickOp('核实处理'), countXhr, `${findBtn('确认属实', '.el-dialog__footer')}.click()`, wait(300)], checks: [dlgErr('请填写处理说明')] },
   { app: 'ops', screen: 'complaints', state: 'handle-submitting', persona: 'ops', path: CPL, rules: or(), quick: true,
-    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), countXhr, elClickTwice('确认属实', '.el-dialog__footer')], checks: [elSpinning('确认属实', '.el-dialog'), sentOnce] },
+    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), keepFoot, countXhr, elClickTwice('确认属实', '.el-dialog__footer')], checks: [elSpinning('确认属实', '.el-dialog'), sentOnce, sameFoot] },
   { app: 'ops', screen: 'complaints', state: 'handle-rejected', persona: 'ops', path: CPL, rules: or({ url: '/handle', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该投诉已处理') }),
-    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), `${findBtn('确认属实', '.el-dialog__footer')}.click()`, toastShown], checks: [whyStays('.el-dialog .blocked-why', '暂时不能确认属实：该投诉已处理'), dlgOff('确认属实'), dlgIdle] },
-  { app: 'ops', screen: 'complaints', state: 'rejected-row', persona: 'ops', path: CPL, rules: or({ url: '/handle', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该投诉已处理') }),
-    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), `${findBtn('确认属实', '.el-dialog__footer')}.click()`, toastShown, ...dlgCancel],
-    checks: [whyStays('#app .tbl-tip', '投诉 #'), onlyOff('#app td.ops-col', '核实处理')] },
-  { app: 'ops', screen: 'complaints', state: 'rejected-then-tab', persona: 'ops', path: CPL, rules: or({ url: '/handle', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该投诉已处理') }),
-    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), `${findBtn('确认属实', '.el-dialog__footer')}.click()`, toastShown, ...dlgCancel, ...pickTab('全部'), ...pickTab('待')],
-    checks: [...noTip, `[...document.querySelectorAll('#app td.ops-col .el-button')].some((b) => b.disabled) ? '换了页签还有按钮置灰' : ''`] },
+    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), `${findBtn('确认属实', '.el-dialog__footer')}.click()`, toastShown], checks: [whyStays('.el-dialog .blocked-why', '暂时不能确认属实：该投诉已处理'), onlyOff('.el-dialog__footer', '确认属实'), dlgIdle] },
+  // 被拒之后关掉弹窗：「核实处理」照常可点，重新打开可以换另一种结论（工单 23 status-retry 同理）
+  { app: 'ops', screen: 'complaints', state: 'rejected-retry', persona: 'ops', path: CPL, rules: or({ url: '/handle', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该投诉已处理') }),
+    steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), `${findBtn('确认属实', '.el-dialog__footer')}.click()`, toastShown, ...dlgCancel, ...retryOpen('核实处理')], checks: [retryClean] },
   { app: 'ops', screen: 'complaints', state: 'handle-offline', persona: 'ops', path: CPL, rules: or({ url: '/handle', method: 'POST', action: 'fail' }),
     steps: [...clickOp('核实处理'), fillTa('.el-dialog', '电话核实，岗位确已招满'), `${findBtn('确认属实', '.el-dialog__footer')}.click()`, toastShown], checks: netOnly('.el-dialog', '确认属实') },
   // ---- 工单 24：问题反馈（第 8 类：页签 → 表格 → 「处理」弹窗，关闭在左、回复主色在右）----
@@ -3274,20 +3306,19 @@ const STATES = [
   { app: 'ops', screen: 'feedback', state: 'reply', persona: 'ops', path: FBK, rules: or(), steps: clickOp('处理'), checks: [dlgWidth, dlgTitle16, dlgLegacy, dlgConfirm('回复', 'primary')] },
   { app: 'ops', screen: 'feedback', state: 'reply-invalid', persona: 'ops', path: FBK, rules: or(), steps: [...clickOp('处理'), countXhr, `${exactBtn('回复', '.el-dialog__footer')}.click()`, wait(300)], checks: [dlgErr('请填写回复内容')] },
   { app: 'ops', screen: 'feedback', state: 'reply-submitting', persona: 'ops', path: FBK, rules: or(), quick: true,
-    steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), countXhr, exactTwice('回复', '.el-dialog__footer')], checks: [elSpinning('回复', '.el-dialog'), sentOnce] },
+    steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), keepFoot, countXhr, exactTwice('回复', '.el-dialog__footer')], checks: [elSpinning('回复', '.el-dialog'), sentOnce, sameFoot] },
   { app: 'ops', screen: 'feedback', state: 'reply-rejected', persona: 'ops', path: FBK, rules: or({ url: '/reply', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该反馈已关闭') }),
     steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), `${exactBtn('回复', '.el-dialog__footer')}.click()`, toastShown],
-    checks: [whyStays('.el-dialog .blocked-why', '暂时不能回复：该反馈已关闭'), dlgIdle, `${exactBtn('回复', '.el-dialog__footer')}?.disabled && !${findBtn('关闭', '.el-dialog__footer')}?.disabled ? '' : '被拒后应只置灰「回复」'`] },
-  { app: 'ops', screen: 'feedback', state: 'rejected-row', persona: 'ops', path: FBK, rules: or({ url: '/reply', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该反馈已关闭') }),
-    steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), `${exactBtn('回复', '.el-dialog__footer')}.click()`, toastShown, ...dlgCancel],
-    checks: [whyStays('#app .tbl-tip', '的反馈 #'), onlyOff('#app td.ops-col', '处理')] },
+    checks: [whyStays('.el-dialog .blocked-why', '暂时不能回复：该反馈已关闭'), dlgIdle, onlyOff('.el-dialog__footer', '回复')] },
+  { app: 'ops', screen: 'feedback', state: 'rejected-retry', persona: 'ops', path: FBK, rules: or({ url: '/reply', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该反馈已关闭') }),
+    steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), `${exactBtn('回复', '.el-dialog__footer')}.click()`, toastShown, ...dlgCancel, ...retryOpen('处理')], checks: [retryClean] },
   { app: 'ops', screen: 'feedback', state: 'reply-offline', persona: 'ops', path: FBK, rules: or({ url: '/reply', method: 'POST', action: 'fail' }),
-    steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), `${exactBtn('回复', '.el-dialog__footer')}.click()`, toastShown], checks: netOnly('.el-dialog', '回复并关闭') },
+    steps: [...clickOp('处理'), fillTa('.el-dialog', '已转给驻场，会尽快联系您'), `${exactBtn('回复', '.el-dialog__footer')}.click()`, toastShown], checks: [netOnly('.el-dialog', '回复')[0], `${exactBtn('回复', '.el-dialog__footer')}?.disabled === false ? '' : '网络失败后「回复」被置灰或框关了'`] },
   // ---- 工单 24：诚信与处罚（第 17 类查询：查询卡片 → 结果区；变更记录、处罚记录、全平台处罚记录各一张带区块标题的白卡片）----
   { app: 'ops', screen: 'credit', state: 'normal', persona: 'ops', path: CRD, rules: or(), checks: [cSide('ops'), sideActive, cLegacy16, lookupGuide('输入公司 ID'), cardTitles(['全平台处罚记录'])] },
-  { app: 'ops', screen: 'credit', state: 'found', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, rules: or(), checks: [lookupFound, cLegacy16, tblFit, rowsTall, cardTitles(['诚信分变更记录', '处罚记录', '全平台处罚记录'])] },
+  { app: 'ops', screen: 'credit', state: 'found', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, rules: or(), checks: [lookupFound, cLegacy16, tblFit, rowsTall, cardTitles(['诚信分变更记录', '处罚记录', '全平台处罚记录']), cardsEven] },
   { app: 'ops', screen: 'credit', state: 'found', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, width: 1280, height: 800, rules: or(), checks: [tblFit, cFitAny, cardTitles(['诚信分变更记录', '处罚记录'])] },
-  { app: 'ops', screen: 'credit', state: 'penalized', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, rules: crR(), checks: [lookupFound, cLegacy16, tblFit, rowsTall, nameOneLine, cardTitles(['诚信分变更记录', '处罚记录', '全平台处罚记录']), hasPager] },
+  { app: 'ops', screen: 'credit', state: 'penalized', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, rules: crR(), checks: [lookupFound, cLegacy16, tblFit, rowsTall, nameOneLine, cardTitles(['诚信分变更记录', '处罚记录', '全平台处罚记录']), hasPager, cardsEven, logsDesc] },
   { app: 'ops', screen: 'credit', state: 'penalized', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, width: 1280, height: 800, rules: crR(), checks: [tblFit, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'credit', state: 'not-found', persona: 'ops', path: `${CRD}?companyId=C99999999`, rules: or(), checks: [lookupMiss('不存在')] },
   { app: 'ops', screen: 'credit', state: 'loading', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, rules: or({ url: CREDIT_API, action: 'hang' }), quick: true, steps: [wait(600)], checks: [resultMask] },
@@ -3309,7 +3340,7 @@ const STATES = [
     steps: [`${findBtn('处罚', '#app .result')}.click()`, wait(500), fillTa('.el-dialog', '岗位薪资与实际发放不符'), `${findBtn('执行处罚', '.el-dialog__footer')}.click()`, wait(500), countXhr, boxClickTwice('确定')], checks: [sentOnce, `document.querySelector('.el-message-box .el-button.is-loading') ? '' : '确认框里的「确定」没有转圈'`] },
   { app: 'ops', screen: 'credit', state: 'penalty-rejected', persona: 'ops', path: `${CRD}?companyId=${DEMO_CO}`, rules: or({ url: '/penalty', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该公司已处于更高等级的处罚') }),
     steps: [`${findBtn('处罚', '#app .result')}.click()`, wait(500), fillTa('.el-dialog', '岗位薪资与实际发放不符'), `${findBtn('执行处罚', '.el-dialog__footer')}.click()`, wait(500), boxOk('确定'), toastShown],
-    checks: [boxWhy('确定', '暂时不能执行处罚：该公司已处于更高等级的处罚'), whyStays('.el-dialog .blocked-why', '暂时不能执行处罚'), dlgOff('执行处罚')] },
+    checks: [boxWhy('确定', '暂时不能执行处罚：该公司已处于更高等级的处罚'), `document.querySelector('.el-dialog .blocked-why, .el-dialog .form-err') ? '处罚弹窗里又写了一遍被拒原因' : ''`] },
 ]
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))

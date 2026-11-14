@@ -137,7 +137,7 @@ const scoreTone = computed(() => {
 
 // 变更记录前端分页（最近 200 条）
 const logPage = ref(1)
-const logSize = ref(10)
+const logSize = ref(20)
 const logs = computed(() => detail.value?.logs ?? [])
 const pagedLogs = computed(() => logs.value.slice((logPage.value - 1) * logSize.value, logPage.value * logSize.value))
 
@@ -147,7 +147,7 @@ const penLoading = ref(false)
 const penError = ref('')
 const penOffline = ref(false)
 const penPage = ref(1)
-const penSize = ref(10)
+const penSize = ref(20)
 const pagedPenalties = computed(() => allPenalties.value.slice((penPage.value - 1) * penSize.value, penPage.value * penSize.value))
 async function loadPenalties() {
   penLoading.value = true
@@ -206,14 +206,13 @@ async function submitAdjust() {
   }
 }
 
-// ---------- 处罚：表单校验后弹确认框，在确认框里提交
-const pen = reactive({ visible: false, level: 1 as 1 | 2 | 3, reason: '', confirmId: '', error: '', why: '' })
+// ---------- 处罚：表单校验后弹确认框，在确认框里提交；被拒原因只写在确认框里（处罚弹窗不重复），关掉确认框可以改了再试
+const pen = reactive({ visible: false, level: 1 as 1 | 2 | 3, reason: '', confirmId: '', error: '' })
 function openPenalty() {
-  Object.assign(pen, { visible: true, level: 1, reason: '', confirmId: '', error: '', why: '' })
+  Object.assign(pen, { visible: true, level: 1, reason: '', confirmId: '', error: '' })
 }
 function editPenalty() {
   pen.error = ''
-  pen.why = ''
 }
 const level3Ready = computed(() => pen.level !== 3 || pen.confirmId.trim() === c.value?.companyId)
 async function submitPenalty() {
@@ -236,7 +235,6 @@ async function submitPenalty() {
     confirmText: '确定',
     danger: true,
     api: () => opsApi.penalize(co.companyId, level, reason),
-    onBlocked: (why) => (pen.why = why),
   })
   if (!ok) return
   ElMessage.success('处罚已执行')
@@ -340,7 +338,7 @@ async function submitPenalty() {
           </template>
         </el-table>
         <div v-if="logs.length" class="pager">
-          <el-pagination v-model:current-page="logPage" v-model:page-size="logSize" :total="logs.length" :page-sizes="[10, 20, 50]" layout="total, prev, pager, next" background small />
+          <el-pagination v-model:current-page="logPage" v-model:page-size="logSize" :total="logs.length" :page-sizes="[20, 50, 100]" layout="total, sizes, prev, pager, next" background />
         </div>
       </div>
       <div class="card penalties">
@@ -381,7 +379,7 @@ async function submitPenalty() {
         </template>
       </el-table>
       <div v-if="allPenalties.length" class="pager">
-        <el-pagination v-model:current-page="penPage" v-model:page-size="penSize" :total="allPenalties.length" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" background />
+        <el-pagination v-model:current-page="penPage" v-model:page-size="penSize" :total="allPenalties.length" :page-sizes="[20, 50, 100]" layout="total, sizes, prev, pager, next" background />
       </div>
     </div>
 
@@ -400,7 +398,7 @@ async function submitPenalty() {
       <p v-if="adj.why" class="blocked-why" role="alert">{{ adj.why }}</p>
       <template #footer>
         <el-button @click="adj.visible = false">取消</el-button>
-        <el-button type="primary" :loading="adj.loading" :disabled="!!adj.why" @click="submitAdjust">确认调分</el-button>
+        <el-button type="primary" class="btn-steady" :loading="adj.loading" :disabled="!!adj.why" @click="submitAdjust">确认调分</el-button>
       </template>
     </el-dialog>
 
@@ -424,10 +422,9 @@ async function submitPenalty() {
         </el-form-item>
       </el-form>
       <p v-if="pen.error" class="form-err" role="alert">{{ pen.error }}</p>
-      <p v-if="pen.why" class="blocked-why" role="alert">{{ pen.why }}</p>
       <template #footer>
         <el-button @click="pen.visible = false">取消</el-button>
-        <el-button type="danger" plain class="btn-reject" :disabled="!level3Ready || !!pen.why" @click="submitPenalty">执行处罚</el-button>
+        <el-button type="danger" plain class="btn-reject" :disabled="!level3Ready" @click="submitPenalty">执行处罚</el-button>
       </template>
     </el-dialog>
   </div>
@@ -443,17 +440,18 @@ async function submitPenalty() {
 .who-m { font-size: var(--font-size-aux); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .who .spacer { flex: 1; }
 .who .el-button + .el-button { margin-left: 0; }
-.head { display: flex; gap: var(--space-6); align-items: flex-start; }
-.score { width: 200px; flex: none; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); }
-.sv { font-size: var(--font-size-metric); font-weight: var(--font-weight-semibold); line-height: 1.2; margin-top: 6px; color: var(--text-1); font-variant-numeric: tabular-nums; }
-.sv small { font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); margin-left: 2px; }
+/* 诚信分卡和四项信息均分三列：分数卡一列，两列描述列表占两列 */
+.head { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); align-items: start; }
+.score { padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.sv { font-size: var(--font-size-metric); font-weight: var(--font-weight-semibold); line-height: 1.2; margin-top: var(--space-1); color: var(--text-1); font-variant-numeric: tabular-nums; }
+.sv small { font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); margin-left: var(--space-1); }
 .bar { height: 6px; border-radius: var(--radius-tag); background: var(--bg-fill); margin-top: var(--space-2); overflow: hidden; }
 .bar i { display: block; height: 100%; }
 .score.ok .bar i { background: var(--success-solid); }
 .score.warn .bar i { background: var(--warning-solid); }
 .score.danger .bar i { background: var(--danger-solid); }
-.info { flex: 1; min-width: 0; }
-.lists { gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
+.info { grid-column: span 2; min-width: 0; }
+.lists { gap: var(--space-gap); margin-top: var(--space-gap); }
 .all-pen { margin-top: var(--space-gap); }
 .tbl-wait { height: 160px; }
 .pre { white-space: pre-wrap; word-break: break-word; color: var(--text-1); }

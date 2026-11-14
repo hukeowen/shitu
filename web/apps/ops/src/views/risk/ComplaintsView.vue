@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict } from '@shitu/api-client'
@@ -12,7 +12,7 @@ import { fmtDateTime } from '@/utils/format'
 
 /**
  * P-06 投诉管理：核实 / 驳回；同岗属实满 3 次自动下架并扣 10 分
- * 第 8 类审核处理：页签 → 表格 → 「核实处理」弹窗里选结论、填说明，驳回用危险色描边、确认属实用主色
+ * 第 8 类审核处理：页签 → 表格 → 「核实处理」弹窗里填说明，「驳回投诉」在左危险色描边、「确认属实」在右主色
  */
 interface ComplaintRow {
   id: number
@@ -39,12 +39,8 @@ const rows = shallowRef<ComplaintRow[]>([])
 const loading = ref(false)
 const error = ref('')
 const offline = ref(false)
-/** 后端拒绝过的核实：只置灰这一条的「核实处理」，原因用提醒色写在表格上方；切页签、翻页、重新加载都清掉 */
-const blocked = reactive<Record<number, string>>({})
-const clearBlocked = () => Object.keys(blocked).forEach((k) => delete blocked[Number(k)])
 
 async function load() {
-  clearBlocked()
   loading.value = true
   error.value = ''
   offline.value = false
@@ -70,41 +66,46 @@ function setStatus(v: string) {
 const page = ref(1)
 const pageSize = ref(20)
 const paged = computed(() => rows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
-watch([page, pageSize], clearBlocked)
 const opsWidth = computed(() => actionsColWidth(paged.value.map((r) => ({ labels: r.status === 'PENDING' ? ['核实处理'] : [] })), 72))
 
-const dlg = reactive({ visible: false, row: null as ComplaintRow | null, verified: true, remark: '', error: '', why: '', loading: false })
+/**
+ * 核实弹窗：「驳回投诉」在左、「确认属实」在右（同其他审核页）。被后端拒绝时原因留在弹窗里，只置灰被拒的那个按钮，
+ * 另一种结论照常可点；改了说明再放开。关掉弹窗后「核实处理」照常可点，重新打开从头来（同工单 23 调整状态弹窗）
+ */
+const dlg = reactive({ visible: false, row: null as ComplaintRow | null, remark: '', error: '', why: '', off: null as boolean | null, loading: null as boolean | null })
 function openHandle(r: ComplaintRow) {
-  Object.assign(dlg, { visible: true, row: r, verified: true, remark: '', error: '', why: '', loading: false })
+  Object.assign(dlg, { visible: true, row: r, remark: '', error: '', why: '', off: null, loading: null })
 }
 function editHandle() {
   dlg.error = ''
   dlg.why = ''
+  dlg.off = null
 }
-const willOffline = computed(() => dlg.verified && dlg.row != null && dlg.row.complaintVerified + 1 >= AUTO_OFFLINE_AT && dlg.row.complaintVerified < AUTO_OFFLINE_AT)
-async function submit() {
+/** 本次核实属实就满 3 次：自动下架并扣分 */
+const willOffline = computed(() => dlg.row != null && dlg.row.complaintVerified + 1 >= AUTO_OFFLINE_AT && dlg.row.complaintVerified < AUTO_OFFLINE_AT)
+async function submit(verified: boolean) {
   const row = dlg.row
-  if (!row || dlg.loading) return
+  if (!row || dlg.loading != null) return
   const remark = dlg.remark.trim()
   if (!remark) {
     dlg.error = '请填写处理说明'
     return
   }
-  dlg.loading = true
+  dlg.loading = verified
   try {
-    await opsApi.handleComplaint(row.id, dlg.verified, remark)
-    ElMessage.success(dlg.verified ? (willOffline.value ? '已核实属实，岗位已达 3 次属实，自动下架并扣分' : '已核实属实') : '已驳回投诉')
+    await opsApi.handleComplaint(row.id, verified, remark)
+    ElMessage.success(verified ? (willOffline.value ? '已核实属实，岗位已达 3 次属实，自动下架并扣分' : '已核实属实') : '已驳回投诉')
     dlg.visible = false
     await load()
   } catch (e) {
     ElMessage.error(errorMessage(e))
     // 后端业务拒绝：原因留在弹窗里、确认置灰（换个结论或改说明再放开），表格里这一条也置灰；断网只提示
     if (isBlocked(e)) {
-      dlg.why = `暂时不能${dlg.verified ? '确认属实' : '驳回投诉'}：${errorMessage(e)}`
-      blocked[row.id] = `投诉 #${row.id}（${row.title}）：${dlg.why}`
+      dlg.why = `暂时不能${verified ? '确认属实' : '驳回投诉'}：${errorMessage(e)}`
+      dlg.off = verified
     }
   } finally {
-    dlg.loading = false
+    dlg.loading = null
   }
 }
 function toCredit(companyId: string) {
@@ -130,7 +131,6 @@ function toCredit(companyId: string) {
         <span class="t-xs">最近 200 条</span>
         <el-button :loading="loading" @click="load">刷新</el-button>
       </div>
-      <p v-for="(why, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ why }}</p>
       <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="id">
         <el-table-column label="#" width="60"><template #default="{ row }"><span class="tnum dim">{{ row.id }}</span></template></el-table-column>
         <el-table-column label="岗位 / 公司" min-width="200">
@@ -169,7 +169,7 @@ function toCredit(companyId: string) {
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING'" link type="primary" size="small" :disabled="!!blocked[row.id]" @click="openHandle(row)">核实处理</el-button>
+            <el-button v-if="row.status === 'PENDING'" link type="primary" size="small" @click="openHandle(row)">核实处理</el-button>
             <span v-else class="dim">—</span>
           </template>
         </el-table-column>
@@ -204,15 +204,9 @@ function toCredit(companyId: string) {
           </dd></div>
         </dl>
         <el-form label-position="top" class="form" @submit.prevent>
-          <el-form-item label="核实结论" required>
-            <el-radio-group v-model="dlg.verified" class="radios" @change="editHandle">
-              <el-radio :value="true" border>属实</el-radio>
-              <el-radio :value="false" border>不属实（驳回）</el-radio>
-            </el-radio-group>
-          </el-form-item>
           <div v-if="willOffline" class="notice-bar notice-bar--warn gap">
             <IconInfo :size="16" class="notice-bar-i" />
-            <span>该岗位已有 {{ dlg.row.complaintVerified }} 次属实投诉，本次核实属实后将<b>自动强制下架</b>并扣公司诚信分 10 分。</span>
+            <span>该岗位已有 {{ dlg.row.complaintVerified }} 次属实投诉，核实属实后将<b>自动强制下架</b>并扣公司诚信分 10 分。</span>
           </div>
           <el-form-item label="处理说明" required>
             <el-input v-model="dlg.remark" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="核实过程与结论（必填，记录审计日志）" @input="editHandle" />
@@ -222,16 +216,18 @@ function toCredit(companyId: string) {
         <p v-if="dlg.why" class="blocked-why" role="alert">{{ dlg.why }}</p>
       </template>
       <template #footer>
-        <el-button @click="dlg.visible = false">取消</el-button>
-        <el-button v-if="dlg.verified" type="primary" :loading="dlg.loading" :disabled="!!dlg.why" @click="submit">确认属实</el-button>
-        <el-button v-else type="danger" plain class="btn-reject" :loading="dlg.loading" :disabled="!!dlg.why" @click="submit">驳回投诉</el-button>
+        <div class="rv-acts">
+          <el-button @click="dlg.visible = false">取消</el-button>
+          <span class="rv-gap" />
+          <el-button type="danger" plain class="btn-reject btn-steady" :loading="dlg.loading === false" :disabled="dlg.loading === true || dlg.off === false" @click="submit(false)">驳回投诉</el-button>
+          <el-button type="primary" class="btn-steady" :loading="dlg.loading === true" :disabled="dlg.loading === false || dlg.off === true" @click="submit(true)">确认属实</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .tbl-wait { height: 160px; }
 .pre { white-space: pre-wrap; word-break: break-word; color: var(--text-1); }
 .co { font-weight: var(--font-weight-regular); }
@@ -239,6 +235,4 @@ function toCredit(companyId: string) {
 .n-warn { color: var(--warning-text); font-weight: var(--font-weight-semibold); }
 .form { margin-top: var(--space-4); }
 .gap { margin-bottom: var(--space-4); }
-.radios { display: flex; gap: var(--space-2); }
-.radios :deep(.el-radio) { margin-right: 0; }
 </style>

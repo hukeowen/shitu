@@ -26,12 +26,8 @@ const rows = ref<FeedbackRow[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const offline = ref(false)
-/** 后端拒绝过的处理：只置灰这一条的「处理」，原因用提醒色写在表格上方；切页签、翻页、重新加载都清掉 */
-const blocked = reactive<Record<number, string>>({})
-const clearBlocked = () => Object.keys(blocked).forEach((k) => delete blocked[Number(k)])
 
 async function load() {
-  clearBlocked()
   loading.value = true
   loadError.value = ''
   offline.value = false
@@ -53,7 +49,6 @@ watch(tab, load)
 const page = ref(1)
 const pageSize = ref(20)
 const paged = computed(() => rows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
-watch([page, pageSize], clearBlocked)
 const opsWidth = computed(() => actionsColWidth(paged.value.map((r) => ({ labels: r.status === 'OPEN' ? ['处理'] : [] })), 72))
 
 const dlg = reactive({ open: false, row: null as FeedbackRow | null, reply: '', saving: '' as '' | 'reply' | 'close', error: '', why: '', off: '' as '' | 'reply' | 'close' })
@@ -81,11 +76,10 @@ async function submit(close: boolean) {
     await load()
   } catch (e) {
     ElMessage.error(errorMessage(e, '操作失败'))
-    // 后端业务拒绝：原因留在弹窗里，只置灰被拒的那个按钮（改了回复内容再放开），表格里这一条也置灰；断网只提示
+    // 后端业务拒绝：原因留在弹窗里，只置灰被拒的那个按钮（改了回复内容再放开），另一个照常可点；关掉弹窗后「处理」照常可点，重新打开从头来；断网只提示
     if (isBlocked(e)) {
       dlg.why = `暂时不能${actText}：${errorMessage(e, '操作失败')}`
       dlg.off = act
-      blocked[row.id] = `${row.seekerName} 的反馈 #${row.id}：${dlg.why}`
     }
   } finally {
     dlg.saving = ''
@@ -110,7 +104,6 @@ async function submit(close: boolean) {
         <div class="spacer" />
         <el-button :loading="loading" @click="load">刷新</el-button>
       </div>
-      <p v-for="(why, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ why }}</p>
       <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="id">
         <el-table-column label="提交时间" width="150">
           <template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.createdAt) }}</span></template>
@@ -136,7 +129,7 @@ async function submit(close: boolean) {
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'OPEN'" link type="primary" size="small" :disabled="!!blocked[row.id]" @click="openReply(row)">处理</el-button>
+            <el-button v-if="row.status === 'OPEN'" link type="primary" size="small" @click="openReply(row)">处理</el-button>
             <span v-else class="dim">—</span>
           </template>
         </el-table-column>
@@ -169,15 +162,14 @@ async function submit(close: boolean) {
         <p v-if="dlg.why" class="blocked-why gap" role="alert">{{ dlg.why }}</p>
       </template>
       <template #footer>
-        <el-button :loading="dlg.saving === 'close'" :disabled="dlg.saving === 'reply' || dlg.off === 'close'" @click="submit(true)">{{ closeText }}</el-button>
-        <el-button type="primary" :loading="dlg.saving === 'reply'" :disabled="dlg.saving === 'close' || dlg.off === 'reply'" @click="submit(false)">回复</el-button>
+        <el-button class="btn-steady" :loading="dlg.saving === 'close'" :disabled="dlg.saving === 'reply' || dlg.off === 'close'" @click="submit(true)">{{ closeText }}</el-button>
+        <el-button type="primary" class="btn-steady" :loading="dlg.saving === 'reply'" :disabled="dlg.saving === 'close' || dlg.off === 'reply'" @click="submit(false)">回复</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .tbl-wait { height: 160px; }
 .content { white-space: pre-wrap; word-break: break-word; line-height: 1.7; color: var(--text-1); }
 .box { padding: var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); max-height: 220px; overflow: auto; }
