@@ -2,9 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { opsApi, useDict, type JobStatus, type JobView } from '@shitu/api-client'
+import { IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import StatusTag from '@/components/StatusTag.vue'
 import { usePagedList } from '@/composables/usePagedList'
 import { usePendingStore } from '@/stores/pending'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDateTime, fmtSalary } from '@/utils/format'
 import JobDrawer from './JobDrawer.vue'
 
@@ -33,15 +35,18 @@ function onChanged() {
   list.load()
   pending.refresh()
 }
-function rowClass({ row }: { row: JobView }) {
-  return row.status === 'PENDING_AUDIT' ? 'is-hl' : ''
+function reset() {
+  keyword.value = ''
+  companyId.value = ''
+  list.search()
 }
+const opsWidth = computed(() => actionsColWidth([{ labels: ['审核'] }], 72))
 
 onMounted(() => list.load())
 </script>
 
 <template>
-  <div class="card">
+  <div class="card tbl-card">
     <div class="toolbar">
       <div class="filter-tabs">
         <button v-for="t in tabs" :key="t.value" type="button" :class="{ on: status === t.value }" @click="status = t.value as JobStatus | ''">
@@ -52,59 +57,63 @@ onMounted(() => list.load())
       <el-input v-model="companyId" clearable placeholder="公司 ID" style="width: 130px" @keyup.enter="list.search()" @clear="list.search()" />
       <el-input v-model="keyword" clearable placeholder="岗位名称 / 岗位 ID" style="width: 200px" @keyup.enter="list.search()" @clear="list.search()" />
       <el-button type="primary" @click="list.search()">查询</el-button>
+      <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" :row-class-name="rowClass" row-key="jobId" @row-dblclick="(r: JobView) => (drawerId = r.jobId)">
-      <el-table-column label="岗位" min-width="200">
+    <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table tbl-48" row-key="jobId" @row-dblclick="(r: JobView) => (drawerId = r.jobId)">
+      <el-table-column label="岗位" min-width="175">
         <template #default="{ row }">
           <span class="link-cell" @click="drawerId = row.jobId">{{ row.title }}</span>
-          <div class="t-xs"><span class="mono">{{ row.jobId }}</span> · {{ label('JobType', row.jobType) }}</div>
+          <div class="t-xs">{{ row.jobId }} · {{ label('JobType', row.jobType) }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="发布企业" min-width="150">
+      <el-table-column label="发布企业" min-width="120">
         <template #default="{ row }">
           {{ row.companyName ?? '—' }}
-          <div class="t-xs mono">{{ row.companyId }}</div>
+          <div class="t-xs">{{ row.companyId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="项目 / 城市" min-width="140">
+      <el-table-column label="项目 · 城市 / 关联甲方" min-width="190">
         <template #default="{ row }">
-          {{ row.projectName ?? '—' }}
-          <div class="t-xs">{{ row.city ?? '' }}</div>
+          {{ row.projectName ?? '—' }}<template v-if="row.city"> · {{ row.city }}</template>
+          <div class="t-xs">{{ row.clientName ?? row.clientId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="关联甲方" min-width="140">
-        <template #default="{ row }"><span class="t-sm">{{ row.clientName ?? row.clientId }}</span></template>
+      <el-table-column label="薪资（元/月）" width="120" align="right">
+        <template #default="{ row }"><span class="tnum">{{ fmtSalary(row.salaryMin, row.salaryMax) }}</span></template>
       </el-table-column>
-      <el-table-column label="薪资（元/月）" width="120">
-        <template #default="{ row }"><span class="mono t-sm">{{ fmtSalary(row.salaryMin, row.salaryMax) }}</span></template>
-      </el-table-column>
-      <el-table-column label="名额" width="90" align="right">
+      <el-table-column label="名额" width="80" align="right">
         <template #default="{ row }">
-          <span class="mono">{{ row.quotaRemaining }}</span><span class="t-xs"> / {{ row.quotaTotal }}</span>
+          <span class="tnum">{{ row.quotaRemaining }}</span><span class="t-xs"> / {{ row.quotaTotal }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="100">
+      <el-table-column label="状态" width="90">
         <template #default="{ row }"><StatusTag type="JobStatus" :value="row.status" /></template>
       </el-table-column>
-      <el-table-column label="提交时间" width="140">
-        <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.submittedAt) }}</span></template>
+      <el-table-column label="提交时间" width="150">
+        <template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.submittedAt) }}</span></template>
       </el-table-column>
-      <el-table-column label="操作" width="90" align="right" fixed="right">
+      <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
         <template #default="{ row }">
-          <el-button size="small" :type="row.status === 'PENDING_AUDIT' ? 'primary' : 'default'" @click="drawerId = row.jobId">
-            {{ row.status === 'PENDING_AUDIT' ? '审核' : '详情' }}
-          </el-button>
+          <el-button link type="primary" size="small" @click="drawerId = row.jobId">{{ row.status === 'PENDING_AUDIT' ? '审核' : '详情' }}</el-button>
         </template>
       </el-table-column>
       <template #empty>
-        <el-empty v-if="list.error.value" :image-size="64" :description="list.error.value">
-          <el-button size="small" @click="list.load()">重试</el-button>
-        </el-empty>
-        <el-empty v-else :image-size="64" :description="status === 'PENDING_AUDIT' ? '暂无待审核岗位' : '暂无数据'" />
+        <div v-if="list.loading.value" class="tbl-wait" />
+        <div v-else-if="list.error.value" class="state-box">
+          <IconTriangleExclamationPoint :size="48" />
+          <h4>岗位列表加载失败</h4>
+          <p>{{ list.offline.value ? '请检查网络后重新加载' : list.error.value }}</p>
+          <el-button type="primary" @click="list.load()">重新加载</el-button>
+        </div>
+        <div v-else class="state-box">
+          <IconInbox :size="48" />
+          <h4>{{ keyword.trim() || companyId.trim() ? '没有符合条件的岗位' : status === 'PENDING_AUDIT' ? '暂无待审核岗位' : '暂无数据' }}</h4>
+          <p>{{ keyword.trim() || companyId.trim() ? '换个条件再查，或点「重置」' : status === 'PENDING_AUDIT' ? '劳务公司提交岗位审核后会出现在这里' : '切换上方页签查看其他状态的岗位' }}</p>
+        </div>
       </template>
     </el-table>
-    <div class="pager">
+    <div v-if="list.total.value" class="pager">
       <el-pagination
         background
         layout="total, sizes, prev, pager, next"
@@ -120,3 +129,7 @@ onMounted(() => list.load())
     <JobDrawer :job-id="drawerId" @close="drawerId = null" @changed="onChanged" />
   </div>
 </template>
+
+<style scoped>
+.tbl-wait { height: 160px; }
+</style>

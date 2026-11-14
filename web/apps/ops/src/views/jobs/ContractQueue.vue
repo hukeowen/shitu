@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { errorMessage, opsApi, useDict, type ClientContractStatus, type ContractView } from '@shitu/api-client'
+import { opsApi, useDict, type ClientContractStatus, type ContractView } from '@shitu/api-client'
+import { IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import FileViewButton from '@/components/FileViewButton.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import { remarkInBox } from '@/composables/boxSubmit'
 import { usePagedList } from '@/composables/usePagedList'
-import { promptRemark } from '@/composables/useRemark'
 import { usePendingStore } from '@/stores/pending'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { daysUntil, fmtDate, fmtDateTime } from '@/utils/format'
 
+/** 合同备案（第 8 类：表格操作列里「驳回」在左、「通过」在右，原因在确认框里填，同 console 离职审核） */
 const { options } = useDict()
 const pending = usePendingStore()
 
@@ -20,43 +23,56 @@ const list = usePagedList<ContractView>((p) =>
   opsApi.contracts({ ...p, status: status.value || undefined, companyId: companyId.value.trim() || undefined }),
 )
 watch(status, () => list.search())
-
-const acting = ref<string | null>(null)
-async function run(id: string, fn: () => Promise<unknown>, okMsg: string) {
-  acting.value = id
-  try {
-    await fn()
-    ElMessage.success(okMsg)
-    list.load()
-    pending.refresh()
-  } catch (e) {
-    ElMessage.error(errorMessage(e))
-  } finally {
-    acting.value = null
-  }
+function reset() {
+  companyId.value = ''
+  list.search()
 }
+
+/** 后端拒绝过的通过 / 驳回：只置灰这一条的这个操作，原因用提醒色写在表格上方，重新加载后重新判断 */
+const blocked = reactive<Record<string, { name: string; act: 'approve' | 'reject'; text: string }>>({})
+async function load() {
+  Object.keys(blocked).forEach((k) => delete blocked[k])
+  await list.load()
+}
+function done(okMsg: string) {
+  ElMessage.success(okMsg)
+  void load()
+  pending.refresh()
+}
+const who = (row: ContractView) => `${row.companyName ?? row.companyId} ↔ ${row.clientName ?? row.clientId}`
 
 async function approve(row: ContractView) {
   const expired = (daysUntil(row.validTo) ?? 0) < 0
-  const remark = await promptRemark({
+  const ok = await remarkInBox({
     title: '合同备案通过',
-    message: `${row.companyName ?? row.companyId} ↔ ${row.clientName ?? row.clientId}，有效期 ${fmtDate(row.validFrom)} ~ ${fmtDate(row.validTo)}。${expired ? '注意：该合同已过有效期，备案后也不会生效。' : '请确认已查看合同文件，甲乙双方与有效期无误。'}`,
-    confirmText: '通过',
+    text: `${who(row)}，有效期 ${fmtDate(row.validFrom)} ~ ${fmtDate(row.validTo)}。${expired ? '注意：该合同已过有效期，备案后也不会生效。' : '请确认已查看合同文件，甲乙双方与有效期无误。'}`,
+    action: '通过',
+    api: (remark) => opsApi.approveContract(row.contractId, remark || undefined),
+    onBlocked: (text) => (blocked[row.contractId] = { name: who(row), act: 'approve', text }),
   })
-  if (remark === null) return
-  await run(row.contractId, () => opsApi.approveContract(row.contractId, remark || undefined), '合同已备案')
+  if (ok) done('合同已备案')
 }
 async function reject(row: ContractView) {
-  const remark = await promptRemark({ title: '驳回合同备案', message: '驳回原因将展示给劳务公司。', required: true, danger: true, confirmText: '驳回' })
-  if (remark === null) return
-  await run(row.contractId, () => opsApi.rejectContract(row.contractId, remark), '已驳回')
+  const ok = await remarkInBox({
+    title: '驳回合同备案',
+    text: '驳回原因将展示给劳务公司。',
+    action: '驳回',
+    required: true,
+    danger: true,
+    api: (remark) => opsApi.rejectContract(row.contractId, remark),
+    onBlocked: (text) => (blocked[row.contractId] = { name: who(row), act: 'reject', text }),
+  })
+  if (ok) done('已驳回')
 }
 
-onMounted(() => list.load())
+/** 操作列宽按本页实际出现的按钮算：审核按钮是带边框的小号按钮 */
+const opsWidth = computed(() => actionsColWidth(list.rows.value.map((r) => ({ labels: r.auditStatus === 'PENDING' ? ['驳回', '通过'] : [] })), 72, true))
+
+onMounted(load)
 </script>
 
 <template>
-  <div class="card">
+  <div class="card tbl-card">
     <div class="toolbar">
       <div class="filter-tabs">
         <button v-for="t in tabs" :key="t.value" type="button" :class="{ on: status === t.value }" @click="status = t.value as ClientContractStatus | ''">
@@ -66,59 +82,66 @@ onMounted(() => list.load())
       <div class="spacer" />
       <el-input v-model="companyId" clearable placeholder="公司 ID" style="width: 140px" @keyup.enter="list.search()" @clear="list.search()" />
       <el-button type="primary" @click="list.search()">查询</el-button>
+      <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" row-key="contractId">
-      <el-table-column label="劳务公司" min-width="170">
+    <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">「{{ b.name }}」{{ b.text }}</p>
+    <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table tbl-48" row-key="contractId">
+      <el-table-column label="劳务公司 / 甲方" min-width="200">
         <template #default="{ row }">
-          <b class="strong">{{ row.companyName ?? '—' }}</b>
-          <div class="t-xs mono">{{ row.companyId }}</div>
+          <span class="strong">{{ row.companyName ?? '—' }}</span>
+          <div class="t-xs">{{ row.companyId }} · {{ row.clientName ?? row.clientId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="甲方" min-width="170">
-        <template #default="{ row }">{{ row.clientName ?? row.clientId }}</template>
-      </el-table-column>
-      <el-table-column label="有效期" min-width="190">
+      <el-table-column label="有效期" min-width="200">
         <template #default="{ row }">
-          <span class="mono t-sm">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span>
-          <span v-if="(daysUntil(row.validTo) ?? 0) < 0" class="tag tag--danger ml">已过期</span>
+          <span class="tnum">{{ fmtDate(row.validFrom) }} ~ {{ fmtDate(row.validTo) }}</span>
+          <div v-if="(daysUntil(row.validTo) ?? 0) < 0"><span class="status-tag status-tag--danger">已过期</span></div>
         </template>
       </el-table-column>
-      <el-table-column label="备案状态" width="100">
-        <template #default="{ row }"><StatusTag type="ClientContractStatus" :value="row.auditStatus" /></template>
+      <el-table-column label="状态" width="90">
+        <template #default="{ row }">
+          <StatusTag type="ClientContractStatus" :value="row.auditStatus" />
+          <div class="eff"><span class="status-tag" :class="{ 'status-tag--success': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></div>
+        </template>
       </el-table-column>
-      <el-table-column label="生效" width="80">
-        <template #default="{ row }"><span class="tag" :class="{ 'tag--ok': row.effective }">{{ row.effective ? '生效中' : '未生效' }}</span></template>
+      <el-table-column label="提交时间" width="150">
+        <template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.createdAt) }}</span></template>
       </el-table-column>
-      <el-table-column label="提交时间" width="140">
-        <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
-      </el-table-column>
-      <el-table-column label="审核说明" min-width="140">
+      <el-table-column label="审核说明" min-width="150">
         <template #default="{ row }">
           <span class="t-sm">{{ row.auditRemark || '—' }}</span>
-          <div v-if="row.auditedAt" class="t-xs mono">{{ fmtDateTime(row.auditedAt) }}</div>
+          <div v-if="row.auditedAt" class="t-xs">{{ fmtDateTime(row.auditedAt) }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="合同" width="70">
+      <el-table-column label="合同" width="64">
         <template #default="{ row }"><FileViewButton :file-key="row.fileKey" /></template>
       </el-table-column>
-      <el-table-column label="操作" width="140" align="right" fixed="right">
+      <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
         <template #default="{ row }">
           <template v-if="row.auditStatus === 'PENDING'">
-            <el-button size="small" type="danger" plain :disabled="acting === row.contractId" @click="reject(row)">驳回</el-button>
-            <el-button size="small" type="primary" :loading="acting === row.contractId" @click="approve(row)">通过</el-button>
+            <el-button size="small" type="danger" plain class="btn-reject" :disabled="blocked[row.contractId]?.act === 'reject'" @click="reject(row)">驳回</el-button>
+            <el-button size="small" type="primary" :disabled="blocked[row.contractId]?.act === 'approve'" @click="approve(row)">通过</el-button>
           </template>
           <span v-else class="dim">—</span>
         </template>
       </el-table-column>
       <template #empty>
-        <el-empty v-if="list.error.value" :image-size="64" :description="list.error.value">
-          <el-button size="small" @click="list.load()">重试</el-button>
-        </el-empty>
-        <el-empty v-else :image-size="64" :description="status === 'PENDING' ? '暂无待备案合同' : '暂无数据'" />
+        <div v-if="list.loading.value" class="tbl-wait" />
+        <div v-else-if="list.error.value" class="state-box">
+          <IconTriangleExclamationPoint :size="48" />
+          <h4>合同列表加载失败</h4>
+          <p>{{ list.offline.value ? '请检查网络后重新加载' : list.error.value }}</p>
+          <el-button type="primary" @click="load">重新加载</el-button>
+        </div>
+        <div v-else class="state-box">
+          <IconInbox :size="48" />
+          <h4>{{ companyId.trim() ? '没有符合条件的合同' : status === 'PENDING' ? '暂无待备案合同' : '暂无数据' }}</h4>
+          <p>{{ companyId.trim() ? '换个公司 ID 再查，或点「重置」' : status === 'PENDING' ? '劳务公司上传与甲方的合作合同后会出现在这里' : '切换上方页签查看其他状态的合同' }}</p>
+        </div>
       </template>
     </el-table>
-    <div class="pager">
+    <div v-if="list.total.value" class="pager">
       <el-pagination
         background
         layout="total, sizes, prev, pager, next"
@@ -134,5 +157,7 @@ onMounted(() => list.load())
 </template>
 
 <style scoped>
-.ml { margin-left: 4px; }
+.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
+.tbl-wait { height: 160px; }
+.eff { margin-top: var(--space-1); }
 </style>

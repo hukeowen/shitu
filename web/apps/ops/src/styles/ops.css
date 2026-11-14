@@ -179,3 +179,19 @@
 .el-button.btn-steady.is-loading { position: relative; }
 .el-button.btn-steady.is-loading > .el-icon { position: absolute; left: 0; }
 .el-button.btn-steady.is-loading > .el-icon + span { margin-left: 0; }
+/* ---------- 工单 23：审核抽屉（第 5 类详情 + 第 8 类审核），公司、岗位两个抽屉共用 ---------- */
+/* 抽屉挂在 body 上：标题用区块标题样式（同 console 消息抽屉），标题下不留大块空白 */
+.rv-drawer .el-drawer__header { margin-bottom: 0; }
+.rv-hd { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.rv-hd h3 { margin: 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+/* 底部操作区：左边「关闭」，右边审核按钮（驳回在左、通过在右）；被拒原因写在按钮上方 */
+.rv-foot { display: flex; flex-direction: column; gap: var(--space-2); }
+.rv-foot .blocked-why { text-align: right; }
+.rv-acts { display: flex; align-items: center; gap: var(--space-2); }
+.rv-acts .rv-gap { flex: 1; }
+.rv-acts .el-button + .el-button { margin-left: 0; }
+/* 描述列表里占整行的字段（长文本、地址） */
+.desc-list .full { grid-column: 1 / -1; }
+.desc-list .pre { white-space: pre-wrap; line-height: 1.7; }
+/* 表格里的数字：等宽 */
+.tnum { font-variant-numeric: tabular-nums; }

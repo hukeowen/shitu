@@ -10,11 +10,12 @@ export const CREDIT_RULES: Record<string, string> = {
 }
 export const creditRuleLabel = (code?: string | null) => (code ? CREDIT_RULES[code] ?? code : '—')
 
-export const PENALTY_LEVELS: Record<number, { label: string; desc: string; cls: string }> = {
-  0: { label: '无处罚', desc: '', cls: 'tag--ok' },
-  1: { label: '一级 · 警告', desc: '仅记录警告并通知企业，不影响曝光', cls: 'tag--warn' },
-  2: { label: '二级 · 限流 30 天', desc: '30 天内岗位匹配权重按引擎参数中的二级处罚系数下调，到期自动解除', cls: 'tag--warn' },
-  3: { label: '三级 · 封禁', desc: '公司状态改为封禁，并永久取消收费服务权限（不可自动恢复）', cls: 'tag--danger' },
+/** cls 是改版前的旧标签类（诚信与处罚页还在用）；tone 是共享状态标签的色调（status-tag--{tone}，降权与限流页用） */
+export const PENALTY_LEVELS: Record<number, { label: string; desc: string; cls: string; tone: 'success' | 'warning' | 'danger' }> = {
+  0: { label: '无处罚', desc: '', cls: 'tag--ok', tone: 'success' },
+  1: { label: '一级 · 警告', desc: '仅记录警告并通知企业，不影响曝光', cls: 'tag--warn', tone: 'warning' },
+  2: { label: '二级 · 限流 30 天', desc: '30 天内岗位匹配权重按引擎参数中的二级处罚系数下调，到期自动解除', cls: 'tag--warn', tone: 'warning' },
+  3: { label: '三级 · 封禁', desc: '公司状态改为封禁，并永久取消收费服务权限（不可自动恢复）', cls: 'tag--danger', tone: 'danger' },
 }
 export const penaltyLabel = (lv?: number | null) => PENALTY_LEVELS[lv ?? 0]?.label ?? `等级 ${lv}`
 

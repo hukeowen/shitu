@@ -8,7 +8,8 @@ export function textBtnWidth(label: string): number {
   return w
 }
 
-export function actionsColWidth(rows: { labels: string[] }[], min = 96): number {
-  const widths = rows.map((r) => 24 + r.labels.reduce((w, l) => w + textBtnWidth(l), 0) + Math.max(0, r.labels.length - 1) * 12)
+/** boxed：按钮是带边框的小号按钮（审核页的「驳回 / 通过」），每个比文字按钮多出 18px 左右内边距（同 console） */
+export function actionsColWidth(rows: { labels: string[] }[], min = 96, boxed = false): number {
+  const widths = rows.map((r) => 24 + r.labels.reduce((w, l) => w + textBtnWidth(l) + (boxed ? 18 : 0), 0) + Math.max(0, r.labels.length - 1) * 12)
   return Math.max(min, ...widths)
 }
