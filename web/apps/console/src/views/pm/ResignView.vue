@@ -151,7 +151,7 @@ async function reject(r: ResignRow) {
           <el-table-column label="员工" min-width="150">
             <template #default="{ row }">
               <b class="strong ellip" :title="row.name">{{ row.name }}</b>
-              <div class="t-xs mono ellip" :title="row.employmentId">{{ row.employmentId }}</div>
+              <div class="t-xs mono ellip" :title="row.employeeNo ?? row.employmentId">{{ row.employeeNo ? `工号 ${row.employeeNo}` : row.employmentId }}</div>
             </template>
           </el-table-column>
           <el-table-column label="项目" min-width="150">

@@ -21,3 +21,7 @@
   --van-tabbar-item-active-color: var(--signal);
   --van-nav-bar-icon-color: var(--ink-800);
 }
+
+/* 轻提示不拦截点击：登录成功等提示出现在屏幕正中，正好盖住首页主按钮，两秒内点不动。
+   加载中这类要禁止操作的提示，Vant 另有全局禁点机制，不受影响。 */
+html .van-toast { pointer-events: none; }
