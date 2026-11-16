@@ -122,6 +122,7 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
                 <span class="num">本笔剩余 {{ fmtYuan(l.balanceAfter) }}</span>
               </div>
               <router-link v-if="l.payslipId" :to="`/payslips/${l.payslipId}`" class="slip" aria-label="查看工资条"><van-icon name="arrow" /></router-link>
+              <i v-else class="slip" aria-hidden="true"></i>
             </div>
           </template>
           <p v-if="row.status === 'PARTIALLY_REPAID'" class="t-xs" style="margin-top: 8px; line-height: 1.6">当月实发工资不足抵扣，剩余欠款已自动结转至下一个发薪日，不产生利息或手续费。</p>
@@ -161,5 +162,6 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
 .led .r { text-align: right; }
 .led b.in { color: var(--ok); }
 .led b.out { color: var(--ink-900); }
-.led .slip { color: var(--ink-300); display: grid; place-items: center; width: 20px; }
+.led .slip { flex: none; color: var(--ink-300); display: grid; place-items: center; width: 20px; }
+.led .r { flex: none; }
 </style>

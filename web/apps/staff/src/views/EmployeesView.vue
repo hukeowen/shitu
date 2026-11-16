@@ -96,7 +96,7 @@ function back() {
   <div class="emp">
     <van-nav-bar title="在岗人员" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
     <div class="sticky">
-      <van-search v-model="keyword" placeholder="输入工号或完整手机号" shape="round" @search="onSearch" @clear="onClear" />
+      <van-search v-model="keyword" :placeholder="rows.length && !rows.some((r) => r.phone) ? '输入工号' : '输入工号或完整手机号'" shape="round" @search="onSearch" @clear="onClear" />
     </div>
     <van-pull-refresh v-model="refreshing" class="pr" @refresh="onRefresh">
       <div v-if="forbidden" class="state"><van-empty description="你的角色暂无人员管理权限" /></div>

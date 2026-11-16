@@ -129,45 +129,42 @@ function openInsight(row: SiteApplication) {
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="list" row-key="applicationId" :row-class-name="rowClass">
-        <el-table-column label="#" width="48">
-          <template #default="{ $index }"><span class="mono t-xs">{{ String((page.page - 1) * page.pageSize + $index + 1).padStart(2, '0') }}</span></template>
-        </el-table-column>
-        <el-table-column label="求职者" min-width="200">
+        <el-table-column label="求职者" min-width="170">
           <template #default="{ row }">
             <button type="button" class="person-btn" title="查看画像、匹配记录与历史报名" @click="openInsight(row)">
               <PersonCell :name="row.seekerName" :accent="!row.fromPublic" mono :sub="row.applicationId" />
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="手机号" min-width="136">
+        <el-table-column label="手机号" min-width="124">
           <template #default="{ row }">
             <span v-if="row.phone" class="mono t-sm">{{ fmtPhone(row.phone) }}</span>
             <span v-else class="t-xs nowrap">{{ isSite ? '—' : '仅驻场可见' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="应聘岗位" min-width="190">
+        <el-table-column label="应聘岗位" min-width="170">
           <template #default="{ row }">
             <div class="t-sm strong clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
             <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="来源" min-width="76">
-          <template #default="{ row }"><span class="tag" :class="row.fromPublic ? 'tag--public' : 'tag--private'">{{ row.fromPublic ? '公域' : '私域' }}</span></template>
-        </el-table-column>
-        <el-table-column label="报名 / 面试时间" min-width="176">
+        <el-table-column label="报名 / 面试时间" min-width="160">
           <template #default="{ row }">
             <div class="mono t-xs">报 {{ fmtDateTime(row.createdAt) }}</div>
             <div class="mono t-sm" :class="row.interviewAt ? 'strong' : 'dim'">面 {{ fmtDateTime(row.interviewAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" min-width="140">
+        <el-table-column label="状态 / 来源" min-width="132">
           <template #default="{ row }">
-            <DictTag type="ApplicationStatus" :value="row.status" pill />
+            <div class="row" style="gap: 6px; flex-wrap: nowrap">
+              <DictTag type="ApplicationStatus" :value="row.status" pill />
+              <span class="tag" :class="row.fromPublic ? 'tag--public' : 'tag--private'">{{ row.fromPublic ? '公域' : '私域' }}</span>
+            </div>
             <div v-if="row.arrivedAt" class="t-xs nowrap" style="color: var(--ok)">已到厂 {{ fmtDateTime(row.arrivedAt).slice(5) }}</div>
             <div v-else class="t-xs nowrap">{{ row.status === 'PENDING_INTERVIEW' ? (row.acknowledgedAt ? '已推送面试信息' : '未知悉') : row.contract?.status === 'PENDING_SIGN' || row.allowedActions.includes('RESEND_CONTRACT') ? '待求职者签署' : row.status === 'PENDING_CONFIRM' ? '待发起签约' : '' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="响应剩余" min-width="112">
+        <el-table-column label="响应剩余" min-width="100">
           <template #default="{ row }"><CountdownTag :deadline="row.responseDeadline" :now="now" /></template>
         </el-table-column>
         <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">

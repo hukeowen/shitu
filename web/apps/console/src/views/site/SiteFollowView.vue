@@ -14,7 +14,8 @@ import { fmtDateTime, fmtPhone } from '@/utils/format'
 import { remainMs } from '@/utils/time'
 
 /**
- * A-03 24 小时响应监控（T-102）：按 SiteApplication.responseDeadline 分档 <1h / 1–6h / 6–24h。
+ * A-03 24 小时响应监控（T-102）：按 SiteApplication.responseDeadline 分档 <1h / 1–6h / 6 小时以上。
+ * 窗口不一定 ≤24h（例如面试约在后天，窗口跟着顺延），所以最后一档不设上限。
  * 只有私域用户有响应窗口；尚未报名的「私域待匹配」用户当前接口不返回明细，只显示工作台汇总数。
  */
 type Bucket = '' | 'h1' | 'h6' | 'h24'
@@ -105,18 +106,18 @@ function barClass(a: SiteApplication) {
     </div>
 
     <div class="grid g-4">
-      <div class="stat stat--danger stat--link" @click="bucket = 'h1'">
+      <div class="stat stat--link" :class="{ 'stat--danger': counts.h1 > 0 }" @click="bucket = 'h1'">
         <div class="stat-l">&lt; 1 小时（含已超时）</div>
         <div class="stat-v">{{ counts.h1 }}</div>
-        <div class="stat-d">立即处理</div>
+        <div class="stat-d">{{ counts.h1 > 0 ? '立即处理' : '暂无紧急窗口' }}</div>
       </div>
-      <div class="stat stat--warn stat--link" @click="bucket = 'h6'">
+      <div class="stat stat--link" :class="{ 'stat--warn': counts.h6 > 0 }" @click="bucket = 'h6'">
         <div class="stat-l">1–6 小时</div>
         <div class="stat-v">{{ counts.h6 }}</div>
         <div class="stat-d">优先跟进</div>
       </div>
       <div class="stat stat--link" @click="bucket = 'h24'">
-        <div class="stat-l">6–24 小时</div>
+        <div class="stat-l">6 小时以上</div>
         <div class="stat-v">{{ counts.h24 }}</div>
         <div class="stat-d">正常窗口</div>
       </div>
@@ -141,7 +142,7 @@ function barClass(a: SiteApplication) {
             <button :class="{ on: bucket === '' }" @click="bucket = ''">全部<span class="n">{{ windowed.length }}</span></button>
             <button :class="{ on: bucket === 'h1' }" @click="bucket = 'h1'">&lt;1h<span class="n">{{ counts.h1 }}</span></button>
             <button :class="{ on: bucket === 'h6' }" @click="bucket = 'h6'">1–6h<span class="n">{{ counts.h6 }}</span></button>
-            <button :class="{ on: bucket === 'h24' }" @click="bucket = 'h24'">6–24h<span class="n">{{ counts.h24 }}</span></button>
+            <button :class="{ on: bucket === 'h24' }" @click="bucket = 'h24'">≥6h<span class="n">{{ counts.h24 }}</span></button>
           </div>
           <span class="spacer" />
           <span class="tag tag--warn">按剩余时长升序</span>
@@ -154,10 +155,10 @@ function barClass(a: SiteApplication) {
           <el-table-column label="求职者" min-width="170">
             <template #default="{ row }"><PersonCell :name="row.seekerName" accent mono :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
           </el-table-column>
-          <el-table-column label="阶段" min-width="170">
+          <el-table-column label="阶段" min-width="216">
             <template #default="{ row }">
               <DictTag type="ApplicationStatus" :value="row.status" pill />
-              <div class="t-xs clamp-2" :title="stageText(row)">{{ stageText(row) }}</div>
+              <div class="t-xs ellip" :title="stageText(row)">{{ stageText(row) }}</div>
             </template>
           </el-table-column>
           <el-table-column label="岗位" min-width="160">

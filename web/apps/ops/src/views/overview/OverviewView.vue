@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { errorMessage, opsApi, type OpsOverview } from '@shitu/api-client'
 import { fmtDate, fmtMoney, fmtNum } from '@/utils/format'
 
@@ -35,9 +35,28 @@ const kpis = computed(() => {
 })
 
 /** 趋势图：纯 SVG 柱状图 */
-const W = 560
-const H = 160
+/** 画布尺寸跟随容器的实际像素（图表撑满卡片高度，文字不变形） */
+const chartEl = ref<HTMLElement | null>(null)
+const W = ref(560)
+const H = ref(180)
 const PAD = { l: 34, r: 8, t: 12, b: 22 }
+let chartObserver: ResizeObserver | undefined
+function measure() {
+  const el = chartEl.value
+  if (!el || !el.clientWidth || !el.clientHeight) return
+  W.value = el.clientWidth
+  H.value = el.clientHeight
+}
+watch(chartEl, (el) => {
+  chartObserver?.disconnect()
+  if (!el) return
+  measure()
+  if (typeof ResizeObserver !== 'undefined') {
+    chartObserver = new ResizeObserver(measure)
+    chartObserver.observe(el)
+  }
+})
+onBeforeUnmount(() => chartObserver?.disconnect())
 /** 补齐近 14 天：后端只返回有注册的日期，没有数据的日子按 0 画出来（按北京日期） */
 const trend = computed(() => {
   const by = new Map((data.value?.trend ?? []).map((p) => [p.d, p]))
@@ -53,8 +72,8 @@ const chart = computed(() => {
   // 坐标刻度取整到「好看」的数
   const step = niceStep(max / 4)
   const top = Math.max(step, Math.ceil(max / step) * step)
-  const iw = W - PAD.l - PAD.r
-  const ih = H - PAD.t - PAD.b
+  const iw = W.value - PAD.l - PAD.r
+  const ih = H.value - PAD.t - PAD.b
   const bw = pts.length ? iw / pts.length : 0
   const bars = pts.map((p, i) => {
     const h = (p.registrations / top) * ih
@@ -154,10 +173,10 @@ const hover = ref<number | null>(null)
             <h3>近 14 日注册趋势</h3>
             <span class="t-xs">合计 <b class="mono">{{ fmtNum(trendTotal) }}</b> 人</span>
           </div>
-          <div class="card__bd">
+          <div class="card__bd grow">
             <el-empty v-if="trend.length === 0" :image-size="56" description="暂无数据" />
-            <div v-else class="chart">
-              <svg :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none" role="img" aria-label="近 14 日注册人数柱状图">
+            <div v-else ref="chartEl" class="chart">
+              <svg :viewBox="`0 0 ${W} ${H}`" role="img" aria-label="近 14 日注册人数柱状图">
                 <g v-for="t in chart.ticks" :key="t.v">
                   <line :x1="PAD.l" :x2="W - PAD.r" :y1="t.y" :y2="t.y" class="grid-l" />
                   <text :x="PAD.l - 6" :y="t.y + 3" text-anchor="end" class="ax">{{ t.v }}</text>
@@ -200,8 +219,10 @@ const hover = ref<number | null>(null)
 .split dd { margin: 0; color: var(--ink-800); font-weight: 600; font-variant-numeric: tabular-nums; }
 .fee-note { margin: 14px 0 0; line-height: 1.7; }
 .fee.hl .fee-v { color: var(--signal-700); }
-.chart { position: relative; }
-.chart svg { width: 100%; height: 180px; display: block; }
+.fees > .card { display: flex; flex-direction: column; }
+.card__bd.grow { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.chart { position: relative; flex: 1; min-height: 200px; }
+.chart svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .grid-l { stroke: var(--line); stroke-width: 1; }
 .ax { font-size: 10px; fill: var(--ink-400); font-family: var(--f-mono); }
 .col { fill: var(--signal); opacity: .85; }

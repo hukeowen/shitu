@@ -86,7 +86,7 @@ const suites = [
   { name: 'console-owner3', app: '/admin', domain: 'tenant', phone: '13800000021', paths: ['/', '/owner/overview', '/owner/bills', '/circulation/ledger', '/pm/jobs', '/pm/staff'] },
   { name: 'console-pending', app: '/admin', domain: 'tenant', phone: '13800000031', paths: ['/', '/onboarding/status', '/onboarding/apply', '/owner/overview'] },
   { name: 'ops-anon', app: '/ops', paths: ['/login', '/', '/forbidden'] },
-  { name: 'ops-admin', app: '/ops', domain: 'ops', click: true, paths: ['/', '/ops/workbench', '/ops/overview', '/ops/attribution', '/engine/quiz', `/engine/quiz/${v("SELECT version_id FROM quiz_version WHERE status='DRAFT' LIMIT 1") ?? 1}`,
+  { name: 'ops-admin', app: '/ops', domain: 'ops', click: true, paths: ['/', '/workbench', '/ops/overview', '/ops/attribution', '/engine/quiz', `/engine/quiz/${v("SELECT version_id FROM quiz_version WHERE status='DRAFT' LIMIT 1") ?? 1}`,
     `/engine/quiz/${v("SELECT version_id FROM quiz_version WHERE status='ACTIVE' LIMIT 1") ?? 1}`, '/engine/match-snapshot', '/engine/params', '/companies/list', '/companies/stock',
     '/governance/job-audit', '/governance/throttle', '/governance/compliance', '/governance/complaints', '/governance/feedback', '/governance/credit',
     '/settlement/rules', '/settlement/bills', '/settlement/audit', '/system/admins', '/system/templates', '/system/holidays', '/system/params', '/no-such-page'] },

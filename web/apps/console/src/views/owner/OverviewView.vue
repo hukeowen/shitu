@@ -104,7 +104,7 @@ function signed(n: number) {
           <el-table-column label="项目" min-width="170">
             <template #default="{ row }"><b class="clamp-2" :title="row.name">{{ row.name }}</b><div class="t-xs ellip">{{ row.city || '—' }}</div></template>
           </el-table-column>
-          <el-table-column label="项目经理 / 驻场" min-width="140">
+          <el-table-column label="项目经理 / 驻场" min-width="130">
             <template #default="{ row }"><span class="t-sm clamp-2" :title="row.managers ?? ''">{{ row.managers || '未分配' }}</span></template>
           </el-table-column>
           <el-table-column label="在岗" min-width="96" align="right">
@@ -133,13 +133,13 @@ function signed(n: number) {
       <div class="card">
         <div class="card__hd"><h3>权限管控</h3><span class="tag tag--info">老板视图</span></div>
         <div class="card__bd t-sm perm">
-          <div><span class="y">✓</span>查看公司整体与项目聚合统计</div>
-          <div><span class="y">✓</span>查看渠道转化报表、费用账单、流转账本</div>
-          <div><span class="y">✓</span>预支登记拨款、工资表导入、公司通用知识库</div>
-          <div><span class="y">✓</span>只读查看岗位、待办清单与 24h 响应监控（姓名脱敏）</div>
+          <div class="pi"><span class="y">✓</span><span>查看公司整体与项目聚合统计</span></div>
+          <div class="pi"><span class="y">✓</span><span>查看渠道转化报表、费用账单、流转账本</span></div>
+          <div class="pi"><span class="y">✓</span><span>预支登记拨款、工资表导入、公司通用知识库</span></div>
+          <div class="pi"><span class="y">✓</span><span>只读查看岗位、待办清单与 24h 响应监控（姓名脱敏）</span></div>
           <div class="divider" style="margin: 8px 0" />
-          <div><span class="n">✕</span>查看求职者完整手机号 / 证件号</div>
-          <div><span class="n">✕</span>查看求职者 AI 画像与简历详情</div>
+          <div class="pi"><span class="n">✕</span><span>查看求职者完整手机号 / 证件号</span></div>
+          <div class="pi"><span class="n">✕</span><span>查看求职者 AI 画像与简历详情</span></div>
         </div>
       </div>
       <div class="card">
@@ -186,6 +186,9 @@ function signed(n: number) {
 .bar.mini { width: 56px; max-width: 100%; margin: 4px 0 0 auto; }
 .kv dd.total { font-size: 18px; font-weight: 650; color: var(--signal); }
 .quick .el-button { margin-left: 0; }
-.perm .y { color: var(--ok); margin-right: 8px; }
-.perm .n { color: var(--danger); margin-right: 8px; }
+/* 每条一行：图标固定宽度，文字换行时悬挂缩进 */
+.perm .pi { display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; padding: 3px 0; }
+.perm .y, .perm .n { flex: none; width: 14px; text-align: center; }
+.perm .y { color: var(--ok); }
+.perm .n { color: var(--danger); }
 </style>

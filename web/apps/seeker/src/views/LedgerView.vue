@@ -75,7 +75,7 @@ function interviewTag(a: LedgerApplication) {
   <div class="lg">
     <AppBar title="我的台账" fallback="/me" />
     <van-tabs v-model:active="tab" sticky offset-top="46" shrink class="tabs">
-      <van-tab v-for="t in TABS" :key="t.key" :name="t.key" :title="counts[t.key] ? `${t.title} ${counts[t.key]}` : t.title" />
+      <van-tab v-for="t in TABS" :key="t.key" :name="t.key" :title="`${t.title} ${counts[t.key]}`" />
     </van-tabs>
 
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">

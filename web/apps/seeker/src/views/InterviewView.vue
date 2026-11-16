@@ -42,6 +42,16 @@ const until = computed(() => untilText(n.value?.interviewAt))
 const checked = ref<Record<string, boolean>>({})
 
 const pendingInterview = computed(() => app.value?.status === 'PENDING_INTERVIEW')
+/** 待签约入职：只有驻场已发起电子签约（存在待签署合同）才给出签署入口；否则只展示等待说明 */
+const hasPendingSign = ref(false)
+watch(
+  () => app.value?.status,
+  (s) => {
+    hasPendingSign.value = false
+    if (s === 'PENDING_CONFIRM') void seekerApi.pendingContract().then((c) => (hasPendingSign.value = !!c)).catch(() => undefined)
+  },
+  { immediate: true },
+)
 const title = computed(() => {
   const s = app.value?.status
   if (!s || s === 'PENDING_INTERVIEW') return '面试确认信息'
@@ -53,7 +63,11 @@ watch(title, (t) => (document.title = t), { immediate: true })
 /** 非待面试状态的一句话结论 */
 const summary = computed(() => {
   const s = app.value?.status
-  if (s === 'PENDING_CONFIRM') return { t: '面试已通过', d: '驻场老师正在为你办理入职，请留意电子合同的签署通知。' }
+  if (s === 'PENDING_CONFIRM') {
+    return hasPendingSign.value
+      ? { t: '面试已通过', d: '劳务公司已发起电子签约，签署劳动合同后即正式入职。' }
+      : { t: '面试已通过', d: '驻场老师正在为你办理入职，请留意电子合同的签署通知。' }
+  }
   if (s === 'EMPLOYED') return { t: '已入职', d: '你已通过面试并办理入职，在岗信息请到「我的工作」查看。' }
   if (s === 'TIMEOUT') return { t: label('ApplicationStatus', 'TIMEOUT'), d: '驻场未在时限内处理，本次报名已自动作废，你可以重新匹配岗位。' }
   return { t: s ? label('ApplicationStatus', s) : '', d: '本次报名已结束，可重新进入 AI 问薪匹配岗位。' }
@@ -96,7 +110,7 @@ const summary = computed(() => {
         </dl>
       </section>
 
-      <van-button v-if="app.status === 'PENDING_CONFIRM'" type="primary" block class="btn-cta" @click="router.push('/contracts')">查看我的合同</van-button>
+      <van-button v-if="app.status === 'PENDING_CONFIRM' && hasPendingSign" type="primary" block class="btn-cta" @click="router.push('/contracts/sign')">去签署合同</van-button>
       <van-button v-else-if="app.status === 'EMPLOYED'" type="primary" block class="btn-cta" @click="router.push('/work')">查看我的工作</van-button>
       <van-button block class="btn-cta" @click="router.replace('/reports')">返回我的报备</van-button>
       <div class="page-bottom-gap"></div>

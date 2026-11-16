@@ -30,6 +30,7 @@ const countdown = computed(() => {
 const urgent = computed(() => remainMs.value != null && remainMs.value < URGENT_MS && !!countdown.value && acts.value.main.length > 0)
 
 const contract = computed(() => props.app.contract)
+const signing = computed(() => props.app.status === 'PENDING_CONFIRM' && contract.value?.status === 'PENDING_SIGN')
 const statusText = computed(() => {
   const a = props.app
   if (stage.value === 'arrived') return '已到厂 · 待录入面试结果'
@@ -53,7 +54,9 @@ const avatarChar = computed(() => (props.app.seekerName === '未实名' ? '?' : 
     <div class="top">
       <div class="row tags">
         <span class="tag" :class="domain === 'PUBLIC' ? 'tag-public' : 'tag-private'"><i class="dot" />{{ label('DomainTag', domain) }}</span>
-        <span v-if="stage" class="tag" :class="STAGE_TAG[stage]">{{ STAGE_TEXT[stage] }}</span>
+        <!-- 已确权、合同等求职者签署：只显示合同标签，不再挂「待确权」 -->
+        <template v-if="signing" />
+        <span v-else-if="stage" class="tag" :class="STAGE_TAG[stage]">{{ STAGE_TEXT[stage] }}</span>
         <span v-else class="tag" :class="APPLICATION_TAG[app.status] ?? 'tag-muted'">{{ label('ApplicationStatus', app.status) }}</span>
         <span v-if="contract && app.status === 'PENDING_CONFIRM'" class="tag" :class="CONTRACT_TAG[contract.status] ?? 'tag-muted'">合同{{ label('ContractStatus', contract.status) }}</span>
       </div>

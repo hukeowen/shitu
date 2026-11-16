@@ -78,7 +78,7 @@ function start() {
           </div>
           <h3>暂不能重新匹配</h3>
           <p class="t-sm">{{ lockText }}。</p>
-          <p v-if="appliedLock" class="t-xs" style="margin-top: 6px">如需更换岗位，请联系驻场老师在后台取消报名 —— 你不能自行取消。</p>
+          <p v-if="appliedLock" class="t-xs" style="margin-top: 6px">如需更换岗位，请联系驻场老师<span class="nw">在后台取消报名</span> —— <span class="nw">你不能自行取消。</span></p>
           <van-button v-if="appliedLock" type="primary" block class="btn-cta" style="margin-top: 14px" @click="router.push('/reports')">查看我的报备</van-button>
           <van-button block class="btn-cta" style="margin-top: 10px" @click="router.replace('/')">返回首页</van-button>
         </section>
@@ -117,7 +117,7 @@ function start() {
                 <template v-if="geo === 'ok'">已获取位置，将优先推荐离你近的岗位</template>
                 <template v-else-if="geo === 'denied'">未获取到位置，不影响匹配</template>
                 <template v-else-if="geo === 'unsupported'">当前浏览器不支持定位，不影响匹配</template>
-                <template v-else>用于优先推荐离你近的岗位，不授权也能匹配</template>
+                <template v-else>用于优先推荐离你近的岗位，<span class="nw">不授权也能匹配</span></template>
               </div>
             </div>
             <van-button v-if="geo === 'idle' || geo === 'denied'" size="small" round @click="locate">{{ geo === 'denied' ? '重试' : '允许定位' }}</van-button>

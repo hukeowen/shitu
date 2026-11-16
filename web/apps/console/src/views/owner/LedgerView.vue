@@ -35,6 +35,16 @@ watch(month, (m) => {
 })
 onMounted(load)
 
+/**
+ * 流入应付的来源方名称。来源是平台（公域用户，没有来源公司，流转费全部归平台）时接口的公司编号为空或 PLATFORM；
+ * 有编号但没有名称属于数据缺失，直接显示编号。
+ */
+const PLATFORM_LABEL = '平台（公域用户）'
+function sourceName(l: Pick<LedgerLine, 'counterpartCompanyId' | 'counterpartCompanyName'>): string {
+  if (!l.counterpartCompanyId || l.counterpartCompanyId === 'PLATFORM' || l.counterpartCompanyName === '平台') return PLATFORM_LABEL
+  return l.counterpartCompanyName || l.counterpartCompanyId
+}
+
 interface Side {
   rows: LedgerLine[]
   people: number
@@ -46,8 +56,8 @@ function side(dir: LedgerLine['direction']): Side {
   const rows = lines.value.filter((l) => l.direction === dir).sort((a, b) => toNum(b.amount) - toNum(a.amount))
   const map = new Map<string, Side['byCompany'][number]>()
   rows.forEach((r) => {
-    const k = r.counterpartCompanyId ?? '—'
-    const g = map.get(k) ?? { company: k, name: r.counterpartCompanyName ?? '', people: 0, days: 0, amount: 0 }
+    const k = r.counterpartCompanyId ?? 'PLATFORM'
+    const g = map.get(k) ?? { company: k, name: dir === 'PAYABLE' ? sourceName(r) : '', people: 0, days: 0, amount: 0 }
     g.people += 1
     g.days += toNum(r.days)
     g.amount += toNum(r.amount)
@@ -115,7 +125,7 @@ const disabledMonth = (d: Date) => d.getTime() > shNowMs()
               <el-table-column label="来源归属公司" min-width="170">
                 <template #default="{ row }">
                   <div class="t-sm strong ellip" :title="row.name || row.company">{{ row.name || row.company }}</div>
-                  <div v-if="row.name && row.name !== row.company && row.name !== '平台'" class="mono t-xs">{{ row.company }}</div>
+                  <div v-if="row.name !== PLATFORM_LABEL && row.name !== row.company" class="mono t-xs">{{ row.company }}</div>
                 </template>
               </el-table-column>
               <el-table-column label="人数" min-width="64" align="right"><template #default="{ row }"><span class="num">{{ row.people }}</span></template></el-table-column>
@@ -128,7 +138,7 @@ const disabledMonth = (d: Date) => d.getTime() > shNowMs()
           <el-table v-loading="loading" :data="s.data.rows" size="small" max-height="360" :row-key="(r: LedgerLine) => `${r.userId}-${r.counterpartCompanyId ?? ''}`">
             <el-table-column label="用户编号" min-width="150" show-overflow-tooltip><template #default="{ row }"><span class="mono t-sm">{{ row.userId }}</span></template></el-table-column>
             <el-table-column v-if="s.key === 'PAYABLE'" label="来源归属公司" min-width="140" show-overflow-tooltip>
-              <template #default="{ row }"><span class="t-sm">{{ row.counterpartCompanyName || row.counterpartCompanyId || '—' }}</span></template>
+              <template #default="{ row }"><span class="t-sm">{{ sourceName(row) }}</span></template>
             </el-table-column>
             <el-table-column label="计费天数" min-width="88" align="right"><template #default="{ row }"><span class="num">{{ row.days }}</span></template></el-table-column>
             <el-table-column :label="s.key === 'PAYABLE' ? '金额' : `金额（${s.unit}/人/天）`" min-width="120" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.amount) }}</span></template></el-table-column>

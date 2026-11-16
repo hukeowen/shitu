@@ -32,6 +32,8 @@ const auth = useAuthStore()
 const canPublish = computed(() => auth.hasAnyRole(QUIZ_PUBLISH_ROLES))
 
 const versionId = computed(() => Number(route.params.versionId))
+/** 选项行的栅格类型：只有地域锁定题有「需选城市」列 */
+const rowCls = (q: EditQuestion) => [`k-${fieldMeta(q.profileField)?.kind ?? 'enum'}`, { 'no-region': q.profileField !== 'locked_region' }]
 const view = shallowRef<QuizView | null>(null)
 const loading = ref(false)
 const loadError = ref('')
@@ -44,6 +46,16 @@ const savedSnapshot = ref('')
 const showIssues = ref(false)
 
 const readonly = computed(() => view.value?.status !== 'DRAFT')
+/**
+ * 页头只显示一次版本号和状态：名称常以版本号开头（「v2 草稿」「v1.0 初始题库」），
+ * 去掉开头的版本号；剩下的部分若只是状态名（已由状态标签表达）或为空，就不再显示。
+ */
+const titleName = computed(() => {
+  const v = view.value
+  if (!v) return '题库版本'
+  const rest = (dirty.value || !readonly.value ? name.value : v.name).trim().replace(new RegExp(`^v${versionId.value}(\\.\\d+)*(?!\\d)\\s*`, 'i'), '').trim()
+  return rest === QUIZ_STATUS[v.status]?.label ? '' : rest
+})
 const snapshot = () => JSON.stringify({ n: name.value.trim(), q: toQuizQuestions(qs.value) })
 const dirty = computed(() => !readonly.value && !!view.value && snapshot() !== savedSnapshot.value)
 
@@ -179,7 +191,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       <div>
         <h2 class="ttl">
           <span class="mono">v{{ versionId }}</span>
-          <span>{{ view?.name ?? '题库版本' }}</span>
+          <span v-if="titleName">{{ titleName }}</span>
           <span v-if="view" class="tag" :class="QUIZ_STATUS[view.status]?.cls">{{ QUIZ_STATUS[view.status]?.label }}</span>
           <span v-if="dirty" class="tag tag--signal">未保存</span>
         </h2>
@@ -219,7 +231,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         <div class="card meta">
           <div class="card__bd row">
             <label class="lbl">版本名称</label>
-            <el-input v-model="name" :disabled="readonly" maxlength="40" show-word-limit style="max-width: 360px" placeholder="如：v1.3 住宿题简化" />
+            <el-input v-model="name" :disabled="readonly" maxlength="40" :show-word-limit="!readonly" style="max-width: 360px" :placeholder="readonly ? '—' : '如：v1.3 住宿题简化'" />
             <div class="spacer" />
             <span class="t-sm dim">{{ qs.length }} / {{ MAX_QUESTIONS }} 题 · 硬过滤题必须前置</span>
           </div>
@@ -277,31 +289,31 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               </div>
               <p v-if="fieldMeta(q.profileField)" class="fdesc t-xs">{{ fieldMeta(q.profileField)?.desc }}</p>
               <el-form-item label="题干" required>
-                <el-input v-model="q.stem" :maxlength="STEM_MAX" show-word-limit placeholder="如：你能接受进工厂上班吗？" />
+                <el-input v-model="q.stem" :maxlength="STEM_MAX" :show-word-limit="!readonly" :placeholder="readonly ? '—' : '如：你能接受进工厂上班吗？'" />
               </el-form-item>
               <el-form-item label="提示">
-                <el-input v-model="q.hint" maxlength="60" placeholder="选填，题干下方的补充说明" />
+                <el-input v-model="q.hint" maxlength="60" :placeholder="readonly ? '—' : '选填，题干下方的补充说明'" />
               </el-form-item>
             </el-form>
 
             <div class="opts">
-              <div class="orow ohd" :class="`k-${fieldMeta(q.profileField)?.kind ?? 'enum'}`">
+              <div class="orow ohd" :class="rowCls(q)">
                 <span>编码</span><span>选项文字</span><span>副标题</span>
                 <template v-if="fieldMeta(q.profileField)?.kind === 'range'"><span>最低（元）</span><span>最高（元）</span></template>
                 <span v-else>{{ fieldMeta(q.profileField)?.kind === 'number' ? '年限（年）' : '画像值' }}</span>
                 <span>{{ q.profileField === 'locked_region' ? '需选城市' : '' }}</span>
                 <span />
               </div>
-              <div v-for="(o, j) in q.options" :key="o.key" class="orow" :class="`k-${fieldMeta(q.profileField)?.kind ?? 'enum'}`">
+              <div v-for="(o, j) in q.options" :key="o.key" class="orow" :class="rowCls(q)">
                 <el-input v-model="o.code" :disabled="readonly" maxlength="4" class="mono" />
-                <el-input v-model="o.label" :disabled="readonly" maxlength="40" placeholder="选项文字" />
-                <el-input v-model="o.sub" :disabled="readonly" maxlength="20" placeholder="选填" />
+                <el-input v-model="o.label" :disabled="readonly" maxlength="40" :placeholder="readonly ? '—' : '选项文字'" />
+                <el-input v-model="o.sub" :disabled="readonly" maxlength="20" :placeholder="readonly ? '—' : '选填'" />
                 <template v-if="fieldMeta(q.profileField)?.kind === 'range'">
                   <el-input-number v-model="o.min" :disabled="readonly" :controls="!readonly" :min="0" :max="100000" :step="500" controls-position="right" />
                   <el-input-number v-model="o.max" :disabled="readonly" :controls="!readonly" :min="0" :max="100000" :step="500" controls-position="right" />
                 </template>
-                <el-input v-else-if="fieldMeta(q.profileField)?.kind === 'number'" v-model="o.value" :disabled="readonly" maxlength="2" placeholder="年限，如 1" class="mono" />
-                <el-select v-else v-model="o.value" :disabled="readonly" filterable allow-create clearable placeholder="选择画像值">
+                <el-input v-else-if="fieldMeta(q.profileField)?.kind === 'number'" v-model="o.value" :disabled="readonly" maxlength="2" :placeholder="readonly ? '—' : '年限，如 1'" class="mono" />
+                <el-select v-else v-model="o.value" :disabled="readonly" filterable allow-create clearable :placeholder="readonly ? '—' : '选择画像值'">
                   <el-option v-for="v in fieldMeta(q.profileField)?.values?.() ?? []" :key="v.value" :value="v.value" :label="v.label">
                     <span class="opt-l">{{ v.label }}</span><span class="opt-c mono">{{ v.value }}</span>
                   </el-option>
@@ -376,11 +388,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .fdesc { margin: -6px 0 12px 76px; }
 .opts { margin-top: 4px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 10px 10px; background: var(--surface-2); }
 .orow { display: grid; gap: 8px; align-items: center; padding: 4px 0; }
-.orow.k-enum, .orow.k-number { grid-template-columns: 56px minmax(150px, 1.6fr) minmax(120px, 1.1fr) minmax(180px, 1.5fr) 64px 76px; }
-.orow.k-range { grid-template-columns: 56px minmax(140px, 1.4fr) minmax(130px, 1.2fr) minmax(108px, .8fr) minmax(108px, .8fr) 76px; }
-.orow.k-range > :nth-last-child(2) { display: none; } /* 薪资题没有「需选城市」列 */
-.ro .orow.k-enum, .ro .orow.k-number { grid-template-columns: 56px minmax(150px, 1.6fr) minmax(120px, 1.1fr) minmax(180px, 1.5fr) 64px 0; }
-.ro .orow.k-range { grid-template-columns: 56px minmax(140px, 1.4fr) minmax(130px, 1.2fr) minmax(108px, .8fr) minmax(108px, .8fr) 0; }
+/* 列：编码 | 选项文字（弹性，最宽） | 副标题 | 画像值（或最低 / 最高） | [需选城市，仅地域锁定题] | 排序与删除 */
+.orow { --ops: 76px; }
+.ro .orow { --ops: 0px; }
+.orow.k-enum, .orow.k-number { grid-template-columns: 56px minmax(230px, 2.4fr) minmax(90px, 1fr) minmax(140px, 1.2fr) 64px var(--ops); }
+.orow.k-enum.no-region, .orow.k-number.no-region { grid-template-columns: 56px minmax(260px, 2.4fr) minmax(100px, 1fr) minmax(150px, 1.2fr) var(--ops); }
+.orow.k-range { grid-template-columns: 56px minmax(180px, 1.8fr) minmax(130px, 1.2fr) minmax(104px, .8fr) minmax(104px, .8fr) var(--ops); }
+.orow.no-region > :nth-last-child(2) { display: none; } /* 没有「需选城市」列的题目隐藏该占位格 */
 .orow :deep(.el-select) { width: 100%; }
 .qfield { color: var(--ink-500); }
 .opt-l { margin-right: 10px; }
@@ -388,6 +402,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 /* 只读版本：内容清晰可读 */
 .ro :deep(.el-input.is-disabled .el-input__wrapper), .ro :deep(.el-select__wrapper.is-disabled) { background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; cursor: default; }
 .ro :deep(.el-input.is-disabled .el-input__inner) { color: var(--ink-800); -webkit-text-fill-color: var(--ink-800); cursor: default; }
+/* 只读时空值显示浅色「—」，不能看起来像真实内容 */
+.ro :deep(.el-input__inner::placeholder) { color: var(--ink-300); -webkit-text-fill-color: var(--ink-300); }
+.ro :deep(.el-select__placeholder.is-transparent), .ro :deep(.el-select__wrapper.is-disabled .el-select__placeholder:not(.el-select__selected-item)) { color: var(--ink-300); }
 .ro :deep(.el-select__wrapper.is-disabled .el-select__selected-item) { color: var(--ink-800); }
 .ro :deep(.el-select__wrapper.is-disabled .el-select__suffix) { display: none; }
 .ro :deep(.el-input-number.is-disabled .el-input__inner) { text-align: left; }

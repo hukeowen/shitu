@@ -72,7 +72,7 @@ async function doLogout() {
       <div v-if="company" class="tenant">
         <div class="avatar">{{ companyName.slice(0, 1) }}</div>
         <div class="tn">
-          <b :title="company.name">{{ company.name }}</b>
+          <b :title="company.name">{{ companyName }}</b>
           <span>{{ company.creditScore != null ? `诚信分 ${company.creditScore}` : company.unifiedCreditCode }}</span>
         </div>
       </div>
@@ -132,7 +132,7 @@ async function doLogout() {
 .brand { display: flex; align-items: center; gap: 10px; height: 60px; flex: none; padding: 0 20px; }
 .brand b { font-size: 16px; font-weight: 650; color: var(--ink-900); letter-spacing: -.01em; }
 .nav-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
-.nav { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 2px 12px 16px; scroll-padding-block: 34px 16px; }
+.nav { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 2px 12px 28px; scroll-padding-block: 34px 44px; }
 /* 下面还有菜单时的渐隐提示 */
 .nav-wrap::after { content: ""; position: absolute; left: 0; right: 8px; bottom: 0; height: 36px; pointer-events: none; opacity: 0; transition: opacity .16s;
   background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--surface)); }

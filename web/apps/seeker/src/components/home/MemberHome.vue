@@ -182,7 +182,7 @@ const quad = computed<QuadItem[]>(() => {
   else if (appliedLock.value) matchDesc = '面试结果出来前不能重新匹配'
   else if (matchLocked.value) matchDesc = employed ? '在岗期间不可匹配' : '当前不可匹配'
   else if (employed) matchDesc = '公司内部调岗'
-  else if (isPrivate.value && company.value) matchDesc = `匹配${company.value}岗位`
+  else if (isPrivate.value && company.value) matchDesc = '匹配本公司岗位'
   return [
     { key: 'match', title: 'AI 问薪', desc: matchDesc, off: matchLocked.value, pill: matchLocked.value ? '锁定' : undefined },
     { key: 'reports', title: '我的报备', desc: onboarding.value ? '报名与入职进度' : '报名与面试进度' },
@@ -348,13 +348,11 @@ const progress = computed(() => {
               <div class="ok-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>
               <div class="flex1">
                 <div class="ok-t">面试已通过</div>
-                <div class="t-xs" style="color: var(--ok)">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场办理入职并发起电子签约' }}<template v-if="app?.jobTitle"> · {{ app.jobTitle }}</template></div>
+                <div class="t-xs" style="color: var(--ok)">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场办理入职并发起电子签约' }}</div>
+                <div v-if="app?.jobTitle" class="t-xs ok-j">{{ app.jobTitle }}</div>
               </div>
             </div>
           </section>
-          <div class="note note--warn">
-            <b>入职办理时限保护：</b>若劳务公司 24 小时内未办完入职，你可以重新匹配全平台岗位。
-          </div>
         </template>
 
         <!-- T-203 专属顾问推荐 -->
@@ -369,7 +367,7 @@ const progress = computed(() => {
 
         <!-- 报名后锁定说明 -->
         <div v-if="onboarding" class="note note--warn">
-          <b>办理入职期间不能重新匹配，也不能报名其他岗位。</b><br />如不想入职或信息有误，请联系驻场老师处理 —— 你无法自行取消。
+          <b>办理入职期间不能重新匹配，也不能报名其他岗位。</b><br />若劳务公司 24 小时内未办完入职，本次报名会自动解除，之后你可以匹配全平台岗位。如不想入职或信息有误，请联系驻场老师处理。
         </div>
         <div v-else-if="appliedLock" class="note note--warn">
           <b>报名后不可再匹配、不可再报名。</b><br />如需更换岗位或取消面试，请联系驻场老师在后台操作取消 —— 你无法自行取消报名。
@@ -465,6 +463,7 @@ const progress = computed(() => {
 .okc { border-color: var(--ok-line); background: var(--ok-bg); }
 .ok-ic { width: 36px; height: 36px; border-radius: 11px; background: var(--ok); display: grid; place-items: center; flex: none; }
 .ok-t { font-size: 14px; font-weight: 700; color: var(--ok); }
+.ok-j { margin-top: 2px; color: var(--ok); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .more { font-size: 11.5px; color: var(--ink-400); text-decoration: none; }
 .state { padding-top: calc(80px + env(safe-area-inset-top)); }
 button.acard { display: block; width: 100%; text-align: left; font: inherit; }

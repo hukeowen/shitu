@@ -165,3 +165,12 @@ a { color: inherit; text-decoration: none; }
 /* 键值列表里的金额与数字：和其它金额同一字重 */
 .kv dd.num { font-weight: 600; }
 .g-1 { grid-template-columns: minmax(0, 1fr); }
+
+/* 直接放在卡片里的表格：首列 / 末列内边距与卡片标题（20px）对齐 */
+.card > .el-table .el-table__cell:first-child > .cell { padding-left: 20px; }
+.card > .el-table .el-table__cell:last-child > .cell { padding-right: 20px; }
+
+/* 页签较多的工具栏：筛选区固定另起一行并靠左 */
+.toolbar--rows > .tb-fields { flex: 1 0 100%; margin-left: 0; justify-content: flex-start; }
+/* 合并单元格的表格（权限矩阵）：被合并掉首格的行，第二列不再当作首列 */
+.card > .el-table.tbl-span td.el-table__cell:first-child:not(.col-group) > .cell { padding-left: 12px; }

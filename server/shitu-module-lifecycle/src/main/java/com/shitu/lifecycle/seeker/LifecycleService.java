@@ -85,6 +85,9 @@ public class LifecycleService {
     private final OutboxWriter outbox;
     private final SysParams params;
     private final Clock clock;
+    /** 可选注入：只用来在报名结束时作废未签合同（单元测试里手工构造本类时可以没有） */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.shitu.lifecycle.mapper.LaborContractMapper contracts;
 
     public LifecycleService(SeekerUserMapper users, UserStatusLogMapper logs, ResponseWindowMapper windows,
                             FollowUpReminderMapper reminders, ApplicationMapper applications, JobMapper jobs,
@@ -288,6 +291,14 @@ public class LifecycleService {
                         .set(Application::getEndOperatorId, actorId).set(Application::getEndRemark, remark);
             }
             TenantContext.runAsSystem(() -> applications.update(null, w));
+            if (ended && contracts != null) {
+                // 报名结束（超时释放、取消、爽约……）时，还没签的劳动合同一并作废，求职者端不再显示「待签署」
+                TenantContext.runAsSystem(() -> contracts.update(null, new LambdaUpdateWrapper<com.shitu.lifecycle.employment.LaborContract>()
+                        .eq(com.shitu.lifecycle.employment.LaborContract::getApplicationId, appId)
+                        .eq(com.shitu.lifecycle.employment.LaborContract::getStatus, com.shitu.common.enums.ContractStatus.PENDING_SIGN)
+                        .set(com.shitu.lifecycle.employment.LaborContract::getStatus, com.shitu.common.enums.ContractStatus.VOIDED)
+                        .set(com.shitu.lifecycle.employment.LaborContract::getEndedAt, now)));
+            }
         }
         if (plan.quotaDelta() > 0 && app != null) {
             String jobId = app.getJobId();

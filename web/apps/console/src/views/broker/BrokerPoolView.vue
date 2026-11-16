@@ -152,26 +152,29 @@ function open(c: BrokerCaseRow, tab?: CaseTab) {
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="rows" row-key="id" :row-class-name="rowClass">
-        <el-table-column label="求职者" min-width="160">
+        <el-table-column label="求职者" min-width="150">
           <template #default="{ row }"><PersonCell :name="row.seekerName" mono :sub="row.phoneMasked" accent /></template>
         </el-table-column>
-        <el-table-column label="流转原因" min-width="130">
-          <template #default="{ row }"><DictTag type="BrokerTriggerType" :value="row.triggerType" /></template>
+        <el-table-column label="流转原因 / 时间" min-width="126">
+          <template #default="{ row }">
+            <DictTag type="BrokerTriggerType" :value="row.triggerType" />
+            <div class="mono t-xs" style="margin-top: 3px">{{ fmtDateTime(row.createdAt).slice(5) }}</div>
+          </template>
         </el-table-column>
-        <el-table-column label="画像摘要" min-width="220">
+        <el-table-column label="画像摘要" min-width="180">
           <template #default="{ row }">
             <el-tooltip :content="row.profileSummary" placement="top" :show-after="300">
               <div class="summary t-sm">{{ row.profileSummary }}</div>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="匹配次数" min-width="86" align="center">
+        <el-table-column label="匹配次数" min-width="76" align="center">
           <template #default="{ row }"><span class="num">{{ row.matchCount }}</span></template>
         </el-table-column>
-        <el-table-column label="状态" min-width="96">
+        <el-table-column label="状态" min-width="86">
           <template #default="{ row }"><DictTag type="BrokerCaseStatus" :value="row.status" pill /></template>
         </el-table-column>
-        <el-table-column label="联系时限 2h" min-width="116">
+        <el-table-column label="联系时限 2h" min-width="104">
           <template #default="{ row }">
             <template v-if="row.contactedAt">
               <div class="t-xs nowrap" style="color: var(--ok)">已联系</div>
@@ -181,14 +184,11 @@ function open(c: BrokerCaseRow, tab?: CaseTab) {
             <span v-else class="t-xs">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="出结果 24h" min-width="112">
+        <el-table-column label="出结果 24h" min-width="100">
           <template #default="{ row }">
             <CountdownTag v-if="['OPEN', 'CONTACTED', 'RECOMMENDED'].includes(row.status)" :deadline="row.resolveDueAt" :now="now" />
             <span v-else class="t-xs">—</span>
           </template>
-        </el-table-column>
-        <el-table-column label="流转时间" min-width="112">
-          <template #default="{ row }"><span class="mono t-xs">{{ fmtDateTime(row.createdAt).slice(5) }}</span></template>
         </el-table-column>
         <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
           <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => onAct(k, row)" /></template>

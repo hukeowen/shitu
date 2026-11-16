@@ -72,7 +72,15 @@ const recDesc = computed(() => {
   const p = profile.value
   const busy = p?.status === 'PENDING_INTERVIEW' || p?.status === 'PENDING_CONFIRM' || p?.status === 'EMPLOYED'
   if (p?.boundCompanyName && p.domainTag === 'PRIVATE' && !busy) return '专属顾问为你人工挑选的岗位'
+  if (!p?.boundCompanyName) return '有劳务公司顾问为你推荐岗位时会显示在这里'
   return '暂无推荐 · 顾问挑选岗位后在这里展示'
+})
+/** 身份卡入口按状态区分：在岗 → 我的工作；有进行中的报名 → 报名进度；其余 → 简历（不提「所属劳务公司」） */
+const idEntry = computed<{ chip: string; to: string; tip: string }>(() => {
+  const s = profile.value?.status
+  if (s === 'EMPLOYED') return { chip: '进入我的工作 ›', to: '/work', tip: '所属劳务公司信息在「我的工作」中展示' }
+  if (s === 'PENDING_INTERVIEW' || s === 'PENDING_CONFIRM') return { chip: '查看报名进度 ›', to: '/reports', tip: '面试与入职办理进度在「我的报备」中查看' }
+  return { chip: '完善我的简历 ›', to: '/resume', tip: '入职后，在岗信息会在「我的工作」中展示' }
 })
 const pendingSign = computed(() => contracts.value?.some((c) => c.status === 'PENDING_SIGN') ?? false)
 
@@ -106,17 +114,17 @@ async function onLogout() {
   <div class="me">
     <header class="hero">
       <div class="hero-row"><span class="ttl">我的</span></div>
-      <button v-if="profile" type="button" class="idcard" @click="router.push('/work')">
+      <button v-if="profile" type="button" class="idcard" @click="router.push(idEntry.to)">
         <div class="avatar avatar--o avatar--lg">{{ avatarText }}</div>
         <div class="flex1">
           <div class="name" :class="{ num: displayName === profile.phoneMasked }">{{ displayName }}</div>
           <div class="row" style="gap: 6px; margin-top: 5px; flex-wrap: wrap">
             <span class="tag" :class="STATUS_TAG_CLASS[profile.status]"><i class="dot"></i>{{ label('UserStatus', profile.status) }}</span>
-            <span class="tag tag--glass">进入我的工作 ›</span>
+            <span class="tag tag--glass">{{ idEntry.chip }}</span>
           </div>
         </div>
       </button>
-      <p class="hero-tip">所属劳务公司信息在「我的工作」中展示</p>
+      <p class="hero-tip">{{ idEntry.tip }}</p>
     </header>
 
     <div class="pad stack">
@@ -161,7 +169,7 @@ async function onLogout() {
           <div class="ic ic--sig">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.9" /><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" /></svg>
           </div>
-          <div class="lt"><b>专属顾问推荐</b><span>{{ recDesc }}</span></div>
+          <div class="lt"><b>{{ profile?.boundCompanyName ? '专属顾问推荐' : '顾问推荐' }}</b><span>{{ recDesc }}</span></div>
           <i v-if="pendingRecs" class="badge num">{{ pendingRecs }}</i>
           <van-icon name="arrow" class="chev" />
         </router-link>

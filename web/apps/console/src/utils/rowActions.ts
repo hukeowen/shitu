@@ -29,7 +29,8 @@ function textPx(s: string, font = 13): number {
 }
 
 const GAP = 8
-const CELL_PAD = 24
+/** 单元格左右内边距：左 12 + 右 20（卡片内表格首尾列与卡片标题对齐） */
+const CELL_PAD = 32
 const BTN_PAD = 24
 const LINK_PAD = 6
 
@@ -48,6 +49,6 @@ export function opsColWidth(rows: RowAction[][], max = 2): number {
     const items = [...flat.map(btnPx), ...(more.length ? [btnPx({ label: MORE_LABEL })] : [])]
     w = Math.max(w, items.reduce((s, x) => s + x, 0) + GAP * (items.length - 1))
   }
-  // 留 6px 余量，表头「操作」至少放得下
-  return w ? Math.max(72, w + CELL_PAD + 6) : 0
+  // 留 2px 余量；表头「操作」至少放得下
+  return w ? Math.max(64, w + CELL_PAD + 2) : 0
 }

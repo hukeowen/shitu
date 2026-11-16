@@ -55,39 +55,36 @@ onMounted(() => list.load())
     </div>
 
     <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" :row-class-name="rowClass" row-key="jobId" @row-dblclick="(r: JobView) => (drawerId = r.jobId)">
-      <el-table-column label="岗位" min-width="180">
+      <el-table-column label="岗位" min-width="210" class-name="nowrap-col" show-overflow-tooltip>
         <template #default="{ row }">
           <span class="link-cell" @click="drawerId = row.jobId">{{ row.title }}</span>
           <div class="t-xs"><span class="mono">{{ row.jobId }}</span> · {{ label('JobType', row.jobType) }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="发布企业" min-width="150">
+      <el-table-column label="发布企业" min-width="212" class-name="nowrap-col" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.companyName ?? '—' }}
           <div class="t-xs mono">{{ row.companyId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="项目 / 城市" min-width="120">
+      <el-table-column label="项目 / 关联甲方" min-width="204" class-name="nowrap-col" show-overflow-tooltip>
         <template #default="{ row }">
-          {{ row.projectName ?? '—' }}
-          <div class="t-xs">{{ row.city ?? '' }}</div>
+          {{ row.projectName ?? '—' }}<span v-if="row.city" class="dim"> · {{ row.city }}</span>
+          <div class="t-xs">甲方：{{ row.clientName ?? row.clientId ?? '—' }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="关联甲方" min-width="130" class-name="nowrap-col" show-overflow-tooltip>
-        <template #default="{ row }">{{ row.clientName ?? row.clientId }}</template>
-      </el-table-column>
-      <el-table-column label="薪资（元/月）" width="120">
+      <el-table-column label="薪资（元/月）" width="112">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtSalary(row.salaryMin, row.salaryMax) }}</span></template>
       </el-table-column>
-      <el-table-column label="名额" width="80" align="right">
+      <el-table-column label="名额" width="76" align="right">
         <template #default="{ row }">
           <span class="mono">{{ row.quotaRemaining }}</span><span class="t-xs"> / {{ row.quotaTotal }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="100">
+      <el-table-column label="状态" width="96">
         <template #default="{ row }"><StatusTag type="JobStatus" :value="row.status" /></template>
       </el-table-column>
-      <el-table-column label="提交时间" width="150">
+      <el-table-column label="提交时间" width="146">
         <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.submittedAt) }}</span></template>
       </el-table-column>
       <el-table-column label="操作" class-name="ops-col" width="84" align="right" fixed="right">

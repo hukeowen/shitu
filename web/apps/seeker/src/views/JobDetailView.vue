@@ -125,7 +125,7 @@ function onApply() {
             <div class="kv"><dt>班次</dt><dd>{{ label('ShiftType', job.shiftType) }}</dd></div>
             <div class="kv"><dt>工作地点</dt><dd>{{ [job.city, job.address].filter(Boolean).join(' · ') || '—' }}</dd></div>
           </dl>
-          <p class="t-xs" style="margin-top: 6px">薪资为区间参考值，最终以企业公示标准及实际出勤、绩效核算为准</p>
+          <p class="t-xs" style="margin-top: 6px">薪资为区间参考值，最终以企业公示标准及<span class="nw">实际出勤、绩效核算为准</span></p>
         </section>
 
         <section class="acard">

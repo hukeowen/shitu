@@ -17,6 +17,8 @@ ul, ol { list-style: none; }
 /* 说明性文字折行：避免末行只剩一个字（「…适合你的岗 / 位」）。短副标题用 balance，成段说明用 pretty；
    不支持的浏览器按原样折行。不用 word-break: keep-all —— 中文长句没有空格，会整句溢出 */
 .t-sm, .t-xs, .note, .hero-desc, .tl-m, .hint, .van-empty__description, .van-dialog__message { text-wrap: pretty; }
+/* pretty 对中文两三个字的尾行不一定生效：把句末短语包成 .nw，整体换行 */
+.nw { white-space: nowrap; }
 .quad-i span, .hero-top .who span, .lrow .lt span, .cta .t-sm, .page-state .t-xs, .van-empty .t-xs { text-wrap: balance; }
 .flex1 { flex: 1; min-width: 0; }
 .row { display: flex; align-items: center; gap: 8px; }

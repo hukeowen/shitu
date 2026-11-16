@@ -234,25 +234,25 @@ const roleHint = computed(() => {
       </el-alert>
       <el-alert v-if="all.length >= 200" type="warning" title="仅显示最近 200 笔申请" show-icon :closable="false" />
       <el-table v-loading="loading" :data="rows" row-key="advanceId">
-        <el-table-column label="申请单号" min-width="176">
+        <el-table-column label="申请单号" min-width="170">
           <template #default="{ row }">
             <div class="mono t-xs ellip" :title="row.advanceId">{{ row.advanceId }}</div>
             <div class="mono t-xs dim">{{ fmtDateTime(row.createdAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="员工" min-width="120">
+        <el-table-column label="员工" min-width="104">
           <template #default="{ row }"><PersonCell :name="row.seekerName ?? '—'" /></template>
         </el-table-column>
-        <el-table-column label="项目" min-width="150">
+        <el-table-column label="项目" min-width="130">
           <template #default="{ row }"><span class="t-sm clamp-2" :title="projectName(row.projectId)">{{ projectName(row.projectId) }}</span></template>
         </el-table-column>
-        <el-table-column label="金额 / 月份" min-width="120" align="right">
+        <el-table-column label="金额 / 月份" min-width="110" align="right">
           <template #default="{ row }">
             <b class="num">{{ fmtYuan(row.amount) }}</b>
             <div class="mono t-xs">{{ row.bizMonth }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="已还 / 拨款时间" min-width="150">
+        <el-table-column label="已还 / 拨款时间" min-width="144">
           <template #default="{ row }">
             <template v-if="row.paidAt">
               <div class="num t-sm">{{ fmtYuan(row.repaidAmount) }}</div>
@@ -261,7 +261,7 @@ const roleHint = computed(() => {
             <span v-else class="t-xs">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态 / 审批链" min-width="290">
+        <el-table-column label="状态 / 审批链" min-width="284">
           <template #default="{ row }">
             <DictTag type="AdvanceStatus" :value="row.status" pill />
             <div class="chain" style="margin-top: 4px">
@@ -308,9 +308,9 @@ const roleHint = computed(() => {
 </template>
 
 <style scoped>
-.chain { display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap; gap: 4px; font-size: 12px; }
+.chain { display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap; gap: 3px; font-size: 12px; }
 .chain .cn { flex: none; }
-.chain .cn { padding: 1px 6px; border-radius: 3px; color: var(--ink-400); background: var(--surface-2); border: 1px solid var(--line); }
+.chain .cn { padding: 1px 5px; border-radius: 3px; color: var(--ink-400); background: var(--surface-2); border: 1px solid var(--line); }
 .chain .cn.done { color: var(--ok); border-color: transparent; background: var(--ok-bg, var(--surface-2)); }
 .chain .cn.now { color: #fff; background: var(--signal); border-color: var(--signal); font-weight: 600; }
 .chain .cn.rej { color: #fff; background: var(--danger); border-color: var(--danger); font-weight: 600; }

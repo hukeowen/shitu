@@ -109,8 +109,8 @@ async function decline(r: MyRecommendation) {
           <div class="row" style="gap: 10px">
             <div class="avatar avatar--o">{{ (company || '顾').slice(0, 1) }}</div>
             <div class="flex1">
-              <b class="i-t">{{ company ? `${company} · 专属顾问` : '专属顾问' }}</b>
-              <div class="t-xs">根据你的求职画像人工挑选，确认后按正常流程实名 + 报名</div>
+              <b class="i-t">{{ company ? `${company} · 专属顾问` : '顾问推荐' }}</b>
+              <div class="t-xs">{{ company ? '根据你的求职画像人工挑选，确认后按正常流程实名 + 报名' : '有劳务公司顾问为你推荐岗位时会显示在这里' }}</div>
             </div>
           </div>
         </section>
@@ -152,7 +152,7 @@ async function decline(r: MyRecommendation) {
         </template>
 
         <div v-if="list.length || picking" class="note note--info">
-          推荐岗位与 AI 问薪结果一样，需先同意求职告知书并完成实名认证才能报名。都不满意时，顾问可为你开放全平台岗位匹配，届时可匹配全平台岗位。
+          推荐岗位与 AI 问薪结果一样，需先同意求职告知书并完成实名认证才能报名。都不满意时，顾问可为你开放全平台岗位匹配。
         </div>
         <div class="page-bottom-gap"></div>
       </div>

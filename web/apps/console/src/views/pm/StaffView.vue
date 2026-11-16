@@ -137,7 +137,7 @@ const transferCount = computed(() => list.value.filter((r) => r.source === 'TRAN
         <el-button size="small" @click="load">重试</el-button>
       </el-alert>
       <el-table v-loading="loading" :data="list" row-key="employmentId" :row-class-name="rowClass">
-        <el-table-column label="姓名" min-width="130">
+        <el-table-column label="姓名" :min-width="isSite ? 164 : 130">
           <template #default="{ row }"><PersonCell :name="row.name" mono :sub="row.phone ? fmtPhone(row.phone) : undefined" :accent="row.source === 'OWN'" /></template>
         </el-table-column>
         <el-table-column label="工号" min-width="96" show-overflow-tooltip>

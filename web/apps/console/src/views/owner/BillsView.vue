@@ -137,16 +137,16 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <div class="stat">
           <div class="stat-l">人才流转费（应收）</div>
           <div class="stat-v" style="color: var(--ok)">{{ fmtYuan(selected.transferReceivable) }}</div>
-          <div class="stat-d">流出人员 · 8 元/人/天 <span class="nowrap">· 平台另行结算</span></div>
+          <div class="stat-d">流出人员 · 8 元/人/天</div>
         </div>
         <div class="stat stat--signal">
           <div class="stat-l">本月应付合计</div>
           <div class="stat-v">{{ fmtYuan(selected.payable) }}</div>
-          <div class="stat-d">服务费 + 应付流转费 <span class="nowrap">· 结算截止 {{ fmtDate(selected.settleDeadline) }}</span></div>
+          <div class="stat-d nowrap">结算截止 {{ fmtDate(selected.settleDeadline) }}</div>
         </div>
       </div>
       <div class="note note--info" style="margin-top: 10px">
-        <b>应收与应付不轧差：</b>应付合计只含服务费与应付流转费；作为来源方的应收流转费单独结算到账，不抵扣本月应付。
+        <b>应收与应付不轧差：</b>本月应付合计 = 服务费 + 应付流转费；作为来源方的应收流转费由平台另行结算到账，不抵扣本月应付。
         <el-button link type="primary" style="margin-left: 6px" @click="router.push({ path: '/circulation/ledger', query: { month: selected.billMonth } })">查看流转账本 →</el-button>
       </div>
     </template>

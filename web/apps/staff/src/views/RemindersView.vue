@@ -212,7 +212,7 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
             <div class="top">
               <div class="row" style="gap: 6px">
                 <span v-if="remain(i)?.urgent" class="tag tag-danger">紧急</span>
-                <span class="tag" :class="KIND_TAG[i.kind].cls">{{ KIND_TAG[i.kind].text }}</span>
+                <span class="tag" :class="KIND_TAG[i.kind].cls">{{ i.kind === 'confirm' && i.a?.contract?.status === 'PENDING_SIGN' ? '合同待签署' : KIND_TAG[i.kind].text }}</span>
               </div>
               <span v-if="remain(i)" class="tag num" :class="remain(i)!.cls">{{ remain(i)!.text }}</span>
             </div>

@@ -134,7 +134,7 @@ onMounted(() => list.load())
           <template #default="{ row }">
             <template v-if="row.targetType || row.targetId">
               <span>{{ auditTargetLabel(row.targetType) ?? row.targetType ?? '' }}</span>
-              <div v-if="row.targetId" class="t-xs mono wrap code">{{ row.targetId }}</div>
+              <div v-if="row.targetId" class="t-xs mono wrap code">{{ /^\d+$/.test(row.targetId) ? `#${row.targetId}` : row.targetId }}</div>
             </template>
             <span v-else class="dim">—</span>
           </template>

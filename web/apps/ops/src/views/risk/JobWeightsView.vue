@@ -94,7 +94,7 @@ function toCredit(id: string) {
         <el-table-column label="岗位" min-width="200">
           <template #default="{ row }"><span class="strong">{{ row.title }}</span><div class="t-xs mono">{{ row.jobId }}</div></template>
         </el-table-column>
-        <el-table-column label="公司" min-width="160">
+        <el-table-column label="公司" min-width="236" class-name="nowrap-col" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="link-cell" @click="toCredit(row.companyId)">{{ row.companyName }}</span>
             <div class="t-xs mono">{{ row.companyId }}</div>
@@ -114,7 +114,7 @@ function toCredit(id: string) {
         <el-table-column label="投诉属实" width="90" align="right">
           <template #default="{ row }"><span class="mono" :class="row.complaintVerified > 0 ? 'warn-t' : 'dim'">{{ row.complaintVerified }}</span></template>
         </el-table-column>
-        <el-table-column label="公司诚信 / 处罚" min-width="220">
+        <el-table-column label="公司诚信 / 处罚" min-width="200">
           <template #default="{ row }">
             <span class="t-sm">诚信分 <b class="num">{{ row.creditScore }}</b></span>
             <span class="dim"> · </span>

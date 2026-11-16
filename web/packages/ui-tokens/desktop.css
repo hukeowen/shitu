@@ -144,47 +144,48 @@ html, body { font-size: 14px; line-height: 1.55; color: var(--ink-700); backgrou
 .bar > i { border-radius: 4px; background: var(--ink-400); }
 .person .av { width: 30px; height: 30px; font-size: 12.5px; }
 
-/* ---------- Element Plus ---------- */
+/* ---------- Element Plus ----------
+   选择器都带 html 前缀：Element 的组件样式随页面懒加载、排在本文件之后，同等优先级会把这里盖掉。 */
 .el-button { font-weight: 500; }
 .el-button--small { --el-button-size: 28px; padding: 5px 11px; border-radius: 7px; font-size: 13px; }
-.el-input__wrapper, .el-select__wrapper, .el-textarea__inner { box-shadow: 0 0 0 1px var(--line-2) inset; }
-.el-input__wrapper:hover, .el-select__wrapper:hover, .el-textarea__inner:hover { box-shadow: 0 0 0 1px var(--ink-300) inset; }
-.el-input__wrapper.is-focus, .el-select__wrapper.is-focused, .el-textarea__inner:focus { box-shadow: 0 0 0 1px var(--signal) inset, 0 0 0 3px var(--signal-50); }
-.el-form-item__label { font-weight: 500; color: var(--ink-700); }
-.el-radio-button__inner { font-weight: 500; }
+html .el-input__wrapper, html .el-select__wrapper, html .el-textarea__inner { box-shadow: 0 0 0 1px var(--line-2) inset; }
+html .el-input__wrapper:hover, html .el-select__wrapper:hover, html .el-textarea__inner:hover { box-shadow: 0 0 0 1px var(--ink-300) inset; }
+html .el-input__wrapper.is-focus, html .el-select__wrapper.is-focused, html .el-textarea__inner:focus { box-shadow: 0 0 0 1px var(--signal) inset, 0 0 0 3px var(--signal-50); }
+html .el-form-item__label { font-weight: 500; color: var(--ink-700); }
+html .el-radio-button__inner { font-weight: 500; }
 
-.el-table { --el-table-border-color: var(--line); --el-table-header-bg-color: var(--surface-2); --el-table-header-text-color: var(--ink-500);
+html .el-table { --el-table-border-color: var(--line); --el-table-header-bg-color: var(--surface-2); --el-table-header-text-color: var(--ink-500);
   --el-table-row-hover-bg-color: #FAFBFC; --el-table-text-color: var(--ink-700); font-size: 13.5px; }
-.card .el-table, .ops-table.el-table { font-size: 13.5px; }
-.el-table th.el-table__cell, .card .el-table th.el-table__cell, .ops-table.el-table th.el-table__cell { font-size: 12.5px; font-weight: 500; color: var(--ink-500); background: var(--surface-2); }
-.el-table .el-table__header-wrapper tr th.el-table-fixed-column--right, .el-table .el-table__header-wrapper tr th.el-table-fixed-column--left,
-.el-table .el-table__fixed-header-wrapper tr th { background: var(--surface-2); }
-.el-table .el-table__cell { padding: 11px 0; }
-.el-table--small .el-table__cell { padding: 8px 0; }
-.el-table .cell { padding: 0 12px; line-height: 1.5; }
-.el-table__inner-wrapper::before { display: none; }
-.el-table__empty-block { min-height: 140px; }
+html .card .el-table, html .ops-table.el-table { font-size: 13.5px; }
+html .el-table th.el-table__cell, html .card .el-table th.el-table__cell, html .ops-table.el-table th.el-table__cell { font-size: 12.5px; font-weight: 500; color: var(--ink-500); background: var(--surface-2); }
+html .el-table .el-table__header-wrapper tr th.el-table-fixed-column--right, html .el-table .el-table__header-wrapper tr th.el-table-fixed-column--left,
+html .el-table .el-table__fixed-header-wrapper tr th { background: var(--surface-2); }
+html .el-table .el-table__cell { padding: 11px 0; }
+html .el-table--small .el-table__cell { padding: 8px 0; }
+html .el-table .cell { padding: 0 12px; line-height: 1.5; }
+html .el-table__inner-wrapper::before { display: none; }
+html .el-table__empty-block { min-height: 140px; }
 
-.el-dialog { --el-dialog-border-radius: 14px; --el-dialog-padding-primary: 24px; box-shadow: var(--sh-3); }
-.el-dialog__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
-.el-drawer { --el-drawer-padding-primary: 24px; }
-.el-drawer__header { margin-bottom: 0; padding: 18px 24px; border-bottom: 1px solid var(--line); }
-.el-drawer__body { padding: 20px 24px 24px; }
-.el-drawer__footer { padding: 14px 24px; border-top: 1px solid var(--line); }
-.el-drawer__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
-.el-message-box { --el-messagebox-border-radius: 14px; padding: 22px 24px; }
-.el-message-box__title { font-weight: 600; }
-.el-message { --el-message-padding: 11px 16px; border-radius: 10px; border: 0; box-shadow: var(--sh-2); }
-.el-alert { border-radius: 10px; }
-.el-pagination { --el-pagination-button-bg-color: transparent; font-weight: 500; }
-.el-empty__description p { color: var(--ink-400); font-size: 13.5px; }
-.el-tabs__item { font-size: 14px; font-weight: 500; }
-.el-tabs__item.is-active { font-weight: 600; }
-.el-tabs__nav-wrap::after { height: 1px; background: var(--line); }
-.el-dropdown-menu__item { font-size: 13.5px; padding: 8px 16px; }
-.el-breadcrumb { font-size: 13.5px; }
-.el-breadcrumb__inner { color: var(--ink-500); font-weight: 400; }
-.el-breadcrumb__item:last-child .el-breadcrumb__inner { color: var(--ink-900); font-weight: 600; }
+html .el-dialog { --el-dialog-border-radius: 14px; --el-dialog-padding-primary: 24px; box-shadow: var(--sh-3); }
+html .el-dialog__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
+html .el-drawer { --el-drawer-padding-primary: 24px; }
+html .el-drawer__header { margin-bottom: 0; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+html .el-drawer__body { padding: 20px 24px 24px; }
+html .el-drawer__footer { padding: 14px 24px; border-top: 1px solid var(--line); }
+html .el-drawer__title { font-size: 16px; font-weight: 600; color: var(--ink-900); }
+html .el-message-box { --el-messagebox-border-radius: 14px; padding: 22px 24px; }
+html .el-message-box__title { font-weight: 600; }
+html .el-message { --el-message-padding: 11px 16px; border-radius: 10px; border: 0; box-shadow: var(--sh-2); }
+html .el-alert { border-radius: 10px; }
+html .el-pagination { --el-pagination-button-bg-color: transparent; font-weight: 500; }
+html .el-empty__description p { color: var(--ink-400); font-size: 13.5px; }
+html .el-tabs__item { font-size: 14px; font-weight: 500; }
+html .el-tabs__item.is-active { font-weight: 600; }
+html .el-tabs__nav-wrap::after { height: 1px; background: var(--line); }
+html .el-dropdown-menu__item { font-size: 13.5px; padding: 8px 16px; }
+html .el-breadcrumb { font-size: 13.5px; }
+html .el-breadcrumb__inner { color: var(--ink-500); font-weight: 400; }
+html .el-breadcrumb__item:last-child .el-breadcrumb__inner { color: var(--ink-900); font-weight: 600; }
 
 /* ---------- 通用外壳（两个后台的 AppLayout 共用） ---------- */
 .shell { background: var(--paper) !important; }

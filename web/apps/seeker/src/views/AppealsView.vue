@@ -63,7 +63,7 @@ const RESULT: Record<ReviewStatus, string> = {
           </div>
         </section>
         <van-empty v-if="!rows.length" image="search" description="暂无申诉记录">
-          <p class="t-xs" style="line-height: 1.7; padding: 0 20px">实名认证时提示「身份证已被其他账号绑定」或「账号受限」，可在实名页提交申诉。</p>
+          <p class="t-xs" style="line-height: 1.7; max-width: 280px; margin: 0 auto; text-align: center">实名认证时提示「身份证已被其他账号绑定」或「账号受限」，可在实名页提交申诉。</p>
         </van-empty>
         <router-link to="/kyc" class="t-sm back-kyc">返回实名认证 ›</router-link>
         <div class="page-bottom-gap"></div>

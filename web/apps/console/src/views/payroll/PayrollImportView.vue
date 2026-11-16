@@ -206,6 +206,13 @@ async function doImport() {
             <span class="spacer" />
             <el-button type="primary" :loading="importing" :disabled="!file" @click="doImport">开始导入</el-button>
           </div>
+          <div class="form-sec" style="margin-top: 18px">导入规则</div>
+          <div class="grid g-2" style="gap: 0 28px">
+            <dl class="kv"><dt>员工匹配</dt><dd>该月在本公司有任职记录</dd></dl>
+            <dl class="kv"><dt>重复导入</dt><dd>同一员工同一月份仅一次</dd></dl>
+            <dl class="kv"><dt>逐行处理</dt><dd>失败行不影响其他行</dd></dl>
+            <dl class="kv"><dt>员工端</dt><dd>导入成功即生成工资条</dd></dl>
+          </div>
         </div>
 
         <template v-if="result">
@@ -276,15 +283,6 @@ async function doImport() {
               </tbody>
             </table>
             <div class="note" style="margin-top: 10px">实发 = 应发 − 社保 − 个税 − 其他扣款 − <b>预支抵扣</b>。预支欠款按先到先还自动从实发中扣除。</div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card__hd"><h3>规则</h3></div>
-          <div class="card__bd">
-            <dl class="kv"><dt>员工匹配</dt><dd>该月在本公司有任职记录</dd></dl>
-            <dl class="kv"><dt>重复导入</dt><dd>同一员工同一月份仅一次</dd></dl>
-            <dl class="kv"><dt>逐行处理</dt><dd>失败行不影响其他行</dd></dl>
-            <dl class="kv"><dt>员工端</dt><dd>导入成功即生成工资条</dd></dl>
           </div>
         </div>
       </div>

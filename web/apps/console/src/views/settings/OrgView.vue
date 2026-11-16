@@ -250,8 +250,8 @@ onMounted(() => {
         <h3>角色权限矩阵</h3>
         <span class="legend t-xs"><span><i class="yes">✓</i>可操作</span><span><i class="ro">只读</i>可查看不可改</span><span><i class="no">—</i>无权限</span></span>
       </div>
-      <el-table :data="matrix" size="small" :span-method="matrixSpan" row-key="cap">
-        <el-table-column label="分类" min-width="100">
+      <el-table :data="matrix" size="small" class="tbl-span" :span-method="matrixSpan" row-key="cap">
+        <el-table-column label="分类" min-width="100" class-name="col-group">
           <template #default="{ row }"><span class="t-sm dim">{{ row.group }}</span></template>
         </el-table-column>
         <el-table-column label="能力" min-width="240">

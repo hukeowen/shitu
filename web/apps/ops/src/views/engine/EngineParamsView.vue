@@ -236,8 +236,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               <b class="mono">v{{ v.versionId }}</b>
               <StatusTag type="VersionStatus" :value="v.status" variant="tag" />
             </div>
-            <div class="t-xs mono">{{ v.publishedAt ? `${fmtDateTime(v.publishedAt)} 发布` : `${fmtDateTime(v.createdAt)} 创建` }}</div>
-            <div v-if="v.publishedBy" class="t-xs">{{ fmtOperator(v.publishedBy) }}</div>
+            <div class="t-xs mono vtime">{{ fmtDateTime(v.publishedAt ?? v.createdAt) }}</div>
+            <div class="t-xs vby">{{ v.publishedAt ? `${v.publishedBy ? `由${fmtOperator(v.publishedBy)}` : '已'}发布` : '创建，尚未发布' }}</div>
           </button>
         </div>
       </div>
@@ -345,12 +345,12 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 </div>
                 <div class="card__bd">
                   <template v-if="form.lowConversion">
-                    <div class="fields">
+                    <div class="fields col">
                       <label>挂岗满（天）<el-input-number v-model="form.lowConversion.minPostedDays" :min="0" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                       <label>且转化率 ≤<el-input-number v-model="form.lowConversion.maxConversionRate" :min="0" :max="1" :step="0.01" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                       <label>乘以系数<el-input-number v-model="form.lowConversion.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                     </div>
-                    <div class="fields">
+                    <div class="fields col">
                       <label>与挂岗衰减合并方式
                         <el-radio-group v-model="form.combineDecayAndConversion" size="small" :disabled="readonly">
                           <el-radio-button value="MIN">取较小值</el-radio-button>
@@ -388,7 +388,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                   <el-switch :model-value="form.penalty != null" :disabled="readonly" @update:model-value="(v: string | number | boolean) => toggle('penalty', !!v)" />
                 </div>
                 <div class="card__bd">
-                  <div v-if="form.penalty" class="fields">
+                  <div v-if="form.penalty" class="fields col">
                     <label>二级（限流）<el-input-number v-model="form.penalty.level2" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                     <label>三级（封禁）<el-input-number v-model="form.penalty.level3" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                   </div>
@@ -404,14 +404,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                   <div class="fields">
                     <el-switch :model-value="form.quota != null" :disabled="readonly" active-text="名额将满降权" @update:model-value="(v: string | number | boolean) => toggle('quota', !!v)" />
                   </div>
-                  <div v-if="form.quota" class="fields">
+                  <div v-if="form.quota" class="fields col">
                     <label>剩余名额 ≤<el-input-number v-model="form.quota.lowRemaining" :min="0" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                     <label>乘以系数<el-input-number v-model="form.quota.factor" :min="0" :max="1" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                   </div>
                   <div class="fields">
                     <el-switch :model-value="form.newJobBoost != null" :disabled="readonly" active-text="新岗位加权" @update:model-value="(v: string | number | boolean) => toggle('newJobBoost', !!v)" />
                   </div>
-                  <div v-if="form.newJobBoost" class="fields">
+                  <div v-if="form.newJobBoost" class="fields col">
                     <label>上架 ≤（天）<el-input-number v-model="form.newJobBoost.maxDays" :min="0" :precision="0" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                     <label>乘以系数<el-input-number v-model="form.newJobBoost.factor" :min="0" :max="2" :step="0.05" :precision="2" size="small" :disabled="readonly" :controls="!readonly" controls-position="right" /></label>
                   </div>
@@ -469,9 +469,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .errs { margin: 4px 0 0; padding-left: 18px; }
 .fs { border: 0; margin: 0; padding: 0; min-width: 0; }
 .sec { margin-bottom: 12px; }
-.grid.g-2 { gap: 12px; align-items: start; }
-.grid.g-2 .sec { margin-bottom: 0; }
-.grid.g-2 { margin-bottom: 12px; }
+/* 双列卡片按内容高度依次流入两栏（瀑布流），高矮不一时不会留下整块空白 */
+.grid.g-2 { display: block; columns: 2; column-gap: 12px; margin-bottom: 0; }
+.grid.g-2 .sec { break-inside: avoid; margin-bottom: 12px; }
+@media (max-width: 1180px) { .grid.g-2 { columns: 1; } }
+.vtime, .vby { white-space: nowrap; }
 .sum { font-size: 12.5px; }
 .sum.ok { color: var(--ok); }
 .sum.bad { color: var(--danger); font-weight: 600; }
@@ -497,6 +499,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .fields { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 8px; }
 .fields label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-600); }
 .fields :deep(.el-input-number) { width: 130px; }
+/* 纵向排列的字段：标签定宽，输入框左缘对齐 */
+.fields.col { flex-direction: column; align-items: stretch; gap: 8px; }
+.fields.col label { display: grid; grid-template-columns: 132px max-content; align-items: center; gap: 8px; }
 /* 只读版本：数值清晰可读，不显示步进箭头 */
 .fs:disabled :deep(.el-input.is-disabled .el-input__wrapper) { background: var(--surface-2); box-shadow: 0 0 0 1px var(--line) inset; cursor: default; }
 .fs:disabled :deep(.el-input.is-disabled .el-input__inner) { color: var(--ink-900); -webkit-text-fill-color: var(--ink-900); font-weight: 600; cursor: default; text-align: left; }
