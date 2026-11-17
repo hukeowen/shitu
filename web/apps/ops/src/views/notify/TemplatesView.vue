@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { IconInbox, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict, type NotifyChannel, type NotifyTemplateView } from '@shitu/api-client'
 import DictTags from '@/components/DictTags.vue'
+import { confirmInBox, isBlocked } from '@/composables/boxSubmit'
 import { confirmAction } from '@/composables/useRemark'
 import { fmtDateTime } from '@/utils/format'
 
@@ -32,6 +34,10 @@ const shown = computed(() => {
   return rows.value.filter((r) => r.templateCode.toLowerCase().includes(k) || r.title.toLowerCase().includes(k) || r.content.toLowerCase().includes(k))
 })
 
+const page = ref(1)
+const pageRows = computed(() => shown.value.slice((page.value - 1) * 20, page.value * 20))
+watch(shown, () => { page.value = 1 })
+
 // ---------- 编辑抽屉
 const TITLE_MAX = 64
 const CONTENT_MAX = 500
@@ -39,6 +45,7 @@ const editing = shallowRef<NotifyTemplateView | null>(null)
 const form = reactive({ title: '', content: '', channels: [] as NotifyChannel[], smsTemplateId: '', respectQuietHours: false, enabled: true })
 const saving = ref(false)
 const saveError = ref('')
+const saveBlocked = ref(false)
 const contentRef = ref<{ textarea?: HTMLTextAreaElement } | null>(null)
 const titleRef = ref<{ input?: HTMLInputElement } | null>(null)
 const lastFocus = ref<'title' | 'content'>('content')
@@ -65,6 +72,8 @@ function open(t: NotifyTemplateView) {
   })
   saved = snap()
   saveError.value = ''
+  saveBlocked.value = false
+  preview.error = ''
   preview.title = ''
   preview.content = ''
   void runPreview()
@@ -73,6 +82,7 @@ function onBeforeClose() {
   void close()
 }
 async function close() {
+  if (saving.value) return
   if (dirty.value && !(await confirmAction('放弃修改', '模板有未保存的修改，确定关闭？', true))) return
   editing.value = null
 }
@@ -143,31 +153,36 @@ watch(
 onBeforeUnmount(() => clearTimeout(timer))
 
 async function save() {
-  if (!editing.value) return
+  if (!editing.value || saving.value || saveBlocked.value) return
   if (localError.value) {
     saveError.value = localError.value
     return
   }
-  if (!form.enabled && editing.value.enabled) {
-    const ok = await confirmAction('停用模板', `停用后「${editing.value.templateCode}」将不再发送任何通知（站内信与短信），确定停用？`, true)
-    if (!ok) return
+  const template = editing.value
+  const payload = {
+    title: form.title.trim(), content: form.content.trim(), channels: [...form.channels],
+    smsTemplateId: form.smsTemplateId.trim(), respectQuietHours: form.respectQuietHours, enabled: form.enabled,
+  }
+  const persist = async () => {
+    const r = await opsApi.updateTemplate(template.templateCode, payload)
+    rows.value = rows.value.map((x) => (x.templateCode === r.templateCode ? r : x))
   }
   saving.value = true
   saveError.value = ''
   try {
-    const r = await opsApi.updateTemplate(editing.value.templateCode, {
-      title: form.title.trim(),
-      content: form.content.trim(),
-      channels: form.channels,
-      smsTemplateId: form.smsTemplateId.trim(),
-      respectQuietHours: form.respectQuietHours,
-      enabled: form.enabled,
-    })
+    if (!form.enabled && template.enabled) {
+      const ok = await confirmInBox({ title: '停用模板', action: '停用', danger: true,
+        text: `停用后「${template.templateCode}」将不再发送任何通知（站内信与短信），确定停用？`, api: persist,
+      })
+      if (!ok) return
+    } else {
+      await persist()
+    }
     ElMessage.success('模板已保存，立即生效')
     saved = snap()
     editing.value = null
-    rows.value = rows.value.map((x) => (x.templateCode === r.templateCode ? r : x))
   } catch (e) {
+    saveBlocked.value = isBlocked(e)
     saveError.value = errorMessage(e, '保存失败')
   } finally {
     saving.value = false
@@ -195,13 +210,13 @@ const highlight = (s: string) =>
       <div class="toolbar">
         <el-input v-model="keyword" clearable placeholder="模板编码 / 标题 / 内容" style="width: 260px" />
         <div class="spacer" />
-        <span class="t-xs">共 {{ rows.length }} 个模板</span>
-        <el-button @click="load">刷新</el-button>
+        <span class="t-xs">共 {{ loading || error ? '—' : rows.length }} 个模板</span>
+        <el-button :loading="loading" @click="load">刷新</el-button>
       </div>
-      <el-table v-loading="loading" :data="shown" class="ops-table" row-key="templateCode" @row-dblclick="open">
+      <el-table v-loading="loading" :data="loading ? [] : pageRows" class="tbl-48" row-key="templateCode" @row-dblclick="open">
         <el-table-column label="模板" min-width="220">
           <template #default="{ row }">
-            <span class="link-cell" @click="open(row)">{{ row.title }}</span>
+            <el-button link type="primary" @click="open(row)">{{ row.title }}</el-button>
             <div class="t-xs mono">{{ row.templateCode }}</div>
           </template>
         </el-table-column>
@@ -210,34 +225,36 @@ const highlight = (s: string) =>
         </el-table-column>
         <el-table-column label="渠道" width="130"><template #default="{ row }"><DictTags type="NotifyChannel" :values="row.channels" /></template></el-table-column>
         <el-table-column label="免打扰" width="80" align="center">
-          <template #default="{ row }"><span :class="row.respectQuietHours ? 'tag tag--info' : 'dim'">{{ row.respectQuietHours ? '遵守' : '—' }}</span></template>
+          <template #default="{ row }"><span :class="row.respectQuietHours ? 'status-tag status-tag--info' : 'dim'">{{ row.respectQuietHours ? '遵守' : '—' }}</span></template>
         </el-table-column>
         <el-table-column label="状态" width="80">
-          <template #default="{ row }"><span class="st-pill" :style="{ color: row.enabled ? 'var(--ok)' : 'var(--ink-400)' }"><i />{{ row.enabled ? '启用' : '停用' }}</span></template>
+          <template #default="{ row }"><span class="status-tag" :class="row.enabled ? 'status-tag--success' : 'status-tag--neutral'">{{ row.enabled ? '启用' : '停用' }}</span></template>
         </el-table-column>
         <el-table-column label="更新" width="150">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.updatedAt) }}</span><div class="t-xs mono">{{ row.updatedBy ?? '' }}</div></template>
+          <template #default="{ row }"><span class="tnum t-sm">{{ fmtDateTime(row.updatedAt) }}</span><div class="t-xs mono">{{ row.updatedBy ?? '' }}</div></template>
         </el-table-column>
-        <el-table-column label="操作" width="80" align="right" fixed="right">
-          <template #default="{ row }"><el-button size="small" @click="open(row)">编辑</el-button></template>
+        <el-table-column class-name="ops-col" label="操作" width="80" align="right" fixed="right">
+          <template #default="{ row }"><el-button link type="primary" size="small" @click="open(row)">编辑</el-button></template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="error" :image-size="64" :description="error"><el-button size="small" @click="load">重试</el-button></el-empty>
-          <el-empty v-else :image-size="64" description="暂无模板" />
+          <el-empty v-if="!loading && error" :image-size="64" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
+          <el-empty v-else-if="!loading" :image-size="64" description="暂无模板"><template #image><IconInbox :size="48" /></template></el-empty>
         </template>
       </el-table>
+      <div v-if="!loading && shown.length" class="pager"><el-pagination v-model:current-page="page" :page-size="20" :total="shown.length" layout="total, prev, pager, next" /></div>
     </div>
 
-    <el-drawer v-model="visible" size="640px" destroy-on-close class="ops-drawer" :before-close="onBeforeClose">
+    <el-drawer v-model="visible" size="640px" destroy-on-close class="ops-drawer rv-drawer" :before-close="onBeforeClose">
       <template #header>
         <div class="dh">
           <h3>编辑模板</h3>
           <span class="mono t-sm dim">{{ editing?.templateCode }}</span>
-          <span v-if="dirty" class="tag tag--signal">未保存</span>
+          <span v-if="dirty" class="status-tag status-tag--info">未保存</span>
         </div>
       </template>
       <template v-if="editing">
-        <el-form label-position="top" @submit.prevent>
+        <el-form label-position="top" :disabled="saving" @submit.prevent>
+          <h3 class="blk-t">通知文案</h3>
           <el-form-item label="可用变量（点击插入到光标处）">
             <div class="chips">
               <button v-for="v in editing.variables" :key="v" type="button" class="chip" :class="{ used: usedVars.has(v) }" @mousedown.prevent @click="insertVar(v)">{{ '${' + v + '}' }}</button>
@@ -251,18 +268,19 @@ const highlight = (s: string) =>
             <el-input ref="contentRef" v-model="form.content" type="textarea" :rows="5" :maxlength="CONTENT_MAX" show-word-limit @focus="lastFocus = 'content'" />
           </el-form-item>
 
-          <div class="preview">
+          <div v-loading="preview.loading" class="preview">
             <div class="pv-hd">
               <span class="t-xs">预览（变量以示例值替换）</span>
               <span v-if="preview.loading" class="t-xs">…</span>
             </div>
-            <div v-if="preview.error" class="t-sm err-t">{{ preview.error }}</div>
-            <template v-else>
+            <div v-if="!preview.loading && preview.error" class="t-sm err-t">{{ preview.error }}<el-button link type="primary" @click="runPreview">重新加载</el-button></div>
+            <template v-else-if="!preview.loading">
               <div class="pv-title">{{ preview.title }}</div>
               <div class="pv-body">{{ preview.content }}</div>
             </template>
           </div>
 
+          <h3 class="blk-t">发送设置</h3>
           <div class="grid g-2 opts">
             <el-form-item label="发送渠道" required>
               <el-checkbox-group v-model="form.channels">
@@ -287,7 +305,7 @@ const highlight = (s: string) =>
       <template #footer>
         <div class="drawer-actions">
           <el-button @click="close">取消</el-button>
-          <el-button type="primary" :loading="saving" :disabled="!dirty || !!localError" @click="save">保存</el-button>
+          <el-button type="primary" :loading="saving" :disabled="!dirty || !!localError || saveBlocked" @click="save">保存</el-button>
         </div>
       </template>
     </el-drawer>
@@ -295,19 +313,19 @@ const highlight = (s: string) =>
 </template>
 
 <style scoped>
-.content { color: var(--ink-700); white-space: pre-wrap; }
-.content :deep(.var), .pv-body :deep(.var) { font-family: var(--f-mono); font-size: 11.5px; color: var(--signal-700); background: var(--signal-50); border-radius: 3px; padding: 0 3px; }
+.content { color: var(--text-2); white-space: pre-wrap; }
+.content :deep(.var), .pv-body :deep(.var) { font-family: var(--font-mono); font-size: 12px; color: var(--primary-text); background: var(--primary-bg); border-radius: 3px; padding: 0 3px; }
 .dh { display: flex; align-items: center; gap: 10px; }
-.dh h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-900); }
+.dh h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-1); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font-family: var(--f-mono); font-size: 12px; padding: 2px 8px; border-radius: var(--r-xs); border: 1px dashed var(--signal-300); background: var(--surface); color: var(--signal-700); cursor: pointer; }
-.chip:hover { background: var(--signal-50); }
-.chip.used { border-style: solid; background: var(--signal-50); }
-.preview { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); padding: 10px 14px; margin-bottom: 16px; }
+.chip { font-family: var(--font-mono); font-size: 12px; padding: 2px 8px; border-radius: var(--radius-tag); border: 1px dashed var(--primary-line); background: var(--bg-card); color: var(--primary-text); cursor: pointer; }
+.chip:hover { background: var(--primary-bg); }
+.chip.used { border-style: solid; background: var(--primary-bg); }
+.preview { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-fill); padding: 10px 14px; margin-bottom: 16px; }
 .pv-hd { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.pv-title { font-weight: 700; color: var(--ink-900); font-size: 13.5px; }
-.pv-body { font-size: 13px; color: var(--ink-700); margin-top: 4px; white-space: pre-wrap; }
-.err-t { color: var(--danger); }
+.pv-title { font-weight: 600; color: var(--text-1); font-size: 14px; }
+.pv-body { font-size: 13px; color: var(--text-2); margin-top: 4px; white-space: pre-wrap; }
+.err-t { color: var(--danger-text); }
 .opts { column-gap: 20px; row-gap: 0; }
 .gap-t { margin-top: 10px; }
 </style>

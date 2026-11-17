@@ -1786,7 +1786,95 @@ const retryOpen = (entry) => [`(() => { const b = [...document.querySelectorAll(
 const retryClean = `(() => { if (document.querySelector('#app .tbl-tip')) return '表格上方留着被拒原因'; if (document.querySelector('.el-dialog .blocked-why')) return '重新打开后还留着上次的被拒原因'
   const off = [...document.querySelectorAll('.el-dialog__footer .el-button')].filter((b) => b.disabled).map((b) => b.innerText.trim()); return off.length ? '重新打开后还有按钮置灰：' + off.join('、') : '' })()`
 
+// 工单 25：独立数据与检查，收尾时由 STATES 统一取证；本票运行检查不保存截图。
+const SETTLEMENT_STATES = (() => {
+  const envelope = (data) => ({ code: '0', message: 'ok', data })
+  const pages = [
+    ['billing-rules', '/settlement/rules', '/ops/billing/rules', [], '计费规则'],
+    ['bills', '/settlement/bills', '/ops/bills', { records: [], total: 0 }, '对账管理'],
+    ['audit', '/settlement/audit', '/ops/audit-logs', { records: [], total: 0 }, '系统审计日志'],
+    ['admins', '/system/admins', '/ops/admins', { records: [], total: 0 }, '平台账号与权限'],
+    ['templates', '/system/templates', '/ops/notify-templates', [], '通知模板'],
+    ['holidays', '/system/holidays', '/ops/holidays', [], '节假日'],
+    ['sys-params', '/system/params', '/ops/sys-params', [], '系统参数'],
+  ]
+  const fit = `document.documentElement.scrollWidth <= innerWidth ? '' : '页面横向溢出'`
+  const noEmpty = `document.querySelector('#app .el-empty') ? '加载中出现空状态' : ''`
+  const retry = `[...document.querySelectorAll('#app button')].filter(b => b.innerText.trim() === '重新加载').length === 1 ? '' : '失败没有唯一重新加载入口'`
+  const clickText = (text, root = '#app') => `[...document.querySelectorAll('${root} button')].find(b => b.innerText.trim() === '${text}').click()`
+  const out = pages.flatMap(([screen, path, url, empty, title]) => [
+    ...[1440, 1280].map(width => ({ app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'normal', path, width, height: width === 1440 ? 900 : 800,
+      rules: [], checks: [fit, `document.querySelector('#app h2')?.innerText === '${title}' ? '' : '未进入目标页'`] })),
+    { app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'loading', path, rules: [{ url, method: 'GET', action: 'hang' }], quick: true,
+      checks: [noEmpty, `document.querySelector('#app .el-loading-mask') ? '' : '没有加载遮罩'`] },
+    { app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'empty', path, rules: [{ url, method: 'GET', action: 'respond', body: envelope(empty) }],
+      checks: [fit, `document.querySelector('#app .el-empty svg') ? '' : '没有带共享图标的空状态'`] },
+    { app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'error', path, rules: [{ url, method: 'GET', action: 'fail' }], checks: [fit, retry] },
+  ])
+  out.push({ app: 'ops', persona: 'ops', screen: 'settlement-audit', state: 'collapse', path: '/settlement/audit', rules: [],
+    steps: [clickText('展开筛选')], checks: [`[...document.querySelectorAll('#app .el-form-item')].find(e => e.innerText.includes('对象类型'))?.offsetHeight > 0 ? '' : '展开后缺少对象类型筛选'`, fit] })
+  out.push({ app: 'ops', persona: 'ops', screen: 'settlement-rules', state: 'version', path: '/settlement/rules', rules: [],
+    checks: [`document.querySelector('.version-bar')?.innerText.includes('当前生效版本') && getComputedStyle(document.querySelector('.version-bar')).position === 'sticky' ? '' : '缺少吸顶版本信息条'`] })
+  // 演示库可能没有账单，以真实 DTO 形状固定覆盖抽屉及金额。
+  const bill = { billId: 'B-UI25', companyId: 'C-UI25', billMonth: '2026-10', status: 'ISSUED', serviceFee: 123.45, transferPayable: 234.56, payable: 358.01, transferReceivable: 78.90, disputeDeadline: '2026-11-05', settleDeadline: '2026-11-15', issuedAt: '2026-11-01T08:00:00' }
+  const billRules = [
+    { url: '/ops/bills/B-UI25', method: 'GET', action: 'respond', body: envelope({ bill, disputes: [], days: [] }) },
+    { url: '/ops/bills', method: 'GET', action: 'respond', body: envelope({ records: [bill], total: 1 }) },
+  ]
+  const drawerSteps = [clickText('详情')]
+  out.push({ app: 'ops', persona: 'ops', screen: 'settlement-bills', state: 'drawer', path: '/settlement/bills', rules: billRules, steps: drawerSteps,
+    checks: [fit, `document.querySelector('.el-drawer')?.getBoundingClientRect().width === 720 ? '' : '账单抽屉不是720宽'`,
+      `document.querySelectorAll('.el-drawer .stat-v').length === 4 && [...document.querySelectorAll('.el-drawer .stat-v')].every(e => getComputedStyle(e).textAlign === 'right' && getComputedStyle(e).fontVariantNumeric.includes('tabular-nums')) ? '' : '汇总金额不是等宽右对齐'`] })
+  for (const state of ['submitting', 'rejected', 'offline']) {
+    out.push({ app: 'ops', persona: 'ops', screen: 'settlement-bills', state, path: '/settlement/bills', quick: state === 'submitting',
+      rules: [{ url: '/settle', method: 'POST', action: state === 'submitting' ? 'hang' : state === 'offline' ? 'fail' : 'respond', body: { code: 'SYS_4090', message: '账单状态已变化', data: null } }, ...billRules],
+      steps: [...drawerSteps, clickText('登记结算', '.el-drawer'), clickText('登记结算', '.el-message-box')],
+      checks: [state === 'submitting' ? `document.querySelector('.el-message-box .is-loading') ? '' : '确认框未保留或确认未转圈'` : state === 'rejected' ? `document.querySelector('.el-message-box .msgbox-why')?.innerText.includes('账单状态已变化') && document.querySelector('.el-message-box__btns button:last-child')?.disabled ? '' : '被拒未保留原因或未置灰确认'` : `document.querySelector('.el-message-box__btns button:last-child')?.disabled === false ? '' : '断网后确认按钮不可重试'`] })
+  }
+  const fillField = (selector, value) => `(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.value = ${JSON.stringify(value)}; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })) })()`
+  const directCases = [
+    { name: 'params-save', path: '/system/params', url: '/ops/sys-params', method: 'PUT', data: [{ paramKey: 'bill.dispute_days', paramValue: '3', valueType: 'INT', description: '账单异议期', updatedAt: '2026-11-01T08:00:00' }],
+      steps: [clickText('修改'), fillField('.el-dialog input', '4'), fillField('.el-dialog textarea', '按新结算周期调整')], root: '.el-dialog', action: '保存' },
+    { name: 'templates-save', path: '/system/templates', url: '/ops/notify-templates', method: 'PUT', data: [{ templateCode: 'UI25_NOTICE', channels: ['INBOX'], title: '账单已下发', content: '请核对本月账单', variables: [], respectQuietHours: true, enabled: true, updatedAt: '2026-11-01T08:00:00' }],
+      steps: [clickText('编辑'), fillField('.el-drawer input', '请核对月账单')], root: '.el-drawer', action: '保存' },
+    { name: 'admins-save', path: '/system/admins', url: '/ops/admins', method: 'PUT', data: { records: [{ adminId: 'A-UI25', username: 'finance.ui25', displayName: '结算管理员', roles: ['FINANCE'], status: 'NORMAL', mustChangePassword: false, createdAt: '2026-11-01T08:00:00' }], total: 1 },
+      steps: [clickText('编辑'), fillField('.el-dialog input:not([disabled])', '结算负责人')], root: '.el-dialog', action: '保存' },
+  ]
+  for (const c of directCases) for (const state of ['submitting', 'rejected', 'offline']) {
+    const button = `[...document.querySelectorAll('${c.root} button')].find(b => b.innerText.trim() === '${c.action}')`
+    out.push({ app: 'ops', persona: 'ops', screen: 'settlement-' + c.name, state, path: c.path, quick: state === 'submitting',
+      rules: [
+        { url: '/preview', method: 'POST', action: 'respond', body: envelope({ title: '请核对月账单', content: '请核对本月账单' }) },
+        { url: c.url, method: c.method, action: state === 'submitting' ? 'hang' : state === 'offline' ? 'fail' : 'respond', body: { code: 'SYS_4090', message: '配置已变化，请重新打开', data: null } },
+        { url: c.url, method: 'GET', action: 'respond', body: envelope(c.data) },
+      ], steps: [...c.steps, ...(state === 'submitting' ? [countXhr, `${clickText(c.action, c.root)}; ${clickText(c.action, c.root)}`] : [clickText(c.action, c.root)])],
+      checks: [...(state === 'submitting' ? [sentOnce] : []), state === 'submitting' ? `${button}?.classList.contains('is-loading') ? '' : '保存未转圈'` : state === 'rejected' ? `${button}?.disabled && document.querySelector('${c.root}')?.innerText.includes('配置已变化，请重新打开') ? '' : '被拒原因未保留或保存未置灰'` : `${button}?.disabled === false ? '' : '断网后保存无法重试'`] })
+  }
+  for (const state of ['submitting', 'rejected', 'offline']) {
+    out.push({ app: 'ops', persona: 'ops', screen: 'settlement-holidays-delete', state, path: '/system/holidays', quick: state === 'submitting',
+      rules: [
+        { url: '/ops/holidays', method: 'DELETE', action: state === 'submitting' ? 'hang' : state === 'offline' ? 'fail' : 'respond', body: { code: 'SYS_4090', message: '日期已被修改', data: null } },
+        { url: '/ops/holidays', method: 'GET', action: 'respond', body: envelope([{ holidayDate: '2026-10-01', name: '国庆节', isWorkday: false }]) },
+      ], steps: [clickText('删除'), clickText('删除', '.el-message-box')],
+      checks: [state === 'submitting' ? `document.querySelector('.el-message-box .is-loading') ? '' : '删除未在框内提交'` : state === 'rejected' ? `document.querySelector('.el-message-box .msgbox-why')?.innerText.includes('日期已被修改') && document.querySelector('.el-message-box__btns button:last-child')?.disabled ? '' : '删除被拒未保留原因或未置灰确认'` : `document.querySelector('.el-message-box__btns button:last-child')?.disabled === false ? '' : '断网后删除不可重试'`] })
+  }
+  const confirmations = [
+    { name: 'rules-add', path: '/settlement/rules', url: '/ops/billing/rules', entry: '新增规则版本', submit: '新增', confirm: '新增' },
+    { name: 'bills-rerun', path: '/settlement/bills', url: '/ops/billing/daily', entry: '重算日计费', submit: '重算', confirm: '重算' },
+    { name: 'bills-issue', path: '/settlement/bills', url: '/ops/billing/monthly', entry: '生成并下发月账单', submit: '生成并下发', confirm: '生成并下发' },
+  ]
+  for (const c of confirmations) for (const state of ['submitting', 'rejected']) {
+    out.push({ app: 'ops', persona: 'ops', screen: 'settlement-' + c.name, state, path: c.path, quick: state === 'submitting',
+      rules: [{ url: c.url, method: 'POST', action: state === 'submitting' ? 'hang' : 'respond', body: { code: 'SYS_4090', message: '计费配置已变化', data: null } }],
+      steps: [clickText(c.entry), clickText(c.submit, '.el-dialog'), clickText(c.confirm, '.el-message-box')],
+      checks: [state === 'submitting' ? `document.querySelector('.el-message-box .is-loading') ? '' : '确认框没有保留提交中状态'` : `document.querySelector('.el-message-box .msgbox-why')?.innerText.includes('计费配置已变化') && document.querySelector('.el-message-box__btns button:last-child')?.disabled ? '' : '被拒后未保留原因或确认未置灰'`] })
+  }
+  return out
+})()
+// 工单 25 状态定义结束。
+
 const STATES = [
+  ...SETTLEMENT_STATES.map((s) => ({ ...s, rules: or(...s.rules) })),
   { app: 'seeker', screen: 'splash', state: 'normal', persona: 'guest', path: '/', width: NARROW },
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
   { app: 'seeker', screen: 'home-guest', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash], width: NARROW },
