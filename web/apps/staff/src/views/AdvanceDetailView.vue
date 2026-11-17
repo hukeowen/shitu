@@ -91,7 +91,10 @@ function back() {
           <li v-for="(s, i) in detail.approvals" :key="i" :class="s.decision === 'REJECT' ? 'fail' : 'done'">
             <div class="tl-t">{{ s.step === 'PAYOUT' && s.decision === 'APPROVE' ? '已拨款' : `${STEP_TEXT[s.step] ?? s.step} · ${DECISION_TEXT[s.decision] ?? s.decision}` }}</div>
             <div class="tl-m num">{{ full(s.at) }}</div>
-            <div v-if="s.opinion" class="tl-o">意见：{{ s.opinion }}</div>
+            <div v-if="s.opinion" class="tl-o">
+              <template v-if="s.opinion.split('：')[0]">经办：{{ s.opinion.split('：')[0] }}</template>
+              <template v-if="s.opinion.includes('：')">{{ s.opinion.split('：')[0] ? ' · ' : '' }}意见：{{ s.opinion.slice(s.opinion.indexOf('：') + 1) }}</template>
+            </div>
           </li>
           <li v-for="(s, i) in pendingSteps" :key="s" :class="i === 0 ? 'now' : ''">
             <div class="tl-t">{{ STEP_TEXT[s] }}</div>

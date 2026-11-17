@@ -103,21 +103,21 @@ function toCredit(companyId: string) {
         <el-button @click="load">刷新</el-button>
       </div>
       <el-table v-loading="loading" :data="rows" class="ops-table" row-key="id">
-        <el-table-column label="#" width="70"><template #default="{ row }"><span class="mono dim">{{ row.id }}</span></template></el-table-column>
-        <el-table-column label="岗位" min-width="170">
+        <el-table-column label="#" width="56"><template #default="{ row }"><span class="mono dim">{{ row.id }}</span></template></el-table-column>
+        <el-table-column label="岗位" min-width="150">
           <template #default="{ row }">
             <span class="strong">{{ row.title }}</span>
             <div class="t-xs mono">{{ row.jobId }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="公司" min-width="170">
+        <el-table-column label="公司" min-width="150">
           <template #default="{ row }">
             <span class="link-cell" :class="{ mono: !companyName(row.companyId) }" @click="toCredit(row.companyId)">{{ companyName(row.companyId) || row.companyId }}</span>
             <div v-if="companyName(row.companyId)" class="t-xs mono">{{ row.companyId }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="类别" width="130"><template #default="{ row }"><span class="tag">{{ label('ComplaintCategory', row.category) }}</span></template></el-table-column>
-        <el-table-column label="投诉内容" min-width="220">
+        <el-table-column label="类别" width="120"><template #default="{ row }"><span class="tag">{{ label('ComplaintCategory', row.category) }}</span></template></el-table-column>
+        <el-table-column label="投诉内容" min-width="200">
           <template #default="{ row }">
             <div class="t-sm content">{{ row.content }}</div>
             <div v-if="row.images?.length" class="imgs">
@@ -126,15 +126,15 @@ function toCredit(companyId: string) {
             <div class="t-xs mono">{{ row.userId }} · {{ fmtDateTime(row.createdAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="本岗属实" width="90" align="center">
+        <el-table-column label="本岗属实" width="80" align="center">
           <template #default="{ row }">
             <span class="mono" :class="row.complaintVerified >= AUTO_OFFLINE_AT ? 'danger' : row.complaintVerified > 0 ? 'warn' : 'dim'">
               {{ row.complaintVerified }}/{{ AUTO_OFFLINE_AT }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90"><template #default="{ row }"><StatusTag type="ComplaintStatus" :value="row.status" /></template></el-table-column>
-        <el-table-column label="处理说明" min-width="170">
+        <el-table-column label="状态" width="80"><template #default="{ row }"><StatusTag type="ComplaintStatus" :value="row.status" /></template></el-table-column>
+        <el-table-column label="处理说明" min-width="150">
           <template #default="{ row }">
             <template v-if="row.status !== 'PENDING'">
               <div class="t-sm content">{{ row.handleRemark || '—' }}</div>
@@ -143,7 +143,7 @@ function toCredit(companyId: string) {
             <span v-else class="dim">待核实</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" class-name="ops-col" width="110" align="right" fixed="right">
+        <el-table-column label="操作" class-name="ops-col" width="100" align="right" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'PENDING'" size="small" type="primary" @click="openHandle(row)">核实处理</el-button>
             <span v-else class="dim">—</span>
