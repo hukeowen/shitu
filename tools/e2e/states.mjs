@@ -17,6 +17,11 @@ if (!args._[0]) { console.log('用法：node states.mjs <输出目录> [--app se
 const OUT = path.resolve(args._[0])
 const data = JSON.parse(fs.readFileSync(path.join(DIR, 'shots', 'baseline-data.json'), 'utf8'))
 
+// 后端 LocalDateTime 为北京时间（UTC+8），全轮共用当前时刻加固定偏移。
+const shIso = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 19)
+const fixtureNow = Date.now()
+const atHour = (hours) => shIso(fixtureNow + hours * 3600e3)
+
 const NARROW = 360
 const click = (text) => `[...document.querySelectorAll('button')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`
 // 给 Vant 输入框填值：改 value 后要派发 input 事件，v-model 才会更新
@@ -102,8 +107,8 @@ const bottomBar = (text) => `(async () => { const btn = [...document.querySelect
 // ---- 工单 08：报备、面试、推荐、台账、我的工作 ----
 const APPS_API = '/seeker/applications'
 const DECIDE_API = '/decision'
-const fakeNotice = { interviewAt: '2026-12-30T09:30:00', address: '昆山市锦溪镇长云路 1 号东门招聘中心', routeTips: '地铁 11 号线花桥站 2 号口出，换乘 C2 路到长云路站，下车往东走 200 米',
-  documents: ['身份证原件', '一寸照片 2 张', '本人银行卡'], contactName: '王磊', contactPhone: '13800000003', pushedAt: '2026-11-12T16:57:56' }
+const fakeNotice = { interviewAt: atHour(1), address: '昆山市锦溪镇长云路 1 号东门招聘中心', routeTips: '地铁 11 号线花桥站 2 号口出，换乘 C2 路到长云路站，下车往东走 200 米',
+  documents: ['身份证原件', '一寸照片 2 张', '本人银行卡'], contactName: '王磊', contactPhone: '13800000003', pushedAt: atHour(-1) }
 const fakeApp = (n, status, extra = {}) => ({ applicationId: 'BM-SHOT-' + n, jobId: 'J-SHOT-' + n, jobTitle: '成品仓储分拣员 ' + n, companyName: '仕兔演示劳务', projectName: '立讯精密昆山二期',
   city: '苏州', address: '昆山市锦溪镇长云路 1 号东门招聘中心', status, createdAt: `2026-11-0${n}T10:00:00`, ...extra })
 // 七种报名状态各一张：真实数据里每个人最多一两张，看不全标签色调，也看不到「待签约入职」这个叫法
@@ -425,9 +430,9 @@ const confirmLogout = `${findBtn('退出', '.van-dialog')}.click()`
 // 驻场端的写操作（知悉推送、到厂、面试结果、爽约、取消、确权、流转经纪人、标记已读、登录、退出，以及工单 13 的请假 / 旷工等 PUT、PATCH、DELETE）
 // 一律拦住：除 GET 以外的方法都挂住；refresh 放行，否则进不了页面
 const STAFF_SAFE = [{ url: '/tenant/auth/refresh', action: 'continue' }, { url: '/tenant/', method: '!GET', action: 'hang' }]
-const sr = (...rules) => [...rules, ...STAFF_SAFE]
+const sr = (...rules) => [...rules, ...STAFF_SAFE, ...timeProofRules]
 const WB_API = '/tenant/site/workbench', PP_API = '/tenant/site/private-pending', TAPPS_API = '/tenant/applications', TME_API = '/tenant/me'
-const DETAIL = `/applications/${data.ids.siteApplicationId}`
+const DETAIL = '/applications/BM-UI28-2'
 const emptyPage = reply({ records: [], total: 0, page: 1, pageSize: 20 })
 // 待办卡片的顺序：姓名、归属标签、剩余时间 → 岗位和面试时间 → 手机号 → 「拨打」和当前阶段的主按钮
 const todoCards = (min = 1) => `(() => { const cards = [...document.querySelectorAll('#app article.app')]
@@ -502,15 +507,48 @@ const popInset = (scope, sel) => `(() => { const e = document.querySelector('${s
   const r = e.getBoundingClientRect(); return Math.round(r.left) === 16 && Math.round(innerWidth - r.right) === 16 ? '' : '${sel} 左右边距是 ' + Math.round(r.left) + ' / ' + Math.round(innerWidth - r.right) })()`
 const noToast = `[...document.querySelectorAll('.van-toast')].some((t) => t.getClientRects().length) ? '轻提示盖住了页面上的原因' : ''`
 const fakeWb = (extra = {}) => reply({ pendingAck: 2, pendingInterview: 4, pendingConfirm: 2, windowsDueIn4h: 0, privatePending: 18, arrivedToday: 0, ...extra })
-// 超时提示条：windowsDueIn4h 说 3 人 4 小时内到期，私域待匹配接口就得真有 3 条 4 小时内到期的窗口（其余用真实数据），
-// 否则「最短还剩」取的是演示库里十几小时后的截止时间，提示条自相矛盾。截止时间是北京时间、不带时区，登记时间 = 截止 − 24 小时
-const shIso = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 19)
-const ppReal = (await get(PP_API, await tenantSession(MEMBERS.site))).data
-// 3 条完整的私域待匹配行（字段同 api-client 的 PrivatePendingRow），不依赖演示库现有条数；后面接演示库的真实行
+// 后端 ApplicationService 的 LocalDateTime 使用北京时间、不带时区；一次运行共用基准，避免跨日字段错位。
 const ppSoon = (n, min) => ({ userId: 'U-SHOT-' + n, seekerName: ['赵**', '钱**', '孙**'][n - 1], phone: '1390000000' + n,
-  registeredAt: shIso(Date.now() + min * 60e3 - 24 * 3600e3), deadline: shIso(Date.now() + min * 60e3), channelCode: 'SHOT0' + n, channelMemberName: '王磊', inBrokerPool: false })
-const ppDueSoon = reply([ppSoon(1, 110), ppSoon(2, 160), ppSoon(3, 210), ...ppReal])
-const alarmRules = () => sr({ url: WB_API, action: 'respond', body: fakeWb({ windowsDueIn4h: 3 }) }, { url: PP_API, action: 'respond', body: ppDueSoon })
+  registeredAt: shIso(fixtureNow + min * 60e3 - 24 * 3600e3), deadline: shIso(fixtureNow + min * 60e3), channelCode: 'SHOT0' + n, channelMemberName: '王磊', inBrokerPool: false })
+const ppDueSoon = reply([ppSoon(1, 110), ppSoon(2, 160), ppSoon(3, 210)])
+const fixtureNotice = fakeNotice
+// 字段及操作组合来自 ApplicationService.SiteApplication / actions；不从已过期报名拷贝状态。
+const siteApp = (n, extra = {}) => ({ applicationId: 'BM-UI28-' + n, userId: 'U-UI28-' + n, seekerName: ['赵**', '钱**', '孙**', '李**'][n - 1],
+  phone: '1390000000' + n, jobId: 'J-UI28', jobTitle: '成品仓储分拣员', projectId: 'P-UI28', projectName: '立讯精密昆山二期',
+  status: 'PENDING_INTERVIEW', fromPublic: false, createdAt: atHour(-22), responseDeadline: atHour(2),
+  allowedActions: ['ACKNOWLEDGE', 'ARRIVE', 'PASS', 'FAIL', 'NO_SHOW', 'CANCEL'], ...extra })
+const siteApps = [siteApp(1),
+  siteApp(2, { createdAt: atHour(-16), responseDeadline: atHour(8), acknowledgedAt: atHour(-1), interviewAt: atHour(1), notice: fixtureNotice,
+    allowedActions: ['REPUSH', 'ARRIVE', 'PASS', 'FAIL', 'NO_SHOW', 'CANCEL'] }),
+  siteApp(3, { createdAt: atHour(-12), responseDeadline: atHour(12), acknowledgedAt: atHour(-1), interviewAt: atHour(0), arrivedAt: atHour(0), notice: fixtureNotice,
+    allowedActions: ['REPUSH', 'PASS', 'FAIL', 'NO_SHOW', 'CANCEL'] }),
+  siteApp(4, { status: 'PENDING_CONFIRM', createdAt: atHour(-8), responseDeadline: atHour(18), acknowledgedAt: atHour(-7), interviewAt: atHour(-6), arrivedAt: atHour(-6),
+    notice: { ...fixtureNotice, interviewAt: atHour(-6), pushedAt: atHour(-7) }, allowedActions: ['CONFIRM', 'CANCEL'] })]
+const pageOf = (records) => reply({ records, total: records.length, page: 1, pageSize: 20 })
+const fixtureInsight = reply({ profileTags: ['接受进厂', '地域不限', '经验 1–3 年'],
+  matchRecords: [{ matchedAt: atHour(-23), source: true, jobs: [{ jobId: 'J-UI28', title: '成品仓储分拣员', matchScore: 91, reasonText: '薪资与住宿符合期望', appliedJob: true }] }], history: [] })
+// BrokerService.CaseRow：联系 SLA 2h，处理 SLA 24h；完整的开放工单让动作保持可测。
+const fixtureCases = [1, 2].map((id) => ({ id, userId: 'U-UI28-B' + id, seekerName: id === 1 ? '周**' : '吴**', phoneMasked: '139****000' + id,
+  triggerType: 'SITE_TRANSFER', status: 'OPEN', fromMemberId: 'M-UI28', fromMemberName: '王磊', createdAt: atHour(-1),
+  contactDueAt: atHour(1), resolveDueAt: atHour(23), matchCount: 2, profileSummary: '接受进厂，期望包吃住，长白班', allowedActions: ['CONTACT', 'REPORT', 'RECOMMEND', 'RELEASE'] }))
+const timeProofRules = [
+  { url: WB_API, method: 'GET', action: 'respond', body: fakeWb({ pendingAck: 1, pendingInterview: 3, pendingConfirm: 1, privatePending: 3, arrivedToday: 1, windowsDueIn4h: 4 }) },
+  { url: PP_API, method: 'GET', action: 'respond', body: ppDueSoon },
+  ...siteApps.flatMap((a) => [
+    { url: TAPPS_API + '/' + a.applicationId + '/insight', method: 'GET', action: 'respond', body: fixtureInsight },
+    { url: TAPPS_API + '/' + a.applicationId, method: 'GET', action: 'respond', body: reply(a) },
+  ]),
+  // cdp 按地址片段首个命中；两个端的参数顺序不同，先放细筛选，再放状态筛选。
+  { url: TAPPS_API + '?status=PENDING_INTERVIEW&unacknowledged=true', method: 'GET', action: 'respond', body: pageOf([siteApps[0]]) },
+  { url: TAPPS_API + '?status=PENDING_INTERVIEW&arrivedToday=true', method: 'GET', action: 'respond', body: pageOf([siteApps[2]]) },
+  ...['PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED'].flatMap((status) => ['', 'page=1&pageSize=100&sort=DEADLINE&'].map((prefix) => ({
+    url: TAPPS_API + '?' + prefix + 'status=' + status, method: 'GET', action: 'respond', body: pageOf(siteApps.filter((a) => a.status === status)),
+  }))),
+  { url: '/tenant/broker/cases/counts', method: 'GET', action: 'respond', body: reply({ OPEN: 2 }) },
+  ...fixtureCases.map((c) => ({ url: '/tenant/broker/cases/' + c.id + '/report', method: 'GET', action: 'respond', body: reply(null) })),
+  { url: '/tenant/broker/cases', method: 'GET', action: 'respond', body: reply(fixtureCases) },
+]
+const alarmRules = () => sr()
 const dialogBtn = (text) => `[...document.querySelectorAll('.van-dialog button')].find((b) => b.innerText.includes(${JSON.stringify(text)})).click()`
 // 弹窗确认按钮连点两次：第二次点的是正在转圈的那个按钮（转圈时文字不显示），没在转就再点一次确认
 const dialogTwice = (text) => `(async () => { ${dialogBtn(text)}; await ${wait(300)}
@@ -3430,6 +3468,23 @@ const STATES = [
     steps: [`${findBtn('处罚', '#app .result')}.click()`, wait(500), fillTa('.el-dialog', '岗位薪资与实际发放不符'), `${findBtn('执行处罚', '.el-dialog__footer')}.click()`, wait(500), boxOk('确定'), toastShown],
     checks: [boxWhy('确定', '暂时不能执行处罚：该公司已处于更高等级的处罚'), `document.querySelector('.el-dialog .blocked-why, .el-dialog .form-err') ? '处罚弹窗里又写了一遍被拒原因' : ''`] },
 ]
+
+// 求职者的身份与当前报名也会被窗口任务推进；只替换依赖这些状态的人物，专用失败/空态规则仍优先。
+for (const s of STATES) {
+  if (s.app !== 'seeker' || !['registered', 'matched', 'acknowledged', 'confirmed'].includes(s.persona)) continue
+  const status = { registered: 'PRIVATE_PENDING', matched: 'PRIVATE_PENDING', acknowledged: 'PENDING_INTERVIEW', confirmed: 'PENDING_CONFIRM' }[s.persona]
+  const profile = { userId: data.personas[s.persona].userId, phoneMasked: '139****0028', status, domainTag: status === 'PRIVATE_PENDING' ? 'PRIVATE' : 'TEMP_PRIVATE', matchScope: status === 'PRIVATE_PENDING' ? 'OWN_COMPANY' : 'LOCKED',
+    canStartMatching: status === 'PRIVATE_PENDING', boundCompanyName: '仕兔演示劳务', sourceIsPlatform: false, kycStatus: 'VERIFIED',
+    registeredAt: atHour(-6), responseDeadline: atHour(18) }
+  const applications = ['PENDING_INTERVIEW', 'PENDING_CONFIRM'].includes(status)
+    ? [fakeApp(1, status, { applicationId: data.ids.seekerApplicationId, createdAt: atHour(-6), ...(status === 'PENDING_INTERVIEW' ? { notice: fixtureNotice } : {}) })] : []
+  s.rules = [...(s.rules ?? []),
+    // /seeker/me 也会匹配 /seeker/messages；先放行消息 GET，避免档案串到消息响应。
+    { url: '/seeker/messages', method: 'GET', action: 'continue' },
+    { url: ME, method: 'GET', action: 'respond', body: reply(profile) },
+    { url: APPS_API, method: 'GET', action: 'respond', body: reply(applications) },
+  ]
+}
 
 const todo = STATES.filter((s) => (!args.apps.length || args.apps.includes(s.app)) && (!only || `${s.screen}_${s.state}`.includes(only)))
 if (!todo.length) { console.log('没有匹配的状态'); process.exit(1) }
