@@ -1707,6 +1707,30 @@ const footWhy = (sel) => `(() => { const e = document.querySelector(${JSON.strin
 const forceLeft = (sel) => `(() => { const f = ${JSON.stringify(sel + ' .el-drawer__footer')}; const x = [...document.querySelectorAll(f + ' button')].find((b) => b.innerText.includes('强制下架')), r = [...document.querySelectorAll(f + ' button')].find((b) => b.innerText.trim() === '驳回')
   if (!x || !r) return '没有「强制下架」或「驳回」'; const cl = [...document.querySelectorAll(f + ' button')].find((b) => b.innerText.trim() === '关闭').getBoundingClientRect(), xr = x.getBoundingClientRect(), rr = r.getBoundingClientRect()
   if (xr.left - cl.right > 16) return '「强制下架」没挨着「关闭」'; return rr.left - xr.right > 80 ? '' : '「强制下架」和「驳回」挤在一起' })()`
+// 岗位审核与合同备案页签：按实际背景计算普通文字对比度，不按白底估算。
+const auditTabContrast = `(() => {
+  const tabs = [...document.querySelectorAll('#app .tabs [role=tab]')].filter((el) => el.matches('.is-active, :hover'))
+  if (!tabs.length) return '没有选中或悬停的审核页签'
+  const rgb = (c) => c.match(/[\\d.]+/g).map(Number)
+  const lum = (c) => { const [r, g, b] = c.slice(0, 3).map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const bad = []
+  for (const tab of tabs) {
+    let bg
+    for (let el = tab; el; el = el.parentElement) {
+      const cs = getComputedStyle(el), color = rgb(cs.backgroundColor)
+      if (cs.backgroundImage !== 'none' || Number(cs.opacity) !== 1) return '页签背景存在图片或透明度，不能判定对比度'
+      if (color.length === 4 && color[3] === 0) continue
+      if (color.length === 4 && color[3] !== 1) return '页签背景半透明，不能判定对比度'
+      bg = color; break
+    }
+    if (!bg) return '没有找到页签的实际背景'
+    const cs = getComputedStyle(tab), fg = rgb(cs.color)
+    if (fg.length === 4 && fg[3] !== 1) return '页签文字半透明，不能判定对比度'
+    const a = lum(fg), b = lum(bg), ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+    if (ratio < 4.5) bad.push(tab.textContent.trim() + '：' + cs.fontSize + '/' + cs.fontWeight + '，' + cs.color + '，背景 ' + bg.join(',') + '，对比度 ' + ratio.toFixed(4) + ':1 < 4.5:1')
+  }
+  return bad.join('；')
+})()`
 // 未勾选的复选框边框对比度不低于 3:1（同 console checkboxContrast，查页面上的）
 const pageCheckbox = `(() => { const box = document.querySelector('#app .el-checkbox:not(.is-checked) .el-checkbox__inner'); if (!box) return '没有未勾选的复选框'
   const lum = (c) => { const [r, g, b] = c.match(/\\d+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
@@ -3329,8 +3353,8 @@ const STATES = [
       `(() => { const b = ${findBtn('调整状态', CD + ' .el-drawer__footer')}; if (b.disabled) throw new Error('关掉弹窗后「调整状态」还是灰的'); b.click() })()`, wait(500), ...pickStatus('限流')],
     checks: [`${findBtn('确认调整', '.el-dialog__footer')}?.disabled === false ? '' : '重新打开后「确认调整」还是灰的'`, `document.querySelector('.el-dialog .blocked-why') ? '重新打开后还留着上次的被拒原因' : ''`] },
   // ---- 工单 23：岗位审核 · 合同备案（第 8 类：标签页 → 表格 → 岗位抽屉 / 合同表格里审核）----
-  { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', rules: or(), checks: [cSide('ops'), sideActive, cLegacy16, tblFit, opsCol, opsTap, statusTags, rowsTall, queryReset, queryPlain, hasPager] },
-  { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), checks: [tblFit, opsCol, cFitAny] },
+  { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', rules: or(), checks: [auditTabContrast, cSide('ops'), sideActive, cLegacy16, tblFit, opsCol, opsTap, statusTags, rowsTall, queryReset, queryPlain, hasPager] },
+  { app: 'ops', screen: 'job-audit', state: 'normal', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), checks: [auditTabContrast, tblFit, opsCol, cFitAny] },
   { app: 'ops', screen: 'job-audit', state: 'all', persona: 'ops', path: '/governance/job-audit', width: 1280, height: 800, rules: or(), steps: pickTab('全部'), checks: [tblFit, opsCol, statusTags, rowsTall, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'job-audit', state: 'loading', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'hang' }), quick: true, steps: [wait(600)], checks: [tblMask, tabsBlank, hasNot('暂无待审核')] },
   { app: 'ops', screen: 'job-audit', state: 'empty', persona: 'ops', path: '/governance/job-audit', rules: or({ url: J_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待审核岗位'), allZero, `document.querySelector('#app .tbl-card .el-pagination') ? '没有记录却显示了分页' : ''`] },
@@ -3350,8 +3374,8 @@ const STATES = [
     steps: [...openAudit, wait(600), ...inDrawer(JD, '审核通过'), boxOk('通过'), toastShown],
     checks: [boxWhy('通过', '暂时不能审核通过：该公司与甲方没有生效中的合作合同。请先在「合同备案」中审核'), whyStays(JD + ' .rv-foot .blocked-why', '请先在「合同备案」中审核'), drawerOnlyOff(JD, '审核通过'), footWhy(JD)] },
   { app: 'ops', screen: 'job-drawer', state: 'force-offline', persona: 'ops', path: '/governance/job-audit', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(JD, '强制下架')], checks: [boxTitle, boxReasonInput, boxDanger('强制下架')] },
-  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), checks: [cLegacy16, tblFit, opsTap, statusTags, reviewOpsFor('通过'), queryReset, queryPlain, hasPager, `(() => { const n = document.querySelector('#app .filter-tabs button.on .n')?.innerText.trim(), r = document.querySelectorAll('#app .el-table__body tr').length; return n === String(r) ? '' : '待审核页签写 ' + n + '，表格里 ' + r + ' 行' })()`, matSpec('#app .tbl-card', { cols: false })] },
-  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: kRules(), checks: [tblFit, reviewOpsFor('通过'), cFitAny, nameOneLine] },
+  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: kRules(), checks: [auditTabContrast, cLegacy16, tblFit, opsTap, statusTags, reviewOpsFor('通过'), queryReset, queryPlain, hasPager, `(() => { const n = document.querySelector('#app .filter-tabs button.on .n')?.innerText.trim(), r = document.querySelectorAll('#app .el-table__body tr').length; return n === String(r) ? '' : '待审核页签写 ' + n + '，表格里 ' + r + ' 行' })()`, matSpec('#app .tbl-card', { cols: false })] },
+  { app: 'ops', screen: 'contracts', state: 'normal', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: kRules(), checks: [auditTabContrast, tblFit, reviewOpsFor('通过'), cFitAny, nameOneLine] },
   { app: 'ops', screen: 'contracts', state: 'real', persona: 'ops', path: '/governance/job-audit?tab=contracts', width: 1280, height: 800, rules: or(), steps: pickTab('全部'), checks: [tblFit, statusTags, cFitAny, nameOneLine] },
   { app: 'ops', screen: 'contracts', state: 'empty', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: or({ url: K_LIST, action: 'respond', body: emptyPage }), checks: [has('暂无待备案合同')] },
   { app: 'ops', screen: 'contracts', state: 'error', persona: 'ops', path: '/governance/job-audit?tab=contracts', rules: or({ url: K_LIST, action: 'fail' }), checks: [failHint(true), oneRetry] },

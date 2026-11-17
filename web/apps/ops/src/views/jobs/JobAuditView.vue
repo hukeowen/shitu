@@ -42,6 +42,8 @@ watch(
 
 <style scoped>
 .tabs :deep(.el-tabs__header) { margin-bottom: var(--space-4); }
+.tabs :deep(.el-tabs__item.is-active),
+.tabs :deep(.el-tabs__item:hover) { color: var(--primary-text); }
 /* 页签上的待办数：共享状态标签（提醒色），没拿到数据时不显示 */
 .cnt { margin-left: var(--space-2); font-variant-numeric: tabular-nums; }
 </style>
