@@ -78,7 +78,7 @@ async function submit() {
   } catch (e) {
     showToast(errorMessage(e, '上报失败'))
     submitError.value = errorMessage(e, '上报失败')
-    rejected.value = isApiError(e)
+    rejected.value = isApiError(e) && e.code !== 'NETWORK'
   } finally {
     form.saving = false
   }

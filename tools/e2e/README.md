@@ -89,6 +89,17 @@ node states.mjs <任务目录>/screenshots --app seeker   # 状态截图，文�
 - 一个路由在不同状态下长得不一样时，在 `routes.mjs` 里登记多个人物（求职者首页就截了游客、自由求职、专属服务、待面试、在岗几种）。
 - 报名成功页、入驻申请页、游客首页不能直接输地址进，`routes.mjs` 里给它们配了进入脚本。
 
+### 网络失败后重试回归（不产截图）
+
+```bash
+node tools/e2e/network-retry.mjs
+node tools/e2e/network-retry.mjs --app staff --only reason,advance --mode fail
+```
+
+复用上述专用 Chrome、本机服务和已有测试人物会话；缺少或过期会话时检查失败，不自动发送短信登录。`--app` 支持 seeker / staff；`--only` 支持 recommendations、reason、ack、confirm、advance、messages、incidents、absence、transfer，以及共用组件入口 reason-todo、reason-detail、ack-reminders、advance-detail（逗号分隔）；`--mode` 支持 fail / hang / business，省略时全部运行。
+
+`fail` 中断真实请求，`hang` 等待客户端原有 15 秒超时；检查提示、输入保留、提交状态复位，以及无需刷新即可发起第二次请求并成功。`business` 返回业务拒绝信封，检查原有禁用与原因留存。所有业务写请求由 CDP 拦截，只有会话刷新放行；成功响应使用测试夹具，不产生真实报名、推送、上报或其他业务数据。测试会轮换已有会话，不与其他浏览器脚本并行运行。
+
 ### 注意
 
 - 后端限制同一 IP 每小时 30 条短信验证码。`seed.mjs` 要新登录约 29 个手机号，跑它前后一小时内别跑 `flow.mjs`、`ui-smoke.mjs`（各自还要注册新求职者）。

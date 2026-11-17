@@ -91,7 +91,7 @@ async function readAll() {
     showToast('已全部标为已读')
   } catch (e) {
     readAllError.value = errorMessage(e)
-    readAllRejected.value = isApiError(e)
+    readAllRejected.value = isApiError(e) && e.code !== 'NETWORK'
     showToast(readAllError.value)
   } finally {
     markingAll.value = false

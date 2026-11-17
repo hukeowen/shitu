@@ -61,7 +61,7 @@ async function beforeClose(action: string): Promise<boolean> {
     return true
   } catch (e) {
     submitError.value = errorMessage(e, '提交失败，请稍后重试')
-    rejected.value = isApiError(e)
+    rejected.value = isApiError(e) && e.code !== 'NETWORK'
     return false
   }
 }

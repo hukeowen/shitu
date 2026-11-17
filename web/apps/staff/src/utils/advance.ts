@@ -31,7 +31,7 @@ async function submitSiteReview(id: string, approve: boolean, opinion: string, o
     showSuccessToast(approve ? '初审已通过，已推送项目经理终审' : '已驳回，机会已退回')
   } catch (e) {
     showToast(errorMessage(e, '提交失败，请稍后重试'))
-    if (isApiError(e)) onRejected?.(errorMessage(e))
+    if (isApiError(e) && e.code !== 'NETWORK') onRejected?.(errorMessage(e))
     throw e
   }
 }

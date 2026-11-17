@@ -21,7 +21,7 @@ const emit = defineEmits<{
 const target = shallowRef<SiteApplication | null>(null)
 const pending = shallowRef<SiteApplicationAction | null>(null)
 function reject(e: unknown) {
-  if (isApiError(e) && target.value && pending.value) emit('rejected', target.value, pending.value, errorMessage(e))
+  if (isApiError(e) && e.code !== 'NETWORK' && target.value && pending.value) emit('rejected', target.value, pending.value, errorMessage(e))
 }
 const ackShow = ref(false)
 const cfShow = ref(false)

@@ -79,7 +79,7 @@ async function accept(r: MyRecommendation) {
     busy.value = null
     const msg = errorMessage(e, '操作失败，请稍后重试')
     // 业务上被拒（不是网络问题）：再点也一样，置灰并留下原因；档案状态可能已变，顺手刷新
-    if (isApiError(e)) {
+    if (isApiError(e) && e.code !== 'NETWORK') {
       refused.value[r.id] = msg
       void auth.loadProfile().catch(() => undefined)
     }

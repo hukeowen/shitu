@@ -113,7 +113,7 @@ async function submit() {
   } catch (e) {
     submitError.value = errorMessage(e, '提交失败，请稍后重试')
     submitting.value = false
-    rejected.value = isApiError(e)
+    rejected.value = isApiError(e) && e.code !== 'NETWORK'
     showToast(submitError.value)
     emit('rejected', e)
   } finally {

@@ -148,7 +148,7 @@ async function transfer(p: PrivatePendingRow) {
           return true
         } catch (e) {
           showToast(errorMessage(e, '流转失败，请稍后重试'))
-          if (isApiError(e)) blocked.value = { ...blocked.value, [p.userId]: { text: `暂时不能流转：${errorMessage(e)}` } }
+          if (isApiError(e) && e.code !== 'NETWORK') blocked.value = { ...blocked.value, [p.userId]: { text: `暂时不能流转：${errorMessage(e)}` } }
           return false
         }
       },

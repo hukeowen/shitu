@@ -118,7 +118,7 @@ async function submit() {
   } catch (e) {
     showToast(errorMessage(e, '标记失败，请稍后重试'))
     submitError.value = errorMessage(e, '标记失败，请稍后重试')
-    rejected.value = isApiError(e)
+    rejected.value = isApiError(e) && e.code !== 'NETWORK'
   } finally {
     saving.value = false
   }
