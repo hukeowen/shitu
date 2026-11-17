@@ -198,7 +198,7 @@ onMounted(() => {
             <el-option v-for="o in roleOptions" :key="o.value" :label="o.label" :value="o.value" />
           </el-select>
           <div class="tb-group">
-            <el-input v-model="filter.keyword" placeholder="姓名 / 手机号" clearable style="width: 200px" @keyup.enter="load" @clear="load" />
+            <el-input v-model="filter.keyword" placeholder="姓名 / 完整手机号" clearable style="width: 200px" @keyup.enter="load" @clear="load" />
             <el-button @click="load">查询</el-button>
           </div>
         </div>

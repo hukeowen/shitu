@@ -103,6 +103,12 @@ class Sprint1FlowIT {
                 Map.of("name", "刘建国", "phone", pmPhone, "roles", new String[]{"PM"})));
         String pmId = pm.get("memberId").asText();
         assertThat(pm.get("phoneMasked").asText()).contains("****");
+        // 成员列表：按完整手机号（加密存储，走盲索引）和按姓名都能搜到
+        JsonNode byPhone = data(call(get("/api/v1/tenant/members?keyword=" + pmPhone), a.ownerToken, null));
+        assertThat(byPhone).hasSize(1);
+        assertThat(byPhone.get(0).get("memberId").asText()).isEqualTo(pmId);
+        assertThat(data(call(get("/api/v1/tenant/members?keyword=建国"), a.ownerToken, null))).hasSize(1);
+        assertThat(data(call(get("/api/v1/tenant/members?keyword=13900000000"), a.ownerToken, null))).isEmpty();
         // 同一手机号不能加入第二家公司
         assertThat(code(call(post("/api/v1/tenant/members"), b.ownerToken,
                 Map.of("name", "张三", "phone", pmPhone, "roles", new String[]{"SITE"})))).isEqualTo("TEN_4002");

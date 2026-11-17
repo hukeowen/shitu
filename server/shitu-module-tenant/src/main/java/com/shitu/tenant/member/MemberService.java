@@ -98,8 +98,12 @@ public class MemberService {
     // ------------------------------------------------------------------ 公司后台（TENANT 模式）
 
     public List<MemberView> list(String keyword, ActorRole role) {
+        String kw = keyword == null ? "" : keyword.trim();
+        // 手机号加密保存，只能按完整号码查（盲索引）；其余关键字按姓名模糊查
+        boolean byPhone = kw.matches("1\\d{10}");
         List<Member> list = members.selectList(new LambdaQueryWrapper<Member>()
-                .like(keyword != null && !keyword.isBlank(), Member::getName, keyword)
+                .eq(byPhone, Member::getPhoneHash, byPhone ? cipher.blindIndex(kw) : null)
+                .like(!byPhone && !kw.isEmpty(), Member::getName, kw)
                 .like(role != null, Member::getRoles, role == null ? null : role.name())
                 .orderByAsc(Member::getCreatedAt));
         Map<String, List<ProjectRef>> refs = projectRefs(list.stream().map(Member::getMemberId).toList());

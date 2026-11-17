@@ -246,7 +246,7 @@ const FLOWS = {
     // 收尾：老板把这个验收成员停用
     await loginConsole('13800000001')
     await ui.goto('/admin/settings/org')
-    await ui.fill('姓名 /', name)
+    await ui.fill('姓名 / 完整手机号', phone) // 手机号加密存储，按完整号码查
     await ui.click('查询')
     await ui.click('停用', { within: name })
     await ui.click('停用')
