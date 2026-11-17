@@ -7,13 +7,13 @@ import type { Domain } from "./types"
 const props = defineProps<{ domain: Domain; text?: string }>()
 
 const META: Record<Domain, { label: string; cls: string }> = {
-  PRIVATE: { label: '私域', cls: 'tag-private' },
-  PUBLIC: { label: '公域', cls: 'tag-public' },
-  TEMP_PRIVATE: { label: '临时私域', cls: 'tag-temp' },
+  PRIVATE: { label: '私域', cls: 'status-tag--private' },
+  PUBLIC: { label: '公域', cls: 'status-tag--public' },
+  TEMP_PRIVATE: { label: '临时私域', cls: 'status-tag--pending' },
 }
 const meta = computed(() => META[props.domain])
 </script>
 
 <template>
-  <span class="tag-domain" :class="meta.cls">{{ text || meta.label }}</span>
+  <span class="status-tag" :class="meta.cls">{{ text || meta.label }}</span>
 </template>

@@ -15,21 +15,16 @@ ul, ol { list-style: none; }
 .stack > * { min-width: 0; }
 .pad { padding: var(--space-page); }
 
-/* 旧标签：只剩开发环境的模拟签署页（不在改版范围内）在用；新代码用 tokens.css 的 .status-tag */
-.tag { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-tag); font-size: var(--font-size-min); font-weight: var(--font-weight-medium); line-height: 1; background: var(--bg-fill); color: var(--text-2); border: 1px solid transparent; white-space: nowrap; }
-.tag.tag-warn { color: var(--warning-text); background: var(--warning-soft); border-color: transparent; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 
 /* 头像：浅蓝底加主色字 */
 .avatar { width: 36px; height: 36px; border-radius: var(--radius-control); flex: none; display: grid; place-items: center; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--primary-text); background: var(--primary-bg); }
-.avatar--sm { width: 28px; height: 28px; font-size: var(--font-size-min); }
 .avatar--lg { width: 48px; height: 48px; font-size: var(--font-size-section); }
 
 /* 卡片 */
 .acard { background: var(--bg-card); border-radius: var(--radius-card); padding: var(--space-card); box-shadow: var(--shadow-card); }
 .acard-hd { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
 .acard-hd h4 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 24px; }
-
 
 /* 白色身份头（首页） */
 .home-head { padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-page) var(--space-4); background: var(--bg-card); border-bottom: 1px solid var(--border); }
@@ -106,7 +101,6 @@ ul, ol { list-style: none; }
 
 /* ---------- 问薪 / 岗位 / 报名 / 报备 ---------- */
 .row-b { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.stack-sm > * + * { margin-top: var(--space-2); }
 .pad-x { padding-left: var(--space-page); padding-right: var(--space-page); }
 .divider { height: 1px; background: var(--divider); margin: var(--space-3) 0; }
 .strong { color: var(--text-1); font-weight: var(--font-weight-semibold); }
@@ -120,8 +114,6 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .chip-tap .chip { display: inline-flex; align-items: center; gap: var(--space-1); }
 
 .note--warn { background: var(--warning-soft); }
-.note--ok { background: var(--success-soft); }
-.note--danger { background: var(--danger-soft); }
 
 /* 时间线 */
 .tl { position: relative; padding-left: 20px; }

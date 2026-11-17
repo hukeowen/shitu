@@ -74,7 +74,7 @@ async function sign() {
     <header class="es-bar">
       <span class="logo">e</span>
       <div class="flex1"><b>电子签署</b><span>模拟 e签宝 · 仅开发环境</span></div>
-      <span class="tag tag-warn">MOCK</span>
+      <span class="status-tag status-tag--warning">MOCK</span>
     </header>
 
     <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
@@ -132,20 +132,20 @@ async function sign() {
 </template>
 
 <style scoped>
-.es { min-height: 100vh; background: var(--surface-2); }
-.es-bar { display: flex; align-items: center; gap: 10px; padding: calc(12px + env(safe-area-inset-top)) 14px 12px; background: #1F5FBF; color: #fff; }
-.es-bar b { display: block; font-size: 15px; }
-.es-bar span:not(.tag):not(.logo) { font-size: 11px; opacity: .7; }
-.logo { width: 30px; height: 30px; border-radius: 8px; background: #fff; color: #1F5FBF; font-weight: 800; display: grid; place-items: center; font-size: 17px; flex: none; }
-.paper { border: 1px solid var(--line); border-radius: var(--r-md); background: #fff; padding: 14px 12px; font-size: 12px; color: var(--ink-600); line-height: 1.8; }
-.paper-t { text-align: center; font-weight: 700; font-size: 14px; color: var(--ink-900); }
-.paper-no { text-align: center; font-size: 10.5px; color: var(--ink-400); margin-bottom: 8px; }
+.es { min-height: 100vh; background: var(--bg-hover); }
+.es-bar { display: flex; align-items: center; gap: 10px; padding: calc(12px + env(safe-area-inset-top)) 14px 12px; background: var(--primary); color: var(--text-on-primary); }
+.es-bar b { display: block; font-size: var(--font-size-body); }
+.es-bar span:not(.status-tag):not(.logo) { font-size: var(--font-size-min); }
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--bg-card); color: var(--primary); font-weight: var(--font-weight-semibold); display: grid; place-items: center; font-size: var(--mobile-nav-title-size); flex: none; }
+.paper { border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); padding: 14px 12px; font-size: var(--font-size-body); color: var(--text-2); line-height: 1.8; }
+.paper-t { text-align: center; font-weight: var(--font-weight-semibold); font-size: var(--font-size-section); color: var(--text-1); }
+.paper-no { text-align: center; font-size: var(--font-size-min); color: var(--text-3); margin-bottom: 8px; }
 .paper .gap { margin-top: 6px; }
-.paper b { color: var(--ink-900); }
-.fid { font-size: 11px; }
-.agree { font-size: 12.5px; padding: 0 2px; }
-.agree :deep(.van-checkbox__label) { color: var(--ink-700); line-height: 1.5; }
-.ok { text-align: center; padding: 26px 16px; border-color: var(--ok-line); background: var(--ok-bg); }
-.ok-ic { color: var(--ok); }
-.ok-t { font-size: 18px; font-weight: 700; color: var(--ok); }
+.paper b { color: var(--text-1); }
+.fid { font-size: var(--font-size-min); }
+.agree { font-size: var(--font-size-body); padding: 0 2px; }
+.agree :deep(.van-checkbox__label) { color: var(--text-2); line-height: 1.5; }
+.ok { text-align: center; padding: 26px 16px; border-color: var(--success-text); background: var(--success-soft); }
+.ok-ic { color: var(--success-text); }
+.ok-t { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--success-text); }
 </style>

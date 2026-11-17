@@ -44,8 +44,6 @@ ul, ol { list-style: none; }
 .tipbar-act { flex: none; display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: calc(var(--space-3) * -1) 0; padding: 0; border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); white-space: nowrap; }
 .tipbar--warn { background: var(--warning-soft); }
 .tipbar--warn > svg { color: var(--warning-text); }
-.tipbar--ok { background: var(--success-soft); }
-.tipbar--ok > svg { color: var(--success-text); }
 .tipbar--danger { background: var(--danger-soft); }
 .tipbar--danger > svg { color: var(--danger-text); }
 
