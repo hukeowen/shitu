@@ -31,7 +31,7 @@ a { color: inherit; text-decoration: none; }
 .card__ft { padding: 10px var(--space-4); border-top: 1px solid var(--divider); background: var(--bg-hover); border-radius: 0 0 var(--radius-card) var(--radius-card); }
 
 /* ---------- Stat ---------- */
-.stat { padding: 14px var(--space-4); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.stat { padding: var(--space-4); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
 .stat-l { font-size: var(--font-size-aux); color: var(--text-2); }
 .stat-v { font-size: var(--font-size-metric); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .stat-d { font-size: var(--font-size-min); margin-top: var(--space-1); color: var(--text-3); }

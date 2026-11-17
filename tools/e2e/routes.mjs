@@ -166,6 +166,48 @@ const OPS = [
   ['/forbidden', 'ops', () => '/forbidden?from=/system/admins'],
 ]
 
+/** 规范的 17 类排法；同一路由可有多种排法，供总览交叉浏览。 */
+export const PAGE_TYPES = {
+  dashboard: '工作台 / 仪表盘', table: '数据表格列表', 'card-list': '卡片列表',
+  'list-detail': '列表 + 详情', detail: '详情页', form: '表单 / 编辑', wizard: '多步向导',
+  review: '审核处理', billing: '账单 / 财务明细', charts: '图表统计', settings: '设置 / 配置',
+  login: '登录 / 认证', result: '结果 / 提示', messages: '消息 / 通知', profile: '个人中心',
+  import: '导入', lookup: '查询检索',
+}
+
+// 按 design-system 的适用页面登记，不能用路径前缀猜测页面类型。
+const TYPE_ROUTES = {
+  seeker: {
+    dashboard: ['/'], 'card-list': ['/reports', '/match/result', '/kyc/appeals', '/contracts', '/recommendations', '/ledger'],
+    detail: ['/reports/:applicationId', '/jobs/:jobId', '/contracts/sign', '/contracts/:id', '/work', '/advance/:id'],
+    form: ['/kyc', '/resume', '/feedback'], wizard: ['/match', '/match/quiz'],
+    billing: ['/advance', '/advance/records', '/payslips', '/payslips/:id'],
+    login: ['/login'], result: ['/apply/success'], messages: ['/messages'], profile: ['/me'],
+  },
+  staff: {
+    dashboard: ['/'], 'card-list': ['/todo', '/reminders', '/employees', '/advance'],
+    detail: ['/applications/:id', '/my-code'], form: ['/incidents'], review: ['/advance', '/advance/:id'],
+    login: ['/login'], result: ['/notice'], messages: ['/messages'], profile: ['/me'],
+  },
+  console: {
+    dashboard: ['/site/home', '/pm/board', '/owner/overview'],
+    table: ['/site/todo', '/site/follow', '/site/onboard', '/pm/resign', '/pm/jobs', '/pm/kb', '/pm/staff', '/pm/incidents'],
+    'list-detail': ['/site/home', '/broker/pool', '/broker/report', '/broker/rematch'],
+    form: ['/pm/jobs/edit', '/onboarding/apply'], review: ['/pm/advance', '/payroll/appeals', '/site/onboard', '/pm/resign'],
+    billing: ['/owner/bills', '/circulation/ledger', '/circulation/people', '/payroll/recon'],
+    charts: ['/owner/channel-report', '/owner/overview', '/pm/kb', '/site/follow'],
+    settings: ['/settings/projects', '/settings/channels', '/settings/org'], login: ['/login'],
+    result: ['/onboarding/status'], import: ['/payroll/batches', '/pm/roster'],
+  },
+  ops: {
+    dashboard: ['/workbench'], table: ['/engine/quiz', '/companies/stock', '/governance/throttle', '/settlement/audit', '/system/admins'],
+    form: ['/engine/quiz/:versionId'], review: ['/companies/list', '/governance/job-audit', '/governance/compliance', '/governance/complaints', '/governance/feedback', '/ops/attribution'],
+    billing: ['/settlement/bills'], charts: ['/ops/overview', '/engine/quiz'],
+    settings: ['/engine/params', '/settlement/rules', '/system/templates', '/system/holidays', '/system/params', '/engine/quiz', '/engine/quiz/:versionId'],
+    login: ['/login'], result: ['/forbidden'], lookup: ['/ops/attribution', '/engine/match-snapshot', '/governance/credit'],
+  },
+}
+
 const slug = (route) => (route === '/' ? 'home' : route.slice(1).replaceAll('/', '_').replaceAll(':', ''))
 
 /** 全部截图条目。同一路由截多个人物时，除第一个外文件名带上人物。 */
@@ -174,7 +216,8 @@ export const ROUTES = Object.entries({ seeker: SEEKER, staff: STAFF, console: CO
   return list.map(([route, persona, to, enter, fixedName]) => {
     const name = fixedName ?? (seen.has(route) || (route === '/' && app === 'seeker') ? `${slug(route)}@${persona}` : slug(route))
     seen.add(route)
-    return { app, route, persona, to, enter, name, file: `${app}/${name}.png` }
+    const types = name === 'splash' ? ['login'] : Object.entries(TYPE_ROUTES[app]).filter(([, routes]) => routes.includes(route)).map(([type]) => type)
+    return { app, route, persona, to, enter, name, types, file: `${app}/${name}.png` }
   })
 })
 
