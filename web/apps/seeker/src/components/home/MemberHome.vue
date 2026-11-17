@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type MyApplication, type MyWork } from '@shitu/api-client'
-import { BrandMark, IconBell, IconCheck, IconChevronRight, IconCircleCheck, IconClock, IconFilePenLine, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { BrandMark, IconBell, IconCheck, IconChevronRight, IconClock, IconFilePenLine, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import QuadGrid from '@/components/QuadGrid.vue'
 import type { QuadItem } from '@/components/quad'
@@ -11,7 +11,6 @@ import { useCountdown } from '@/composables/useCountdown'
 import { useJourney } from '@/composables/useJourney'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
-import { termText } from '@/utils/contract'
 import { formatRelative, formatServerTime, formatShort, parseServerTime } from '@/utils/time'
 import { STATUS_TONE } from '@/utils/status'
 
@@ -281,18 +280,12 @@ const progress = computed(() => {
               <div class="flex1">
                 <div class="sign-t"><span class="flex1">请签署劳动合同</span><span class="status-tag status-tag--warning">待签署</span></div>
                 <div class="t-sm">{{ pendingSign.title }}<template v-if="pendingSign.companyName"> · {{ pendingSign.companyName }}</template></div>
-                <div class="t-sm">{{ pendingSign.jobTitle || '' }}<template v-if="pendingSign.jobTitle"> · </template>{{ termText(pendingSign) }}</div>
+                <div v-if="pendingSign.jobTitle && !pendingSign.title.includes(pendingSign.jobTitle)" class="t-sm">{{ pendingSign.jobTitle }}</div>
+                <div class="t-sm sign-term"><span>{{ formatServerTime(pendingSign.termStart, false) }}</span><template v-if="pendingSign.termEnd"> → <span>{{ formatServerTime(pendingSign.termEnd, false) }}</span></template><template v-else> 起 · 无固定期限</template></div>
               </div>
             </div>
             <div class="sign-btn">立即签署<IconChevronRight :size="18" /></div>
           </button>
-          <section class="tipbar tipbar--ok">
-            <IconCircleCheck :size="20" />
-            <div class="flex1">
-              <div class="tipbar-t">面试已通过</div>
-              <div class="tipbar-d">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场办理入职并发起电子签约' }}<template v-if="app?.jobTitle"> · {{ app.jobTitle }}</template></div>
-            </div>
-          </section>
         </template>
 
         <!-- T-203 专属顾问推荐 -->
@@ -309,7 +302,8 @@ const progress = computed(() => {
         <div v-if="appliedLock" class="tipbar tipbar--warn">
           <IconTriangleExclamationPoint :size="20" />
           <div class="flex1">
-            <div class="tipbar-t">报名后不可再匹配、不可再报名。</div>
+            <div class="tipbar-t">{{ status === 'PENDING_CONFIRM' ? '面试已通过' : '报名后不可再匹配、不可再报名。' }}</div>
+            <div v-if="status === 'PENDING_CONFIRM'" class="tipbar-d">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场办理入职并发起电子签约' }}<template v-if="!pendingSign && app?.jobTitle"> · {{ app.jobTitle }}</template>。办理期间不可再匹配、不可再报名。</div>
             <div class="tipbar-d">如需更换岗位或取消面试，请联系驻场老师在后台操作取消 —— 你无法自行取消报名。</div>
             <div v-if="status === 'PENDING_CONFIRM'" class="tipbar-d">入职办理时限保护：若劳务公司 24 小时内未办完入职，你可以重新匹配全平台岗位。</div>
           </div>
@@ -387,6 +381,8 @@ const progress = computed(() => {
 </template>
 
 <style scoped>
+.sign-term { margin-top: var(--space-2); }
+.sign-term span { white-space: nowrap; }
 .member { min-height: 100vh; }
 .bell { position: relative; flex: none; width: 44px; height: 44px; margin-right: calc(var(--space-3) * -1); display: grid; place-items: center; color: var(--text-1); background: transparent; border: 0; padding: 0; }
 .bell .badge { position: absolute; top: 4px; right: 2px; min-width: 18px; height: 18px; padding: 0 var(--space-1); border-radius: 9px; background: var(--danger-text); color: var(--text-on-primary); font-size: var(--font-size-min); font-style: normal; line-height: 18px; text-align: center; }

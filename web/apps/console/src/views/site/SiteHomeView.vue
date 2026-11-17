@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { errorMessage, tenantApi, type ApplicationInsight, type SiteApplication, type SiteApplicationAction, type SiteWorkbench } from '@shitu/api-client'
+import { errorMessage, tenantApi, type ApplicationInsight, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
 import { IconCalendar, IconCircleExclamationPoint, IconClock, IconInbox, IconShieldCheck, IconUsers } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -30,14 +30,11 @@ const todoError = ref('')
 /** 待办拿到过数据（没拿到时阶段计数、「N 紧急」不显示数字） */
 const ready = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名的按钮置灰、原因留在详情里，刷新后重新判断 */
-const blocked = reactive<Record<string, { action: SiteApplicationAction; text: string }>>({})
 
 async function load() {
   loading.value = true
   wbError.value = ''
   todoError.value = ''
-  Object.keys(blocked).forEach((k) => delete blocked[k])
   const [w, t] = await Promise.allSettled([tenantApi.siteWorkbench(), loadOpenApplications()])
   if (w.status === 'fulfilled') wb.value = w.value
   else {
@@ -159,9 +156,6 @@ const logs = computed(() => {
   return rows.sort((x, y) => (x.at < y.at ? 1 : -1))
 })
 
-function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
-}
 </script>
 
 <template>
@@ -337,8 +331,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
           </div>
 
           <div class="d-acts">
-            <p v-if="blocked[selected.applicationId]" class="blocked-why" role="status">{{ blocked[selected.applicationId].text }}</p>
-            <AppActionButtons :app="selected" size="default" :blocked="blocked[selected.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" />
+            <AppActionButtons :app="selected" size="default" @action="(a, r) => dialogs?.run(a, r)" />
           </div>
         </template>
       </section>
@@ -368,7 +361,7 @@ function onRejected(action: SiteApplicationAction, app: SiteApplication, reason:
       </div>
     </div>
 
-    <AppActionDialogs ref="dialogs" @done="load" @rejected="onRejected" />
+    <AppActionDialogs ref="dialogs" @done="load" />
   </div>
 </template>
 

@@ -163,8 +163,8 @@ async function save() {
           </el-table-column>
         </el-table>
       </div>
-      <div v-if="!loading && loadError" class="card"><el-empty :description="loadError" :image-size="64"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button @click="load">重新加载</el-button></el-empty></div>
-      <div v-else-if="!loading && grouped.length === 0" class="card"><el-empty description="暂无参数" :image-size="64"><template #image><IconInbox :size="48" /></template></el-empty></div>
+      <div v-if="!loading && loadError" class="card"><el-empty :description="loadError" :image-size="48"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button @click="load">重新加载</el-button></el-empty></div>
+      <div v-else-if="!loading && grouped.length === 0" class="card"><el-empty :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无参数</h3><p>当前没有系统参数，可刷新后查看。</p></template><el-button type="primary" @click="load">刷新</el-button></el-empty></div>
     </div>
 
     <el-dialog class="dlg-16" v-model="dlg.open" title="修改系统参数" width="520px" destroy-on-close :close-on-click-modal="false" :close-on-press-escape="!dlg.saving" :show-close="!dlg.saving">

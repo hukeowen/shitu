@@ -26,8 +26,6 @@ const detail = ref<CompanyDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
 const offline = ref(false)
-/** 被后端拒绝的审核操作：只置灰这一个按钮，原因写在底部按钮上方 */
-const blocked = reactive<{ act: '' | 'approve' | 'reject'; why: string }>({ act: '', why: '' })
 
 async function load() {
   if (!props.companyId) return
@@ -47,7 +45,6 @@ watch(
   () => props.companyId,
   (id) => {
     detail.value = null
-    Object.assign(blocked, { act: '', why: '' })
     if (id) load()
   },
   { immediate: true },
@@ -74,7 +71,6 @@ async function approve() {
     action: '通过入驻',
     confirmText: '通过',
     api: (remark) => opsApi.approveCompany(id, remark || undefined),
-    onBlocked: (why) => Object.assign(blocked, { act: 'approve', why }),
   })
   if (ok) await done('已通过入驻审核')
 }
@@ -89,7 +85,6 @@ async function reject() {
     required: true,
     danger: true,
     api: (remark) => opsApi.rejectCompany(id, remark),
-    onBlocked: (why) => Object.assign(blocked, { act: 'reject', why }),
   })
   if (ok) await done('已驳回入驻申请')
 }
@@ -231,13 +226,12 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
 
     <template v-if="c" #footer>
       <div class="rv-foot">
-        <p v-if="blocked.why" class="blocked-why" role="status">{{ blocked.why }}</p>
         <div class="rv-acts">
           <el-button @click="visible = false">关闭</el-button>
           <span class="rv-gap" />
           <template v-if="isPending">
-            <el-button type="danger" plain class="btn-reject" :disabled="blocked.act === 'reject'" @click="reject">驳回</el-button>
-            <el-button type="primary" :disabled="blocked.act === 'approve'" @click="approve">通过入驻</el-button>
+            <el-button type="danger" plain class="btn-reject" @click="reject">驳回</el-button>
+            <el-button type="primary" @click="approve">通过入驻</el-button>
           </template>
           <el-button v-else-if="canAdjust" type="primary" @click="openStatus">调整状态</el-button>
         </div>

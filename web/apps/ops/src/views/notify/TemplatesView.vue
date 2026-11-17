@@ -237,8 +237,8 @@ const highlight = (s: string) =>
           <template #default="{ row }"><el-button link type="primary" size="small" @click="open(row)">编辑</el-button></template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="!loading && error" :image-size="64" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
-          <el-empty v-else-if="!loading" :image-size="64" description="暂无模板"><template #image><IconInbox :size="48" /></template></el-empty>
+          <el-empty v-if="!loading && error" :image-size="48" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
+          <el-empty v-else-if="!loading" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无模板</h3><p>当前列表没有匹配的模板，可清空关键词或刷新。</p></template><el-button type="primary" @click="keyword = ''; load()">刷新列表</el-button></el-empty>
         </template>
       </el-table>
       <div v-if="!loading && shown.length" class="pager"><el-pagination v-model:current-page="page" :page-size="20" :total="shown.length" layout="total, prev, pager, next" /></div>

@@ -131,8 +131,8 @@ async function remove(r: HolidayRow) {
           <template #default="{ row }"><el-button size="small" link type="danger" @click="remove(row)">删除</el-button></template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="!loading && loadError" :description="loadError" :image-size="64"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button @click="load">重新加载</el-button></el-empty>
-          <el-empty v-else-if="!loading" description="暂无记录" :image-size="64"><template #image><IconInbox :size="48" /></template><el-button v-if="canEdit" type="primary" @click="openAdd">录入</el-button></el-empty>
+          <el-empty v-if="!loading && loadError" :description="loadError" :image-size="48"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button @click="load">重新加载</el-button></el-empty>
+          <el-empty v-else-if="!loading" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无记录</h3><p>当前年份尚未录入节假日，可录入或刷新。</p></template><el-button v-if="canEdit" type="primary" @click="openAdd">录入</el-button><el-button v-else type="primary" @click="load">刷新</el-button></el-empty>
         </template>
       </el-table>
       <div v-if="!loading && rows.length" class="pager"><el-pagination v-model:current-page="page" :page-size="20" :total="rows.length" layout="total, prev, pager, next" /></div>

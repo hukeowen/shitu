@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { errorMessage, tenantApi, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
+import { errorMessage, tenantApi, type SiteApplication } from '@shitu/api-client'
 import { IconCircleExclamationPoint, IconCopy, IconShieldCheck } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL, appActionsColWidth } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons, { appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -30,11 +30,6 @@ const ready = ref(false)
 const recentError = ref('')
 const recentLoading = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名被拒的那个按钮置灰、原因用提醒色写在表格上方，刷新后重新判断 */
-const blocked = reactive<Record<string, { name: string; action: SiteApplicationAction; text: string }>>({})
-function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { name: app.seekerName, action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
-}
 
 const signing = (a: SiteApplication) => a.contract?.status === 'PENDING_SIGN' || a.allowedActions.includes('RESEND_CONTRACT')
 const waitingSign = computed(() => list.value.filter(signing).length)
@@ -48,7 +43,6 @@ async function copySign(url: string) {
 async function load() {
   loading.value = true
   loadError.value = ''
-  Object.keys(blocked).forEach((k) => delete blocked[k])
   try {
     const r = await tenantApi.applications({ status: 'PENDING_CONFIRM', projectId: projectId.value || undefined, page: 1, pageSize: 100 })
     list.value = r.records
@@ -102,7 +96,6 @@ onMounted(load)
 
     <div class="card tbl-card">
       <div class="card__hd"><h3>待确权</h3><span class="flow">到厂确认 → 面试通过 → <b>入职确权</b> → 电子签约 → 已入职在岗</span></div>
-      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="list" row-key="applicationId">
         <el-table-column label="求职者" min-width="130">
           <template #default="{ row }"><PersonCell :name="row.seekerName" :accent="!row.fromPublic" :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
@@ -143,7 +136,7 @@ onMounted(load)
           <template #default="{ row }"><RemainTag :deadline="row.responseDeadline" :now="now" /></template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><AppActionButtons :app="row" link :blocked="blocked[row.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" /></template>
+          <template #default="{ row }"><AppActionButtons :app="row" link @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="tbl-state">
@@ -188,7 +181,7 @@ onMounted(load)
       </div>
     </div>
 
-    <AppActionDialogs ref="dialogs" @done="load" @rejected="onRejected" />
+    <AppActionDialogs ref="dialogs" @done="load" />
   </div>
 </template>
 
@@ -196,7 +189,6 @@ onMounted(load)
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-gap); }
 .st { padding: var(--space-4); }
 .tbl-card { margin-top: var(--space-gap); }
-.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .flow { font-size: var(--font-size-aux); color: var(--text-3); }
 .flow b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
 .job-t { font-size: var(--font-size-aux); color: var(--text-1); font-weight: var(--font-weight-medium); }

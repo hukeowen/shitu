@@ -39,10 +39,10 @@ import { IconChevronDown } from '@shitu/ui-icons'
 /**
  * 报名行操作按钮：严格按后端 allowedActions 显示（A-19 矩阵）。
  * 主操作平铺，未通过 / 爽约 / 取消收进「更多」。点击只抛出事件，弹窗由 AppActionDialogs 统一处理。
- * link：表格操作列用文字按钮（规范「Key Components」表格）；blocked：被后端拒绝过的那个操作，刷新前只置灰它，别的操作照常可点。
+ * link：表格操作列用文字按钮（规范「Key Components」表格）。
  * 按钮样式：一排里只有一个主按钮（知悉推送 / 确权签约 / 面试通过 中排在前面的那个），其余是默认按钮。
  */
-const props = withDefaults(defineProps<{ app: SiteApplication; size?: 'small' | 'default'; link?: boolean; blocked?: SiteApplicationAction }>(), { size: 'small' })
+const props = withDefaults(defineProps<{ app: SiteApplication; size?: 'small' | 'default'; link?: boolean }>(), { size: 'small' })
 const emit = defineEmits<{ action: [action: SiteApplicationAction, app: SiteApplication] }>()
 
 const allowed = computed(() => new Set(props.app.allowedActions as SiteApplicationAction[]))
@@ -68,7 +68,6 @@ function onMore(cmd: SiteApplicationAction) {
       :size="size"
       :type="btnType(a)"
       :link="link"
-      :disabled="blocked === a"
       @click="emit('action', a, app)"
     >
       {{ ACTION_LABEL[a] }}
@@ -77,7 +76,7 @@ function onMore(cmd: SiteApplicationAction) {
       <el-button :size="size" :link="link" :type="link ? 'primary' : 'default'">更多<IconChevronDown :size="14" class="more-i" /></el-button>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item v-for="a in more" :key="a" :command="a" :disabled="blocked === a">
+          <el-dropdown-item v-for="a in more" :key="a" :command="a">
             <span :class="{ danger: a !== 'CANCEL' }">{{ ACTION_LABEL[a] }}</span>
           </el-dropdown-item>
         </el-dropdown-menu>

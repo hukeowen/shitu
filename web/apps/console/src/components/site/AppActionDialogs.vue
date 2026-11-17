@@ -22,22 +22,20 @@ import { addDays, nextWorkday9, parseLocal, toLocalIso, ymd } from '@/utils/time
  * 报名操作弹窗（A-02 / A-03 / A-04 共用）。页面放一个实例，按钮点击后调用 run(action, app)。
  * 知悉推送 / 修改面试信息、到厂确认、面试通过 / 未通过、爽约、取消、确权签约 / 重发签约。
  * 提交中按钮转圈、不能重复点；后端业务拒绝（不是断网、超时）时原因留在弹窗里、提交按钮置灰，
- * 并抛出 rejected 让页面把这条报名的按钮置灰、写明原因（规范「Page States」），网络失败只提示、可以直接重试。
+ * 下层入口保持可用，重新打开清掉原因；网络失败只提示、可以直接重试。
  */
 const emit = defineEmits<{
   done: [action: SiteApplicationAction, app: SiteApplication]
-  rejected: [action: SiteApplicationAction, app: SiteApplication, reason: string]
 }>()
 const meStore = useMeStore()
 
 const PRESET_DOCS = ['身份证', '一寸照片', '银行卡', '健康证', '学历证明']
 
 /** 提交失败：轻提示写原因；后端业务拒绝才算「被拒」（断网、超时也包成 ApiError，code 为 NETWORK） */
-function failed(action: SiteApplicationAction, app: SiteApplication, e: unknown): { text: string; blocked: boolean } {
+function failed(action: SiteApplicationAction, e: unknown): { text: string; blocked: boolean } {
   const reason = errorMessage(e)
   ElMessage.error(reason)
   const blocked = isApiError(e) && e.code !== 'NETWORK'
-  if (blocked) emit('rejected', action, app, reason)
   return { text: `暂时不能${ACTION_LABEL[action]}：${reason}`, blocked }
 }
 
@@ -130,7 +128,7 @@ async function submitAck() {
     emit('done', ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', r)
   } catch (e) {
     ack.saving = false
-    const r = failed(ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', app, e)
+    const r = failed(ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', e)
     // 断网、超时只弹轻提示，不留原因、不置灰
     ack.error = r.blocked ? r.text : ''
     ack.blocked = r.blocked
@@ -205,7 +203,7 @@ async function submitConfirm() {
     emit('done', cf.resend ? 'RESEND_CONTRACT' : 'CONFIRM', app)
   } catch (e) {
     cf.saving = false
-    const r = failed(cf.resend ? 'RESEND_CONTRACT' : 'CONFIRM', app, e)
+    const r = failed(cf.resend ? 'RESEND_CONTRACT' : 'CONFIRM', e)
     // 断网、超时只弹轻提示，不留原因、不置灰
     cf.error = r.blocked ? r.text : ''
     cf.blocked = r.blocked
@@ -231,7 +229,7 @@ function who(app: SiteApplication) {
  * 后端业务拒绝：框不关，原因用提醒色写在提示文字下面，确认按钮置灰；断网、超时只弹轻提示，可以直接再点确认。
  * 提示文字、按钮和原因输入与原来一致。
  */
-function boxSubmit(action: SiteApplicationAction, app: SiteApplication, text: string, api: (input: string) => Promise<unknown>) {
+function boxSubmit(action: SiteApplicationAction, text: string, api: (input: string) => Promise<unknown>) {
   const why = ref('')
   const message = () => h('div', [h('p', text), why.value ? h('p', { class: 'msgbox-why', role: 'alert' }, why.value) : null])
   const beforeClose = async (act: Action, box: MessageBoxState, done: () => void) => {
@@ -245,7 +243,7 @@ function boxSubmit(action: SiteApplicationAction, app: SiteApplication, text: st
       done()
     } catch (e) {
       box.confirmButtonLoading = false
-      const r = failed(action, app, e)
+      const r = failed(action, e)
       if (r.blocked) {
         why.value = r.text
         box.confirmButtonDisabled = true
@@ -258,11 +256,11 @@ function boxSubmit(action: SiteApplicationAction, app: SiteApplication, text: st
 async function simple(action: SiteApplicationAction, app: SiteApplication) {
   try {
     if (action === 'ARRIVE') {
-      const s = boxSubmit(action, app, `确认 ${who(app)} 已到厂？`, () => tenantApi.arrive(app.applicationId))
+      const s = boxSubmit(action, `确认 ${who(app)} 已到厂？`, () => tenantApi.arrive(app.applicationId))
       await ElMessageBox.confirm(s.message, '到厂确认', { confirmButtonText: '确认到厂', cancelButtonText: '取消', beforeClose: s.beforeClose })
       ElMessage.success('已确认到厂')
     } else if (action === 'PASS') {
-      const s = boxSubmit(action, app, `确认 ${who(app)} 面试通过？通过后进入「待确权」，请尽快完成入职确权与签约。`, () =>
+      const s = boxSubmit(action, `确认 ${who(app)} 面试通过？通过后进入「待确权」，请尽快完成入职确权与签约。`, () =>
         tenantApi.interviewResult(app.applicationId, true),
       )
       await ElMessageBox.confirm(s.message, '面试通过', {
@@ -272,7 +270,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       })
       ElMessage.success('已标记面试通过，进入待确权')
     } else if (action === 'FAIL') {
-      const s = boxSubmit(action, app, `${who(app)} 面试未通过。本公司渠道来的求职者回到「私域待匹配」继续跟进，其他求职者回到公域。`, (remark) =>
+      const s = boxSubmit(action, `${who(app)} 面试未通过。本公司渠道来的求职者回到「私域待匹配」继续跟进，其他求职者回到公域。`, (remark) =>
         tenantApi.interviewResult(app.applicationId, false, remark),
       )
       await ElMessageBox.prompt(s.message, '面试未通过', {
@@ -286,7 +284,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       })
       ElMessage.success('已标记面试未通过')
     } else if (action === 'NO_SHOW') {
-      const s = boxSubmit(action, app, `确认 ${who(app)} 爽约？标记后归属清空，简历释放至全平台公域，此操作不可撤销。`, () => tenantApi.noShow(app.applicationId))
+      const s = boxSubmit(action, `确认 ${who(app)} 爽约？标记后归属清空，简历释放至全平台公域，此操作不可撤销。`, () => tenantApi.noShow(app.applicationId))
       await ElMessageBox.confirm(s.message, '标记爽约', {
         type: 'warning',
         confirmButtonText: '确认爽约',
@@ -296,7 +294,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       })
       ElMessage.success('已标记爽约')
     } else if (action === 'CANCEL') {
-      const s = boxSubmit(action, app, `取消 ${who(app)} 的报名。用户无法自行取消，取消后可重新进入 AI 问薪匹配流程，此操作不可撤销。`, (reason) =>
+      const s = boxSubmit(action, `取消 ${who(app)} 的报名。用户无法自行取消，取消后可重新进入 AI 问薪匹配流程，此操作不可撤销。`, (reason) =>
         tenantApi.cancelApplication(app.applicationId, reason),
       )
       await ElMessageBox.prompt(s.message, '取消报名', {
@@ -316,7 +314,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
   } catch (e) {
     // 取消 / 关闭框；提交失败已在框里处理
     if (e === 'cancel' || e === 'close') return
-    failed(action, app, e)
+    failed(action, e)
   }
 }
 

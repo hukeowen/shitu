@@ -254,7 +254,7 @@ function signed(n: number) {
 .lnk-t small { font-size: var(--font-size-min); color: var(--text-3); }
 .lnk b { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); font-variant-numeric: tabular-nums; }
 .bill { min-height: 120px; }
-.total { font-size: var(--font-size-section); color: var(--primary-text); }
+.total { font-size: var(--font-size-section); color: var(--text-1); }
 .kv dt b { font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .fine { margin: var(--space-2) 0 0; }
 .bill-fail { display: flex; align-items: center; gap: var(--space-3); }

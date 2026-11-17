@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { errorMessage, tenantApi, type SiteApplication, type SiteApplicationAction, type SiteWorkbench, type TimeoutReleases } from '@shitu/api-client'
+import { computed, onMounted, ref, watch } from 'vue'
+import { errorMessage, tenantApi, type SiteApplication, type SiteWorkbench, type TimeoutReleases } from '@shitu/api-client'
 import { IconCircleCheck, IconCircleExclamationPoint, IconClock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL, appActionsColWidth } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons, { appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
@@ -32,11 +32,6 @@ const loadError = ref('')
 /** 报名明细拿到过数据（没拿到时分档卡和页签不显示数字，超时释放条也不下结论） */
 const ready = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名被拒的那个按钮置灰、原因用提醒色写在表格上方，刷新后重新判断 */
-const blocked = reactive<Record<string, { name: string; action: SiteApplicationAction; text: string }>>({})
-function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { name: app.seekerName, action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
-}
 
 /** 有窗口的报名（公域用户没有 responseDeadline） */
 const windowed = computed(() => all.value.filter((a) => a.responseDeadline))
@@ -60,7 +55,6 @@ const opsWidth = computed(() => appActionsColWidth(rows.value))
 async function load() {
   loading.value = true
   loadError.value = ''
-  Object.keys(blocked).forEach((k) => delete blocked[k])
   try {
     const [r, w] = await Promise.all([loadOpenApplications(projectId.value), tenantApi.siteWorkbench().catch(() => null)])
     all.value = r.list
@@ -157,7 +151,6 @@ function barClass(a: SiteApplication) {
         <span class="t-sm">按剩余时长升序</span>
       </div>
       <div v-if="truncated" class="notice-bar notice-bar--warn tbl-tip"><IconTriangleExclamationPoint :size="16" class="notice-bar-i" /><span>报名较多，每个状态仅显示响应窗口最紧的 100 条</span></div>
-      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="rows" row-key="applicationId">
         <el-table-column label="求职者" min-width="148">
           <template #default="{ row }"><PersonCell :name="row.seekerName" accent :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
@@ -181,7 +174,7 @@ function barClass(a: SiteApplication) {
           </template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><AppActionButtons :app="row" link :blocked="blocked[row.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" /></template>
+          <template #default="{ row }"><AppActionButtons :app="row" link @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="tbl-state">
@@ -223,7 +216,7 @@ function barClass(a: SiteApplication) {
       </div>
     </div>
 
-    <AppActionDialogs ref="dialogs" @done="load" @rejected="onRejected" />
+    <AppActionDialogs ref="dialogs" @done="load" />
   </div>
 </template>
 

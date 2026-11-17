@@ -179,3 +179,7 @@
 .cell-one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 复选框未勾选的边框用三级文字色，对比度约 5:1（同 console.css） */
 html .el-checkbox { --el-checkbox-input-border: var(--el-border-width) var(--el-border-style) var(--text-3); }
+
+/* Element 默认空态 SVG 的填充与宽度不能覆盖共享线性图标。 */
+html .el-empty .el-empty__image svg.lucide { width: 48px; height: 48px; fill: none; color: var(--text-3); }
+html .el-empty .el-empty__description h3 { margin: 0 0 var(--space-2); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }

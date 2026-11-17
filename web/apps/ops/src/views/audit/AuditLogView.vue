@@ -112,10 +112,10 @@ onMounted(() => list.load())
           <template #default="{ row }"><span class="mono t-xs">{{ row.traceId ?? '—' }}</span></template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="!list.loading.value && list.error.value" :image-size="64" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
+          <el-empty v-if="!list.loading.value && list.error.value" :image-size="48" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
             <el-button size="small" @click="list.load()">重新加载</el-button>
           </el-empty>
-          <el-empty v-else-if="!list.loading.value" :image-size="64" description="没有符合条件的日志"><template #image><IconInbox :size="48" /></template></el-empty>
+          <el-empty v-else-if="!list.loading.value" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>没有符合条件的日志</h3><p>可重置筛选条件后重新查询。</p></template><el-button type="primary" @click="reset">重置筛选</el-button></el-empty>
         </template>
       </el-table>
       <div class="pager">

@@ -189,7 +189,7 @@ h1 { margin-top: var(--space-8); font-size: var(--font-size-title); font-weight:
 .via .avatar { background: var(--bg-card); }
 .via b { display: block; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .via p { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-2); }
-.agree { display: flex; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-5); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-2); }
+.agree { --van-checkbox-border-color: var(--text-3); display: flex; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-5); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-2); }
 /* 勾选框本身 18px，用内边距把点击区撑到 44 */
 .agree :deep(.van-checkbox) { flex: none; padding: 13px; margin: -12px -5px -13px -13px; }
 .agree a { color: var(--primary-text); }

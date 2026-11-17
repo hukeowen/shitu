@@ -518,9 +518,9 @@ const siteApp = (n, extra = {}) => ({ applicationId: 'BM-UI28-' + n, userId: 'U-
   status: 'PENDING_INTERVIEW', fromPublic: false, createdAt: atHour(-22), responseDeadline: atHour(2),
   allowedActions: ['ACKNOWLEDGE', 'ARRIVE', 'PASS', 'FAIL', 'NO_SHOW', 'CANCEL'], ...extra })
 const siteApps = [siteApp(1),
-  siteApp(2, { createdAt: atHour(-16), responseDeadline: atHour(8), acknowledgedAt: atHour(-1), interviewAt: atHour(1), notice: fixtureNotice,
+  siteApp(2, { createdAt: atHour(-16), responseDeadline: atHour(25), acknowledgedAt: atHour(-1), interviewAt: atHour(1), notice: fixtureNotice,
     allowedActions: ['REPUSH', 'ARRIVE', 'PASS', 'FAIL', 'NO_SHOW', 'CANCEL'] }),
-  siteApp(3, { createdAt: atHour(-12), responseDeadline: atHour(12), acknowledgedAt: atHour(-1), interviewAt: atHour(0), arrivedAt: atHour(0), notice: fixtureNotice,
+  siteApp(3, { createdAt: atHour(-12), responseDeadline: atHour(24), acknowledgedAt: atHour(-1), interviewAt: atHour(0), arrivedAt: atHour(0), notice: { ...fixtureNotice, interviewAt: atHour(0) },
     allowedActions: ['REPUSH', 'PASS', 'FAIL', 'NO_SHOW', 'CANCEL'] }),
   siteApp(4, { status: 'PENDING_CONFIRM', createdAt: atHour(-8), responseDeadline: atHour(18), acknowledgedAt: atHour(-7), interviewAt: atHour(-6), arrivedAt: atHour(-6),
     notice: { ...fixtureNotice, interviewAt: atHour(-6), pushedAt: atHour(-7) }, allowedActions: ['CONFIRM', 'CANCEL'] })]
@@ -924,7 +924,7 @@ const siteTable = (screen, path, emptyText, op) => {
     { app: 'console', screen, state: 'submitting', persona: 'site', path, rules: sr(), quick: true, steps: [...open, countXhr, twice], checks: [elSpinning(op.submit, scope), sentOnce] },
     { app: 'console', screen, state: 'rejected', persona: 'site', path, rules: sr({ url: op.api, method: 'POST', action: 'respond', body: refused }),
       steps: [...open, `${findBtn(op.submit, scope)}.click()`, elToastGone('报名状态已变化，请刷新后再操作')],
-      checks: [...rowOff(op.why, op.act), ...(op.dialog ? [stays('.el-dialog .blocked-why', op.why + '：报名状态已变化'), `${findBtn(op.submit, '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「${op.submit}」没有置灰'`] : [boxWhy(op.submit, op.why + '：报名状态已变化')]), elIdle] },
+      checks: [entryUnblocked('#app', op.act), ...(op.dialog ? [stays('.el-dialog .blocked-why', op.why + '：报名状态已变化'), `${findBtn(op.submit, '.el-dialog')}.disabled ? '' : '被拒之后弹窗里的「${op.submit}」没有置灰'`] : [boxWhy(op.submit, op.why + '：报名状态已变化')]), elIdle] },
   ]
 }
 // ---- 工单 16：流转与财务（流转池、流转账本、流转人员、费用账单、数据总览、渠道报表）----
@@ -1824,6 +1824,33 @@ const retryOpen = (entry) => [`(() => { const b = [...document.querySelectorAll(
 const retryClean = `(() => { if (document.querySelector('#app .tbl-tip')) return '表格上方留着被拒原因'; if (document.querySelector('.el-dialog .blocked-why')) return '重新打开后还留着上次的被拒原因'
   const off = [...document.querySelectorAll('.el-dialog__footer .el-button')].filter((b) => b.disabled).map((b) => b.innerText.trim()); return off.length ? '重新打开后还有按钮置灰：' + off.join('、') : '' })()`
 
+// 收尾回归：只锁当前确认框，下层入口保留，关闭后可以重新进入。
+const entryUnblocked = (scope, text) => `(() => { const root = document.querySelector('${scope}'); if (!root) return '没有下层操作区'
+  if ([...root.querySelectorAll('.blocked-why')].some(e => !e.closest('.el-dialog, .el-message-box'))) return '下层重复显示拒绝原因'
+  const b = [...root.querySelectorAll('button')].find(b => b.innerText.trim() === '${text}')
+  if (!b || b.disabled) return '下层入口被禁用：${text}'
+  const actions = b.closest('.acts') ?? root
+  return [...actions.querySelectorAll('button')].some(x => !x.closest('.el-dialog, .el-message-box') && x.disabled) ? '下层其他操作被禁用' : '' })()`
+const emptyIconSpec = `(() => { const icons = [...document.querySelectorAll('.el-empty__image svg')]; if (!icons.length) return '空态缺图标'
+  for (const icon of icons) { const s = getComputedStyle(icon), r = icon.getBoundingClientRect()
+    if (Math.round(r.width) !== 48 || Math.round(r.height) !== 48 || s.fill !== 'none' || parseFloat(s.strokeWidth) !== 1.75 || s.stroke === 'none') return '空态图标不是 48px / 1.75 线性：' + [r.width, r.height, s.fill, s.strokeWidth].join(', ')
+    if (s.color !== ${tokenColor('--text-3')}) return '空态图标不是三级文字色'
+  } return '' })()`
+const emptyGuidance = `(() => { const e = document.querySelector('#app .el-empty'); if (!e) return '没有空态'
+  const title = e.querySelector('h3'), desc = e.querySelector('.el-empty__description p'), btn = e.querySelector('button')
+  if (!title || getComputedStyle(title).fontSize !== '16px' || getComputedStyle(title).fontWeight !== '600') return '空态缺 16px / 600 标题'
+  if (!desc?.innerText.trim() || desc.innerText.trim() === title.innerText.trim()) return '空态缺独立说明'
+  return btn && !btn.disabled && btn.classList.contains('el-button--primary') ? '' : '空态缺可用主操作' })()`
+const loginCheckboxContrast = `(() => { const e = document.querySelector('.van-checkbox__icon:not(.van-checkbox__icon--checked) i'); if (!e) return '没有未选复选框'
+  const lum = (c) => { const a = c.match(/[\\d.]+/g).slice(0,3).map(Number).map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4 }); return a[0]*.2126+a[1]*.7152+a[2]*.0722 }
+  const a = lum(getComputedStyle(e).borderTopColor), b = lum(getComputedStyle(document.querySelector('.login')).backgroundColor), ratio = (Math.max(a,b)+.05)/(Math.min(a,b)+.05)
+  return ratio >= 3 ? '' : '未勾选边界对比度 ' + ratio.toFixed(2) + ':1 < 3:1' })()`
+const homeSignDates = `(() => { const card = document.querySelector('.signc'); if (!card) return '没有待签合同'
+  const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT); let n, dates = 0
+  while ((n = walker.nextNode())) { for (const m of n.textContent.matchAll(/\\d{4}-\\d{2}-\\d{2}/g)) { dates++; const r = document.createRange(); r.setStart(n,m.index); r.setEnd(n,m.index+m[0].length); if (r.getClientRects().length !== 1) return '合同日期拆行：' + m[0] } }
+  return dates >= 1 ? '' : '合同卡缺日期' })()`
+const overviewTotalPlain = `(() => { const e = document.querySelector('#app .money.total'); return e && getComputedStyle(e).color === ${tokenColor('--text-1')} ? '' : '应付合计不是一级文字色' })()`
+
 // 工单 25：独立数据与检查，收尾时由 STATES 统一取证；本票运行检查不保存截图。
 const SETTLEMENT_STATES = (() => {
   const envelope = (data) => ({ code: '0', message: 'ok', data })
@@ -1846,7 +1873,7 @@ const SETTLEMENT_STATES = (() => {
     { app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'loading', path, rules: [{ url, method: 'GET', action: 'hang' }], quick: true,
       checks: [noEmpty, `document.querySelector('#app .el-loading-mask') ? '' : '没有加载遮罩'`] },
     { app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'empty', path, rules: [{ url, method: 'GET', action: 'respond', body: envelope(empty) }],
-      checks: [fit, `document.querySelector('#app .el-empty svg') ? '' : '没有带共享图标的空状态'`] },
+      checks: [fit, `document.querySelector('#app .el-empty svg') ? '' : '没有带共享图标的空状态'`, emptyIconSpec, emptyGuidance] },
     { app: 'ops', persona: 'ops', screen: 'settlement-' + screen, state: 'error', path, rules: [{ url, method: 'GET', action: 'fail' }], checks: [fit, retry] },
   ])
   out.push({ app: 'ops', persona: 'ops', screen: 'settlement-audit', state: 'collapse', path: '/settlement/audit', rules: [],
@@ -1920,7 +1947,7 @@ const STATES = [
   { app: 'seeker', screen: 'guide-popup', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash, click('开始匹配')] },
   { app: 'seeker', screen: 'guide-popup', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash, click('开始匹配')], width: NARROW },
   { app: 'seeker', screen: 'guide-popup', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}`, steps: [skipSplash, click('开始匹配')] },
-  { app: 'seeker', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: NARROW },
+  { app: 'seeker', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: NARROW, checks: [loginCheckboxContrast] },
   { app: 'seeker', screen: 'login', state: 'inviter', persona: 'guest', path: `/login`, pre: `/?ch=${data.companyCode}` },
   { app: 'seeker', screen: 'login', state: 'rejected', persona: 'guest', path: '/login', steps: [click('登录 / 注册并开始匹配')], quick: true },
   { app: 'seeker', screen: 'login', state: 'submitting', persona: 'guest', path: '/login', rules: [{ url: '/seeker/auth/sms-login', action: 'hang' }],
@@ -1934,7 +1961,7 @@ const STATES = [
   { app: 'seeker', screen: 'home-public', state: 'normal', persona: 'public', path: '/', width: NARROW },
   { app: 'seeker', screen: 'home-registered', state: 'normal', persona: 'registered', path: '/', width: NARROW },
   { app: 'seeker', screen: 'home-acknowledged', state: 'normal', persona: 'acknowledged', path: '/', width: NARROW },
-  { app: 'seeker', screen: 'home-confirmed', state: 'normal', persona: 'confirmed', path: '/', width: NARROW },
+  { app: 'seeker', screen: 'home-confirmed', state: 'normal', persona: 'confirmed', path: '/', width: NARROW, checks: [homeSignDates, has('面试已通过'), has('签署劳动合同后即正式入职在岗'), has('不可再匹配、不可再报名'), has('你无法自行取消报名'), has('24 小时内未办完入职'), has('立即签署')] },
   { app: 'seeker', screen: 'home-veteran', state: 'normal', persona: 'veteran', path: '/', width: NARROW },
   { app: 'seeker', screen: 'home-acknowledged', state: 'rejected', persona: 'acknowledged', path: '/', steps: [click('AI 问薪')] },
   { app: 'seeker', screen: 'home-registered', state: 'rejected', persona: 'registered', path: '/', steps: [click('薪资预支')], quick: true },
@@ -2675,10 +2702,10 @@ const STATES = [
   // 提交中：确认框里的确认按钮转圈，连点两次只发一条（写请求一律挂住）
   { app: 'console', screen: 'site-home', state: 'submitting', persona: 'site', path: '/site/home', rules: sr(), quick: true,
     steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), countXhr, boxClickTwice('确认到厂')], checks: [elSpinning('确认到厂', '.el-message-box'), sentOnce] },
-  // 被拒：确认框不关、原因写在框里；详情操作区上方也留原因，只置灰「到厂确认」
+  // 被拒：原因和置灰只留在当前确认框，下层入口保持可用。
   { app: 'console', screen: 'site-home', state: 'rejected', persona: 'site', path: '/site/home', rules: sr({ url: '/arrive', method: 'POST', action: 'respond', body: refuse('APPLICATION_4091', '报名状态已变化，请刷新后再操作') }),
     steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), `${findBtn('确认到厂', '.el-message-box')}.click()`, elToastGone('报名状态已变化，请刷新后再操作')],
-    checks: [whyStays('#app .d-acts .blocked-why', '暂时不能到厂确认：报名状态已变化，请刷新后再操作'), onlyOff('#app .d-acts', '到厂确认'), boxWhy('确认到厂', '暂时不能到厂确认'), elIdle] },
+    checks: [entryUnblocked('#app .d-acts', '到厂确认'), boxWhy('确认到厂', '暂时不能到厂确认'), elIdle] },
   // 网络失败不置灰，可以直接重试
   { app: 'console', screen: 'site-home', state: 'network', persona: 'site', path: '/site/home', rules: sr({ url: '/arrive', method: 'POST', action: 'fail' }),
     steps: [`${findBtn('到厂确认', '#app .d-acts')}.click()`, wait(400), `${findBtn('确认到厂', '.el-message-box')}.click()`, toastShown],
@@ -2753,7 +2780,7 @@ const STATES = [
     steps: [`${findBtn('明细', '#app .el-table__body')}.click()`, wait(600)], checks: [`[...document.querySelectorAll('.bill-drawer button')].some((b) => b.innerText.includes('重新加载')) ? '' : '账单详情失败时没有「重新加载」'`] },
   // ---- 工单 16：数据总览（第 1 类看板 + 第 10 类横条图）、渠道报表（第 10 类）----
   ...ownerPage('overview', '/owner/overview', OVERVIEW_API, { fake: [{ url: BILLS_API, action: 'respond', body: fakeBills }], empty: zeroOverview, emptyText: '还没有项目在岗数据', nums: noNumsBut('诚信分'), keep: '诚信分', errNot: ['暂无在岗人员', '暂无项目'],
-    checks: [chartColors('#app .hbar .track i, #app .stack i'), cMoney(), cSigns()] }),
+    checks: [overviewTotalPlain, chartColors('#app .hbar .track i, #app .stack i'), cMoney(), cSigns()] }),
   { app: 'console', screen: 'overview', state: 'bill-error', persona: 'owner', path: '/owner/overview', rules: sr({ url: BILLS_API, action: 'fail' }), checks: [has('最近账单加载失败'), hasNot('暂无账单')] },
   { app: 'console', screen: 'channel-report', state: 'error-legend', persona: 'owner', path: '/owner/channel-report', rules: sr({ url: CHANNELS_API, action: 'fail' }), checks: [`document.querySelector('#app .chart-legend') ? '没数据却显示了图例' : ''`] },
   ...ownerPage('channel-report', '/owner/channel-report', CHANNELS_API, { empty: reply([]), emptyText: '暂无渠道码',
@@ -3288,7 +3315,7 @@ const STATES = [
   { app: 'ops', screen: 'company-drawer', state: 'reject-invalid', persona: 'ops', path: '/companies/list', rules: or(), steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回'), countXhr, boxOk('驳回'), wait(400)], checks: [boxNoSend] },
   { app: 'ops', screen: 'company-drawer', state: 'reject-rejected', persona: 'ops', path: '/companies/list', rules: or({ url: '/reject', method: 'POST', action: 'respond', body: refuse('SYS_4090', '该公司已被审核，请刷新后再操作') }),
     steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回'), boxFill('营业执照照片不清晰，请重新上传'), boxOk('驳回'), toastShown],
-    checks: [boxWhy('驳回', '暂时不能驳回：该公司已被审核'), whyStays(CD + ' .rv-foot .blocked-why', '暂时不能驳回'), drawerOnlyOff(CD, '驳回')] },
+    checks: [boxWhy('驳回', '暂时不能驳回：该公司已被审核'), entryUnblocked(CD + ' .rv-foot', '驳回')] },
   { app: 'ops', screen: 'company-drawer', state: 'reject-offline', persona: 'ops', path: '/companies/list', rules: or({ url: '/reject', method: 'POST', action: 'fail' }),
     steps: [...openAudit, wait(600), ...inDrawer(CD, '驳回'), boxFill('营业执照照片不清晰，请重新上传'), boxOk('驳回'), toastShown], checks: [...netOnly('.el-message-box', '驳回'), drawerNoWhy(CD)] },
   { app: 'ops', screen: 'company-drawer', state: 'status', persona: 'ops', path: '/companies/list?status=NORMAL', rules: or(), steps: [...clickOp('详情'), wait(600), ...inDrawer(CD, '调整状态')], checks: [dlgWidth, dlgTitle16, dlgNoWrap, dlgLegacy] },
@@ -3469,13 +3496,45 @@ const STATES = [
     checks: [boxWhy('确定', '暂时不能执行处罚：该公司已处于更高等级的处罚'), `document.querySelector('.el-dialog .blocked-why, .el-dialog .form-err') ? '处罚弹窗里又写了一遍被拒原因' : ''`] },
 ]
 
+// 关闭被拒确认框后，入口仍可重新打开，新的确认不沿用上次的原因与禁用。
+for (const s of [...STATES]) {
+  const cfg = s.app === 'console' ? {
+    'site-home': ['#app .d-acts', '到厂确认', '.el-message-box', '确认到厂'],
+    'site-todo': ['#app', '知悉推送', '.el-dialog', '知悉并推送'],
+    'site-onboard': ['#app', '确权签约', '.el-dialog', '确认入职并发起电子签约'],
+    'site-follow': ['#app', '面试通过', '.el-message-box', '面试通过'],
+  }[s.screen] : s.app === 'ops' && s.screen === 'company-drawer' ? [CD + ' .rv-foot', '驳回', '.el-message-box', '驳回'] : null
+  if (!cfg || !['rejected', 'reject-rejected'].includes(s.state)) continue
+  const [entry, action, scope, submit] = cfg
+  STATES.push({ ...s, state: s.state + '-reopen', steps: [...s.steps, `${findBtn('取消', scope)}.click()`, wait(400), `${findBtn(action, entry)}.click()`, wait(400)],
+    checks: [entryUnblocked(entry, action), `(() => { const d = document.querySelector('${scope}'); if (!d || !d.getClientRects().length) return '没有重新打开确认框'
+      if (d.querySelector('.blocked-why, .msgbox-why')) return '重新打开仍保留上次拒绝原因'
+      const b = [...d.querySelectorAll('button')].find(x => x.innerText.trim() === '${submit}'); return b && !b.disabled ? '' : '重新打开的确认仍被禁用' })()`] })
+}
+
+// 推荐、额度和消息采用真实 DTO 的固定列表；专用失败/混合态规则继续优先。
+for (const s of STATES) {
+  if (s.app !== 'seeker') continue
+  if (s.screen === 'recommendations') s.rules = [...(s.rules ?? []),
+    { url: '/seeker/recommendations', method: 'GET', action: 'respond', body: reply([fakeRec(1, 'PENDING', '离你住的地方近，包吃住，长白班')]) }]
+  if (s.screen === 'advance' && ['normal', 'bottom', 'not-employed'].includes(s.state)) {
+    const unEmployed = s.state === 'not-employed'
+    const quota = unEmployed
+      ? fakeQuota({ eligible: false, reasons: ['仅「已入职在岗」状态可以申请预支', '入职满 7 个在岗日后才能首次预支，当前 0 天'], dutyDays: 0, progressInCycle: 0, grantedThisMonth: 0, usedThisMonth: 0, remainingThisMonth: 0, debt: 0 })
+      : fakeQuota({ eligible: false, reasons: ['本月暂无可用机会，再在岗 5 天可获得下一次', '你有一笔预支正在审批中'], dutyDays: 16, grantedThisMonth: 2, usedThisMonth: 2, remainingThisMonth: 0 })
+    s.rules = [...(s.rules ?? []), ...advHome(quota, unEmployed ? [] : [fakeAdvs[0], fakeAdvs[1]])]
+  }
+  if (s.screen === 'messages' && ['normal', 'empty'].includes(s.state)) s.rules = [...(s.rules ?? []),
+    ...msgRules({ action: 'hang' }, s.state === 'empty' ? [] : [fakeMsgs[1], { ...fakeMsgs[3], read: false }])]
+}
+
 // 求职者的身份与当前报名也会被窗口任务推进；只替换依赖这些状态的人物，专用失败/空态规则仍优先。
 for (const s of STATES) {
   if (s.app !== 'seeker' || !['registered', 'matched', 'acknowledged', 'confirmed'].includes(s.persona)) continue
   const status = { registered: 'PRIVATE_PENDING', matched: 'PRIVATE_PENDING', acknowledged: 'PENDING_INTERVIEW', confirmed: 'PENDING_CONFIRM' }[s.persona]
   const profile = { userId: data.personas[s.persona].userId, phoneMasked: '139****0028', status, domainTag: status === 'PRIVATE_PENDING' ? 'PRIVATE' : 'TEMP_PRIVATE', matchScope: status === 'PRIVATE_PENDING' ? 'OWN_COMPANY' : 'LOCKED',
     canStartMatching: status === 'PRIVATE_PENDING', boundCompanyName: '仕兔演示劳务', sourceIsPlatform: false, kycStatus: 'VERIFIED',
-    registeredAt: atHour(-6), responseDeadline: atHour(18) }
+    registeredAt: atHour(-6), responseDeadline: atHour(status === 'PENDING_INTERVIEW' ? 25 : 18) }
   const applications = ['PENDING_INTERVIEW', 'PENDING_CONFIRM'].includes(status)
     ? [fakeApp(1, status, { applicationId: data.ids.seekerApplicationId, createdAt: atHour(-6), ...(status === 'PENDING_INTERVIEW' ? { notice: fixtureNotice } : {}) })] : []
   s.rules = [...(s.rules ?? []),

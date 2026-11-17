@@ -7,6 +7,22 @@ import { openTab, sleep } from './cdp.mjs'
 import { companyCode, get, seekerSession, tenantSession, readRt, writeRt } from './lib.mjs'
 import { APPS, ROUTES, VIEWPORT } from './routes.mjs'
 
+/** 等待页面挂载且可见加载态结束；超时仍检查错误与空白，并额外报告未完成加载。 */
+async function waitForPageReady(b, timeout = 15000) {
+  const started = Date.now()
+  await b.settle()
+  while (Date.now() - started < timeout) {
+    const r = await b.send('Runtime.evaluate', { returnByValue: true, expression: `(() => {
+      const app = document.querySelector('#app')
+      const visible = e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none'
+      return document.readyState === 'complete' && !!app?.children.length && ![...document.querySelectorAll('.van-loading, .van-skeleton, .el-loading-mask, .el-skeleton, [aria-busy="true"]')].some(visible)
+    })()` })
+    if (r.result?.result?.value === true) return true
+    await sleep(100)
+  }
+  return false
+}
+
 const DIR = path.dirname(fileURLToPath(import.meta.url))
 const SHOTS = path.join(DIR, 'shots')
 fs.mkdirSync(SHOTS, { recursive: true })
@@ -94,14 +110,14 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
     if (p.includes(':')) continue
     b.events.length = 0
     await b.send('Page.navigate', { url: s.base + (enter?.start ?? p) })
-    await sleep(2200)
+    let ready = await waitForPageReady(b)
     if (enter) {
       await b.send('Runtime.evaluate', { expression: enter.script, awaitPromise: true })
-      await sleep(2200)
+      ready = await waitForPageReady(b)
     }
     const r = await b.send('Runtime.evaluate', {
       returnByValue: true,
-      expression: `({ url: location.pathname, chromeError: location.protocol === "chrome-error:", errs: [...document.querySelectorAll('.el-message--error, .el-alert--error, .error, .van-toast')].map(e => e.innerText.trim()).filter(Boolean).slice(0, 3),
+      expression: `({ url: location.pathname, chromeError: location.protocol === "chrome-error:", errs: [...document.querySelectorAll('.el-message--error, .el-alert--error, .error, .van-toast'), ...[...document.querySelectorAll('.state-block-t')].filter(e => /加载失败|加载出错/.test(e.innerText))].map(e => e.innerText.trim()).filter(Boolean).slice(0, 3),
         empty: document.body.innerText.trim().length < 20,
         layout: (() => {
           const out = []
@@ -126,6 +142,7 @@ for (const s of SUITES.filter((x) => !process.env.SUITE || process.env.SUITE.spl
     })
     const v = r.result?.result?.value ?? {}
     const issues = [...new Set(b.events)]
+    if (!ready) issues.push('页面加载未完成（等待可见加载状态结束超时）')
     if (!v.url || !v.url.startsWith('/') || v.chromeError) issues.push('页面没有打开（dev server 未启动？）')
     if (v.url === '/login' && p !== '/login') issues.push('被踢回登录页（会话无效）')
     if (v.errs?.length) issues.push('页面错误提示: ' + v.errs.join(' | '))

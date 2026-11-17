@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage, tenantApi, type ApplicationStatus, type SiteApplication, type SiteApplicationAction, type SiteWorkbench } from '@shitu/api-client'
+import { errorMessage, tenantApi, type ApplicationStatus, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
 import { IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
-import AppActionButtons, { ACTION_LABEL, appActionsColWidth } from '@/components/site/AppActionButtons.vue'
+import AppActionButtons, { appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import ApplicantInsightDrawer from '@/components/site/ApplicantInsightDrawer.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
@@ -41,11 +41,6 @@ const loadError = ref('')
 const ready = ref(false)
 const wb = ref<SiteWorkbench | null>(null)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
-/** 后端拒绝过的操作：这条报名被拒的那个按钮置灰、原因用提醒色写在表格上方，刷新后重新判断 */
-const blocked = reactive<Record<string, { name: string; action: SiteApplicationAction; text: string }>>({})
-function onRejected(action: SiteApplicationAction, app: SiteApplication, reason: string) {
-  blocked[app.applicationId] = { name: app.seekerName, action, text: `暂时不能${ACTION_LABEL[action]}：${reason}` }
-}
 
 const current = computed(() => TABS.find((t) => t.key === tab.value) ?? TABS[0])
 const opsWidth = computed(() => appActionsColWidth(list.value))
@@ -53,7 +48,6 @@ const opsWidth = computed(() => appActionsColWidth(list.value))
 async function load() {
   loading.value = true
   loadError.value = ''
-  Object.keys(blocked).forEach((k) => delete blocked[k])
   try {
     const r = await tenantApi.applications({
       status: current.value.status,
@@ -134,7 +128,6 @@ function openInsight(row: SiteApplication) {
           <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
         </el-select>
       </div>
-      <p v-for="(b, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ b.name }}（{{ id }}）{{ b.text }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="loadError ? [] : list" row-key="applicationId" :row-class-name="rowClass">
         <el-table-column label="求职者 / 来源" min-width="136">
           <template #default="{ row }">
@@ -175,7 +168,7 @@ function openInsight(row: SiteApplication) {
           <template #default="{ row }"><RemainTag :deadline="row.responseDeadline" :now="now" /></template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><AppActionButtons :app="row" link :blocked="blocked[row.applicationId]?.action" @action="(a, r) => dialogs?.run(a, r)" /></template>
+          <template #default="{ row }"><AppActionButtons :app="row" link @action="(a, r) => dialogs?.run(a, r)" /></template>
         </el-table-column>
         <template #empty>
           <div v-if="loadError" class="tbl-state">
@@ -222,7 +215,7 @@ function openInsight(row: SiteApplication) {
       </section>
     </div>
 
-    <AppActionDialogs ref="dialogs" @done="refresh" @rejected="onRejected" />
+    <AppActionDialogs ref="dialogs" @done="refresh" />
   </div>
 </template>
 
@@ -233,7 +226,6 @@ function openInsight(row: SiteApplication) {
 .strong-14 { font-size: var(--font-size-aux); color: var(--text-1); font-weight: var(--font-weight-medium); }
 .ok { color: var(--success-text); }
 .src-tag { margin-left: var(--space-2); vertical-align: 1px; }
-.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .tbl-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) 0; line-height: 1.6; }
 .tbl-state-i { color: var(--text-3); }
 .tbl-state h4 { margin: var(--space-2) 0 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }

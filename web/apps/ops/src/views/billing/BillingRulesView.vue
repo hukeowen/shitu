@@ -157,8 +157,8 @@ async function submit() {
           <template #default="{ row }"><span class="tnum t-sm">{{ fmtDateTime(row.createdAt) }}</span><div class="t-xs mono">{{ row.createdBy ?? '系统' }}</div></template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="!loading && error" :image-size="64" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
-          <el-empty v-else-if="!loading" :image-size="64" description="暂无计费规则"><template #image><IconInbox :size="48" /></template></el-empty>
+          <el-empty v-if="!loading && error" :image-size="48" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
+          <el-empty v-else-if="!loading" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无计费规则</h3><p>尚无规则版本，可新增规则或刷新列表。</p></template><el-button v-if="canAdd" type="primary" @click="openAdd">新增规则版本</el-button><el-button v-else type="primary" @click="load">刷新</el-button></el-empty>
         </template>
       </el-table>
       <div v-if="!loading && rows.length" class="pager"><el-pagination v-model:current-page="page" :page-size="20" :total="rows.length" layout="total, prev, pager, next" /></div>

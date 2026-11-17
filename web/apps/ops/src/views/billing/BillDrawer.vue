@@ -108,7 +108,7 @@ async function submitReply() {
     </template>
 
     <div v-loading="loading" class="body">
-      <el-empty v-if="!loading && error" :image-size="64" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
+      <el-empty v-if="!loading && error" :image-size="48" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
       <template v-else-if="!loading && detail && b">
         <div v-if="b.status === 'DISPUTED'" class="notice notice--danger top-tip">企业对该账单提出了异议，请在下方「异议记录」中复核处理。</div>
 
@@ -129,7 +129,7 @@ async function submitReply() {
         </dl></section>
 
         <section class="blk"><h3 class="blk-t">异议记录 <small>{{ detail.disputes.length }} 条</small></h3>
-        <el-empty v-if="detail.disputes.length === 0" :image-size="48" description="无异议"><template #image><IconInbox :size="48" /></template></el-empty>
+        <el-empty v-if="detail.disputes.length === 0" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>无异议</h3><p>这张账单暂无异议记录，可刷新查看最新情况。</p></template><el-button type="primary" @click="load">刷新</el-button></el-empty>
         <ul v-else class="tl">
           <li v-for="d in detail.disputes" :key="d.id" :class="d.status === 'OPEN' ? 'now' : d.status === 'ACCEPTED' ? 'done' : 'fail'">
             <div class="tl-t">
@@ -165,10 +165,10 @@ async function submitReply() {
           </el-table-column>
           <el-table-column label="应付流转" min-width="100" align="right"><template #default="{ row }"><span class="money">{{ fmtMoney(row.transferPayable) }}</span></template></el-table-column>
           <el-table-column label="应收流转" min-width="100" align="right"><template #default="{ row }"><span class="money">{{ fmtMoney(row.transferReceivable) }}</span></template></el-table-column>
-          <template #empty><el-empty :image-size="48" description="无每日明细"><template #image><IconInbox :size="48" /></template></el-empty></template>
+          <template #empty><el-empty :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>无每日明细</h3><p>这张账单暂无每日明细，可刷新后查看。</p></template><el-button type="primary" @click="load">刷新</el-button></el-empty></template>
         </el-table></section>
       </template>
-      <el-empty v-else-if="!loading" description="账单不存在"><template #image><IconInbox :size="48" /></template></el-empty>
+      <el-empty v-else-if="!loading"><template #image><IconInbox :size="48" /></template><template #description><h3>账单不存在</h3><p>未找到这张账单，可关闭后重新选择。</p></template><el-button type="primary" @click="visible = false">关闭</el-button></el-empty>
     </div>
 
     <template #footer>

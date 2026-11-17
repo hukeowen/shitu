@@ -166,10 +166,10 @@ function reset() {
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="!list.loading.value && list.error.value" :image-size="64" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
+          <el-empty v-if="!list.loading.value && list.error.value" :image-size="48" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
             <el-button size="small" @click="list.load()">重新加载</el-button>
           </el-empty>
-          <el-empty v-else-if="!list.loading.value" :image-size="64" description="暂无账单"><template #image><IconInbox :size="48" /></template></el-empty>
+          <el-empty v-else-if="!list.loading.value" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无账单</h3><p>当前条件下没有账单，可重置筛选后查看。</p></template><el-button type="primary" @click="reset">重置筛选</el-button></el-empty>
         </template>
       </el-table>
       <div class="pager">

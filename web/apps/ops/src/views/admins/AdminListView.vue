@@ -193,10 +193,10 @@ onMounted(() => list.load())
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="!list.loading.value && list.error.value" :image-size="64" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
+          <el-empty v-if="!list.loading.value && list.error.value" :image-size="48" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
             <el-button size="small" @click="list.load()">重新加载</el-button>
           </el-empty>
-          <el-empty v-else-if="!list.loading.value" :image-size="64" description="暂无账号"><template #image><IconInbox :size="48" /></template></el-empty>
+          <el-empty v-else-if="!list.loading.value" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无账号</h3><p>当前列表没有账号，可以新建账号。</p></template><el-button type="primary" @click="openCreate">新建账号</el-button></el-empty>
         </template>
       </el-table>
       <div class="pager">
