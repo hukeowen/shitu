@@ -101,6 +101,16 @@ for (const c of selected) {
       await until(`!document.querySelector('.van-button--loading')`, '错误后仍在提交中')
       assert.equal(await evaluate('window.__retryCount'), 1, '第一次提交必须经过真实请求')
       if (c.kept) assert.equal(await evaluate(`document.querySelector(${JSON.stringify(c.kept)})?.value`), c.value, '失败丢失弹窗或输入')
+      if (mode === 'fail' && ['recommendations', 'ack'].includes(c.name)) {
+        // 等自然淡入结束再检查，避免把过渡帧当作稳定态叠印。
+        await until(`(() => {
+          const toast = document.querySelector('.van-toast')
+          return toast?.getClientRects().length && getComputedStyle(toast).opacity === '1' && toast.getAnimations().length === 0
+        })()`, '轻提示没有进入稳定可见态')
+        const background = await evaluate("getComputedStyle(document.querySelector('.van-toast')).backgroundColor")
+        const channels = background.match(/[\d.]+/g)?.map(Number) ?? []
+        assert.ok(channels.length === 3 || (channels.length === 4 && channels[3] === 1), '稳定轻提示背景透出下层正文')
+      }
       if (mode === 'business') {
         assert.equal(await evaluate(`${c.submit}?.disabled`), c.businessDisabled !== false, '真正业务拒绝的确认禁用行为改变')
         await sleep(2200)

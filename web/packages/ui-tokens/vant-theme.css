@@ -95,6 +95,10 @@
   --van-tabs-bottom-bar-color: var(--primary);
   --van-tabs-bottom-bar-height: 2px;
 
+  /* 轻提示稳定态遮住下层正文，避免两层文字叠印。 */
+  --van-toast-background: var(--text-1);
+  --van-toast-text-color: var(--text-on-primary);
+
   /* 弹窗 */
   --van-dialog-radius: var(--radius-card);
   --van-dialog-confirm-button-text-color: var(--primary-text);
