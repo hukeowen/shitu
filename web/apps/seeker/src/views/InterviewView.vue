@@ -2,10 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type MyApplication } from '@shitu/api-client'
+import { IconCheck, IconCircleExclamationPoint, IconClock, IconExternalLink, IconMapPin, IconPhone, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { telHref } from '@/utils/format'
-import { APP_TAG_CLASS } from '@/utils/status'
 import { amapLink } from '@/utils/map'
+import { APPLICATION_TONE } from '@/utils/status'
 import { formatServerTime, formatShort, untilText } from '@/utils/time'
 
 /**
@@ -26,7 +27,6 @@ async function load() {
   try {
     const all = await seekerApi.myApplications()
     app.value = all.find((a) => a.applicationId === route.params.applicationId) ?? null
-    if (!app.value) loadError.value = '报名记录不存在'
   } catch (e) {
     loadError.value = errorMessage(e, '加载失败，请稍后重试')
   } finally {
@@ -36,6 +36,7 @@ async function load() {
 void load()
 
 const n = computed(() => app.value?.notice)
+const where = computed(() => [app.value?.projectName, app.value?.companyName].filter(Boolean).join(' · '))
 const nav = computed(() => (n.value ? amapLink({ address: n.value.address, name: n.value.address }) : null))
 const tel = computed(() => telHref(n.value?.contactPhone))
 const until = computed(() => untilText(n.value?.interviewAt))
@@ -78,35 +79,46 @@ const summary = computed(() => {
   <div class="iv">
     <AppBar :title="title" fallback="/reports" />
     <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-    <div v-else-if="loadError || !app" class="page-state">
-      <van-empty image="error" :description="loadError">
-        <van-button round size="small" @click="router.replace('/reports')">返回我的报备</van-button>
-      </van-empty>
+    <div v-else-if="loadError" class="state-block">
+      <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">加载失败</div>
+      <div class="state-block-d">{{ loadError }}</div>
+      <van-button type="primary" @click="load">重新加载</van-button>
+    </div>
+    <div v-else-if="!app" class="state-block">
+      <IconCircleExclamationPoint :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">报名记录不存在</div>
+      <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
     </div>
     <!-- 面试已通过 / 已入职 / 已结束：状态摘要，不出现倒计时、证件清点与取消提示 -->
     <div v-else-if="!pendingInterview" class="pad stack">
-      <section class="acard hero-card" :class="{ ok: app.status === 'PENDING_CONFIRM' || app.status === 'EMPLOYED', off: app.status !== 'PENDING_CONFIRM' && app.status !== 'EMPLOYED' }">
-        <div class="row-b" style="margin-bottom: 12px">
-          <span class="tag" :class="APP_TAG_CLASS[app.status]"><i class="dot"></i>{{ label('ApplicationStatus', app.status) }}</span>
-          <span class="mono t-xs" style="color: rgba(255, 255, 255, .5)">{{ app.applicationId }}</span>
+      <section class="acard">
+        <div class="item-hd">
+          <h1>{{ app.jobTitle || '岗位' }}</h1>
+          <span class="status-tag" :class="APPLICATION_TONE[app.status]">{{ label('ApplicationStatus', app.status) }}</span>
         </div>
-        <div class="h-t">{{ app.jobTitle || '岗位' }}</div>
-        <div class="h-s">{{ [app.projectName, app.companyName].filter(Boolean).join(' · ') }}</div>
-        <div class="h-time">
-          <div class="h-v2">{{ summary.t }}</div>
-          <div class="h-d">{{ summary.d }}</div>
+        <p v-if="where" class="item-sub">{{ where }}</p>
+        <p class="item-meta">报名单号 <span class="code">{{ app.applicationId }}</span></p>
+      </section>
+
+      <section class="tipbar" :class="{ 'tipbar--ok': app.status === 'PENDING_CONFIRM' || app.status === 'EMPLOYED' }">
+        <IconCheck v-if="app.status === 'PENDING_CONFIRM' || app.status === 'EMPLOYED'" :size="20" />
+        <IconCircleExclamationPoint v-else :size="20" />
+        <div class="flex1">
+          <div class="tipbar-t">{{ summary.t }}</div>
+          <div class="tipbar-d">{{ summary.d }}</div>
         </div>
       </section>
 
       <section class="acard">
         <div class="acard-hd"><h4>报名记录</h4></div>
         <dl>
-          <div class="kv"><dt>报名时间</dt><dd class="num">{{ formatServerTime(app.createdAt) }}</dd></div>
-          <div v-if="n" class="kv"><dt>面试时间</dt><dd class="num">{{ formatServerTime(n.interviewAt) }}</dd></div>
+          <div class="kv"><dt>报名时间</dt><dd>{{ formatServerTime(app.createdAt) }}</dd></div>
+          <div v-if="n" class="kv"><dt>面试时间</dt><dd>{{ formatServerTime(n.interviewAt) }}</dd></div>
           <div v-if="n?.address || app.address" class="kv"><dt>面试地点</dt><dd>{{ n?.address || app.address }}</dd></div>
           <div v-if="n?.contactName" class="kv"><dt>驻场老师</dt><dd>{{ n.contactName }}</dd></div>
-          <div v-if="app.endedAt && app.status !== 'EMPLOYED' && app.status !== 'PENDING_CONFIRM'" class="kv"><dt>结束时间</dt><dd class="num">{{ formatServerTime(app.endedAt) }}</dd></div>
-          <div v-if="app.endReason" class="kv"><dt>原因</dt><dd>{{ app.endReason }}</dd></div>
+          <div v-if="app.endedAt && app.status !== 'EMPLOYED' && app.status !== 'PENDING_CONFIRM'" class="kv"><dt>结束时间</dt><dd>{{ formatServerTime(app.endedAt) }}</dd></div>
+          <div v-if="app.endReason" class="kv"><dt>原因</dt><dd>{{ label('LifecycleEvent', app.endReason) }}</dd></div>
         </dl>
       </section>
 
@@ -116,61 +128,74 @@ const summary = computed(() => {
       <div class="page-bottom-gap"></div>
     </div>
 
-    <div v-else-if="!n" class="page-state">
-      <van-empty description="驻场老师还没有推送面试信息，请留意站内消息和短信">
-        <van-button round size="small" @click="router.replace('/reports')">返回我的报备</van-button>
-      </van-empty>
+    <div v-else-if="!n" class="state-block">
+      <IconClock :size="48" :stroke-width="1.5" />
+      <div class="state-block-t">驻场老师还没有推送面试信息</div>
+      <div class="state-block-d">请留意站内消息和短信</div>
+      <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
     </div>
 
     <div v-else class="pad stack">
-      <section class="acard hero-card">
-        <div class="row-b" style="margin-bottom: 12px">
-          <span class="tag" :class="APP_TAG_CLASS[app.status]">{{ label('ApplicationStatus', app.status) }}</span>
-          <span class="mono t-xs" style="color: rgba(255, 255, 255, .5)">{{ app.applicationId }}</span>
+      <section class="acard">
+        <div class="item-hd">
+          <h1>{{ app.jobTitle }}</h1>
+          <span class="status-tag" :class="APPLICATION_TONE[app.status]">{{ label('ApplicationStatus', app.status) }}</span>
         </div>
-        <div class="h-t">{{ app.jobTitle }}</div>
-        <div class="h-s">{{ [app.projectName, app.companyName].filter(Boolean).join(' · ') }}</div>
-        <div class="h-time">
-          <div class="h-l">面试时间</div>
-          <div class="num h-v">{{ formatServerTime(n.interviewAt) }}</div>
-          <div v-if="until" class="h-u">距面试还有 {{ until }}</div>
-        </div>
+        <p v-if="where" class="item-sub">{{ where }}</p>
+        <p class="item-meta">报名单号 <span class="code">{{ app.applicationId }}</span></p>
       </section>
 
       <section class="acard">
-        <div class="acard-hd"><h4>集合地点与路线</h4></div>
-        <dl>
-          <div class="kv"><dt>集合地点</dt><dd>{{ n.address }}</dd></div>
-          <div v-if="n.routeTips" class="kv"><dt>路线提示</dt><dd>{{ n.routeTips }}</dd></div>
-        </dl>
+        <div class="acard-hd"><h4>面试时间</h4></div>
+        <p class="when">{{ formatServerTime(n.interviewAt) }}</p>
+        <p v-if="until" class="until">距面试还有 {{ until }}</p>
+      </section>
+
+      <section class="acard">
+        <div class="acard-hd"><h4>集合地点</h4></div>
+        <p class="addr">{{ n.address }}</p>
         <a v-if="nav" :href="nav" class="map" target="_blank" rel="noopener">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /><circle cx="12" cy="10" r="2.6" fill="currentColor" /></svg>
-          <span>点击用高德地图导航到集合点</span>
+          <IconMapPin :size="20" />用高德地图导航到集合点<IconExternalLink :size="16" />
         </a>
       </section>
 
+      <section v-if="n.routeTips" class="acard">
+        <div class="acard-hd"><h4>路线提示</h4></div>
+        <p class="para">{{ n.routeTips }}</p>
+      </section>
+
       <section v-if="n.documents?.length" class="acard">
-        <div class="acard-hd"><h4>证件清单</h4><span class="tag tag-warn">必带</span></div>
-        <div class="stack-sm">
-          <button v-for="d in n.documents" :key="d" type="button" class="doc" @click="checked[d] = !checked[d]">
-            <span class="box" :class="{ on: checked[d] }"><van-icon v-if="checked[d]" name="success" /></span>
-            <span class="t-sm">{{ d }}</span>
-          </button>
-        </div>
-        <p class="t-xs" style="margin-top: 8px">勾选仅用于自己清点，不会提交</p>
+        <div class="acard-hd"><h4>证件清单</h4><span class="status-tag status-tag--warning">必带</span></div>
+        <ul class="docs">
+          <li v-for="d in n.documents" :key="d">
+            <button type="button" role="checkbox" :aria-checked="!!checked[d]" class="doc" @click="checked[d] = !checked[d]">
+              <span class="box" :class="{ on: checked[d] }"><IconCheck v-if="checked[d]" :size="14" :stroke-width="2.5" /></span>
+              <span class="flex1">{{ d }}</span>
+            </button>
+          </li>
+        </ul>
+        <p class="tip">勾选仅用于自己清点，不会提交</p>
       </section>
 
       <section v-if="n.contactName || n.contactPhone" class="acard">
         <div class="acard-hd"><h4>驻场老师</h4></div>
-        <div class="row" style="gap: 10px">
-          <div class="avatar avatar--o avatar--sm">{{ (n.contactName || '驻').slice(0, 1) }}</div>
+        <div class="contact">
+          <div class="avatar">{{ (n.contactName || '驻').slice(0, 1) }}</div>
           <div class="flex1">
             <b class="c-n">{{ n.contactName || '驻场老师' }}</b>
-            <span class="t-xs">{{ formatShort(n.pushedAt) }} 推送 · <span class="num">{{ n.contactPhone }}</span></span>
+            <span v-if="n.contactPhone" class="c-m">{{ n.contactPhone }}</span>
+            <span class="c-m">{{ formatShort(n.pushedAt) }} 推送</span>
           </div>
-          <a v-if="tel" :href="tel" class="call">电话</a>
+          <a v-if="tel" :href="tel" class="call"><IconPhone :size="18" />电话</a>
         </div>
-        <div class="note note--warn" style="margin-top: 10px">如需取消面试，请直接联系驻场老师 —— 你不能自行取消报名。</div>
+      </section>
+
+      <section class="tipbar tipbar--warn">
+        <IconTriangleExclamationPoint :size="20" />
+        <div class="flex1">
+          <div class="tipbar-t">如需取消面试，请直接联系驻场老师。</div>
+          <div class="tipbar-d">你不能自行取消报名。</div>
+        </div>
       </section>
       <div class="page-bottom-gap"></div>
     </div>
@@ -178,22 +203,22 @@ const summary = computed(() => {
 </template>
 
 <style scoped>
-.iv { min-height: 100vh; background: var(--surface-2); }
-.hero-card { background: linear-gradient(160deg, #2a1b4a, #0d1117); border: 0; color: #fff; }
-.h-t { font-size: 19px; font-weight: 700; }
-.h-s { font-size: 12.5px; color: rgba(255, 255, 255, .6); margin-top: 3px; }
-.h-time { margin-top: 16px; padding-top: 14px; border-top: 1px dashed rgba(255, 255, 255, .18); }
-.h-l { font-size: 11px; color: rgba(255, 255, 255, .5); }
-.h-v { font-size: 22px; margin-top: 2px; }
-.h-u { font-size: 11.5px; color: var(--signal-300); margin-top: 3px; }
-.hero-card.ok { background: linear-gradient(160deg, #14513a, #0d1117); }
-.hero-card.off { background: linear-gradient(160deg, #3a4350, #0d1117); }
-.h-v2 { font-size: 18px; font-weight: 700; }
-.h-d { font-size: 12px; color: rgba(255, 255, 255, .62); margin-top: 4px; line-height: 1.65; text-wrap: pretty; }
-.map { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; height: 80px; border-radius: var(--r-md); border: 1px solid var(--line); color: var(--signal); font-size: 13px; font-weight: 600; text-decoration: none; background: repeating-linear-gradient(135deg, var(--surface-3) 0 10px, var(--surface-2) 10px 20px); }
-.doc { display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 2px 0; width: 100%; text-align: left; }
-.doc .box { width: 16px; height: 16px; border: 1.5px solid var(--ink-300); border-radius: 4px; flex: none; display: grid; place-items: center; font-size: 11px; color: #fff; }
-.doc .box.on { background: var(--ok); border-color: var(--ok); }
-.c-n { display: block; font-size: 13.5px; color: var(--ink-900); }
-.call { flex: none; height: 30px; line-height: 28px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-800); text-decoration: none; }
+.iv { min-height: 100vh; }
+.item-hd h1 { min-width: 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
+.code { font-family: var(--font-mono); color: var(--text-1); }
+.when { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
+.until { margin-top: 2px; font-size: var(--font-size-body); line-height: 22px; font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.addr { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); text-wrap: balance; }
+.map { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-height); margin-top: var(--space-3); padding: 0 var(--space-3); border: 1px solid var(--primary-line); border-radius: var(--radius-control); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); text-decoration: none; }
+.map:active { background: var(--primary-bg); }
+.docs li + li { border-top: 1px solid var(--divider); }
+.doc { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 44px; padding: var(--space-2) 0; border: 0; background: none; font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); text-align: left; }
+.box { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--text-3); border-radius: var(--radius-tag); color: var(--text-on-primary); }
+.box.on { background: var(--primary); border-color: var(--primary); }
+.tip { margin-top: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.contact { display: flex; align-items: center; gap: var(--space-3); }
+.c-n { display: block; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
+.c-m { display: block; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.call { flex: none; display: flex; align-items: center; gap: var(--space-1); min-height: var(--control-height); padding: 0 var(--space-3); border: 1px solid var(--primary-line); border-radius: var(--radius-control); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); text-decoration: none; }
+.call:active { background: var(--primary-bg); }
 </style>

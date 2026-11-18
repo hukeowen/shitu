@@ -1,0 +1,140 @@
+<!doctype html>
+<!-- PROTOTYPE — 可删除。手机端原型的带壳预览页：把各风格手机原型放进手机外壳并排对比。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>仕兔改版 · 手机端带壳预览</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; color: #1A1D23; background: #E9EBEF; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; padding: 14px 28px; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); border-bottom: 1px solid #DDE0E5; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  header .sub { color: #8A909C; font-size: 13px; }
+  .seg { display: inline-flex; background: #F0F1F4; border-radius: 8px; padding: 3px; }
+  .seg button { border: 0; background: none; font: inherit; color: #4B5260; padding: 5px 14px; border-radius: 6px; cursor: pointer; }
+  .seg button.on { background: #fff; color: #1A1D23; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .spacer { flex: 1; }
+  main { padding: 28px 28px 48px; }
+  .row { display: flex; justify-content: center; gap: 36px; flex-wrap: wrap; transform-origin: top center; }
+  figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  figcaption { text-align: center; }
+  figcaption b { display: block; font-size: 15px; font-weight: 600; }
+  figcaption span { color: #8A909C; font-size: 12px; }
+  figcaption i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: 0; }
+
+  /* 手机外壳：iPhone 14 尺寸（390×844 逻辑像素） */
+  .phone { position: relative; width: 414px; height: 868px; padding: 12px; border-radius: 64px; background: #1B1C1F; box-shadow: 0 0 0 2px #3A3B40 inset, 0 30px 60px -20px rgba(16,24,40,.35), 0 8px 18px rgba(16,24,40,.12); }
+  .phone::before, .phone::after { content: ""; position: absolute; left: -3px; width: 3px; border-radius: 2px 0 0 2px; background: #2A2B30; }
+  .phone::before { top: 150px; height: 34px; }
+  .phone::after { top: 200px; height: 62px; box-shadow: 0 78px 0 #2A2B30; }
+  .side { position: absolute; right: -3px; top: 220px; width: 3px; height: 96px; border-radius: 0 2px 2px 0; background: #2A2B30; }
+  .screen { position: relative; width: 390px; height: 844px; border-radius: 52px; overflow: hidden; background: #fff; }
+  .status { position: absolute; inset: 0 0 auto 0; height: 47px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px 0 44px; font-size: 16px; font-weight: 600; color: #000; z-index: 2; pointer-events: none; }
+  .status svg { display: block; }
+  .island { position: absolute; top: 11px; left: 50%; width: 124px; height: 36px; margin-left: -62px; border-radius: 20px; background: #000; z-index: 3; }
+  /* 顶部状态栏 47px、底部安全区 34px，页面在中间 390×763 运行（与真机 Safari / 微信内网页一致） */
+  .screen iframe { position: absolute; top: 47px; left: 0; width: 390px; height: 763px; border: 0; display: block; }
+  .safe { position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: #fff; }
+  .home-bar { position: absolute; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: #000; opacity: .85; z-index: 3; pointer-events: none; }
+  .current { width: 414px; height: 868px; display: grid; place-items: center; }
+  .current img { max-width: 100%; max-height: 100%; border-radius: 56px; filter: drop-shadow(0 24px 40px rgba(16,24,40,.25)); }
+  .note { max-width: 1100px; margin: 28px auto 0; color: #6B7180; font-size: 13px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>手机端带壳预览</h1>
+  <span class="sub">外壳里的页面可以滚动、可以点</span>
+  <div class="seg" id="screens">
+    <button class="on" data-s="staff">驻场 · 工作台</button>
+    <button data-s="home">求职者 · 首页</button>
+    <button data-s="match">求职者 · 匹配结果</button>
+  </div>
+  <span class="spacer"></span>
+  <div class="seg" id="zoom">
+    <button data-z="0.7">70%</button>
+    <button class="on" data-z="0.85">85%</button>
+    <button data-z="1">100%</button>
+  </div>
+</header>
+
+<main>
+  <div class="row" id="row"></div>
+  <p class="note">现状为原型 prototype/app.html、staff.html 的截图（自带外壳）；三个风格是实际网页，在 390×844 的 iPhone 尺寸下运行。状态栏和外壳只用于预览，不属于设计。</p>
+</main>
+
+<template id="tpl-phone">
+  <div class="phone"><span class="side"></span>
+    <div class="screen">
+      <div class="status">
+        <span>9:41</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .5C5.3.5 2.8 1.5.9 3.4L2 4.6c1.6-1.5 3.7-2.4 6-2.4Zm0 3.4c1.4 0 2.6.5 3.6 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.7 1.9L4.4 7c1-.9 2.2-1.4 3.6-1.4Zm0 3.4c.5 0 1 .2 1.3.5L8 11 6.7 9.5c.3-.3.8-.5 1.3-.5Z"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="#000" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2Z" opacity=".4"/></svg>
+        </span>
+      </div>
+      <span class="island"></span>
+      <iframe></iframe>
+      <span class="safe"></span>
+      <span class="home-bar"></span>
+    </div>
+  </div>
+</template>
+
+<script>
+(() => {
+  const SCREENS = {
+    staff: { current: 'current/staff-workbench@3x.png', file: d => `staff/workbench-${d}.html` },
+    home:  { current: 'current/seeker-home@3x.png',     file: d => `seeker/home-${d}.html` },
+    match: { current: 'current/seeker-match@3x.png',    file: d => `seeker/match-${d}.html` },
+  };
+  const DIRS = [
+    ['d1', '信任蓝', '#2B6BFF', '熟悉、正规、可信'],
+    ['d2', '仕兔橙', '#F0600F', '延续品牌橙，温暖克制'],
+    ['d3', '安心绿', '#0E9F6E', '稳当、偏工具感'],
+  ];
+  const row = document.getElementById('row');
+  const tpl = document.getElementById('tpl-phone');
+
+  function render(s) {
+    row.innerHTML = '';
+    const cur = document.createElement('figure');
+    cur.innerHTML = `<div class="current"><img alt="现状截图" src="${SCREENS[s].current}"></div><figcaption><b>现状</b><span>现有原型</span></figcaption>`;
+    row.appendChild(cur);
+    DIRS.forEach(([d, name, color, desc]) => {
+      const fig = document.createElement('figure');
+      fig.appendChild(tpl.content.cloneNode(true));
+      fig.querySelector('iframe').src = SCREENS[s].file(d);
+      fig.querySelector('iframe').title = name;
+      const cap = document.createElement('figcaption');
+      cap.innerHTML = `<b><i style="background:${color}"></i>${name}</b><span>${desc}</span>`;
+      fig.appendChild(cap);
+      row.appendChild(fig);
+    });
+    history.replaceState(null, '', '#' + s);
+  }
+
+  function setZoom(z) { row.style.zoom = z; }
+
+  document.getElementById('screens').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#screens button').forEach(x => x.classList.toggle('on', x === b));
+    render(b.dataset.s);
+  });
+  document.getElementById('zoom').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#zoom button').forEach(x => x.classList.toggle('on', x === b));
+    setZoom(b.dataset.z);
+  });
+
+  const start = SCREENS[location.hash.slice(1)] ? location.hash.slice(1) : 'staff';
+  document.querySelectorAll('#screens button').forEach(x => x.classList.toggle('on', x.dataset.s === start));
+  render(start);
+  setZoom(0.85);
+})();
+</script>
+</body>
+</html>

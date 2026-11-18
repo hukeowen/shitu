@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "project": "仕兔 · 全端风格（求职者匹配结果）",
+  "brief": "匹配后给出固定 3 个岗位，看清钱、吃住、地点、名额后报名。三个风格结构相同，只换视觉。",
+  "round": "04-seeker-match",
+  "candidates": [
+    {
+      "id": "current",
+      "name": "现状",
+      "concept": "现有匹配结果页",
+      "typography": "现有原型：PingFang SC + Bahnschrift 数字 + 等宽字体",
+      "palette": [
+        "#F1EFE9",
+        "#12171E",
+        "#E8590C",
+        "#FFFFFF"
+      ],
+      "traits": [
+        "暖灰纸面",
+        "深色头部 / 侧栏",
+        "仕兔橙"
+      ],
+      "kind": "image",
+      "source": "current/seeker-match@3x.png",
+      "baseline": true
+    },
+    {
+      "id": "d1",
+      "name": "信任蓝",
+      "concept": "和主流招聘平台一样熟悉、正规、可信。",
+      "typography": "PingFang SC / 系统字体；标题 600，正文 14px（手机 15px）；数字等宽",
+      "palette": [
+        "#2B6BFF",
+        "#FF5A1F",
+        "#F5F6F8",
+        "#1A1D23"
+      ],
+      "traits": [
+        "主色 #2B6BFF",
+        "圆角 8/12",
+        "选中用浅蓝底",
+        "图标直接用主色"
+      ],
+      "kind": "html",
+      "source": "seeker/match-d1.html",
+      "interactive": true
+    },
+    {
+      "id": "d2",
+      "name": "仕兔橙",
+      "concept": "延续仕兔原有的橙色品牌，温暖有干劲，但只在按钮和薪资上用橙。",
+      "typography": "PingFang SC / 系统字体；标题 600，正文 14px（手机 15px）；数字等宽",
+      "palette": [
+        "#F0600F",
+        "#C2470A",
+        "#F7F6F3",
+        "#1A1D23"
+      ],
+      "traits": [
+        "主色 #F0600F",
+        "暖底色",
+        "圆角 12/16",
+        "图标放在浅底方块",
+        "侧栏选中带左侧色条"
+      ],
+      "kind": "html",
+      "source": "seeker/match-d2.html",
+      "interactive": true
+    },
+    {
+      "id": "d3",
+      "name": "安心绿",
+      "concept": "绿色代表稳当、发钱、正规，和蓝、橙两大阵营都不撞。",
+      "typography": "PingFang SC / 系统字体；标题 600，正文 14px（手机 15px）；数字等宽",
+      "palette": [
+        "#0E9F6E",
+        "#FF5A1F",
+        "#F4F6F5",
+        "#1A1D23"
+      ],
+      "traits": [
+        "主色 #0E9F6E",
+        "圆角 6/10",
+        "无阴影、细线分隔",
+        "选中只用线不用底色"
+      ],
+      "kind": "html",
+      "source": "seeker/match-d3.html",
+      "interactive": true
+    }
+  ]
+}

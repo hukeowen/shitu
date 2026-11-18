@@ -48,11 +48,11 @@ function beforeClose(action: string): boolean | Promise<boolean> {
 
 <style scoped>
 .cap { padding: 12px 20px 18px; }
-.tip { font-size: 13px; color: var(--ink-500); text-align: center; margin-bottom: 12px; }
+.tip { font-size: var(--font-size-aux); color: var(--text-3); text-align: center; margin-bottom: 12px; }
 .cap-row { display: flex; gap: 10px; align-items: center; }
-.cap-inp { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border: 1.5px solid var(--line-2); border-radius: var(--r-md); font-size: 16px; letter-spacing: .1em; outline: none; background: var(--surface); }
-.cap-inp:focus { border-color: var(--ink-900); }
-.cap-img { flex: none; width: 120px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); display: grid; place-items: center; overflow: hidden; }
+.cap-inp { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: var(--radius-control); font-size: var(--font-size-section); letter-spacing: .1em; outline: none; background: var(--bg-card); }
+.cap-inp:focus { border-color: var(--text-1); }
+.cap-img { flex: none; width: 120px; height: 40px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-page); display: grid; place-items: center; overflow: hidden; }
 .cap-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hint { margin-top: 8px; text-align: right; }
 </style>

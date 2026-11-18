@@ -3,6 +3,8 @@ import { shNow } from '@/utils/time'
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, type StaffRow } from '@shitu/api-client'
+import { IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { isBlocked } from '@/composables/boxSubmit'
 import { addDays, parseLocal, ymd } from '@/utils/time'
 
 /** 发起离职（T-308，驻场 / 项目经理）→ 项目经理在「离职审核」确认 */
@@ -13,6 +15,9 @@ const emit = defineEmits<{ done: [] }>()
 const REASONS = ['个人 / 家庭原因', '岗位不适应', '薪资不满意', '吃住条件', '违纪辞退', '合同到期不续签']
 const form = reactive({ resignDate: ymd(shNow()), reason: '', remark: '' })
 const saving = ref(false)
+/** 提交被后端业务拒绝的原因：留在弹窗里、置灰「提交审核」，改了内容再放开 */
+const why = ref('')
+watch(() => [form.resignDate, form.reason, form.remark], () => (why.value = ''))
 
 /** 默认今天；入职当天或之后入职的，默认入职次日 */
 function defaultDate(): string {
@@ -27,6 +32,7 @@ watch(visible, (v) => {
     form.resignDate = defaultDate()
     form.reason = ''
     form.remark = ''
+    why.value = ''
   }
 })
 
@@ -44,6 +50,7 @@ async function submit() {
   if (!r) return
   if (!form.resignDate) return ElMessage.warning('请选择最后工作日')
   if (!form.reason) return ElMessage.warning('请选择离职原因')
+  if (saving.value) return
   saving.value = true
   try {
     const reason = form.remark.trim() ? `${form.reason}：${form.remark.trim()}` : form.reason
@@ -53,6 +60,7 @@ async function submit() {
     emit('done')
   } catch (e) {
     ElMessage.error(errorMessage(e))
+    if (isBlocked(e)) why.value = `暂时不能提交离职申请：${errorMessage(e)}`
   } finally {
     saving.value = false
   }
@@ -62,10 +70,12 @@ async function submit() {
 <template>
   <el-dialog v-model="visible" title="发起离职" width="480px">
     <template v-if="row">
-      <dl class="kv"><dt>员工</dt><dd>{{ row.name }}{{ row.employeeNo ? ` · ${row.employeeNo}` : '' }}</dd></dl>
-      <dl class="kv"><dt>岗位</dt><dd>{{ row.jobTitle ?? '—' }} · {{ row.projectName }}</dd></dl>
-      <dl class="kv"><dt>入职 / 在岗</dt><dd class="mono">{{ row.startDate }} · {{ row.dutyDays }} 天</dd></dl>
-      <el-form label-width="88px" style="margin-top: 16px" @submit.prevent>
+      <dl class="desc-list">
+        <div><dt>员工</dt><dd>{{ row.name }}{{ row.employeeNo ? ` · ${row.employeeNo}` : '' }}</dd></div>
+        <div><dt>入职 / 在岗</dt><dd class="tnum">{{ row.startDate }} · {{ row.dutyDays }} 天</dd></div>
+        <div class="full"><dt>岗位</dt><dd>{{ row.jobTitle ?? '—' }} · {{ row.projectName }}</dd></div>
+      </dl>
+      <el-form label-width="100px" class="dlg-form" @submit.prevent>
         <el-form-item label="最后工作日" required>
           <el-date-picker v-model="form.resignDate" type="date" value-format="YYYY-MM-DD" :disabled-date="disableDate" :clearable="false" style="width: 100%" />
         </el-form-item>
@@ -78,11 +88,22 @@ async function submit() {
           <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="150" />
         </el-form-item>
       </el-form>
-      <div class="note note--warn">审核通过后：归属清空变公域、计费停止、劳动合同终止；有未还清的薪酬预支须先结清。</div>
+      <div class="notice-bar notice-bar--warn">
+        <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
+        <span>审核通过后：归属清空变公域、计费停止、劳动合同终止；有未还清的薪酬预支须先结清。</span>
+      </div>
+      <p v-if="why" class="blocked-why dlg-why" role="alert">{{ why }}</p>
     </template>
     <template #footer>
       <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="submit">提交审核</el-button>
+      <el-button type="primary" :loading="saving" :disabled="!!why" @click="submit">提交审核</el-button>
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+.desc-list .full { grid-column: 1 / -1; }
+.tnum { font-variant-numeric: tabular-nums; }
+.dlg-form { margin-top: var(--space-4); }
+.dlg-why { margin-top: var(--space-3); }
+</style>

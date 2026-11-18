@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, tenantApi, type UploadedFile } from '@shitu/api-client'
+import { IconClock } from '@shitu/ui-icons'
 import AuthShell from '@/layout/AuthShell.vue'
 import CompanyForm from '@/components/CompanyForm.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -17,6 +18,8 @@ const onboarding = useOnboardingStore()
 
 const formRef = ref<InstanceType<typeof CompanyForm>>()
 const submitting = ref(false)
+/** 提交被拒的原因：轻提示之外留在底部按钮上方 */
+const submitError = ref('')
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -45,6 +48,7 @@ async function submit() {
     router.replace('/login')
     return
   }
+  submitError.value = ''
   submitting.value = true
   try {
     const r = await tenantApi.onboardingApply(onboarding.ticket, req)
@@ -54,7 +58,9 @@ async function submit() {
     ElMessage.success('入驻申请已提交，平台将在 1–2 个工作日内完成审核')
     router.replace('/onboarding/status')
   } catch (e) {
-    ElMessage.error(errorMessage(e))
+    submitError.value = errorMessage(e)
+    submitting.value = false
+    ElMessage.error(submitError.value)
   } finally {
     submitting.value = false
   }
@@ -67,19 +73,24 @@ function back() {
 </script>
 
 <template>
-  <AuthShell wide>
-    <div class="box">
-      <div class="eyebrow">新公司入驻</div>
+  <AuthShell>
+    <div class="hd">
       <h2>劳务公司入驻申请</h2>
-      <p class="t-sm sub">
-        手机号 <b class="mono strong">{{ onboarding.phoneMasked || '—' }}</b> 尚未加入任何公司。提交后你将成为该公司的<b class="strong">老板</b>账号，审核通过后即可使用全部功能。
+      <p class="sub">
+        手机号 <b>{{ onboarding.phoneMasked || '—' }}</b> 尚未加入任何公司。提交后你将成为该公司的<b>老板</b>账号，审核通过后即可使用全部功能。
       </p>
-      <div class="note note--warn" style="margin-bottom: 18px">
-        请在 <b>{{ minutesLeft }} 分钟</b>内完成提交（凭证 30 分钟有效）。资料须与营业执照一致；虚假资料将被驳回并记入诚信档案。
+      <div class="tipbar" role="note">
+        <IconClock :size="18" class="tipbar-i" />
+        <span>请在 <b>{{ minutesLeft }} 分钟</b>内完成提交（凭证 30 分钟有效）。资料须与营业执照一致；虚假资料将被驳回并记入诚信档案。</span>
       </div>
+    </div>
 
+    <div class="bd">
       <CompanyForm ref="formRef" :upload="upload" />
+    </div>
 
+    <div class="ft">
+      <p v-if="submitError" class="form-err" role="alert">提交没有成功：{{ submitError }}</p>
       <div class="actions">
         <el-button @click="back">返回登录</el-button>
         <el-button type="primary" :loading="submitting" @click="submit">提交入驻申请</el-button>
@@ -89,8 +100,14 @@ function back() {
 </template>
 
 <style scoped>
-.box { width: 680px; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-2); padding: 30px 30px 24px; }
-h2 { margin: 8px 0 6px; font-family: var(--f-dis); font-size: 24px; color: var(--ink-900); }
-.sub { margin-bottom: 14px; line-height: 1.7; }
-.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.hd { padding: var(--space-6) var(--space-6) 0; }
+h2 { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.sub { margin-top: var(--space-2); font-size: var(--font-size-body); line-height: 1.7; color: var(--text-2); }
+.sub b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.tipbar { display: flex; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-4); padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--warning-soft); color: var(--text-1); font-size: var(--font-size-aux); line-height: 1.6; }
+.tipbar-i { flex: none; margin-top: 1px; color: var(--warning-text); }
+.bd { padding: var(--space-6); }
+.ft { padding: var(--space-4) var(--space-6); border-top: 1px solid var(--divider); }
+.form-err { margin-bottom: var(--space-3); text-align: right; }
+.actions { display: flex; justify-content: flex-end; }
 </style>

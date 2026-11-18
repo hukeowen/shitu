@@ -1,0 +1,251 @@
+<!doctype html>
+<!-- PROTOTYPE — 可删除。仕兔改版第 04 轮「定全端风格」，求职者手机端一次性原型，三个风格文件结构与文字一致，只换 <style>。数据为演示数据。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>首页 · 仕兔</title>
+<style>
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0 auto; max-width: 480px; min-height: 100vh;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    color: var(--t1); background: var(--bg); -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, p, ul { margin: 0; padding: 0; }
+  ul { list-style: none; }
+  button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .card { background: #fff; border-radius: var(--r-card); padding: 16px; }
+  .page { padding: 12px 16px calc(88px + env(safe-area-inset-bottom)); display: grid; gap: 12px; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: var(--r-btn); font-size: 16px; font-weight: 600; }
+  .btn-block { display: flex; width: 100%; height: 48px; }
+  .btn-primary { background: var(--p); color: #fff; }
+  .btn-primary:active { background: var(--p-press); }
+  .btn-second { background: #fff; color: var(--p-text); border: 1px solid var(--p-line); }
+  .btn-second:active { background: var(--p-50); }
+
+  /* 首页头部 */
+  .home-head { padding: 12px 16px 4px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; color: var(--t1); }
+  .logo { width: 24px; height: 24px; color: var(--p); }
+  .home-head h1 { margin-top: 16px; font-size: 20px; font-weight: 600; line-height: 28px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 2px 10px; font-size: 13px; line-height: 22px; color: var(--p-text); background: var(--p-50); border-radius: var(--r-tag); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--p); }
+
+  /* 主卡片 */
+  .hero h2 { font-size: 18px; font-weight: 600; line-height: 26px; }
+  .hero-sub { margin-top: 4px; font-size: 15px; color: var(--t2); }
+  .hero-sub b { color: var(--t1); font-weight: 600; }
+  .hero-points { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 16px; font-size: 13px; color: var(--t2); }
+  .hero-points li { display: flex; align-items: center; gap: 4px; }
+  .hero-points svg.i { width: 16px; height: 16px; color: var(--ok); }
+
+  /* 入口宫格 */
+  .entries { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .entry { display: flex; flex-direction: column; align-items: flex-start; padding: 16px; background: #fff; border-radius: var(--r-card); }
+  .entry-ic { display: flex; align-items: center; justify-content: flex-start; width: 40px; height: 40px; color: var(--p); }
+  .entry-ic svg.i { width: 28px; height: 28px; }
+  .entry-t { margin-top: 8px; font-size: 16px; font-weight: 600; line-height: 24px; }
+  .entry-d { display: flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 13px; color: var(--t3); }
+  .entry-d svg.i { width: 14px; height: 14px; }
+  .entry.is-off .entry-ic { color: var(--t3); }
+  .entry.is-off .entry-t { color: var(--t2); }
+  .entry.is-off .entry-d { color: var(--warn-text); }
+
+  /* 平台保障 */
+  .assure h3, .recent h3 { font-size: 16px; font-weight: 600; line-height: 24px; }
+  .assure ul { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; margin-top: 12px; }
+  .assure li { display: flex; align-items: center; gap: 4px; font-size: 14px; color: var(--t2); white-space: nowrap; }
+  .assure svg.i { color: var(--ok); }
+
+  /* 最近动态 */
+  .empty { display: flex; flex-direction: column; align-items: center; padding: 20px 0 8px; text-align: center; }
+  .empty-ic { color: var(--t3); }
+  .empty-ic svg.i { width: 32px; height: 32px; stroke-width: 1.5; }
+  .empty-t { margin-top: 8px; font-size: 15px; color: var(--t2); font-weight: 500; }
+  .empty-d { margin-top: 2px; font-size: 13px; color: var(--t3); }
+
+  /* 底部标签栏 */
+  .tabbar { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; max-width: 480px; display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); z-index: 10; }
+  .tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 56px; font-size: 12px; color: var(--t3); text-align: center; }
+  .tab svg.i { width: 22px; height: 22px; }
+  .tab.on { color: var(--p-text); font-weight: 500; }
+  .tab.on svg.i { color: var(--p); }
+
+  /* 匹配结果顶栏 */
+  .nav { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; height: 52px; padding: 0 8px 0 4px; background: #fff; border-bottom: 1px solid var(--border); }
+  .nav-back { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; }
+  .nav-back svg.i { width: 24px; height: 24px; }
+  .nav h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
+  .nav-act { height: 44px; padding: 0 8px; font-size: 15px; font-weight: 500; color: var(--p-text); }
+  .intro { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--t2); line-height: 22px; }
+  .intro svg.i { margin-top: 2px; color: var(--p); }
+
+  /* 岗位卡片 */
+  .job-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .job h2 { font-size: 18px; font-weight: 600; line-height: 26px; }
+  .match { flex: none; padding: 0 8px; font-size: 13px; line-height: 24px; color: var(--p-text); background: var(--p-50); border-radius: var(--r-tag); }
+  .match b { font-size: 15px; font-weight: 600; }
+  .salary { display: flex; align-items: baseline; gap: 4px; margin-top: 6px; color: var(--salary); }
+  .salary b { font-size: 24px; font-weight: 600; line-height: 32px; letter-spacing: -.2px; }
+  .salary span { font-size: 14px; font-weight: 500; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tags li { padding: 0 8px; font-size: 13px; line-height: 24px; color: var(--t2); background: var(--tag-bg); border-radius: var(--r-tag); }
+  .facts { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 12px; font-size: 15px; color: var(--t1); }
+  .facts li { display: flex; align-items: center; gap: 4px; }
+  .facts svg.i { color: var(--t3); }
+  .facts b { font-weight: 600; }
+  .reason { margin-top: 12px; padding: 10px 12px; font-size: 14px; line-height: 22px; background: var(--p-50); border-radius: var(--r-btn); color: var(--t1); }
+  .reason b { display: block; font-size: 13px; font-weight: 600; color: var(--p-text); }
+  .firm { display: flex; align-items: center; flex-wrap: wrap; margin: 12px 0 12px; padding-top: 12px; border-top: 1px solid var(--divider); font-size: 14px; color: var(--t2); }
+  .firm svg.i { color: var(--t3); width: 16px; height: 16px; margin-right: 6px; }
+  .firm-sep { margin: 0 6px; color: var(--t3); }
+
+  /* 底部重新匹配 */
+  .rematch { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--border); z-index: 10; }
+  .rematch p { font-size: 15px; color: var(--t1); }
+  .rematch .btn { flex: none; height: 40px; font-size: 15px; }
+  .rematch svg.i { width: 16px; height: 16px; }
+
+  /* 轻提示 */
+  .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translate(-50%, 8px); max-width: calc(min(100vw, 480px) - 48px); width: max-content; padding: 10px 16px; font-size: 14px; line-height: 22px; color: #fff; background: rgba(26, 29, 35, .92); border-radius: var(--r-btn); box-shadow: 0 4px 16px rgba(0, 0, 0, .16); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 20; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* D2 仕兔橙：柔和、亲切、有温度 */
+  :root {
+    --t1: #1A1D23; --t2: #4B5260; --t3: #8A909C; --divider: #F0F1F3; --ok: #18A058; --warn-text: #B45309;
+    --divider: #F1EFEB;
+    --p: #F0600F; --p-press: #D4520A; --p-text: #C2470A; --p-50: #FFF2EA; --p-line: #FFD9C2;
+    --salary: #F0530F; --bg: #F7F6F3; --border: #ECEAE5; --tag-bg: #F3F1EC;
+    --r-card: 16px; --r-btn: 12px; --r-tag: 6px;
+  }
+  .home-head { padding-top: 16px; }
+  .home-head h1 { font-size: 22px; }
+  .status { background: #fff; border: 1px solid var(--p-line); border-radius: 999px; }
+  .card, .entry { box-shadow: 0 1px 3px rgba(60, 40, 20, .05); }
+  .hero { background: var(--p-50); border: 1px solid var(--p-line); box-shadow: none; }
+  .hero-sub { color: var(--t1); }
+  .btn-block { height: 52px; }
+  .entry-ic { justify-content: center; background: var(--p-50); border-radius: 12px; color: var(--p); }
+  .entry-ic svg.i { width: 24px; height: 24px; }
+  .entry.is-off .entry-ic { background: #F3F1EC; }
+  .entry-t { margin-top: 12px; }
+  .empty-ic { display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 16px; background: #F7F6F3; }
+  .match { border-radius: 999px; padding: 0 10px; }
+  .reason { background: #FBF6F1; border-radius: 12px; }
+  .reason b { color: var(--p-text); }
+  .nav { border-bottom: 0; background: var(--bg); }
+  .rematch { border-top-color: var(--border); }
+  .toast { border-radius: 12px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M19 15v5"/><path d="M21.5 17.5h-5"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 15h2"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-idcard" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-1.5 1.6-2 3-2s2.5.5 3 2"/><path d="M15 10h3"/><path d="M15 14h3"/></symbol>
+  <symbol id="i-sign" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+</svg>
+
+<header class="home-head">
+  <div class="brand"><svg class="logo" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="currentColor"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/></svg><span>仕兔</span></div>
+  <h1>张浩，你好</h1>
+  <p class="status"><i class="dot" aria-hidden="true"></i>自由求职 · 可匹配全平台岗位</p>
+</header>
+
+<main class="page">
+  <section class="card hero">
+    <h2>还没找到活儿？</h2>
+    <p class="hero-sub"><b class="num">7</b> 道题，<b class="num">1</b> 分钟，给你 <b class="num">3</b> 个岗位</p>
+    <ul class="hero-points">
+      <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>匹配度 80% 以上才推荐</li>
+      <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>不满意可重新匹配</li>
+    </ul>
+    <button class="btn btn-primary btn-block" data-toast="马上开始第 1 题，一共 7 道">开始匹配</button>
+  </section>
+
+  <section class="entries" aria-label="常用功能">
+    <button class="entry" data-toast="AI 问薪：回答 7 道题，帮你找合适的岗位">
+      <span class="entry-ic"><svg class="i" aria-hidden="true"><use href="#i-spark"/></svg></span>
+      <b class="entry-t">AI 问薪</b>
+      <span class="entry-d">7 道题定岗位</span>
+    </button>
+    <button class="entry is-off" aria-disabled="true" data-toast="入职后在岗满 7 天，就能申请预支，每次 500 元，每月最多 4 次">
+      <span class="entry-ic"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg></span>
+      <b class="entry-t">薪资预支</b>
+      <span class="entry-d"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>在岗满 7 天可用</span>
+    </button>
+    <button class="entry" data-toast="你还没有报名，先完成匹配再选岗位报名">
+      <span class="entry-ic"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg></span>
+      <b class="entry-t">我的报名</b>
+      <span class="entry-d">还没有报名</span>
+    </button>
+    <button class="entry is-off" aria-disabled="true" data-toast="入职后每月工资条会显示在这里，可以随时线上查">
+      <span class="entry-ic"><svg class="i" aria-hidden="true"><use href="#i-receipt"/></svg></span>
+      <b class="entry-t">工资条</b>
+      <span class="entry-d"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>入职后可用</span>
+    </button>
+  </section>
+
+  <section class="card assure">
+    <h3>平台保障</h3>
+    <ul>
+      <li><svg class="i" aria-hidden="true"><use href="#i-idcard"/></svg>实名核验</li>
+      <li><svg class="i" aria-hidden="true"><use href="#i-sign"/></svg>电子合同</li>
+      <li><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg>驻场 24 小时联系</li>
+    </ul>
+  </section>
+
+  <section class="card recent">
+    <h3>最近动态</h3>
+    <div class="empty">
+      <span class="empty-ic"><svg class="i" aria-hidden="true"><use href="#i-inbox"/></svg></span>
+      <p class="empty-t">还没有动态</p>
+      <p class="empty-d">完成匹配后，报名进度会显示在这里</p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="底部导航">
+  <button class="tab on" aria-current="page"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg><span>首页</span></button>
+  <button class="tab" data-toast="打开「我的报名」"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg><span>我的报名</span></button>
+  <button class="tab" data-toast="打开「消息」"><svg class="i" aria-hidden="true"><use href="#i-msg"/></svg><span>消息</span></button>
+  <button class="tab" data-toast="打开「我的」"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg><span>我的</span></button>
+</nav>
+
+<div class="toast" role="status" aria-live="polite"></div>
+<script>
+  // 页面内轻提示：点任意带 data-toast 的按钮
+  const toast = document.querySelector('.toast');
+  let timer;
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-toast]');
+    if (!el) return;
+    toast.textContent = el.dataset.toast;
+    toast.classList.add('show');
+    clearTimeout(timer);
+    timer = setTimeout(() => toast.classList.remove('show'), 2200);
+  });
+</script>
+</body>
+</html>

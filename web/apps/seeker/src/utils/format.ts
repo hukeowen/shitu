@@ -5,7 +5,7 @@ export function fmtMoney(n: number | null | undefined): string {
 }
 
 export function fmtSalary(min: number, max: number): string {
-  if (min && max && Math.round(min) !== Math.round(max)) return `${fmtMoney(min)} – ${fmtMoney(max)}`
+  if (min && max && Math.round(min) !== Math.round(max)) return `${fmtMoney(min)}–${fmtMoney(max)}`
   return fmtMoney(max || min)
 }
 
@@ -14,9 +14,9 @@ export function fmtScore(score: number): number {
   return Math.round(Number(score))
 }
 
-/** 匹配度徽标配色：≥85 绿色，80–84 橙色（原型 .match / .match.mid） */
-export function scoreClass(score: number): string {
-  return fmtScore(score) >= 85 ? '' : 'mid'
+/** 匹配度达到 80% 才显示百分比（D-39） */
+export function scoreVisible(score: number): boolean {
+  return fmtScore(score) >= 80
 }
 
 /** 吃住标签：包吃 / 包住 N 人间 / 空调 / 独卫 */
@@ -75,16 +75,11 @@ export function fmtYuan(n: number | string | null | undefined, sign = false): st
   return `${v < 0 ? '−' : v > 0 ? '+' : ''}¥${s}`
 }
 
-/** 扣款金额：带减号的两位小数；0 显示为 0.00（不出现 −0.00） */
-export function fmtMinus(n: number | string | null | undefined): string {
+/** 扣款金额：前面带 −，零不带（不显示成 −0.00）。yuan=true 时带 ¥ */
+export function fmtDeduct(n: number | string | null | undefined, yuan = false): string {
   const v = Math.abs(Number(n) || 0)
-  return v >= 0.005 ? `−${fmtAmount(v)}` : fmtAmount(0)
-}
-
-/** 扣款金额（带 ¥）：−¥982.50；0 显示为 ¥0.00 */
-export function fmtMinusYuan(n: number | string | null | undefined): string {
-  const v = Math.abs(Number(n) || 0)
-  return v >= 0.005 ? `−¥${fmtAmount(v)}` : `¥${fmtAmount(0)}`
+  const s = `${yuan ? '¥' : ''}${fmtAmount(v)}`
+  return v >= 0.005 ? `−${s}` : s
 }
 
 /** 2026-07 → 2026 年 7 月 */

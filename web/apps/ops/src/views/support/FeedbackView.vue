@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, useDict, type FeedbackRow, type FeedbackStatus } from '@shitu/api-client'
+import { IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { isBlocked, isNetwork } from '@/composables/boxSubmit'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDateTime } from '@/utils/format'
 
-/** 问题反馈工单（C-508）：求职者在 C 端提交，运营回复后通过站内信通知本人 */
+/**
+ * 问题反馈工单（C-508）：求职者在 C 端提交，运营回复后通过站内信通知本人
+ * 第 8 类审核处理：页签 → 表格 → 「处理」弹窗里回复，次要的「关闭」在左、「回复」主色在右
+ */
 const { label } = useDict()
 const TABS: { key: FeedbackStatus | ''; label: string }[] = [
   { key: 'OPEN', label: '待处理' },
@@ -12,48 +18,71 @@ const TABS: { key: FeedbackStatus | ''; label: string }[] = [
   { key: 'CLOSED', label: '已关闭' },
   { key: '', label: '全部' },
 ]
-const TAG: Record<FeedbackStatus, string> = { OPEN: 'tag--warn', REPLIED: 'tag--ok', CLOSED: '' }
+/** 色调同求职者端「问题反馈」（seeker views/FeedbackView.vue 的 TONE） */
+const TONE: Record<FeedbackStatus, string> = { OPEN: 'status-tag--warning', REPLIED: 'status-tag--success', CLOSED: 'status-tag--neutral' }
 
 const tab = ref<FeedbackStatus | ''>('OPEN')
 const rows = ref<FeedbackRow[]>([])
 const loading = ref(false)
 const loadError = ref('')
+const offline = ref(false)
 
 async function load() {
   loading.value = true
   loadError.value = ''
+  offline.value = false
   try {
     rows.value = await opsApi.feedbackList(tab.value ? { status: tab.value } : undefined)
   } catch (e) {
     rows.value = []
     loadError.value = errorMessage(e, '反馈列表加载失败')
+    offline.value = isNetwork(e)
   } finally {
     loading.value = false
+    page.value = 1
   }
 }
 onMounted(load)
 watch(tab, load)
 
-const dlg = reactive({ open: false, row: null as FeedbackRow | null, reply: '', saving: false })
+// 前端分页：接口一次返回全部
+const page = ref(1)
+const pageSize = ref(20)
+const paged = computed(() => rows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
+const opsWidth = computed(() => actionsColWidth(paged.value.map((r) => ({ labels: r.status === 'OPEN' ? ['处理'] : [] })), 72))
+
+const dlg = reactive({ open: false, row: null as FeedbackRow | null, reply: '', saving: '' as '' | 'reply' | 'close', error: '', why: '', off: '' as '' | 'reply' | 'close' })
 function openReply(row: FeedbackRow) {
-  dlg.row = row
-  dlg.reply = ''
-  dlg.open = true
+  Object.assign(dlg, { open: true, row, reply: '', saving: '', error: '', why: '', off: '' })
 }
+function editReply() {
+  dlg.error = ''
+  dlg.why = ''
+  dlg.off = ''
+}
+const closeText = computed(() => (dlg.reply.trim() ? '回复并关闭' : '不回复，直接关闭'))
 async function submit(close: boolean) {
-  if (!dlg.row) return
+  const row = dlg.row
+  if (!row || dlg.saving) return
   const text = dlg.reply.trim()
-  if (!close && !text) return void ElMessage.warning('请填写回复内容')
-  dlg.saving = true
+  if (!close && !text) return void (dlg.error = '请填写回复内容')
+  const act = close ? 'close' : 'reply'
+  const actText = close ? closeText.value : '回复'
+  dlg.saving = act
   try {
-    await opsApi.replyFeedback(dlg.row.id, { reply: text || undefined, close })
+    await opsApi.replyFeedback(row.id, { reply: text || undefined, close })
     ElMessage.success(text ? '已回复，求职者会收到站内信' : '已关闭')
     dlg.open = false
     await load()
   } catch (e) {
     ElMessage.error(errorMessage(e, '操作失败'))
+    // 后端业务拒绝：原因留在弹窗里，只置灰被拒的那个按钮（改了回复内容再放开），另一个照常可点；关掉弹窗后「处理」照常可点，重新打开从头来；断网只提示
+    if (isBlocked(e)) {
+      dlg.why = `暂时不能${actText}：${errorMessage(e, '操作失败')}`
+      dlg.off = act
+    }
   } finally {
-    dlg.saving = false
+    dlg.saving = ''
   }
 }
 </script>
@@ -65,26 +94,24 @@ async function submit(close: boolean) {
         <h2>问题反馈</h2>
         <p>求职者在 C 端提交的问题、投诉与建议 · 回复后通过站内信通知本人</p>
       </div>
-      <span class="spacer" />
-      <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
-    <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" style="margin-bottom: 14px" />
-
-    <div class="card">
+    <div class="card tbl-card">
       <div class="toolbar">
         <div class="filter-tabs">
-          <button v-for="t in TABS" :key="t.key" :class="{ on: tab === t.key }" @click="tab = t.key">{{ t.label }}</button>
+          <button v-for="t in TABS" :key="t.key" type="button" :class="{ on: tab === t.key }" @click="tab = t.key">{{ t.label }}</button>
         </div>
+        <div class="spacer" />
+        <el-button :loading="loading" @click="load">刷新</el-button>
       </div>
-      <el-table v-loading="loading" :data="rows" class="ops-table" row-key="id">
+      <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="id">
         <el-table-column label="提交时间" width="150">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
+          <template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.createdAt) }}</span></template>
         </el-table-column>
         <el-table-column label="求职者" width="170">
           <template #default="{ row }">
-            <b>{{ row.seekerName }}</b>
-            <div class="t-xs mono">{{ row.contact || row.phoneMasked }}<span v-if="row.contact"> · 回访电话</span></div>
+            <span class="strong">{{ row.seekerName }}</span>
+            <div class="t-xs">{{ row.contact || row.phoneMasked }}<span v-if="row.contact"> · 回访电话</span></div>
           </template>
         </el-table-column>
         <el-table-column label="类型" width="110">
@@ -98,35 +125,57 @@ async function submit(close: boolean) {
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
-          <template #default="{ row }"><span class="tag" :class="TAG[row.status as FeedbackStatus]">{{ label('FeedbackStatus', row.status) }}</span></template>
+          <template #default="{ row }"><span class="status-tag" :class="TONE[row.status as FeedbackStatus]">{{ label('FeedbackStatus', row.status) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" class-name="ops-col" width="100" align="right" fixed="right">
+        <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'OPEN'" size="small" type="primary" @click="openReply(row)">处理</el-button>
-            <span v-else class="t-xs">—</span>
+            <el-button v-if="row.status === 'OPEN'" link type="primary" size="small" @click="openReply(row)">处理</el-button>
+            <span v-else class="dim">—</span>
           </template>
         </el-table-column>
-        <template #empty><el-empty :description="loadError ? '加载失败' : '暂无反馈'" :image-size="80" /></template>
+        <template #empty>
+          <div v-if="loading" class="tbl-wait" />
+          <div v-else-if="loadError" class="state-box">
+            <IconTriangleExclamationPoint :size="48" />
+            <h4>反馈列表加载失败</h4>
+            <p>{{ offline ? '请检查网络后重新加载' : loadError }}</p>
+            <el-button type="primary" @click="load">重新加载</el-button>
+          </div>
+          <div v-else class="state-box">
+            <IconInbox :size="48" />
+            <h4>{{ tab === 'OPEN' ? '暂无待处理的反馈' : '暂无反馈' }}</h4>
+            <p>{{ tab === 'OPEN' ? '求职者在「问题反馈」里提交后会出现在这里' : '切换上方页签查看其他状态的反馈' }}</p>
+          </div>
+        </template>
       </el-table>
+      <div v-if="rows.length" class="pager">
+        <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="rows.length" :page-sizes="[20, 50, 100]" layout="total, sizes, prev, pager, next" background />
+      </div>
     </div>
 
-    <el-dialog v-model="dlg.open" title="处理反馈" width="560px" destroy-on-close>
+    <el-dialog v-model="dlg.open" title="处理反馈" width="560px" class="dlg-16" destroy-on-close>
       <template v-if="dlg.row">
-        <div class="t-sm" style="margin-bottom: 6px"><b>{{ dlg.row.seekerName }}</b> · {{ label('FeedbackCategory', dlg.row.category) }} · <span class="mono">{{ dlg.row.contact || dlg.row.phoneMasked }}</span></div>
+        <p class="who"><b>{{ dlg.row.seekerName }}</b> · {{ label('FeedbackCategory', dlg.row.category) }} · <span class="tnum">{{ dlg.row.contact || dlg.row.phoneMasked }}</span></p>
         <div class="content box">{{ dlg.row.content }}</div>
-        <el-input v-model="dlg.reply" type="textarea" :rows="5" maxlength="1000" show-word-limit placeholder="回复内容会通过站内信发给求职者" style="margin-top: 12px" />
+        <el-input v-model="dlg.reply" type="textarea" :rows="5" maxlength="1000" show-word-limit placeholder="回复内容会通过站内信发给求职者" class="gap" @input="editReply" />
+        <p v-if="dlg.error" class="form-err gap" role="alert">{{ dlg.error }}</p>
+        <p v-if="dlg.why" class="blocked-why gap" role="alert">{{ dlg.why }}</p>
       </template>
       <template #footer>
-        <el-button :disabled="dlg.saving" @click="submit(true)">{{ dlg.reply.trim() ? '回复并关闭' : '不回复，直接关闭' }}</el-button>
-        <el-button type="primary" :loading="dlg.saving" @click="submit(false)">回复</el-button>
+        <el-button class="btn-steady" :loading="dlg.saving === 'close'" :disabled="dlg.saving === 'reply' || dlg.off === 'close'" @click="submit(true)">{{ closeText }}</el-button>
+        <el-button type="primary" class="btn-steady" :loading="dlg.saving === 'reply'" :disabled="dlg.saving === 'close' || dlg.off === 'reply'" @click="submit(false)">回复</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.content { white-space: pre-wrap; word-break: break-word; line-height: 1.7; }
-.box { padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); max-height: 220px; overflow: auto; }
-.reply { margin-top: 6px; padding: 6px 10px; border-left: 3px solid var(--ok); background: var(--surface-2); border-radius: var(--r-xs); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
-.reply b { color: var(--ok); margin-right: 6px; font-size: 12px; }
+.tbl-wait { height: 160px; }
+.content { white-space: pre-wrap; word-break: break-word; line-height: 1.7; color: var(--text-1); }
+.box { padding: var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); max-height: 220px; overflow: auto; }
+.who { margin: 0 0 var(--space-2); font-size: var(--font-size-aux); color: var(--text-2); }
+.who b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.gap { margin-top: var(--space-3); }
+.reply { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--bg-fill); border-radius: var(--radius-control); line-height: 1.7; white-space: pre-wrap; word-break: break-word; color: var(--text-1); }
+.reply b { color: var(--success-text); margin-right: var(--space-2); font-size: var(--font-size-min); font-weight: var(--font-weight-semibold); }
 </style>

@@ -1,21 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { errorMessage, tenantApi, type AdvanceRecon } from '@shitu/api-client'
+import { IconBanknote, IconCircleCheck, IconCircleExclamationPoint, IconReceipt, IconUserMinus, IconWallet } from '@shitu/ui-icons'
 import { fmtDate, fmtDateTime, fmtYuan } from '@/utils/format'
 
 /** 预支抵扣对账（T-505，只读）：某个工资月份抵扣了谁、抵扣后还欠多少；截至现在谁还有欠款 */
 const month = ref('')
+const months = ref<string[]>([])
 const data = ref<AdvanceRecon | null>(null)
 const loading = ref(false)
 const loadError = ref('')
+/** 两张表都是一次返回全部，前端分页 */
+const PAGE = 20
+const pg = reactive({ deduct: 1, owe: 1 })
+/** 加载中（含切换月份）不显示上一次的数字和结论，标题的月份也跟着数据走（规范 Page States） */
+const shown = computed(() => (loading.value ? null : data.value))
+const deductRows = computed(() => (shown.value?.deductions ?? []).slice((pg.deduct - 1) * PAGE, pg.deduct * PAGE))
+const oweRows = computed(() => (shown.value?.outstanding ?? []).slice((pg.owe - 1) * PAGE, pg.owe * PAGE))
 
 async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    data.value = await tenantApi.advanceRecon(month.value || undefined)
-    month.value = data.value.month
+    const d = await tenantApi.advanceRecon(month.value || undefined)
+    data.value = d
+    month.value = d.month
+    months.value = d.months
+    pg.deduct = 1
+    pg.owe = 1
   } catch (e) {
+    // 没拿到这个月的数据时不显示上个月的数字（规范 Page States）
+    data.value = null
     loadError.value = errorMessage(e, '对账数据加载失败')
   } finally {
     loading.value = false
@@ -32,74 +47,134 @@ onMounted(load)
         <p>工资表导入时系统自动从实发里抵扣预支欠款 · 这里核对每个月扣了谁、还欠多少</p>
       </div>
       <span class="spacer" />
-      <el-select v-model="month" placeholder="工资月份" style="width: 140px" :disabled="loading" @change="load">
-        <el-option v-for="m in data?.months ?? []" :key="m" :label="m" :value="m" />
-        <el-option v-if="month && !(data?.months ?? []).includes(month)" :label="month" :value="month" />
+      <el-select v-model="month" placeholder="工资月份" style="width: 140px" :disabled="loading" aria-label="工资月份" @change="load">
+        <el-option v-for="m in months" :key="m" :label="m" :value="m" />
+        <el-option v-if="month && !months.includes(month)" :label="month" :value="month" />
       </el-select>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
-    <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" style="margin-bottom: 14px" />
-
-    <div v-loading="loading">
-      <div v-if="data" class="grid g-4">
-        <div class="stat"><div class="stat-l">{{ data.month }} 工资抵扣</div><div class="stat-v">{{ fmtYuan(data.summary.deductTotal) }}</div><div class="stat-d">{{ data.summary.deductCount }} 人</div></div>
-        <div class="stat"><div class="stat-l">{{ data.month }} 新拨款</div><div class="stat-v">{{ fmtYuan(data.summary.payoutTotal) }}</div><div class="stat-d">{{ data.summary.payoutCount }} 笔</div></div>
-        <div class="stat"><div class="stat-l">当前未还欠款</div><div class="stat-v">{{ fmtYuan(data.summary.outstandingTotal) }}</div><div class="stat-d">{{ data.summary.outstandingCount }} 人</div></div>
-        <div class="stat" :class="{ 'stat--danger': data.summary.outstandingLeftCount > 0 }"><div class="stat-l">其中已离职</div><div class="stat-v">{{ data.summary.outstandingLeftCount }}<small>人</small></div><div class="stat-d">需线下追收</div></div>
+    <!-- 第 9 类：顶部汇总（本期金额加关键分项）→ 明细表；金额等宽、右对齐。一个请求，整块一个加载遮罩、一个「重新加载」 -->
+    <div v-loading="loading" class="body">
+      <div class="kpis">
+        <div class="stat stat--icon stat--signal">
+          <IconReceipt :size="20" class="stat-i" />
+          <div class="stat-l">{{ shown ? `${shown.month} 工资抵扣` : '工资抵扣' }}</div>
+          <div class="stat-v money">{{ shown ? fmtYuan(shown.summary.deductTotal) : '—' }}</div>
+          <div class="stat-d">{{ shown ? `${shown.summary.deductCount} 人 · 导入工资表时自动扣除` : '—' }}</div>
+        </div>
+        <div class="stat stat--icon">
+          <IconBanknote :size="20" class="stat-i" />
+          <div class="stat-l">{{ shown ? `${shown.month} 新拨款` : '新拨款' }}</div>
+          <div class="stat-v money">{{ shown ? fmtYuan(shown.summary.payoutTotal) : '—' }}</div>
+          <div class="stat-d">{{ shown ? `${shown.summary.payoutCount} 笔` : '—' }}</div>
+        </div>
+        <div class="stat stat--icon">
+          <IconWallet :size="20" class="stat-i" />
+          <div class="stat-l">当前未还欠款</div>
+          <div class="stat-v money">{{ shown ? fmtYuan(shown.summary.outstandingTotal) : '—' }}</div>
+          <div class="stat-d">{{ shown ? `${shown.summary.outstandingCount} 人 · 截至现在` : '—' }}</div>
+        </div>
+        <div class="stat stat--icon" :class="{ 'stat--danger': (shown?.summary.outstandingLeftCount ?? 0) > 0 }">
+          <IconUserMinus :size="20" class="stat-i" />
+          <div class="stat-l">其中已离职</div>
+          <div class="stat-v">{{ shown ? shown.summary.outstandingLeftCount : '—' }}<small v-if="shown">人</small></div>
+          <div class="stat-d">{{ shown ? '需线下追收' : '—' }}</div>
+        </div>
       </div>
 
-      <div class="card" style="margin-top: 14px">
-        <div class="card__hd"><h3>{{ data?.month ?? '' }} 工资抵扣明细</h3><span class="t-xs">按抵扣金额从高到低</span></div>
-        <el-table :data="data?.deductions ?? []" row-key="payslipId">
-          <el-table-column label="员工" min-width="200">
-            <template #default="{ row }">
-              <div class="nowrap"><b>{{ row.seekerName }}</b><span v-if="row.employeeNo" class="t-xs mono"> · {{ row.employeeNo }}</span></div>
-              <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName || '—' }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="应发" min-width="120" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.grossPay) }}</span></template></el-table-column>
-          <el-table-column label="预支抵扣" min-width="120" align="right"><template #default="{ row }"><b class="num">{{ fmtYuan(row.advanceDeduct) }}</b></template></el-table-column>
-          <el-table-column label="实发" min-width="120" align="right"><template #default="{ row }"><span class="num">{{ fmtYuan(row.netPay) }}</span></template></el-table-column>
-          <el-table-column label="抵扣后欠款" min-width="130" align="right">
-            <template #default="{ row }">
-              <span v-if="row.debtAfter == null" class="t-xs">—</span>
-              <span v-else-if="Number(row.debtAfter) === 0" class="tag tag--ok">已还清</span>
-              <b v-else class="num warn">{{ fmtYuan(row.debtAfter) }}</b>
-            </template>
-          </el-table-column>
-          <el-table-column label="工资条" min-width="180" show-overflow-tooltip><template #default="{ row }"><span class="mono t-xs">{{ row.payslipId }}</span></template></el-table-column>
-          <template #empty><el-empty :description="loadError ? '加载失败' : '这个月没有工资抵扣'" :image-size="70" /></template>
-        </el-table>
+      <div v-if="loadError" class="card tbl-card">
+        <div class="state-box">
+          <IconCircleExclamationPoint :size="48" />
+          <h4>{{ loadError }}</h4>
+          <p>请检查网络后重新加载</p>
+          <el-button @click="load">重新加载</el-button>
+        </div>
       </div>
 
-      <div class="card" style="margin-top: 14px">
-        <div class="card__hd"><h3>当前仍有欠款的人员</h3><span class="t-xs">截至现在，不随月份切换 · 已离职的排在前面</span></div>
-        <el-table :data="data?.outstanding ?? []" row-key="userId">
-          <el-table-column label="员工" min-width="200">
-            <template #default="{ row }">
-              <div class="nowrap"><b>{{ row.seekerName }}</b><span v-if="row.employeeNo" class="t-xs mono"> · {{ row.employeeNo }}</span></div>
-              <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName || '—' }}</div>
+      <template v-else>
+        <div class="card tbl-card">
+          <div class="card__hd"><h3>{{ shown ? `${shown.month} 工资抵扣明细` : '工资抵扣明细' }}</h3><span class="hint">按抵扣金额从高到低</span></div>
+          <el-table :data="deductRows" row-key="payslipId">
+            <el-table-column label="员工" min-width="170">
+              <template #default="{ row }">
+                <div><span class="strong-t">{{ row.seekerName }}</span><span v-if="row.employeeNo" class="sub tnum"> · {{ row.employeeNo }}</span></div>
+                <div class="sub">{{ row.projectName || '—' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="应发" width="130" align="right"><template #default="{ row }"><span class="money">{{ fmtYuan(row.grossPay) }}</span></template></el-table-column>
+            <el-table-column label="预支抵扣" width="130" align="right"><template #default="{ row }"><span class="money">{{ fmtYuan(row.advanceDeduct) }}</span></template></el-table-column>
+            <el-table-column label="实发" width="130" align="right"><template #default="{ row }"><span class="money">{{ fmtYuan(row.netPay) }}</span></template></el-table-column>
+            <el-table-column label="抵扣后欠款" width="130" align="right">
+              <template #default="{ row }">
+                <span v-if="row.debtAfter == null" class="sub">—</span>
+                <span v-else-if="Number(row.debtAfter) === 0" class="status-tag status-tag--success">已还清</span>
+                <span v-else class="money">{{ fmtYuan(row.debtAfter) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="工资条" width="180"><template #default="{ row }"><span class="code">{{ row.payslipId }}</span></template></el-table-column>
+            <template #empty>
+              <div v-if="!loading" class="state-box">
+                <IconCircleCheck :size="48" />
+                <h4>这个月没有工资抵扣</h4>
+                <p>{{ shown?.month }} 导入的工资表里没有人有预支欠款；换个月份看看</p>
+              </div>
+              <span v-else />
             </template>
-          </el-table-column>
-          <el-table-column label="在职情况" min-width="170">
-            <template #default="{ row }">
-              <span v-if="row.endDate" class="tag tag--danger">已离职 {{ fmtDate(row.endDate) }}</span>
-              <span v-else class="tag tag--ok">在职</span>
+          </el-table>
+          <div v-if="(shown?.deductions.length ?? 0) > 0" class="pager">
+            <el-pagination v-model:current-page="pg.deduct" :page-size="PAGE" :total="shown?.deductions.length ?? 0" layout="total, prev, pager, next" background size="small" />
+          </div>
+        </div>
+
+        <div class="card tbl-card">
+          <div class="card__hd"><h3>当前仍有欠款的人员</h3><span class="hint">截至现在，不随月份切换 · 已离职的排在前面</span></div>
+          <el-table :data="oweRows" row-key="userId">
+            <el-table-column label="员工" min-width="170">
+              <template #default="{ row }">
+                <div><span class="strong-t">{{ row.seekerName }}</span><span v-if="row.employeeNo" class="sub tnum"> · {{ row.employeeNo }}</span></div>
+                <div class="sub">{{ row.projectName || '—' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="在职情况" width="170">
+              <template #default="{ row }">
+                <span v-if="row.endDate" class="status-tag status-tag--danger">已离职 {{ fmtDate(row.endDate) }}</span>
+                <span v-else class="status-tag status-tag--success">在职</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="未还欠款" width="130" align="right"><template #default="{ row }"><span class="money">{{ fmtYuan(row.debt) }}</span></template></el-table-column>
+            <el-table-column label="最近变动" width="150"><template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.lastChangeAt) }}</span></template></el-table-column>
+            <el-table-column label="后续处理" min-width="240">
+              <template #default="{ row }"><span :class="row.endDate ? 'why-t' : 'sub'">{{ row.endDate ? '工资已无法抵扣，需线下追收；系统已标记平台失信' : '下次导入工资表时自动抵扣' }}</span></template>
+            </el-table-column>
+            <template #empty>
+              <div v-if="!loading" class="state-box">
+                <IconCircleCheck :size="48" />
+                <h4>没有未还清的预支</h4>
+                <p>登记拨款后的欠款会出现在这里，导入工资表抵扣还清后自动移出</p>
+              </div>
+              <span v-else />
             </template>
-          </el-table-column>
-          <el-table-column label="未还欠款" min-width="130" align="right"><template #default="{ row }"><b class="num warn">{{ fmtYuan(row.debt) }}</b></template></el-table-column>
-          <el-table-column label="最近变动" min-width="160"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.lastChangeAt) }}</span></template></el-table-column>
-          <el-table-column label="后续处理" min-width="300">
-            <template #default="{ row }"><span class="t-xs">{{ row.endDate ? '工资已无法抵扣，需线下追收；系统已标记平台失信' : '下次导入工资表时自动抵扣' }}</span></template>
-          </el-table-column>
-          <template #empty><el-empty :description="loadError ? '加载失败' : '没有未还清的预支'" :image-size="70" /></template>
-        </el-table>
-      </div>
+          </el-table>
+          <div v-if="(shown?.outstanding.length ?? 0) > 0" class="pager">
+            <el-pagination v-model:current-page="pg.owe" :page-size="PAGE" :total="shown?.outstanding.length ?? 0" layout="total, prev, pager, next" background size="small" />
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <style scoped>
-.warn { color: var(--danger); }
+.body { min-height: 200px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-gap); }
+.tbl-card { margin-top: var(--space-gap); }
+.hint { font-size: var(--font-size-min); color: var(--text-3); }
+.strong-t { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.sub { font-size: var(--font-size-min); color: var(--text-3); }
+.tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.code { font-family: var(--font-mono); font-size: var(--font-size-aux); color: var(--text-2); white-space: nowrap; }
+.why-t { font-size: var(--font-size-aux); color: var(--warning-text); }
+/* 表格行高约 48（规范 Key Components 表格） */
+.tbl-card :deep(.el-table__body .el-table__cell) { height: 48px; }
 </style>

@@ -23,7 +23,7 @@ const meStore = useMeStore()
 
 <style scoped>
 .nf { max-width: 560px; margin: 8vh auto 0; padding: 48px 32px 40px; text-align: center; }
-.code { font-size: 56px; line-height: 1; font-weight: 650; color: var(--ink-300); letter-spacing: .02em; }
-h2 { margin: 16px 0 8px; font-size: 20px; font-weight: 650; color: var(--ink-900); }
-.mono { color: var(--ink-700); word-break: break-all; }
+.code { font-size: 56px; line-height: 1; font-weight: 650; color: var(--text-placeholder); letter-spacing: .02em; }
+h2 { margin: 16px 0 8px; font-size: 20px; font-weight: 650; color: var(--text-1); }
+.mono { color: var(--text-2); word-break: break-all; }
 </style>

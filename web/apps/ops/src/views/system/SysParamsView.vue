@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { IconInbox, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorMessage, opsApi, type SysParamRow } from '@shitu/api-client'
+import { isBlocked } from '@/composables/boxSubmit'
 import { ADMIN_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
 import { fmtDateTime, fmtOperator } from '@/utils/format'
@@ -31,6 +33,7 @@ const loadError = ref('')
 async function load() {
   loading.value = true
   loadError.value = ''
+  rows.value = []
   try {
     rows.value = await opsApi.sysParams()
   } catch (e) {
@@ -86,11 +89,12 @@ const dlg = reactive({
   bool: false,
   remark: '',
   saving: false,
+  blocked: false,
   error: '',
 })
 function openEdit(r: SysParamRow) {
   const d = r.valueType === 'DURATION' ? parseDuration(r.paramValue) : { n: 1, unit: 'H' as Unit }
-  Object.assign(dlg, { open: true, row: r, value: r.paramValue, n: d.n || 1, unit: d.unit, bool: r.paramValue === 'true', remark: '', error: '' })
+  Object.assign(dlg, { open: true, row: r, value: r.paramValue, n: d.n || 1, unit: d.unit, bool: r.paramValue === 'true', remark: '', error: '', blocked: false })
 }
 function currentValue(): string {
   if (!dlg.row) return ''
@@ -99,7 +103,7 @@ function currentValue(): string {
   return String(dlg.value ?? '').trim()
 }
 async function save() {
-  if (!dlg.row) return
+  if (!dlg.row || dlg.saving || dlg.blocked) return
   const value = currentValue()
   if (!value) return void (dlg.error = '请填写参数值')
   if (value === dlg.row.paramValue) return void (dlg.error = '参数值没有变化')
@@ -111,6 +115,7 @@ async function save() {
     dlg.open = false
     await load()
   } catch (e) {
+    dlg.blocked = isBlocked(e)
     dlg.error = errorMessage(e, '保存失败')
   } finally {
     dlg.saving = false
@@ -129,13 +134,12 @@ async function save() {
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 
-    <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" style="margin-bottom: 14px" />
     <div v-if="!canEdit" class="notice notice--info" style="margin-bottom: 14px">当前账号只能查看，修改需要超级管理员。</div>
 
     <div v-loading="loading" class="groups">
       <div v-for="g in grouped" :key="g.title" class="card">
         <div class="card__hd"><h3>{{ g.title }}</h3><span class="t-xs">{{ g.desc }}</span></div>
-        <el-table :data="g.items" row-key="paramKey">
+        <el-table class="tbl-48" :data="g.items" row-key="paramKey">
           <el-table-column label="参数" min-width="300">
             <template #default="{ row }">
               <b>{{ desc(row) }}</b>
@@ -143,30 +147,31 @@ async function save() {
             </template>
           </el-table-column>
           <el-table-column label="当前值" width="150">
-            <template #default="{ row }"><b class="num val">{{ show(row) }}</b></template>
+            <template #default="{ row }"><b class="tnum val">{{ show(row) }}</b></template>
           </el-table-column>
           <el-table-column label="最近修改" min-width="240">
             <template #default="{ row }">
               <template v-if="row.updatedBy">
                 <div class="t-sm">{{ row.updateRemark || '—' }}</div>
-                <div class="t-xs">{{ row.updatedByName || fmtOperator(row.updatedBy) }} · <span class="mono">{{ fmtDateTime(row.updatedAt) }}</span></div>
+                <div class="t-xs">{{ row.updatedByName || fmtOperator(row.updatedBy) }} · <span class="tnum">{{ fmtDateTime(row.updatedAt) }}</span></div>
               </template>
               <span v-else class="t-xs">初始值，未修改过</span>
             </template>
           </el-table-column>
-          <el-table-column v-if="canEdit" label="操作" class-name="ops-col" width="90" align="right">
-            <template #default="{ row }"><el-button size="small" @click="openEdit(row)">修改</el-button></template>
+          <el-table-column v-if="canEdit" class-name="ops-col" label="操作" width="90" align="right">
+            <template #default="{ row }"><el-button link type="primary" size="small" @click="openEdit(row)">修改</el-button></template>
           </el-table-column>
         </el-table>
       </div>
-      <el-empty v-if="!loading && grouped.length === 0" :description="loadError ? '加载失败' : '暂无参数'" :image-size="80" />
+      <div v-if="!loading && loadError" class="card"><el-empty :description="loadError" :image-size="48"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button @click="load">重新加载</el-button></el-empty></div>
+      <div v-else-if="!loading && grouped.length === 0" class="card"><el-empty :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无参数</h3><p>当前没有系统参数，可刷新后查看。</p></template><el-button type="primary" @click="load">刷新</el-button></el-empty></div>
     </div>
 
-    <el-dialog v-model="dlg.open" title="修改系统参数" width="520px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog class="dlg-16" v-model="dlg.open" title="修改系统参数" width="520px" destroy-on-close :close-on-click-modal="false" :close-on-press-escape="!dlg.saving" :show-close="!dlg.saving">
       <template v-if="dlg.row">
         <div class="t-sm" style="margin-bottom: 4px"><b>{{ desc(dlg.row) }}</b></div>
         <div class="t-xs" style="margin-bottom: 14px">{{ TYPE_LABEL[dlg.row.valueType] ?? '' }} · 当前值 {{ show(dlg.row) }}</div>
-        <el-form label-width="80px" @submit.prevent>
+        <el-form :disabled="dlg.saving" label-width="80px" @submit.prevent>
           <el-form-item label="新的值" required>
             <div v-if="dlg.row.valueType === 'DURATION'" class="dur">
               <el-input-number v-model="dlg.n" :min="1" :max="1000" :precision="0" controls-position="right" />
@@ -178,25 +183,25 @@ async function save() {
             </div>
             <el-switch v-else-if="dlg.row.valueType === 'BOOL'" v-model="dlg.bool" />
             <el-time-select v-else-if="dlg.row.valueType === 'TIME'" v-model="dlg.value" start="00:00" step="00:30" end="23:30" :clearable="false" style="width: 160px" />
-            <el-input v-else v-model="dlg.value" style="width: 220px" @input="dlg.error = ''" />
+            <el-input v-else v-model="dlg.value" style="width: 220px" @input="!dlg.blocked && (dlg.error = '')" />
           </el-form-item>
           <el-form-item label="修改原因" required>
-            <el-input v-model="dlg.remark" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="写明为什么改，会记入审计日志" @input="dlg.error = ''" />
+            <el-input v-model="dlg.remark" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="写明为什么改，会记入审计日志" @input="!dlg.blocked && (dlg.error = '')" />
           </el-form-item>
         </el-form>
         <div class="notice notice--warn">参数直接影响线上业务规则；只对修改之后发生的业务生效，已经在计时或已生成的记录不会回溯调整。</div>
         <div v-if="dlg.error" class="notice notice--danger" style="margin-top: 10px">{{ dlg.error }}</div>
       </template>
       <template #footer>
-        <el-button @click="dlg.open = false">取消</el-button>
-        <el-button type="primary" :loading="dlg.saving" @click="save">保存</el-button>
+        <el-button :disabled="dlg.saving" @click="dlg.open = false">取消</el-button>
+        <el-button type="primary" :loading="dlg.saving" :disabled="dlg.blocked" @click="save">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.groups { display: flex; flex-direction: column; gap: 14px; min-height: 120px; }
-.val { font-size: 15px; }
+.groups { display: flex; flex-direction: column; gap: var(--space-4); min-height: 120px; }
+.val { font-size: var(--font-size-body); }
 .dur { display: flex; gap: 8px; align-items: center; }
 </style>

@@ -53,7 +53,7 @@ async function submit() {
 </script>
 
 <template>
-  <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="submit">
+  <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form-roomy" @submit.prevent="submit">
     <el-form-item label="当前密码" prop="oldPassword">
       <el-input v-model="form.oldPassword" type="password" show-password autocomplete="current-password" placeholder="请输入当前密码（或初始密码）" />
     </el-form-item>
@@ -63,16 +63,16 @@ async function submit() {
     <el-form-item label="确认新密码" prop="confirm">
       <el-input v-model="form.confirm" type="password" show-password autocomplete="new-password" maxlength="64" placeholder="再次输入新密码" />
     </el-form-item>
-    <div v-if="error" class="notice notice--danger err">{{ error }}</div>
+    <p v-if="error" class="form-err err" role="alert">{{ error }}</p>
     <div class="acts">
       <el-button v-if="showCancel" @click="emit('cancel')">取消</el-button>
-      <el-button type="primary" native-type="submit" :loading="submitting" :class="{ block: !showCancel }">{{ submitText }}</el-button>
+      <el-button type="primary" native-type="submit" :size="showCancel ? 'default' : 'large'" :loading="submitting" :class="{ block: !showCancel }">{{ submitText }}</el-button>
     </div>
   </el-form>
 </template>
 
 <style scoped>
-.err { margin-bottom: 14px; }
-.acts { display: flex; justify-content: flex-end; gap: 8px; }
-.block { width: 100%; height: 38px; }
+.err { margin-bottom: var(--space-3); }
+.acts { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.block { width: 100%; }
 </style>

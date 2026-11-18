@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@shitu/api-client": "workspace:*",
+    "@shitu/ui-icons": "workspace:*",
     "@shitu/ui-tokens": "workspace:*",
     "echarts": "5.5.1",
     "element-plus": "2.9.1",

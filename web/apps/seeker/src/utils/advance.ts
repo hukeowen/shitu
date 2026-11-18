@@ -1,14 +1,14 @@
 import type { AdvanceApprovalStep, AdvanceDetail, AdvanceQuota, AdvanceRow, AdvanceStatus, DebtLogEntry } from '@shitu/api-client'
 
-/** 预支状态徽标配色（中文名从字典 AdvanceStatus 取） */
-export const ADVANCE_TAG_CLASS: Record<AdvanceStatus, string> = {
-  SUBMITTED: 'tag-warn',
-  SITE_APPROVED: 'tag-warn',
-  PM_APPROVED: 'tag-info',
-  PAID: 'tag-ok',
-  PARTIALLY_REPAID: 'tag-temp',
-  REPAID: 'tag-muted',
-  REJECTED: 'tag-danger',
+/** 预支状态的标签色调（tokens.css 的 .status-tag--*；中文名从字典 AdvanceStatus 取，审批中的三种对求职者都显示「审批中」） */
+export const ADVANCE_TONE: Record<AdvanceStatus, string> = {
+  SUBMITTED: 'status-tag--warning',
+  SITE_APPROVED: 'status-tag--warning',
+  PM_APPROVED: 'status-tag--warning',
+  PAID: 'status-tag--success',
+  PARTIALLY_REPAID: 'status-tag--pending',
+  REPAID: 'status-tag--neutral',
+  REJECTED: 'status-tag--danger',
 }
 
 /** 审批中（占用「同一时间只有一笔在审批」的名额） */

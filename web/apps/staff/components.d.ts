@@ -11,7 +11,6 @@ declare module 'vue' {
     AcknowledgePopup: typeof import('./src/components/AcknowledgePopup.vue')['default']
     AppActions: typeof import('./src/components/AppActions.vue')['default']
     ApplicationCard: typeof import('./src/components/ApplicationCard.vue')['default']
-    BrandMark: typeof import('./src/components/BrandMark.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
     ConfirmOnboardPopup: typeof import('./src/components/ConfirmOnboardPopup.vue')['default']
     QrImage: typeof import('./src/components/QrImage.vue')['default']
@@ -28,7 +27,6 @@ declare module 'vue' {
     VanDropdownMenu: typeof import('vant/es')['DropdownMenu']
     VanEmpty: typeof import('vant/es')['Empty']
     VanField: typeof import('vant/es')['Field']
-    VanIcon: typeof import('vant/es')['Icon']
     VanList: typeof import('vant/es')['List']
     VanLoading: typeof import('vant/es')['Loading']
     VanNavBar: typeof import('vant/es')['NavBar']
@@ -38,8 +36,10 @@ declare module 'vue' {
     VanRadio: typeof import('vant/es')['Radio']
     VanRadioGroup: typeof import('vant/es')['RadioGroup']
     VanSearch: typeof import('vant/es')['Search']
+    VanTab: typeof import('vant/es')['Tab']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
+    VanTabs: typeof import('vant/es')['Tabs']
     VanTimePicker: typeof import('vant/es')['TimePicker']
   }
 }

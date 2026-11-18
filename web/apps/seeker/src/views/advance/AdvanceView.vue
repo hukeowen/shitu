@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, type AdvanceQuota, type AdvanceRow, type MyWork } from '@shitu/api-client'
+import { IconChevronRight, IconCircleCheck, IconCircleX, IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import AppBar from '@/components/AppBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { admissionRules, inReview, stageText } from '@/utils/advance'
 import { fmtAmount, fmtYuan } from '@/utils/format'
@@ -21,6 +23,8 @@ const loading = ref(true)
 const loadError = ref('')
 const refreshing = ref(false)
 const submitting = ref(false)
+/** 发起被拒的原因：轻提示两秒就没了，这里留在按钮上方，下拉刷新后清掉 */
+const applyError = ref('')
 
 async function load() {
   loadError.value = ''
@@ -41,14 +45,18 @@ async function load() {
 void load()
 if (!auth.profile) void auth.loadProfile().catch(() => undefined)
 
+function retry() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
+  applyError.value = ''
   await load()
   refreshing.value = false
 }
-
-function goBack() {
-  if (window.history.state?.back) router.back()
-  else void router.replace('/')
+const toRecords = () => router.push('/advance/records')
+function openPending() {
+  if (pending.value) void router.push(`/advance/${pending.value.advanceId}`)
 }
 
 const company = computed(() => work.value?.companyName || auth.profile?.boundCompanyName || '')
@@ -79,7 +87,7 @@ const slots = computed(() => {
   })
 })
 
-const reason = computed(() => quota.value?.reasons[0] ?? '')
+const reason = computed(() => quota.value?.reasons[0] || '暂不满足准入条件，详见上方「准入条件」')
 const debt = computed(() => Number(quota.value?.debt ?? 0))
 
 async function onApply() {
@@ -101,12 +109,14 @@ async function onApply() {
     return
   }
   submitting.value = true
+  applyError.value = ''
   try {
     const id = await seekerApi.applyAdvance()
     showToast({ type: 'success', message: '申请已提交' })
     void router.push({ path: `/advance/${id}`, query: { new: '1' } })
   } catch (e) {
-    showToast(isApiError(e, 'ADV_4001') ? errorMessage(e).split('；')[0] : errorMessage(e, '提交失败，请稍后重试'))
+    applyError.value = isApiError(e, 'ADV_4001') ? errorMessage(e).split('；')[0] : errorMessage(e, '提交失败，请稍后重试')
+    showToast(applyError.value)
     void load()
   } finally {
     submitting.value = false
@@ -116,105 +126,110 @@ async function onApply() {
 
 <template>
   <div class="adv">
-    <header class="hero pri ahero">
-      <div class="nav">
-        <button type="button" class="ico" aria-label="返回" @click="goBack"><van-icon name="arrow-left" size="20" /></button>
-        <span class="ttl">薪资预支</span>
-        <button type="button" class="ico" aria-label="预支记录" @click="router.push('/advance/records')">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-        </button>
-      </div>
-      <div class="lbl">单次可预支金额</div>
-      <div class="amt">{{ quota ? fmtYuan(quota.amount) : '¥—' }}<small>固定额度</small></div>
-      <div class="hstats">
-        <div><span>本月剩余机会</span><b class="num">{{ quota?.remainingThisMonth ?? '—' }}<small> / {{ quota?.monthlyLimit ?? 4 }}</small></b></div>
-        <div><span>本月已用</span><b class="num">{{ quota?.usedThisMonth ?? '—' }}<small> 次</small></b></div>
-        <div><span>当前欠款</span><b class="num" :class="{ owe: debt > 0 }">{{ quota ? fmtYuan(debt) : '—' }}</b></div>
-      </div>
-    </header>
+    <AppBar title="薪资预支">
+      <template #right><button type="button" class="bar-act" @click="toRecords">预支记录</button></template>
+    </AppBar>
 
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
+    <van-pull-refresh v-model="refreshing" class="body" @refresh="onRefresh">
       <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-      <div v-else-if="loadError || !quota" class="page-state">
-        <van-empty image="error" :description="loadError || '加载失败'">
-          <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-        </van-empty>
+      <div v-else-if="loadError || !quota" class="state-block">
+        <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">加载失败</div>
+        <div class="state-block-d">{{ loadError || '额度加载失败，请稍后重试' }}</div>
+        <van-button type="primary" @click="retry">重新加载</van-button>
       </div>
 
-      <div v-else class="pad stack body">
+      <div v-else class="pad stack">
+        <section class="acard">
+          <div class="acard-hd"><h4>单次可预支金额</h4><span class="status-tag">固定额度</span></div>
+          <div class="sum-amt">{{ fmtYuan(quota.amount) }}</div>
+          <dl class="sum-kv">
+            <div class="kv"><dt>本月剩余机会</dt><dd>{{ quota.remainingThisMonth }} / {{ quota.monthlyLimit }} 次</dd></div>
+            <div class="kv"><dt>本月已用</dt><dd>{{ quota.usedThisMonth }} 次</dd></div>
+            <div class="kv"><dt>当前欠款</dt><dd class="money">{{ fmtYuan(debt) }}</dd></div>
+          </dl>
+        </section>
+
         <!-- 审批中的一笔 -->
-        <button v-if="pending" type="button" class="acard pendc" @click="router.push(`/advance/${pending.advanceId}`)">
-          <div class="row-b">
-            <span class="tag tag-warn"><i class="dot"></i>审批中</span>
-            <span class="t-xs mono">{{ pending.advanceId }}</span>
+        <article v-if="pending" class="acard tap" role="button" tabindex="0" @click="openPending" @keydown.enter="openPending" @keydown.space.prevent="openPending">
+          <div class="item-hd">
+            <h3>{{ stageText(pending.status) }}</h3>
+            <span class="status-tag status-tag--warning">审批中</span>
           </div>
-          <div class="row-b" style="margin-top: 8px">
-            <span class="pend-t">{{ stageText(pending.status) }}</span>
-            <span class="num pend-a">{{ fmtYuan(pending.amount) }}</span>
-          </div>
-          <div class="t-xs" style="margin-top: 4px">查看审批进度 ›</div>
-        </button>
+          <p class="item-meta code">申请单号 {{ pending.advanceId }}</p>
+          <dl class="sum-kv">
+            <div class="kv"><dt>预支金额</dt><dd class="money">{{ fmtYuan(pending.amount) }}</dd></div>
+          </dl>
+          <div class="more"><span class="link">查看审批进度<IconChevronRight :size="16" /></span></div>
+        </article>
 
         <section class="acard">
-          <div class="acard-hd"><h4>在岗日进度</h4><span class="t-xs">累计在岗 <b class="num strong">{{ quota.dutyDays }}</b> 天</span></div>
-          <div class="row-b t-xs" style="margin-bottom: 6px">
-            <span>本周期 <b class="num strong">{{ quota.progressInCycle }}</b> / {{ quota.daysPerChance }} 天</span>
-            <span v-if="capped" class="warn-t">本月次数已用完，下月恢复</span>
-            <span v-else class="sig-t">再在岗 <b class="num">{{ cycle.left }}</b> 天获得下一次</span>
+          <div class="acard-hd"><h4>在岗日进度</h4><span class="aux">累计在岗 {{ quota.dutyDays }} 天</span></div>
+          <div class="prog">
+            <span>本周期 <b class="strong">{{ quota.progressInCycle }}</b> / {{ quota.daysPerChance }} 天</span>
+            <span v-if="capped" class="prog-n warn">本月次数已用完，下月恢复</span>
+            <span v-else class="prog-n">再在岗 {{ cycle.left }} 天获得下一次</span>
           </div>
-          <div class="bar" role="progressbar" :aria-valuenow="quota.progressInCycle" :aria-valuemax="quota.daysPerChance"><i class="sig" :style="{ width: `${cycle.pct}%` }"></i></div>
-          <div class="ticks">
+          <div class="bar" role="progressbar" aria-label="本周期在岗日进度" aria-valuemin="0" :aria-valuenow="quota.progressInCycle" :aria-valuemax="quota.daysPerChance"><i class="sig" :style="{ width: `${cycle.pct}%` }"></i></div>
+          <div class="ticks" aria-hidden="true">
             <i v-for="d in quota.daysPerChance" :key="d" :class="{ on: d <= quota.progressInCycle }"></i>
           </div>
-          <p class="t-xs" style="margin-top: 8px; line-height: 1.6">在岗日 = 入职以来的自然日，扣除驻场登记的请假与旷工</p>
+          <p class="aux foot">在岗日 = 入职以来的自然日，扣除驻场登记的请假与旷工</p>
         </section>
 
         <section class="acard">
-          <div class="acard-hd"><h4>本月额度</h4><span class="t-xs">本月获得 {{ quota.grantedThisMonth }} 次</span></div>
-          <div class="slots">
-            <div v-for="s in slots" :key="s.k" class="slot" :class="s.cls">
-              <div class="t-xs">第 {{ s.k + 1 }} 次</div>
+          <div class="acard-hd"><h4>本月额度</h4><span class="aux">本月获得 {{ quota.grantedThisMonth }} 次</span></div>
+          <ul class="slots">
+            <li v-for="s in slots" :key="s.k" class="slot" :class="s.cls">
+              <span>第 {{ s.k + 1 }} 次</span>
               <b>{{ s.t }}</b>
-            </div>
-          </div>
-          <div class="note note--warn" style="margin-top: 10px">
-            每满 <b>{{ quota.daysPerChance }} 个在岗日</b>获得一次预支机会；<b>当月机会月末清零，不结转</b>。已到账未还的欠款顺延结转 —— 欠款结转 ≠ 额度结转。
+            </li>
+          </ul>
+          <div class="tipbar tipbar--warn tip">
+            <IconInfo :size="20" />
+            <div class="flex1"><div class="tipbar-d first">每满 <b class="strong">{{ quota.daysPerChance }} 个在岗日</b>获得一次预支机会；<b class="strong">当月机会月末清零，不结转</b>。已到账未还的欠款顺延结转 —— 欠款结转 ≠ 额度结转。</div></div>
           </div>
         </section>
 
         <section class="acard">
           <div class="acard-hd">
             <h4>准入条件</h4>
-            <span class="tag" :class="quota.eligible ? 'tag-ok' : allOk ? 'tag-warn' : 'tag-muted'">{{ quota.eligible ? '已满足' : '未满足' }}</span>
+            <span class="status-tag" :class="quota.eligible ? 'status-tag--success' : allOk ? 'status-tag--warning' : 'status-tag--neutral'">{{ quota.eligible ? '已满足' : '未满足' }}</span>
           </div>
           <ul class="rules">
             <li v-for="r in admission.rules" :key="r.t" :class="{ bad: !r.ok }">
-              <i>{{ r.ok ? '✓' : '✕' }}</i><span>{{ r.t }}</span>
+              <IconCircleCheck v-if="r.ok" :size="20" /><IconCircleX v-else :size="20" />
+              <span class="flex1">{{ r.t }}</span>
+              <span class="status-tag" :class="r.ok ? 'status-tag--success' : 'status-tag--warning'">{{ r.ok ? '已满足' : '未满足' }}</span>
             </li>
           </ul>
-          <div v-for="x in admission.extra" :key="x" class="note note--warn" style="margin-top: 10px">{{ x }}</div>
+          <div v-if="admission.extra.length" class="tipbar tipbar--warn tip">
+            <IconInfo :size="20" />
+            <div class="flex1"><div v-for="(x, i) in admission.extra" :key="x" class="tipbar-d" :class="{ first: i === 0 }">{{ x }}</div></div>
+          </div>
         </section>
 
         <section class="acard">
           <div class="acard-hd"><h4>规则说明</h4></div>
           <dl>
-            <div class="kv"><dt>单次金额</dt><dd>固定 {{ fmtAmount(quota.amount) }} 元 / 次</dd></div>
+            <div class="kv"><dt>单次金额</dt><dd>固定 <b class="money-in">{{ fmtAmount(quota.amount) }}</b> 元 / 次</dd></div>
             <div class="kv"><dt>月度上限</dt><dd>每月最多 {{ quota.monthlyLimit }} 次</dd></div>
-            <div class="kv"><dt>审批流程</dt><dd>驻场初审 → 项目经理终审 → 拨款</dd></div>
-            <div class="kv"><dt>还款方式</dt><dd>发薪日自动抵扣，无需主动还款</dd></div>
+            <div class="kv kv-stack"><dt>审批流程</dt><dd>驻场初审 → 项目经理终审 → 拨款</dd></div>
+            <div class="kv kv-stack"><dt>还款方式</dt><dd>发薪日自动抵扣，无需主动还款</dd></div>
             <div class="kv"><dt>抵扣不足</dt><dd>剩余欠款结转下月</dd></div>
-            <div class="kv"><dt>离职处理</dt><dd>离职前须结清，从最后一笔工资扣除</dd></div>
+            <div class="kv kv-stack"><dt>离职处理</dt><dd>离职前须结清，从最后一笔工资扣除</dd></div>
           </dl>
         </section>
 
-        <van-button block class="btn-cta" @click="router.push('/advance/records')">预支记录与还款</van-button>
-        <div class="bottom-bar-gap" :class="{ tall: !!quota && !quota.eligible && !!reason }"></div>
+        <van-button block @click="toRecords">预支记录与还款</van-button>
+        <div class="bottom-bar-gap with-why"></div>
       </div>
     </van-pull-refresh>
 
-    <div v-if="quota" class="bottom-bar">
-      <p v-if="!quota.eligible && reason" class="why">{{ reason }}</p>
-      <van-button type="primary" block class="btn-cta" :disabled="!quota.eligible" :loading="submitting" loading-text="提交中…" @click="onApply">
+    <div v-if="quota && !loading && !loadError" class="bottom-bar">
+      <p v-if="applyError" class="bar-why err" role="alert"><IconTriangleExclamationPoint :size="16" />没有提交成功：{{ applyError }}</p>
+      <p v-else-if="!quota.eligible" class="bar-why">{{ reason }}</p>
+      <van-button type="primary" size="large" block :disabled="!quota.eligible" :loading="submitting" loading-text="提交中…" @click="onApply">
         申请预支 {{ fmtYuan(quota.amount) }}
       </van-button>
     </div>
@@ -222,42 +237,36 @@ async function onApply() {
 </template>
 
 <style scoped>
-.adv { min-height: 100vh; background: var(--surface-2); }
-.ahero { padding-bottom: 26px; }
-.nav { display: flex; align-items: center; justify-content: space-between; margin: 0 -6px 16px; }
-.nav .ico { width: 34px; height: 34px; display: grid; place-items: center; background: none; border: 0; color: #fff; padding: 0; }
-.nav .ttl { font-size: 15px; font-weight: 700; }
-.lbl { font-size: 12px; color: rgba(255, 255, 255, .6); }
-.amt { font-family: var(--f-dis); font-size: 44px; font-weight: 700; line-height: 1.05; margin-top: 2px; }
-.amt small { font-size: 14px; color: rgba(255, 255, 255, .5); font-weight: 500; margin-left: 6px; font-family: inherit; }
-.hstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(255, 255, 255, .2); }
-.hstats span { display: block; font-size: 11px; color: rgba(255, 255, 255, .55); }
-.hstats b { display: block; font-size: 19px; margin-top: 2px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hstats b small { font-size: 12px; color: rgba(255, 255, 255, .5); font-weight: 500; }
-.hstats b.owe { color: var(--signal-300); }
-.body { margin-top: -10px; position: relative; z-index: 2; }
-.page-state { padding-top: 40px; }
-button.acard { display: block; width: 100%; text-align: left; font: inherit; }
-.pendc { border-color: var(--warn-line); background: var(--warn-bg); }
-.pend-t { font-size: 14px; font-weight: 700; color: var(--warn); }
-.pend-a { font-size: 18px; font-weight: 700; color: var(--warn); }
+.adv { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
+.body { min-height: 60vh; }
+.tap { cursor: pointer; }
+.tap:active { background: var(--bg-hover); }
+.tap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.code { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.more { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
+.aux { font-size: var(--font-size-aux); color: var(--text-3); }
+.prog { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--space-2); margin-bottom: var(--space-2); font-size: var(--font-size-body); color: var(--text-2); }
+.prog-n { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.prog-n.warn { color: var(--warning-text); }
 .bar { height: 8px; border-radius: 4px; }
-.ticks { display: flex; gap: 3px; margin-top: 6px; }
-.ticks i { flex: 1; height: 3px; border-radius: 2px; background: var(--line-2); }
-.ticks i.on { background: var(--signal); }
-.sig-t { color: var(--signal); font-weight: 600; }
-.warn-t { color: var(--warn); font-weight: 600; }
-.slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
-.slot { text-align: center; padding: 9px 0; border-radius: var(--r-sm); background: var(--surface-2); border: 1px dashed var(--line-2); color: var(--ink-400); }
-.slot b { display: block; font-size: 13px; margin-top: 2px; }
-.slot .t-xs { color: inherit; }
-.slot.used { background: var(--ok-bg); border: 1px solid var(--ok-line); color: var(--ok); }
-.slot.rev { background: var(--warn-bg); border: 1.5px solid var(--warn-line); color: var(--warn); }
-.slot.avail { background: var(--signal-50); border: 1.5px solid var(--signal); color: var(--signal); }
-.rules { display: grid; gap: 9px; }
-.rules li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--ink-700); line-height: 1.5; }
-.rules li i { flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; background: var(--ok-bg); color: var(--ok); margin-top: 1px; }
-.rules li.bad { color: var(--ink-500); }
-.rules li.bad i { background: var(--danger-bg); color: var(--danger); }
-.why { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 8px; line-height: 1.5; text-wrap: balance; }
+.ticks { display: flex; gap: var(--space-1); margin-top: var(--space-2); }
+.ticks i { flex: 1; height: 2px; border-radius: 1px; background: var(--border); }
+.ticks i.on { background: var(--primary); }
+.foot { margin-top: var(--space-3); line-height: 20px; text-wrap: pretty; }
+/* 本月额度的四格：每格都写状态文字，不只靠颜色 */
+.slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
+.slot { padding: var(--space-2) 0; border: 1px dashed var(--border); border-radius: var(--radius-control); text-align: center; color: var(--text-3); }
+.slot span { display: block; font-size: var(--font-size-min); line-height: 18px; }
+.slot b { display: block; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; }
+.slot.used { border: 1px solid transparent; background: var(--bg-fill); color: var(--text-2); }
+.slot.rev { border: 1px solid transparent; background: var(--warning-soft); color: var(--warning-text); }
+.slot.avail { border: 1px solid var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+.tip { margin-top: var(--space-3); }
+.tipbar-d.first { margin-top: 0; text-wrap: pretty; }
+.rules { display: grid; gap: var(--space-3); }
+.rules li { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
+.rules li > svg { flex: none; margin-top: 1px; color: var(--success-text); }
+.rules li.bad > svg { color: var(--warning-text); }
+.rules .flex1 { text-wrap: pretty; }
+.rules .status-tag { flex: none; }
 </style>

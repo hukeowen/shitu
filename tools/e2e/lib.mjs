@@ -80,6 +80,42 @@ export async function opsLogin() {
   return j.data.accessToken
 }
 
+/** 演示公司的公司码。每个库生成的码不一样，不能写死：优先用环境变量 CHANNEL_CODE，否则取老板名下第一个启用的公司码。 */
+export async function companyCode(ownerToken) {
+  if (process.env.CHANNEL_CODE) return process.env.CHANNEL_CODE
+  const list = await ok('渠道码列表', get('/tenant/channel-codes', ownerToken))
+  const hit = list.find((c) => c.kind === 'COMPANY' && c.status === 'ACTIVE')
+  if (!hit) throw new Error('演示公司没有启用的公司码')
+  return hit.code
+}
+
+/** 按当前题库生成一组能匹配到岗位的答案（接受进厂、不限地区 / 工种 / 住宿，其余选第一项）。 */
+export async function quizAnswers(t) {
+  const q = await ok('读取题库', get('/seeker/quiz', t))
+  return q.questions.map((qq) => {
+    const pick = (pred) => qq.options.find(pred) ?? qq.options[0]
+    let o
+    if (qq.profileField === 'accept_factory') o = pick((x) => x.value === 'YES')
+    else if (qq.profileField === 'locked_region') o = pick((x) => x.value === 'ANY')
+    else if (qq.profileField === 'expect_job_type') o = pick((x) => x.value === 'ANY')
+    else if (qq.profileField === 'dorm_req') o = pick((x) => x.value === 'NONE')
+    else o = qq.options[0]
+    return { seq: qq.seq, code: o.code }
+  })
+}
+
+/** 上传文件（multipart），返回值结构同 req。 */
+export async function upload(url, token, fileName, buf, { fields = {}, headers = {}, type = 'application/octet-stream' } = {}) {
+  const form = new FormData()
+  form.append('file', new Blob([buf], { type }), fileName)
+  for (const [k, v] of Object.entries(fields)) form.append(k, v)
+  const h = { ...headers }
+  if (token) h.Authorization = 'Bearer ' + token
+  const r = await fetch(BASE + url, { method: 'POST', headers: h, body: form })
+  const json = await r.json().catch(() => null)
+  return { status: r.status, code: json?.code, msg: json?.message, data: json?.data }
+}
+
 /** 新求职者：（可带渠道码）注册 → 告知书 → 实名 → 问薪。 */
 export async function readySeeker(channelCode, idCard) {
   const p = phone()
@@ -102,28 +138,52 @@ export function makeIdCard(age) {
   return body + c[s % 11]
 }
 
-/** 公司成员：优先用缓存的 refresh cookie（避免触发 60 秒短信冷却），失效再走短信登录。 */
-export async function tenantSession(phoneNo) {
-  const file = path.join(DIR, `tenant-${phoneNo}.rt`)
+/** 带缓存的会话：优先用缓存的 refresh cookie（避免触发 60 秒短信冷却），失效再走短信登录。返回登录接口的 data。 */
+async function cachedSession(domain, phoneNo, extra = {}) {
+  const file = path.join(DIR, `${domain}-${phoneNo}.rt`)
   if (fs.existsSync(file)) {
-    const r = await fetch(BASE + '/tenant/auth/refresh', {
+    const r = await fetch(BASE + `/${domain}/auth/refresh`, {
       method: 'POST', headers: { Cookie: 'shitu_rt=' + fs.readFileSync(file, 'utf8').trim(), 'X-Requested-With': 'XMLHttpRequest' },
     })
     const j = await r.json()
     const m = (r.headers.get('set-cookie') || '').match(/shitu_rt=([^;]+)/)
     if (j.code === '0') {
       if (m) fs.writeFileSync(file, m[1])
-      return j.data.accessToken
+      return j.data
     }
   }
-  const s = await req('POST', '/tenant/auth/sms-code', null, { phone: phoneNo })
-  if (s.code !== '0') throw new Error(`tenant sms-code ${phoneNo}: ${s.code} ${s.msg}`)
-  const r = await fetch(BASE + '/tenant/auth/sms-login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phoneNo, code: s.data.devCode }),
+  const s = await req('POST', `/${domain}/auth/sms-code`, null, { phone: phoneNo })
+  if (s.code !== '0') throw new Error(`${domain} sms-code ${phoneNo}: ${s.code} ${s.msg}`)
+  const r = await fetch(BASE + `/${domain}/auth/sms-login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phoneNo, code: s.data.devCode, ...extra }),
   })
   const j = await r.json()
-  if (j.code !== '0') throw new Error(`tenant login ${phoneNo}: ${j.code} ${j.message}`)
+  if (j.code !== '0') throw new Error(`${domain} login ${phoneNo}: ${j.code} ${j.message}`)
   const m = (r.headers.get('set-cookie') || '').match(/shitu_rt=([^;]+)/)
   if (m) fs.writeFileSync(file, m[1])
-  return j.data.accessToken
+  return j.data
+}
+
+/** 公司成员会话，缓存在 tenant-<手机号>.rt。 */
+export const tenantSession = async (phoneNo) => (await cachedSession('tenant', phoneNo)).accessToken
+
+/** 求职者会话，缓存在 seeker-<手机号>.rt；首次登录即注册，可带渠道码。 */
+export const seekerSession = async (phoneNo, channelCode) =>
+  (await cachedSession('seeker', phoneNo, channelCode ? { channelCode } : {})).accessToken
+
+/** 还不是任何公司成员的手机号登录后台：返回入驻申请用的 onboardingTicket。 */
+export const onboardingTicket = async (phoneNo) => (await cachedSession('tenant', phoneNo)).onboardingTicket
+
+/** 读会话文件里的 refresh token（ops.cookies 是 curl 的 cookie 文件格式，*.rt 只有一个值）。 */
+export function readRt(file) {
+  const t = fs.readFileSync(path.join(DIR, file), 'utf8')
+  const line = t.split('\n').find((l) => l.includes('shitu_rt'))
+  return (line ? line.trim().split('\t').pop() : t).trim()
+}
+/** 浏览器里轮换过的 refresh token 要写回文件，否则旧 token 下次用会触发重放吊销。 */
+export function writeRt(file, val) {
+  const p = path.join(DIR, file)
+  const t = fs.readFileSync(p, 'utf8')
+  const line = t.split('\n').find((l) => l.includes('shitu_rt'))
+  fs.writeFileSync(p, line ? line.replace(line.trim().split('\t').pop(), val) + '\n' : val)
 }

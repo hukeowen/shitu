@@ -3,6 +3,6 @@ export interface QuadItem {
   key: 'match' | 'reports' | 'advance' | 'contracts'
   title: string
   desc: string
+  /** 当前不能用：置灰，desc 写原因 */
   off?: boolean
-  pill?: string
 }

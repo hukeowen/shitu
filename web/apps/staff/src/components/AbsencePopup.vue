@@ -2,7 +2,8 @@
 import { shNow } from '@/utils/time'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
-import { errorMessage, tenantApi, useDict, type DutyAbsenceView, type StaffRow } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, useDict, type DutyAbsenceView, type StaffRow } from '@shitu/api-client'
+import { IconChevronLeft, IconChevronRight, IconX } from '@shitu/ui-icons'
 import { fmtDay, fmtTime, parseLocal, startOfDay, ymd } from '@/utils/time'
 
 /** M-15 请假 / 旷工标记：按人按日标记（扣减有效在岗日），查看当月记录、撤销 */
@@ -18,6 +19,10 @@ const records = shallowRef<DutyAbsenceView[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
+/** 标记 / 撤销被拒的原因留在弹层上；业务拒绝时「标记」置灰，改了日期或类型后可再提交 */
+const submitError = ref('')
+const rejected = ref(false)
+const revokeError = ref('')
 let changed = false
 
 const typeOptions = computed(() => {
@@ -57,8 +62,15 @@ async function load() {
   }
 }
 
+watch(() => [form.date, form.type], () => {
+  rejected.value = false
+  submitError.value = ''
+})
 watch(show, (v) => {
   if (v && props.row) {
+    submitError.value = ''
+    rejected.value = false
+    revokeError.value = ''
     form.date = maxDate.value
     form.type = 'LEAVE'
     form.remark = ''
@@ -93,6 +105,7 @@ async function submit() {
   const r = props.row
   if (!r || saving.value) return
   saving.value = true
+  submitError.value = ''
   const date = ymd(form.date)
   try {
     await tenantApi.markAbsence(r.employmentId, date, form.type, form.remark.trim() || undefined)
@@ -104,6 +117,8 @@ async function submit() {
     void load()
   } catch (e) {
     showToast(errorMessage(e, '标记失败，请稍后重试'))
+    submitError.value = errorMessage(e, '标记失败，请稍后重试')
+    rejected.value = isApiError(e) && e.code !== 'NETWORK'
   } finally {
     saving.value = false
   }
@@ -112,6 +127,7 @@ async function submit() {
 async function revoke(rec: DutyAbsenceView) {
   const r = props.row
   if (!r) return
+  revokeError.value = ''
   try {
     await showConfirmDialog({
       title: '撤销标记',
@@ -124,6 +140,7 @@ async function revoke(rec: DutyAbsenceView) {
           return true
         } catch (e) {
           showToast(errorMessage(e, '撤销失败，请稍后重试'))
+          revokeError.value = `${rec.absenceDate} 没有撤销成功：${errorMessage(e, '请稍后重试')}`
           return false
         }
       },
@@ -143,10 +160,10 @@ const nowDate = shNow()
     <div class="sheet-h" aria-hidden="true" />
     <div class="hd">
       <h3>请假 / 旷工标记</h3>
-      <button type="button" class="x" aria-label="关闭" @click="show = false"><van-icon name="cross" size="18" /></button>
+      <button type="button" class="x" aria-label="关闭" @click="show = false"><IconX :size="20" /></button>
     </div>
     <template v-if="row">
-      <p class="t-sm who">{{ row.name }}<template v-if="row.employeeNo"> · {{ row.employeeNo }}</template> · {{ row.projectName ?? '—' }}</p>
+      <p class="who">{{ row.name }}<template v-if="row.employeeNo"> · {{ row.employeeNo }}</template> · {{ row.projectName ?? '—' }}</p>
 
       <van-cell-group inset class="grp">
         <van-field label="日期" required is-link readonly :model-value="fmtDay(form.date)" @click="openPicker" />
@@ -159,26 +176,31 @@ const nowDate = shNow()
         </van-field>
         <van-field v-model="form.remark" label="备注" maxlength="100" placeholder="选填，如：病假 / 事假" />
       </van-cell-group>
-      <p class="t-xs tip">请假 / 旷工的日期不计入有效在岗日（影响预支机会与计费）。同一天重复标记以最后一次为准。</p>
-      <van-button block type="primary" class="btn-cta" :loading="saving" loading-text="提交中…" @click="submit">标记 {{ label('AbsenceType', form.type) }}</van-button>
+      <p class="tip">请假 / 旷工的日期不计入有效在岗日（影响预支机会与计费）。同一天重复标记以最后一次为准。</p>
+      <p v-if="submitError" class="bar-why err" role="status">没有标记成功：{{ submitError }}</p>
+      <van-button block type="primary" size="large" :loading="saving" :disabled="rejected" loading-text="提交中…" @click="submit">标记 {{ label('AbsenceType', form.type) }}</van-button>
 
       <div class="rec-hd">
-        <button type="button" class="mbtn" :disabled="!canPrev" aria-label="上个月" @click="shiftMonth(-1)"><van-icon name="arrow-left" /></button>
-        <b class="num">{{ monthText }}</b>
-        <button type="button" class="mbtn" :disabled="!canNext" aria-label="下个月" @click="shiftMonth(1)"><van-icon name="arrow" /></button>
-        <span class="t-xs flex1" style="text-align: right">{{ label('AbsenceType', 'LEAVE') }} {{ summary.leave }} · {{ label('AbsenceType', 'ABSENT') }} {{ summary.absent }}</span>
+        <button type="button" class="mbtn" :disabled="!canPrev" aria-label="上个月" @click="shiftMonth(-1)"><IconChevronLeft :size="20" /></button>
+        <b>{{ monthText }}</b>
+        <button type="button" class="mbtn" :disabled="!canNext" aria-label="下个月" @click="shiftMonth(1)"><IconChevronRight :size="20" /></button>
+        <span class="sum flex1">{{ label('AbsenceType', 'LEAVE') }} {{ summary.leave }} · {{ label('AbsenceType', 'ABSENT') }} {{ summary.absent }}</span>
       </div>
-      <div v-if="loading" class="empty-box"><van-loading size="20" /></div>
-      <p v-else-if="loadError" class="t-xs err">{{ loadError }}</p>
-      <div v-else-if="!records.length" class="empty-box t-xs">本月无缺勤记录</div>
+      <p v-if="revokeError" class="bar-why err" role="status">{{ revokeError }}</p>
+      <div v-if="loading" class="page-state in-sheet"><van-loading size="24" /></div>
+      <div v-else-if="loadError" class="state-block state-block--sm">
+        <p class="state-block-t">{{ loadError }}</p>
+        <van-button size="small" @click="load">重新加载</van-button>
+      </div>
+      <div v-else-if="!records.length" class="state-block state-block--sm"><p class="state-block-t">本月无缺勤记录</p></div>
       <div v-else class="recs">
         <div v-for="r in records" :key="r.id" class="rec">
-          <span class="tag" :class="r.absenceType === 'ABSENT' ? 'tag-danger' : 'tag-warn'">{{ label('AbsenceType', r.absenceType) }}</span>
+          <span class="status-tag" :class="r.absenceType === 'ABSENT' ? 'status-tag--danger' : 'status-tag--warning'">{{ label('AbsenceType', r.absenceType) }}</span>
           <div class="flex1">
-            <b class="num">{{ fmtDay(r.absenceDate) }}</b>
+            <b>{{ fmtDay(r.absenceDate) }}</b>
             <span>{{ r.remark || '无备注' }} · {{ fmtTime(r.createdAt, nowDate) }} 标记</span>
           </div>
-          <van-button size="mini" plain type="danger" @click="revoke(r)">撤销</van-button>
+          <van-button size="small" plain type="danger" @click="revoke(r)">撤销</van-button>
         </div>
       </div>
     </template>
@@ -190,22 +212,25 @@ const nowDate = shNow()
 </template>
 
 <style scoped>
-.abs { padding: 8px 14px 14px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; background: var(--surface-2); }
-.sheet-h { width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 10px; }
+.abs { padding: var(--space-2) var(--space-4) var(--space-4); max-height: 90vh; overflow-y: auto; box-sizing: border-box; background: var(--bg-page); }
+.sheet-h { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto var(--space-2); }
 .hd { display: flex; align-items: center; justify-content: space-between; }
-.hd h3 { font-size: 17px; font-weight: 700; color: var(--ink-900); }
-.x { width: 32px; height: 32px; display: grid; place-items: center; background: none; border: 0; color: var(--ink-500); padding: 0; margin-right: -6px; }
-.who { margin: 2px 0 10px; }
-.grp { margin: 0 0 8px; }
-.tip { line-height: 1.6; margin-bottom: 10px; padding: 0 2px; }
-.rec-hd { display: flex; align-items: center; gap: 8px; margin: 18px 0 8px; }
-.rec-hd b { font-size: 14px; color: var(--ink-900); }
-.mbtn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-600); display: grid; place-items: center; padding: 0; }
-.mbtn:disabled { opacity: .35; }
-.recs { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
-.rec { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.hd h3 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.x { width: 44px; height: 44px; display: grid; place-items: center; margin-right: calc(var(--space-3) * -1); padding: 0; border: 0; background: none; color: var(--text-3); }
+.who { margin: 2px 0 var(--space-3); font-size: var(--font-size-body); color: var(--text-2); }
+.grp { margin: 0 0 var(--space-2); }
+.tip { margin-bottom: var(--space-3); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.bar-why { display: block; margin: 0 0 var(--space-2); text-align: left; }
+.rec-hd { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-4) 0 var(--space-2); }
+.rec-hd b { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.rec-hd .sum { font-size: var(--font-size-aux); color: var(--text-3); text-align: right; }
+.mbtn { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); color: var(--text-2); }
+.mbtn:disabled { color: var(--text-placeholder); }
+.in-sheet { padding: var(--space-5) 0; }
+.recs { background: var(--bg-card); border-radius: var(--radius-card); overflow: hidden; }
+.rec { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-card); border-bottom: 1px solid var(--divider); }
 .rec:last-child { border-bottom: 0; }
-.rec b { display: block; font-size: 13px; color: var(--ink-900); }
-.rec span:not(.tag) { display: block; font-size: 11px; color: var(--ink-400); margin-top: 2px; }
-.err { color: var(--danger); padding: 10px 0; }
+.rec b { display: block; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
+.rec span:not(.status-tag) { display: block; margin-top: 2px; font-size: var(--font-size-aux); color: var(--text-3); }
+.rec .van-button { flex: none; min-height: 44px; }
 </style>

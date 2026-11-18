@@ -1,62 +1,71 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { errorMessage, opsApi, type OpsOverview } from '@shitu/api-client'
+import { ElMessage } from 'element-plus'
+import { errorMessage, isApiError, opsApi, type OpsOverview } from '@shitu/api-client'
+import {
+  IconBriefcase,
+  IconBuildingComplex,
+  IconChartColumn,
+  IconClipboardList,
+  IconTrendingUp,
+  IconTriangleExclamationPoint,
+  IconUserCheck,
+  IconUsers,
+} from '@shitu/ui-icons'
 import { fmtDate, fmtMoney, fmtNum } from '@/utils/format'
 
 /** P-01 运营总览：平台 KPI、昨日计费、本月服务费、近 14 日注册趋势 */
 const data = shallowRef<OpsOverview | null>(null)
 const loading = ref(false)
 const error = ref('')
+/** 失败是断网、超时（提示检查网络），还是后端给了原因 */
+const offline = ref(false)
 
 async function load() {
   loading.value = true
   error.value = ''
+  offline.value = false
   try {
     data.value = await opsApi.overview()
   } catch (e) {
     error.value = errorMessage(e, '加载失败，请稍后重试')
+    offline.value = isApiError(e) && e.code === 'NETWORK'
+    // 已有数据时刷新失败：保留上一次的数据，用轻提示说明
+    if (data.value) ElMessage.error(error.value)
   } finally {
     loading.value = false
   }
 }
 onMounted(load)
 
+/** 没拿到数据时指标显示「—」，说明不下结论（规范「Page States」） */
 const kpis = computed(() => {
   const d = data.value
-  if (!d) return []
   return [
-    { l: '入驻企业数', v: d.companies, s: d.pendingCompanies > 0 ? `${d.pendingCompanies} 家待审核` : '无待审核', warn: d.pendingCompanies > 0, to: '/companies/list' },
-    { l: '在职总人数', v: d.employed, s: `今日入职 ${fmtNum(d.hiredToday)} 人` },
-    { l: '今日新注册', v: d.registeredToday, s: '求职者注册' },
-    { l: '今日报名', v: d.applicationsToday, s: '报名单创建数' },
-    { l: '公域求职者', v: d.publicSeekers, s: '无归属，可被任一公司推荐' },
-    { l: '招聘中岗位', v: d.recruitingJobs, s: '审核通过且在招' },
+    { l: '入驻企业数', icon: IconBuildingComplex, v: d?.companies, s: d ? (d.pendingCompanies > 0 ? `${d.pendingCompanies} 家待审核` : '无待审核') : '—', to: '/companies/list' },
+    { l: '在职总人数', icon: IconUserCheck, v: d?.employed, s: d ? `今日入职 ${fmtNum(d.hiredToday)} 人` : '—' },
+    { l: '今日新注册', icon: IconTrendingUp, v: d?.registeredToday, s: '求职者注册' },
+    { l: '今日报名', icon: IconClipboardList, v: d?.applicationsToday, s: '报名单创建数' },
+    { l: '公域求职者', icon: IconUsers, v: d?.publicSeekers, s: '无归属，可被任一公司推荐' },
+    { l: '招聘中岗位', icon: IconBriefcase, v: d?.recruitingJobs, s: '审核通过且在招' },
   ]
 })
 
-/** 趋势图：纯 SVG 柱状图 */
-/** 画布尺寸跟随容器的实际像素（图表撑满卡片高度，文字不变形） */
-const chartEl = ref<HTMLElement | null>(null)
+/** 趋势图：手写 SVG 柱状图，按容器的实际像素宽画（不拉伸，字号才是真的 12px） */
+const chartBox = ref<HTMLElement>()
 const W = ref(560)
-const H = ref(180)
-const PAD = { l: 34, r: 8, t: 12, b: 22 }
-let chartObserver: ResizeObserver | undefined
-function measure() {
-  const el = chartEl.value
-  if (!el || !el.clientWidth || !el.clientHeight) return
-  W.value = el.clientWidth
-  H.value = el.clientHeight
-}
-watch(chartEl, (el) => {
-  chartObserver?.disconnect()
-  if (!el) return
-  measure()
-  if (typeof ResizeObserver !== 'undefined') {
-    chartObserver = new ResizeObserver(measure)
-    chartObserver.observe(el)
-  }
+const H = 180
+const PAD = { l: 36, r: 8, t: 12, b: 24 }
+const ro = new ResizeObserver(([e]) => {
+  if (e.contentRect.width > 0) W.value = Math.round(e.contentRect.width)
 })
-onBeforeUnmount(() => chartObserver?.disconnect())
+// 卡片体会随「加载失败 → 重新加载成功」卸载又重新挂载：节点换了就改观察新节点
+watch(chartBox, (el, old) => {
+  if (old) ro.unobserve(old)
+  if (el) ro.observe(el)
+}, { flush: 'post', immediate: true })
+onBeforeUnmount(() => ro.disconnect())
+
 /** 补齐近 14 天：后端只返回有注册的日期，没有数据的日子按 0 画出来（按北京日期） */
 const trend = computed(() => {
   const by = new Map((data.value?.trend ?? []).map((p) => [p.d, p]))
@@ -73,11 +82,11 @@ const chart = computed(() => {
   const step = niceStep(max / 4)
   const top = Math.max(step, Math.ceil(max / step) * step)
   const iw = W.value - PAD.l - PAD.r
-  const ih = H.value - PAD.t - PAD.b
+  const ih = H - PAD.t - PAD.b
   const bw = pts.length ? iw / pts.length : 0
   const bars = pts.map((p, i) => {
     const h = (p.registrations / top) * ih
-    return { x: PAD.l + i * bw + bw * 0.18, y: PAD.t + ih - h, w: bw * 0.64, h, p, label: p.d.slice(5) }
+    return { x: PAD.l + i * bw + bw * 0.2, y: PAD.t + ih - h, w: bw * 0.6, h, p, label: p.d.slice(5) }
   })
   const ticks = []
   for (let v = 0; v <= top; v += step) ticks.push({ v, y: PAD.t + ih - (v / top) * ih })
@@ -105,15 +114,21 @@ const hover = ref<number | null>(null)
     </div>
 
     <div v-if="error && !data" class="card">
-      <el-empty :image-size="64" :description="error"><el-button size="small" @click="load">重试</el-button></el-empty>
+      <div class="state-box">
+        <IconTriangleExclamationPoint :size="48" />
+        <h4>运营数据加载失败</h4>
+        <p>{{ offline ? '请检查网络后重新加载' : error }}</p>
+        <el-button type="primary" :loading="loading" @click="load">重新加载</el-button>
+      </div>
     </div>
 
-    <template v-else>
-      <div v-loading="loading && !data" class="grid g-3 kpis">
-        <component :is="k.to ? 'router-link' : 'div'" v-for="k in kpis" :key="k.l" :to="k.to" class="stat" :class="{ link: k.to }">
+    <div v-else v-loading="loading && !data">
+      <div class="grid g-3 kpis">
+        <component :is="k.to ? 'router-link' : 'div'" v-for="k in kpis" :key="k.l" :to="k.to" class="stat stat--icon" :class="{ 'stat--link': k.to }">
           <div class="stat-l">{{ k.l }}</div>
+          <component :is="k.icon" :size="20" class="stat-i" />
           <div class="stat-v">{{ fmtNum(k.v) }}</div>
-          <div class="stat-d" :class="{ warn: k.warn }">{{ k.s }}</div>
+          <div class="stat-d">{{ k.s }}</div>
         </component>
       </div>
 
@@ -125,21 +140,21 @@ const hover = ref<number | null>(null)
           </div>
           <div class="card__bd">
             <div class="period">
-              <b>昨日</b><span class="t-xs mono">{{ data ? fmtDate(data.yesterday.date) : '' }}</span>
+              <b>昨日</b><span class="t-xs">{{ data ? fmtDate(data.yesterday.date) : '' }}</span>
             </div>
             <div class="fee-grid">
               <div class="fee">
                 <div class="stat-l">增长技术服务费</div>
-                <div class="fee-v">{{ fmtMoney(data?.yesterday.serviceFee) }}</div>
+                <div class="fee-v money">{{ fmtMoney(data?.yesterday.serviceFee) }}</div>
               </div>
               <div class="fee">
                 <div class="stat-l">人才流转费总额</div>
-                <div class="fee-v">{{ fmtMoney(data?.yesterday.transferFee) }}</div>
-                <div class="stat-d">{{ fmtNum(data?.yesterday.transferCount) }} 人·天</div>
+                <div class="fee-v money">{{ fmtMoney(data?.yesterday.transferFee) }}</div>
+                <div v-if="data" class="stat-d">{{ fmtNum(data.yesterday.transferCount) }} 人·天</div>
               </div>
               <div class="fee">
                 <div class="stat-l">其中平台收入</div>
-                <div class="fee-v">{{ fmtMoney(data?.yesterday.platformTake) }}</div>
+                <div class="fee-v money">{{ fmtMoney(data?.yesterday.platformTake) }}</div>
               </div>
             </div>
             <dl class="split">
@@ -151,17 +166,17 @@ const hover = ref<number | null>(null)
               <b>本月累计</b><span class="t-xs">截至昨日日结</span>
             </div>
             <div class="fee-grid">
-              <div class="fee hl">
+              <div class="fee">
                 <div class="stat-l">增长技术服务费</div>
-                <div class="fee-v">{{ fmtMoney(data?.monthServiceFee) }}</div>
+                <div class="fee-v money">{{ fmtMoney(data?.monthServiceFee) }}</div>
               </div>
               <div class="fee">
                 <div class="stat-l">流转费平台抽佣</div>
-                <div class="fee-v">{{ fmtMoney(data?.monthTransferCommission) }}</div>
+                <div class="fee-v money">{{ fmtMoney(data?.monthTransferCommission) }}</div>
               </div>
               <div class="fee">
                 <div class="stat-l">流转费全额归平台</div>
-                <div class="fee-v">{{ fmtMoney(data?.monthTransferFullIncome) }}</div>
+                <div class="fee-v money">{{ fmtMoney(data?.monthTransferFullIncome) }}</div>
               </div>
             </div>
             <p class="t-xs fee-note">平台抽佣：与来源公司分成后平台得到的部分；全额归平台：来源为平台或来源公司已注销的流转费。</p>
@@ -171,61 +186,70 @@ const hover = ref<number | null>(null)
         <div class="card">
           <div class="card__hd">
             <h3>近 14 日注册趋势</h3>
-            <span class="t-xs">合计 <b class="mono">{{ fmtNum(trendTotal) }}</b> 人</span>
+            <span v-if="data" class="t-xs">合计 <b class="total">{{ fmtNum(trendTotal) }}</b> 人</span>
           </div>
-          <div class="card__bd grow">
-            <el-empty v-if="trend.length === 0" :image-size="56" description="暂无数据" />
-            <div v-else ref="chartEl" class="chart">
-              <svg :viewBox="`0 0 ${W} ${H}`" role="img" aria-label="近 14 日注册人数柱状图">
-                <g v-for="t in chart.ticks" :key="t.v">
-                  <line :x1="PAD.l" :x2="W - PAD.r" :y1="t.y" :y2="t.y" class="grid-l" />
-                  <text :x="PAD.l - 6" :y="t.y + 3" text-anchor="end" class="ax">{{ t.v }}</text>
-                </g>
-                <g v-for="(b, i) in chart.bars" :key="b.p.d" @mouseenter="hover = i" @mouseleave="hover = null">
-                  <rect :x="b.x - chart.bw * 0.18" :y="PAD.t" :width="chart.bw" :height="H - PAD.t - PAD.b" fill="transparent" />
-                  <!-- 0 人的日子不画柱子；类名不能叫 bar（主题里 .bar 带固定高度，会把柱子撑成色块压住日期） -->
-                  <rect v-if="b.p.registrations > 0" :x="b.x" :y="b.y" :width="b.w" :height="Math.max(b.h, 1)" rx="2" class="col" :class="{ on: hover === i }" />
-                  <text v-if="i % 2 === 1" :x="b.x + b.w / 2" :y="H - 6" text-anchor="middle" class="ax">{{ b.label }}</text>
-                </g>
-              </svg>
-              <div v-if="hover !== null && chart.bars[hover]" class="tip">
-                <span class="mono">{{ chart.bars[hover].p.d }}</span> · 注册 <b>{{ fmtNum(chart.bars[hover].p.registrations) }}</b> 人
+          <div ref="chartBox" class="card__bd chart-bd">
+            <template v-if="data">
+              <div v-if="trendTotal === 0" class="state-box">
+                <IconChartColumn :size="48" />
+                <h4>近 14 日没有新注册</h4>
+                <p>有求职者注册后，这里按天显示注册人数</p>
               </div>
-            </div>
+              <template v-else>
+                <div class="chart">
+                  <svg :width="W" :height="H" :viewBox="`0 0 ${W} ${H}`" role="img" aria-label="近 14 日注册人数柱状图">
+                    <g v-for="t in chart.ticks" :key="t.v">
+                      <line :x1="PAD.l" :x2="W - PAD.r" :y1="t.y" :y2="t.y" class="grid-l" />
+                      <text :x="PAD.l - 6" :y="t.y + 4" text-anchor="end" class="ax">{{ t.v }}</text>
+                    </g>
+                    <g v-for="(b, i) in chart.bars" :key="b.p.d" @mouseenter="hover = i" @mouseleave="hover = null">
+                      <rect :x="b.x - chart.bw * 0.2" :y="PAD.t" :width="chart.bw" :height="H - PAD.t - PAD.b" fill="transparent" />
+                      <rect v-if="b.p.registrations > 0" :x="b.x" :y="b.y" :width="b.w" :height="Math.max(b.h, 1)" rx="2" class="col" :class="{ on: hover === i }" />
+                      <text v-if="i % 2 === 1" :x="b.x + b.w / 2" :y="H - 6" text-anchor="middle" class="ax">{{ b.label }}</text>
+                    </g>
+                  </svg>
+                  <div v-if="hover !== null && chart.bars[hover]" class="tip">
+                    {{ chart.bars[hover].p.d }} · 注册 <b>{{ fmtNum(chart.bars[hover].p.registrations) }}</b> 人
+                  </div>
+                </div>
+                <div class="chart-legend"><span><i class="lg-bar" />每日注册人数</span></div>
+              </template>
+            </template>
           </div>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.kpis { margin-bottom: 14px; }
-.stat.link { text-decoration: none; transition: border-color .14s; }
-.stat.link:hover { border-color: var(--signal-300); }
-.stat-d.warn { color: var(--warn); font-weight: 600; }
-.fees { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+.kpis { gap: var(--space-gap); margin-bottom: var(--space-gap); }
+.fees { gap: var(--space-gap); grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: start; }
 @media (max-width: 1180px) { .fees { grid-template-columns: 1fr; } }
-.period { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-.period b { font-size: 13.5px; font-weight: 600; color: var(--ink-900); }
-.period.second { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.fee-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.fee .stat-l { white-space: nowrap; }
-.fee .stat-d { white-space: nowrap; }
-.fee-v { font-family: var(--f-dis); font-size: 22px; font-weight: 650; color: var(--ink-900); margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.split { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 10px 0 0; font-size: 12.5px; }
-.split > div { display: flex; gap: 8px; white-space: nowrap; }
-.split dt { color: var(--ink-500); }
-.split dd { margin: 0; color: var(--ink-800); font-weight: 600; font-variant-numeric: tabular-nums; }
-.fee-note { margin: 14px 0 0; line-height: 1.7; }
-.fee.hl .fee-v { color: var(--signal-700); }
-.fees > .card { display: flex; flex-direction: column; }
-.card__bd.grow { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.chart { position: relative; flex: 1; min-height: 200px; }
-.chart svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.grid-l { stroke: var(--line); stroke-width: 1; }
-.ax { font-size: 10px; fill: var(--ink-400); font-family: var(--f-mono); }
-.col { fill: var(--signal); opacity: .85; }
-.col.on { opacity: 1; fill: var(--signal-700); }
-.tip { position: absolute; top: 0; right: 0; font-size: 12px; color: var(--ink-600); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 2px 8px; }
+.period { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-3); }
+.period b { font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.period.second { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--divider); }
+.fee-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+/* 计费说明逐行写，一行一条，不折行（两卡顶部对齐，不强拉同高） */
+.fee .stat-l, .fee .stat-d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fee-v { display: block; font-size: var(--font-size-title); margin-top: var(--space-1); }
+.split { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-6); margin: var(--space-3) 0 0; font-size: var(--font-size-min); }
+.split > div { display: flex; gap: var(--space-2); white-space: nowrap; }
+.split dt { color: var(--text-3); }
+.split dd { margin: 0; color: var(--text-1); font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; }
+.fee-note { margin: var(--space-4) 0 0; line-height: 1.7; }
+.total { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.chart-bd { min-height: 220px; }
+.chart { position: relative; }
+.chart svg { display: block; overflow: visible; }
+/* 规范「Charts」：单一系列用 --chart-1，坐标轴和网格线用分隔线色，坐标标签 12px 二级文字 */
+.grid-l { stroke: var(--divider); stroke-width: 1; }
+.ax { font-size: var(--font-size-min); fill: var(--text-2); }
+/* 柱子类名不叫 bar：全局样式里的 .bar（进度条）带固定高度，会作用到 svg 的 rect 上 */
+.col { fill: var(--chart-1); }
+.col.on { fill: var(--chart-1); fill-opacity: .72; }
+.lg-bar { background: var(--chart-1); }
+.chart-legend { margin-top: var(--space-2); }
+.tip { position: absolute; top: 0; right: 0; font-size: var(--font-size-min); color: var(--text-2); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-tag); padding: 2px var(--space-2); box-shadow: var(--shadow-popup); }
+.tip b { color: var(--text-1); }
 </style>

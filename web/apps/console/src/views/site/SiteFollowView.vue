@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage, tenantApi, type SiteApplication, type SiteWorkbench, type TimeoutReleases } from '@shitu/api-client'
-import AppActionButtons from '@/components/site/AppActionButtons.vue'
-import { appOpsWidth } from '@/components/site/appActions'
+import { IconCircleCheck, IconCircleExclamationPoint, IconClock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import AppActionButtons, { appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
-import CountdownTag from '@/components/CountdownTag.vue'
+import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
 import PersonCell from '@/components/PersonCell.vue'
 import { loadOpenApplications, stageText } from '@/composables/openApplications'
@@ -30,6 +30,8 @@ const truncated = ref(false)
 const wb = ref<SiteWorkbench | null>(null)
 const loading = ref(false)
 const loadError = ref('')
+/** 报名明细拿到过数据（没拿到时分档卡和页签不显示数字，超时释放条也不下结论） */
+const ready = ref(false)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
 
 /** 有窗口的报名（公域用户没有 responseDeadline） */
@@ -49,8 +51,9 @@ const counts = computed(() => {
   return c
 })
 const rows = computed(() => (bucket.value ? windowed.value.filter((a) => bucketOf(a) === bucket.value) : windowed.value))
-/** 操作列宽度按当前角色实际可用的按钮计算；只读角色（老板）没有操作，不显示该列 */
-const opsWidth = computed(() => appOpsWidth(rows.value))
+const opsWidth = computed(() => appActionsColWidth(rows.value))
+/** 只读角色（老板）对列表里的报名都没有可用操作时，不显示操作列 */
+const hasOps = computed(() => rows.value.some((a) => a.allowedActions.length > 0))
 
 async function load() {
   loading.value = true
@@ -58,10 +61,12 @@ async function load() {
   try {
     const [r, w] = await Promise.all([loadOpenApplications(projectId.value), tenantApi.siteWorkbench().catch(() => null)])
     all.value = r.list
+    ready.value = true
     truncated.value = r.truncated
     wb.value = w
   } catch (e) {
     loadError.value = errorMessage(e, '响应窗口加载失败')
+    ready.value = false
     all.value = []
   } finally {
     loading.value = false
@@ -105,105 +110,111 @@ function barClass(a: SiteApplication) {
       <el-button @click="load">刷新</el-button>
     </div>
 
-    <div class="grid g-4">
-      <div class="stat stat--link" :class="{ 'stat--danger': counts.h1 > 0 }" @click="bucket = 'h1'">
+    <div v-loading="loading" class="stats">
+      <!-- 只有异常卡（有不到 1 小时的）数字用危险色，为 0 不算异常 -->
+      <button type="button" class="stat stat--link st" :class="{ 'stat--danger': ready && counts.h1 > 0 }" @click="bucket = 'h1'">
         <div class="stat-l">&lt; 1 小时（含已超时）</div>
-        <div class="stat-v">{{ counts.h1 }}</div>
-        <div class="stat-d">{{ counts.h1 > 0 ? '立即处理' : '暂无紧急窗口' }}</div>
-      </div>
-      <div class="stat stat--link" :class="{ 'stat--warn': counts.h6 > 0 }" @click="bucket = 'h6'">
+        <div class="stat-v">{{ ready ? counts.h1 : '—' }}</div>
+        <div class="stat-d">{{ !ready || counts.h1 > 0 ? '立即处理' : '暂无紧急窗口' }}</div>
+      </button>
+      <button type="button" class="stat stat--link st" @click="bucket = 'h6'">
         <div class="stat-l">1–6 小时</div>
-        <div class="stat-v">{{ counts.h6 }}</div>
+        <div class="stat-v">{{ ready ? counts.h6 : '—' }}</div>
         <div class="stat-d">优先跟进</div>
-      </div>
-      <div class="stat stat--link" @click="bucket = 'h24'">
+      </button>
+      <button type="button" class="stat stat--link st" @click="bucket = 'h24'">
         <div class="stat-l">6 小时以上</div>
-        <div class="stat-v">{{ counts.h24 }}</div>
+        <div class="stat-v">{{ ready ? counts.h24 : '—' }}</div>
         <div class="stat-d">正常窗口</div>
-      </div>
-      <div class="stat">
+      </button>
+      <div class="stat st">
         <div class="stat-l">私域待匹配（未报名）</div>
         <div class="stat-v">{{ wb?.privatePending ?? '—' }}</div>
         <div class="stat-d">4 小时内到期窗口 {{ wb?.windowsDueIn4h ?? '—' }} 个（全公司）</div>
       </div>
     </div>
 
-    <div v-if="timeouts" class="note" :class="timeouts.released > 0 ? 'note--warn' : 'note--ok'" style="margin-top: 14px">
+    <div v-if="timeouts && ready" class="notice-bar released" :class="timeouts.released > 0 ? 'notice-bar--warn' : 'notice-bar--ok'">
       <template v-if="timeouts.released > 0">
-        本月已有 <b>{{ timeouts.released }}</b> 人因超时被释放到公域（上月 {{ timeouts.releasedLastMonth }} 人），其中 <b>{{ timeouts.ownLeadsLost }}</b> 人是本公司自己引流来的 —— 释放后其他公司可以直接匹配。
+        <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
+        <span>本月已有 <b>{{ timeouts.released }}</b> 人因超时被释放到公域（上月 {{ timeouts.releasedLastMonth }} 人），其中 <b>{{ timeouts.ownLeadsLost }}</b> 人是本公司自己引流来的 —— 释放后其他公司可以直接匹配。</span>
       </template>
-      <template v-else>本月还没有人因超时被释放（上月 {{ timeouts.releasedLastMonth }} 人）。</template>
+      <template v-else><IconCircleCheck :size="16" class="notice-bar-i" /><span>本月还没有人因超时被释放（上月 {{ timeouts.releasedLastMonth }} 人）。</span></template>
     </div>
 
-    <div class="grid g-1" style="margin-top: 14px">
-      <div class="card">
-        <div class="toolbar">
-          <div class="filter-tabs">
-            <button :class="{ on: bucket === '' }" @click="bucket = ''">全部<span class="n">{{ windowed.length }}</span></button>
-            <button :class="{ on: bucket === 'h1' }" @click="bucket = 'h1'">&lt;1h<span class="n">{{ counts.h1 }}</span></button>
-            <button :class="{ on: bucket === 'h6' }" @click="bucket = 'h6'">1–6h<span class="n">{{ counts.h6 }}</span></button>
-            <button :class="{ on: bucket === 'h24' }" @click="bucket = 'h24'">≥6h<span class="n">{{ counts.h24 }}</span></button>
-          </div>
-          <span class="spacer" />
-          <span class="tag tag--warn">按剩余时长升序</span>
+    <div class="card tbl-card">
+      <div class="toolbar">
+        <div class="filter-tabs" role="tablist">
+          <button type="button" role="tab" :aria-selected="bucket === ''" :class="{ on: bucket === '' }" @click="bucket = ''">全部<span class="n">{{ ready ? windowed.length : '' }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === 'h1'" :class="{ on: bucket === 'h1' }" @click="bucket = 'h1'">&lt;1h<span class="n">{{ ready ? counts.h1 : '' }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === 'h6'" :class="{ on: bucket === 'h6' }" @click="bucket = 'h6'">1–6h<span class="n">{{ ready ? counts.h6 : '' }}</span></button>
+          <button type="button" role="tab" :aria-selected="bucket === 'h24'" :class="{ on: bucket === 'h24' }" @click="bucket = 'h24'">≥6h<span class="n">{{ ready ? counts.h24 : '' }}</span></button>
         </div>
-        <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false">
-          <el-button size="small" @click="load">重试</el-button>
-        </el-alert>
-        <el-alert v-if="truncated" type="warning" title="报名较多，每个状态仅显示响应窗口最紧的 100 条" show-icon :closable="false" />
-        <el-table v-loading="loading" :data="rows" row-key="applicationId">
-          <el-table-column label="求职者" min-width="170">
-            <template #default="{ row }"><PersonCell :name="row.seekerName" accent mono :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
-          </el-table-column>
-          <el-table-column label="阶段" min-width="216">
-            <template #default="{ row }">
-              <DictTag type="ApplicationStatus" :value="row.status" pill />
-              <div class="t-xs ellip" :title="stageText(row)">{{ stageText(row) }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="岗位" min-width="160">
-            <template #default="{ row }">
-              <div class="t-sm clamp-2" :title="row.jobTitle ?? ''">{{ row.jobTitle ?? '—' }}</div>
-              <div class="t-xs ellip" :title="row.projectName ?? ''">{{ row.projectName }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="剩余" min-width="112">
-            <template #default="{ row }"><CountdownTag :deadline="row.responseDeadline" :now="now" /></template>
-          </el-table-column>
-          <el-table-column label="窗口进度" min-width="136">
-            <template #default="{ row }">
-              <div class="bar"><i :class="barClass(row)" :style="{ width: `${used(row)}%` }" /></div>
-              <div class="t-xs mono" style="margin-top: 3px">截止 {{ fmtDateTime(row.responseDeadline).slice(5) }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
-            <template #default="{ row }"><AppActionButtons :app="row" @action="(a, r) => dialogs?.run(a, r)" /></template>
-          </el-table-column>
-          <template #empty><el-empty :image-size="70" :description="loadError ? '加载失败' : '没有进行中的响应窗口'" /></template>
-        </el-table>
-        <div class="card__ft t-xs">
-          尚未报名的「私域待匹配」用户（当前 {{ wb?.privatePending ?? '—' }} 人）也有 24h 窗口，请在驻场手机端「私域待匹配」里查看并拨打 / 流转经纪人。
+        <span class="spacer" />
+        <span class="t-sm">按剩余时长升序</span>
+      </div>
+      <div v-if="truncated" class="notice-bar notice-bar--warn tbl-tip"><IconTriangleExclamationPoint :size="16" class="notice-bar-i" /><span>报名较多，每个状态仅显示响应窗口最紧的 100 条</span></div>
+      <el-table v-loading="loading" :data="rows" row-key="applicationId">
+        <el-table-column label="求职者" min-width="148">
+          <template #default="{ row }"><PersonCell :name="row.seekerName" accent :sub="row.phone ? fmtPhone(row.phone) : undefined" /></template>
+        </el-table-column>
+        <el-table-column label="阶段" min-width="150">
+          <template #default="{ row }">
+            <DictTag type="ApplicationStatus" :value="row.status" />
+            <div class="t-xs">{{ stageText(row) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="岗位" min-width="140">
+          <template #default="{ row }"><span class="job-t">{{ row.jobTitle ?? '—' }}</span><div class="t-xs">{{ row.projectName }}</div></template>
+        </el-table-column>
+        <el-table-column label="剩余" width="112">
+          <template #default="{ row }"><RemainTag :deadline="row.responseDeadline" :now="now" /></template>
+        </el-table-column>
+        <el-table-column label="窗口进度" width="128">
+          <template #default="{ row }">
+            <div class="bar"><i :class="barClass(row)" :style="{ width: `${used(row)}%` }" /></div>
+            <div class="t-xs due">截止 {{ fmtDateTime(row.responseDeadline).slice(5) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="hasOps" label="操作" :width="opsWidth" align="right" fixed="right" class-name="ops-col">
+          <template #default="{ row }"><AppActionButtons :app="row" link @action="(a, r) => dialogs?.run(a, r)" /></template>
+        </el-table-column>
+        <template #empty>
+          <div v-if="loadError" class="tbl-state">
+            <IconCircleExclamationPoint :size="48" class="tbl-state-i" />
+            <h4>{{ loadError }}</h4>
+            <p>请检查网络后重新加载</p>
+            <el-button @click="load">重新加载</el-button>
+          </div>
+          <div v-else-if="!loading" class="tbl-state">
+            <IconClock :size="48" class="tbl-state-i" />
+            <h4>没有进行中的响应窗口</h4>
+            <p>私域用户报名后的 24 小时窗口会出现在这里，按剩余时长升序</p>
+          </div>
+        </template>
+      </el-table>
+      <div class="card__ft t-xs">
+        尚未报名的「私域待匹配」用户（当前 {{ wb?.privatePending ?? '—' }} 人）也有 24h 窗口，请在驻场手机端「私域待匹配」里查看并拨打 / 流转经纪人。
+      </div>
+    </div>
+
+    <div class="explain">
+      <div class="card">
+        <div class="card__hd"><h3>机制说明</h3></div>
+        <div class="card__bd">
+          <p class="para">劳务公司获客成本 <b>300–800 元/人</b>。蓝领求职者 1–2 天必须定去向，超 24 小时无人联系大概率流失。</p>
+          <dl class="kv"><dt>适用范围</dt><dd>仅私域用户</dd></dl>
+          <dl class="kv"><dt>时间窗口</dt><dd>每阶段完成后 24 小时内</dd></dl>
+          <dl class="kv"><dt>匹配范围锁定</dt><dd>仅本公司岗位</dd></dl>
+          <dl class="kv"><dt>推送对象</dt><dd>驻场 / 项目经理 / 老板</dd></dl>
+          <dl class="kv"><dt>超时后果</dt><dd class="danger">系统被动释放为公域</dd></dl>
+          <p class="hint">公域用户不触发 24 小时响应 —— 不属于任何公司，无需保护特定公司权益。</p>
         </div>
       </div>
-
-      <div class="grid g-2 grid--top">
-        <div class="card">
-          <div class="card__hd"><h3>机制说明</h3></div>
-          <div class="card__bd">
-            <p class="t-sm" style="margin-bottom: 12px; line-height: 1.8">劳务公司获客成本 <b class="strong">300–800 元/人</b>。蓝领求职者 1–2 天必须定去向，超 24 小时无人联系大概率流失。</p>
-            <dl class="kv"><dt>适用范围</dt><dd>仅私域用户</dd></dl>
-            <dl class="kv"><dt>时间窗口</dt><dd>每阶段完成后 24 小时内</dd></dl>
-            <dl class="kv"><dt>匹配范围锁定</dt><dd>仅本公司岗位</dd></dl>
-            <dl class="kv"><dt>推送对象</dt><dd>驻场 / 项目经理 / 老板</dd></dl>
-            <dl class="kv"><dt>超时后果</dt><dd style="color: var(--danger)">系统被动释放为公域</dd></dl>
-            <div class="note note--info" style="margin-top: 12px">公域用户不触发 24 小时响应 —— 不属于任何公司，无需保护特定公司权益。</div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card__hd"><h3>释放后的权益保留</h3></div>
-          <div class="card__bd">
-            <p class="t-sm" style="line-height: 1.8">释放只清空当前归属，<b class="strong">来源归属永久不变</b>。该用户后续入职任意公司，本公司仍得人才流转费 8 元/人/天。</p>
-          </div>
+      <div class="card">
+        <div class="card__hd"><h3>释放后的权益保留</h3></div>
+        <div class="card__bd">
+          <p class="para">释放只清空当前归属，<b>来源归属永久不变</b>。该用户后续入职任意公司，本公司仍得人才流转费 8 元/人/天。</p>
         </div>
       </div>
     </div>
@@ -211,3 +222,23 @@ function barClass(a: SiteApplication) {
     <AppActionDialogs ref="dialogs" @done="load" />
   </div>
 </template>
+
+<style scoped>
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-gap); }
+.st { display: block; width: 100%; padding: var(--space-4); text-align: left; font: inherit; min-width: 0; }
+button.st:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.released { margin-top: var(--space-gap); }
+.tbl-card { margin-top: var(--space-gap); }
+.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
+.job-t { font-size: var(--font-size-aux); color: var(--text-1); }
+.due { margin-top: var(--space-1); }
+.tbl-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) 0; line-height: 1.6; }
+.tbl-state-i { color: var(--text-3); }
+.tbl-state h4 { margin: var(--space-2) 0 0; font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.tbl-state p { margin: 0 0 var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+.explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
+.para { margin-bottom: var(--space-3); font-size: var(--font-size-aux); line-height: 1.8; color: var(--text-2); }
+.para b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.danger { color: var(--danger-text); }
+.hint { margin-top: var(--space-3); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-3); }
+</style>

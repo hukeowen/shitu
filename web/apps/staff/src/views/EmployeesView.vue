@@ -2,6 +2,7 @@
 import { ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type StaffRow } from '@shitu/api-client'
+import { IconChevronRight, IconCircleExclamationPoint, IconLock, IconPhone, IconUsers } from '@shitu/ui-icons'
 import AbsencePopup from '@/components/AbsencePopup.vue'
 import { fmtPhone } from '@/utils/time'
 
@@ -76,9 +77,6 @@ async function onRefresh() {
   })
 }
 
-/** 以全角右括号等结尾的岗位名自带半个字的空白，收紧后与其他行的分隔间距一致 */
-const endsFullWidth = (s?: string) => !!s && /[）】」』》〉]$/.test(s)
-
 const absShow = ref(false)
 const absRow = shallowRef<StaffRow | null>(null)
 function openAbsence(r: StaffRow) {
@@ -99,7 +97,18 @@ function back() {
       <van-search v-model="keyword" :placeholder="rows.length && !rows.some((r) => r.phone) ? '输入工号' : '输入工号或完整手机号'" shape="round" @search="onSearch" @clear="onClear" />
     </div>
     <van-pull-refresh v-model="refreshing" class="pr" @refresh="onRefresh">
-      <div v-if="forbidden" class="state"><van-empty description="你的角色暂无人员管理权限" /></div>
+      <div v-if="forbidden" class="state-block">
+        <IconLock :size="48" />
+        <p class="state-block-t">暂无人员管理权限</p>
+        <p class="state-block-d">你的角色暂无人员管理权限</p>
+      </div>
+      <div v-else-if="error && !rows.length" class="state-block">
+        <IconCircleExclamationPoint :size="48" />
+        <p class="state-block-t">{{ errorText || '加载失败' }}</p>
+        <p class="state-block-d">请检查网络后重新加载</p>
+        <van-button type="primary" @click="reset">重新加载</van-button>
+      </div>
+      <div v-else-if="loading && !rows.length" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
       <van-list
         v-else
         v-model:loading="loading"
@@ -112,31 +121,37 @@ function back() {
         @load="loadMore"
       >
         <p v-if="rows.length" class="note">点选员工可按日标记<b>请假 / 旷工</b>，标记的日期不计入有效在岗日。共 {{ total }} 人在岗。</p>
-        <div v-for="r in rows" :key="r.employmentId" role="button" tabindex="0" class="acard item" @click="openAbsence(r)" @keyup.enter="openAbsence(r)">
-          <div class="row" style="gap: 10px">
-            <div class="avatar avatar--o">{{ r.name.slice(0, 1) }}</div>
-            <div class="flex1">
-              <div class="name">{{ r.name }}<span v-if="r.employeeNo" class="mono no">{{ r.employeeNo }}</span></div>
-              <div class="t-xs sub">
-                <span :class="{ tight: endsFullWidth(r.jobTitle) }">{{ r.jobTitle ?? '—' }}</span>
-                <i aria-hidden="true">·</i>
-                <span>{{ r.projectName ?? '—' }}</span>
-              </div>
-            </div>
-            <span v-if="r.source !== 'OWN'" class="tag tag-public">{{ label('StaffSource', r.source) }}</span>
+        <article
+          v-for="r in rows"
+          :key="r.employmentId"
+          role="button"
+          tabindex="0"
+          class="acard item"
+          @click="openAbsence(r)"
+          @keydown.enter="openAbsence(r)"
+          @keydown.space.prevent="openAbsence(r)"
+        >
+          <div class="item-hd">
+            <h3>{{ r.name }}<span v-if="r.employeeNo" class="no">{{ r.employeeNo }}</span></h3>
+            <span v-if="r.source !== 'OWN'" class="status-tag status-tag--public">{{ label('StaffSource', r.source) }}</span>
           </div>
-          <div class="meta">
-            <div><span>入职</span><b class="num">{{ r.startDate }}</b></div>
-            <div><span>在岗</span><b class="num">{{ r.dutyDays }} 天</b></div>
-            <div><span>本月缺勤</span><b class="num" :class="{ warn: r.absenceDaysThisMonth > 0 }">{{ r.absenceDaysThisMonth }} 天</b></div>
-          </div>
+          <p class="item-sub">{{ r.jobTitle ?? '—' }} · {{ r.projectName ?? '—' }}</p>
+          <dl class="meta">
+            <div><dt>入职</dt><dd>{{ r.startDate }}</dd></div>
+            <div><dt>在岗</dt><dd>{{ r.dutyDays }} 天</dd></div>
+            <div><dt>本月缺勤</dt><dd :class="{ warn: r.absenceDaysThisMonth > 0 }">{{ r.absenceDaysThisMonth }} 天</dd></div>
+          </dl>
           <div class="ft">
-            <a v-if="r.phone" :href="`tel:${r.phone}`" class="tel mono" @click.stop>{{ fmtPhone(r.phone) }}</a>
-            <span v-else class="t-xs">手机号仅驻场可见</span>
-            <span class="go">请假 / 旷工<van-icon name="arrow" /></span>
+            <a v-if="r.phone" :href="`tel:${r.phone}`" class="tel" @click.stop @keydown.stop><IconPhone :size="16" />{{ fmtPhone(r.phone) }}</a>
+            <span v-else class="tel-none">手机号仅驻场可见</span>
+            <span class="go">请假 / 旷工<IconChevronRight :size="16" /></span>
           </div>
+        </article>
+        <div v-if="finished && !rows.length && !error" class="state-block">
+          <IconUsers :size="48" />
+          <p class="state-block-t">{{ applied ? '没有找到匹配的在岗员工' : '暂无在岗员工' }}</p>
+          <p class="state-block-d">{{ applied ? '工号或手机号要输完整，可清空后查看全部' : '下拉可刷新' }}</p>
         </div>
-        <van-empty v-if="finished && !rows.length && !error" image="search" :description="applied ? '没有找到匹配的在岗员工' : '暂无在岗员工'" />
       </van-list>
     </van-pull-refresh>
     <AbsencePopup v-model:show="absShow" :row="absRow" @changed="reset" />
@@ -145,23 +160,19 @@ function back() {
 
 <style scoped>
 .emp { min-height: 100vh; }
-.sticky { position: sticky; top: calc(46px + env(safe-area-inset-top)); z-index: 20; border-bottom: 1px solid var(--line); }
+.sticky { position: sticky; top: calc(44px + env(safe-area-inset-top)); z-index: 20; border-bottom: 1px solid var(--divider); }
 .pr { min-height: calc(100vh - 110px); }
 .list { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-.item { width: 100%; text-align: left; display: block; font: inherit; color: inherit; }
-.item:active { background: var(--surface-3); }
-.name { font-size: 14.5px; font-weight: 700; color: var(--ink-900); }
-.no { font-size: 11.5px; font-weight: 500; color: var(--ink-400); margin-left: 6px; }
-.sub { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 2px; }
-.sub span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sub span.tight { margin-right: -.45em; }
-.sub i { flex: none; font-style: normal; }
-.meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; padding: 8px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
-.meta span { display: block; font-size: 11px; color: var(--ink-400); }
-.meta b { display: block; font-size: 13px; color: var(--ink-900); margin-top: 2px; }
-.meta b.warn { color: var(--warn); }
-.ft { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-.tel { font-size: 12.5px; color: var(--signal-700); text-decoration: none; }
-.go { font-size: 12px; color: var(--ink-500); display: inline-flex; align-items: center; gap: 2px; }
-.state { padding-top: 40px; }
+.item { display: block; width: 100%; text-align: left; color: inherit; cursor: pointer; }
+.item:active { background: var(--bg-hover); }
+.item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.no { margin-left: var(--space-2); font-family: var(--font-mono); font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
+.meta dt { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.meta dd { margin-top: 2px; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
+.meta dd.warn { color: var(--warning-text); }
+.ft { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-1); }
+.tel { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 44px; font-size: var(--font-size-body); color: var(--primary-text); text-decoration: none; }
+.tel-none { font-size: var(--font-size-aux); color: var(--text-3); }
+.go { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
 </style>

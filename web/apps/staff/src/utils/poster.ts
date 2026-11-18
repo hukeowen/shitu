@@ -1,11 +1,44 @@
-/** 合成专属码海报（保存图片用）：深色品牌头 + 白底二维码卡 + 成员 / 公司信息 */
+/** 合成专属码海报（保存图片用）：信任蓝品牌标 + 白底二维码卡 + 成员 / 公司信息；二维码码点保持黑白（见 utils/qr.ts） */
 export interface PosterInput {
   qrDataUrl: string
   name: string
   company: string
 }
 
-const FONT = '"PingFang SC","Microsoft YaHei",sans-serif'
+/**
+ * 海报尺寸、品牌标和二维码的位置。tools/e2e/states.mjs 的 posterCheck 直接读这组常量，
+ * 按它查二维码区域纯黑白、四周静区全白、品牌标是主色。
+ */
+export const POSTER = {
+  width: 750,
+  height: 1120,
+  brand: { x: 60, y: 70, size: 72 },
+  qr: { x: 165, y: 440, size: 420 },
+} as const
+
+/** canvas 读不到 var()：运行时从 :root 取设计变量的真实色值，海报和页面跟着同一套变量走 */
+function tokens() {
+  const cs = getComputedStyle(document.documentElement)
+  // 读不到时 fillStyle 会静默沿用上一种颜色，画出来的海报颜色就错了：直接报错，由页面提示「生成图片失败」
+  const v = (name: string) => {
+    const value = cs.getPropertyValue(name).trim()
+    if (!value) throw new Error(`生成图片失败：读不到设计变量 ${name}`)
+    return value
+  }
+  return {
+    primary: v('--primary'),
+    primaryText: v('--primary-text'),
+    primaryBg: v('--primary-bg'),
+    onPrimary: v('--text-on-primary'),
+    page: v('--bg-page'),
+    card: v('--bg-card'),
+    border: v('--border'),
+    text1: v('--text-1'),
+    text2: v('--text-2'),
+    text3: v('--text-3'),
+    font: v('--font-sans'),
+  }
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -33,65 +66,87 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxW: number): str
   return t + '…'
 }
 
+/** 品牌标：和 @shitu/ui-icons 的 BrandMark 同一造型（24 格的方块 + 拱形 + 短横），按 size 缩放 */
+function drawBrandMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, t: ReturnType<typeof tokens>) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(size / 24, size / 24)
+  ctx.fillStyle = t.primary
+  roundRect(ctx, 1, 1, 22, 22, 6)
+  ctx.fill()
+  ctx.strokeStyle = t.onPrimary
+  ctx.lineWidth = 2
+  ctx.lineCap = 'round'
+  ctx.stroke(new Path2D('M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17'))
+  ctx.globalAlpha = 0.8
+  ctx.stroke(new Path2D('M14 12h3'))
+  ctx.restore()
+}
+
 export async function composePoster({ qrDataUrl, name, company }: PosterInput): Promise<string> {
-  const W = 750
-  const H = 1120
+  const W = POSTER.width
+  const H = POSTER.height
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('当前浏览器不支持生成图片')
+  const t = tokens()
 
-  const bg = ctx.createLinearGradient(0, 0, W * 0.6, H)
-  bg.addColorStop(0, '#1D2733')
-  bg.addColorStop(0.6, '#0D1117')
-  ctx.fillStyle = bg
+  ctx.fillStyle = t.page
   ctx.fillRect(0, 0, W, H)
 
+  // 头部：品牌标 + 「仕兔」+ 一句话
   ctx.textBaseline = 'top'
-  ctx.fillStyle = '#E8590C'
-  roundRect(ctx, 60, 70, 64, 64, 16)
-  ctx.fill()
-  ctx.fillStyle = '#fff'
-  ctx.font = `700 34px ${FONT}`
-  ctx.fillText('兔', 75, 84)
-  ctx.font = `700 56px ${FONT}`
-  ctx.fillText('仕兔', 146, 66)
-  ctx.fillStyle = '#F6A97A'
-  ctx.font = `700 30px ${FONT}`
-  ctx.fillText('找活儿', 276, 88)
-  ctx.fillStyle = 'rgba(255,255,255,.62)'
-  ctx.font = `28px ${FONT}`
-  ctx.fillText('先了解你，再给你岗位 · 真实岗位 · 薪资公示', 60, 170)
+  drawBrandMark(ctx, POSTER.brand.x, POSTER.brand.y, POSTER.brand.size, t)
+  ctx.fillStyle = t.text1
+  ctx.font = `600 56px ${t.font}`
+  ctx.fillText('仕兔', 150, 76)
+  ctx.fillStyle = t.primaryText
+  ctx.font = `600 30px ${t.font}`
+  ctx.fillText('找活儿', 280, 98)
+  ctx.fillStyle = t.text2
+  ctx.font = `28px ${t.font}`
+  ctx.fillText('先了解你，再给你岗位 · 真实岗位 · 薪资公示', 60, 180)
 
-  // 二维码卡
+  // 二维码卡：白底、1px 边框
   const cardX = 60
   const cardY = 250
   const cardW = W - 120
-  const cardH = 720
-  ctx.fillStyle = '#fff'
-  roundRect(ctx, cardX, cardY, cardW, cardH, 28)
+  const cardH = 750
+  ctx.fillStyle = t.card
+  roundRect(ctx, cardX, cardY, cardW, cardH, 24)
   ctx.fill()
+  ctx.strokeStyle = t.border
+  ctx.lineWidth = 2
+  ctx.stroke()
 
-  ctx.fillStyle = '#0D1117'
-  ctx.font = `700 38px ${FONT}`
   ctx.textAlign = 'center'
+  ctx.fillStyle = t.text1
+  ctx.font = `600 38px ${t.font}`
   ctx.fillText(fitText(ctx, company, cardW - 80), W / 2, cardY + 48)
-  ctx.fillStyle = '#6B7887'
-  ctx.font = `28px ${FONT}`
+  ctx.fillStyle = t.text3
+  ctx.font = `28px ${t.font}`
   ctx.fillText(fitText(ctx, `驻场老师 ${name} 邀请你加入仕兔`, cardW - 80), W / 2, cardY + 104)
 
+  // 二维码四周都是卡片白底：上下离文字 ≥ 48px、左右 105px，加上码自带的 1 模块白边，静区超过 4 个模块；码点上不压任何品牌元素。
   const qr = await loadImage(qrDataUrl)
-  const qrSize = 440
-  ctx.drawImage(qr, (W - qrSize) / 2, cardY + 170, qrSize, qrSize)
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(qr, POSTER.qr.x, POSTER.qr.y, POSTER.qr.size, POSTER.qr.size)
 
-  ctx.fillStyle = '#B8460A'
-  ctx.font = `600 28px ${FONT}`
-  ctx.fillText('微信扫一扫 · 注册即享 24 小时专属跟进', W / 2, cardY + 640)
+  // 行动句：主色浅底胶囊配主色文字
+  const cta = '微信扫一扫 · 注册即享 24 小时专属跟进'
+  ctx.font = `600 28px ${t.font}`
+  const ctaW = ctx.measureText(cta).width + 56
+  ctx.fillStyle = t.primaryBg
+  roundRect(ctx, (W - ctaW) / 2, cardY + 670, ctaW, 56, 28)
+  ctx.fill()
+  ctx.fillStyle = t.primaryText
+  ctx.fillText(cta, W / 2, cardY + 684)
 
-  ctx.fillStyle = 'rgba(255,255,255,.4)'
-  ctx.font = `24px ${FONT}`
-  ctx.fillText('平台仅提供匹配服务，不直接雇佣', W / 2, H - 90)
+  ctx.fillStyle = t.text3
+  ctx.font = `24px ${t.font}`
+  ctx.fillText('平台仅提供匹配服务，不直接雇佣', W / 2, H - 80)
   ctx.textAlign = 'start'
 
   return canvas.toDataURL('image/png')

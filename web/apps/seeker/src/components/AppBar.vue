@@ -19,12 +19,7 @@ function goBack() {
 </script>
 
 <template>
-  <van-nav-bar :title="title" :left-arrow="back" fixed placeholder safe-area-inset-top class="appbar" z-index="50" @click-left="goBack">
+  <van-nav-bar :title="title" :left-arrow="back" fixed placeholder safe-area-inset-top z-index="50" @click-left="goBack">
     <template #right><slot name="right" /></template>
   </van-nav-bar>
 </template>
-
-<style scoped>
-.appbar :deep(.van-nav-bar__title) { font-weight: 700; color: var(--ink-900); }
-.appbar :deep(.van-nav-bar__left .van-icon) { color: var(--ink-700); }
-</style>

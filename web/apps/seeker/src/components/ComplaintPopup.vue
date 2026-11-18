@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { showToast } from 'vant'
 import { errorMessage, isApiError, seekerApi, type ComplaintCategory } from '@shitu/api-client'
+import { IconCheck, IconPlus, IconX } from '@shitu/ui-icons'
 
 /**
  * S-19 岗位投诉（C-402）：3 类 + 选填说明（≤500 字）。只能投诉自己匹配到或报名过的岗位（APP_4004），
@@ -103,16 +104,17 @@ async function submit() {
 
 <template>
   <van-popup v-model:show="show" position="bottom" round teleport="body" safe-area-inset-bottom :close-on-popstate="true" class="cmp">
-    <div class="sheet-h" aria-hidden="true"></div>
-    <div class="row-b" style="margin-bottom: 4px">
-      <h3 class="ttl">投诉该岗位</h3>
-      <button type="button" class="x" aria-label="关闭" @click="show = false"><van-icon name="cross" size="18" /></button>
+    <div class="sheet-head">
+      <div class="flex1">
+        <h3>投诉该岗位</h3>
+        <p v-if="jobTitle || subtitle" class="sheet-sub">{{ [jobTitle, subtitle].filter(Boolean).join(' · ') }}</p>
+      </div>
+      <button type="button" class="sheet-x" aria-label="关闭" @click="show = false"><IconX :size="20" /></button>
     </div>
-    <p v-if="jobTitle || subtitle" class="t-sm sub">{{ [jobTitle, subtitle].filter(Boolean).join(' · ') }}</p>
 
-    <div class="stack-sm" role="radiogroup" aria-label="投诉类型">
+    <div class="opts" role="radiogroup" aria-label="投诉类型">
       <button
-        v-for="(o, i) in OPTIONS"
+        v-for="o in OPTIONS"
         :key="o.v"
         type="button"
         role="radio"
@@ -121,14 +123,15 @@ async function submit() {
         :class="{ sel: category === o.v }"
         @click="category = o.v"
       >
-        <span class="k">{{ i + 1 }}</span>{{ o.t }}
+        <span class="flex1">{{ o.t }}</span>
+        <IconCheck v-if="category === o.v" :size="20" :stroke-width="2.25" />
       </button>
     </div>
 
-    <div class="field" style="margin-top: 14px">
+    <div class="field">
       <label for="cmp-ta">补充说明（选填）</label>
       <textarea id="cmp-ta" v-model="content" class="ta" :maxlength="MAX" rows="3" placeholder="请描述具体情况，便于平台核实处理…"></textarea>
-      <div class="cnt t-xs" :class="{ over: content.length >= MAX }">{{ content.length }} / {{ MAX }}</div>
+      <div class="cnt" :class="{ over: content.length >= MAX }">{{ content.length }} / {{ MAX }}</div>
     </div>
 
     <div class="field">
@@ -136,36 +139,35 @@ async function submit() {
       <div class="shots">
         <div v-for="(s, i) in shots" :key="s.key" class="shot">
           <img :src="s.url" alt="投诉凭证" />
-          <button type="button" class="shot-x" aria-label="删除这张图片" @click="removeShot(i)"><van-icon name="cross" size="12" /></button>
+          <button type="button" class="shot-x" aria-label="删除这张图片" @click="removeShot(i)"><IconX :size="14" :stroke-width="2.25" /></button>
         </div>
         <button v-if="shots.length < MAX_IMAGES" type="button" class="shot add" :disabled="uploading" @click="picker?.click()">
-          <van-loading v-if="uploading" size="18" />
-          <template v-else><van-icon name="photograph" size="22" /><span>添加图片</span></template>
+          <van-loading v-if="uploading" size="20" />
+          <template v-else><IconPlus :size="24" /><span>添加图片</span></template>
         </button>
       </div>
       <input ref="picker" type="file" accept="image/jpeg,image/png" multiple hidden @change="onPick" />
     </div>
 
-    <div class="note note--warn" style="margin-bottom: 14px">
+    <div class="note note--warn">
       投诉将记录至该岗位与企业的诚信档案。同一岗位累计被投诉并核实属实，系统将下架该岗位并扣减企业诚信分。
     </div>
-    <van-button block type="danger" class="btn-cta" :loading="submitting" loading-text="提交中…" :disabled="!category" @click="submit">提交投诉</van-button>
+    <van-button block type="primary" size="large" class="submit" :loading="submitting" loading-text="提交中…" :disabled="!category" @click="submit">提交投诉</van-button>
   </van-popup>
 </template>
 
 <style scoped>
-.cmp { padding: 8px 16px 12px; max-height: 88vh; overflow-y: auto; box-sizing: border-box; }
-.sheet-h { width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 12px; }
-.ttl { font-size: 17px; font-weight: 700; color: var(--ink-900); }
-.x { width: 32px; height: 32px; display: grid; place-items: center; background: none; border: 0; color: var(--ink-500); padding: 0; margin-right: -6px; }
-.sub { margin-bottom: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qopt { font-size: 14px; padding: 11px 14px; }
-.cnt { text-align: right; margin-top: 4px; }
-.cnt.over { color: var(--warn); }
-.field { margin-bottom: 12px; }
-.shots { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
-.shot { position: relative; width: 76px; height: 76px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--line); background: var(--surface); padding: 0; }
-.shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.shot.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-style: dashed; color: var(--ink-500); font-size: 11px; }
-.shot-x { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.55); color: #fff; display: grid; place-items: center; padding: 0; }
+.cmp { max-height: 88vh; padding: var(--space-4) var(--space-page) var(--space-3); overflow-y: auto; box-sizing: border-box; }
+.opts { display: grid; gap: var(--space-2); margin: var(--space-3) 0 var(--space-4); }
+.field { margin-bottom: var(--space-4); }
+/* 输入框里的字不小于 16px，否则 iOS 聚焦时会放大页面 */
+.ta { font-size: 16px; }
+.cnt { margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); text-align: right; }
+.cnt.over { color: var(--danger-text); }
+.shots { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.shot { position: relative; width: 76px; height: 76px; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); }
+.shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.shot.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); border-style: dashed; font-size: var(--font-size-min); color: var(--text-3); }
+.shot-x { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 0 0 0 var(--radius-control); background: var(--text-1); color: var(--text-on-primary); }
+.submit { margin-top: var(--space-4); }
 </style>

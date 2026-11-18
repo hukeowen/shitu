@@ -93,10 +93,11 @@ export const MATCH_ROLES: ValueOption[] = [
   { value: 'HARD_FILTER', label: '硬过滤' },
   { value: 'SOFT_WEIGHT', label: '软打分' },
 ]
-export const QUIZ_STATUS: Record<string, { label: string; cls: string }> = {
-  ACTIVE: { label: '生效中', cls: 'tag--ok' },
-  DRAFT: { label: '草稿', cls: 'tag--warn' },
-  ARCHIVED: { label: '已归档', cls: '' },
+/** 题库版本状态：色调同引擎参数的 VersionStatus（components/StatusTag.vue），共享状态标签 .status-tag--* */
+export const QUIZ_STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'neutral' }> = {
+  ACTIVE: { label: '生效中', tone: 'success' },
+  DRAFT: { label: '草稿', tone: 'info' },
+  ARCHIVED: { label: '已归档', tone: 'neutral' },
 }
 
 export const MAX_QUESTIONS = 7

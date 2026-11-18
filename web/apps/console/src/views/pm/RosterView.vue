@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import RowActions from '@/components/RowActions.vue'
-import { opsColWidth, type RowAction } from '@/utils/rowActions'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, genFileId, type UploadFile, type UploadInstance, type UploadRawFile } from 'element-plus'
 import { errorMessage, tenantApi, type MemberView, type RosterBatch, type RosterBatchResult } from '@shitu/api-client'
+import { IconCircleCheck, IconCircleExclamationPoint, IconDownload, IconFileText, IconUpload } from '@shitu/ui-icons'
+import { boxSubmit } from '@/composables/boxSubmit'
+import { actionsColWidth } from '@/utils/actionsWidth'
 import { downloadAuthed } from '@/utils/download'
 import { fmtDateTime } from '@/utils/format'
 
@@ -13,7 +14,6 @@ import { fmtDateTime } from '@/utils/format'
  */
 const uploadRef = ref<UploadInstance>()
 const file = ref<File | null>(null)
-const importing = ref(false)
 const result = ref<RosterBatchResult | null>(null)
 const batches = ref<RosterBatch[]>([])
 const batchesLoading = ref(false)
@@ -21,7 +21,16 @@ const batchesError = ref('')
 const members = ref<MemberView[]>([])
 const downloading = ref('')
 
-const failedRows = computed(() => result.value?.rows.filter((r) => !r.success) ?? [])
+/** 导入被后端业务拒绝（如表头不对）的原因：留在上传区下方、置灰「开始导入」，换了文件再放开 */
+const why = ref('')
+/** 逐行结果：全部行（失败行用危险浅底标出），前端分页 */
+const rowPage = reactive({ page: 1, pageSize: 20 })
+const resultRows = computed(() => (result.value?.rows ?? []).slice((rowPage.page - 1) * rowPage.pageSize, rowPage.page * rowPage.pageSize))
+/** 操作列宽按本页实际出现的按钮算（规范 Page States「console 表格操作列宽」） */
+const batchOpsWidth = computed(() => actionsColWidth(batches.value.map((b) => ({ labels: b.failedRows > 0 ? ['下载失败行'] : [] }))))
+function rowClass({ row }: { row: { success: boolean } }) {
+  return row.success ? '' : 'row-danger'
+}
 const memberName = (id: string) => members.value.find((m) => m.memberId === id)?.name ?? id
 
 async function loadBatches() {
@@ -69,6 +78,7 @@ function onChange(f: UploadFile) {
     return
   }
   file.value = raw
+  why.value = ''
 }
 function onExceed(files: File[]) {
   uploadRef.value?.clearFiles()
@@ -80,38 +90,37 @@ function onExceed(files: File[]) {
 }
 function onRemove() {
   file.value = null
+  why.value = ''
 }
 
 async function doImport() {
   const f = file.value
   if (!f) return ElMessage.warning('请先选择要导入的 .xlsx 文件')
+  // 确认框里提交（规范 Page States「后台确认框一律在框内提交」）：导入期间框不关、「开始导入」转圈
+  const s = boxSubmit(
+    `导入「${f.name}」？每行将为员工建档并绑定本公司，成功的行不可撤销。`,
+    '导入',
+    async () => {
+      result.value = await tenantApi.rosterImport(f)
+    },
+    (w) => (why.value = w),
+  )
   try {
-    await ElMessageBox.confirm(`导入「${f.name}」？每行将为员工建档并绑定本公司，成功的行不可撤销。`, '导入花名册', {
-      confirmButtonText: '开始导入',
-      cancelButtonText: '取消',
-    })
+    await ElMessageBox.confirm(s.message, '导入花名册', { confirmButtonText: '开始导入', cancelButtonText: '取消', beforeClose: s.beforeClose })
   } catch {
+    // 取消 / 关闭；提交失败已在框里处理
     return
   }
-  importing.value = true
-  try {
-    result.value = await tenantApi.rosterImport(f)
-    const r = result.value
+  const r = result.value
+  if (r) {
     if (r.failed === 0) ElMessage.success(`导入完成：${r.success} 行全部成功`)
     else ElMessage.warning(`导入完成：成功 ${r.success} 行，失败 ${r.failed} 行`)
-    uploadRef.value?.clearFiles()
-    file.value = null
-    loadBatches()
-  } catch (e) {
-    ElMessage.error(errorMessage(e, '导入失败'))
-  } finally {
-    importing.value = false
   }
+  rowPage.page = 1
+  uploadRef.value?.clearFiles()
+  file.value = null
+  loadBatches()
 }
-
-/** 只有存在失败行的批次才有「下载失败行」；都成功时不渲染操作列 */
-const batchActions = (b: RosterBatch): RowAction[] => (b.failedRows > 0 ? [{ key: 'failed', label: '下载失败行', link: true }] : [])
-const batchOpsWidth = computed(() => opsColWidth(batches.value.map(batchActions)))
 </script>
 
 <template>
@@ -122,12 +131,19 @@ const batchOpsWidth = computed(() => opsColWidth(batches.value.map(batchActions)
         <p>存量员工批量建档 · Excel 模板、逐行校验报告、失败行下载后修改重传</p>
       </div>
       <span class="spacer" />
-      <el-button :loading="downloading === 'template'" @click="download('template')">下载模板</el-button>
+      <el-button :loading="downloading === 'template'" @click="download('template')"><IconDownload :size="16" class="btn-i" />下载模板</el-button>
     </div>
 
-    <div class="grid g-32">
+    <!-- 第 16 类导入：步骤说明 → 上传区 → 结果汇总 → 逐行结果表 -->
+    <ol class="steps card">
+      <li><b>1</b><div><h4>下载模板</h4><p>点右上角「下载模板」，按模板的列填写</p></div></li>
+      <li><b>2</b><div><h4>上传并导入</h4><p>.xlsx，单次最多 2000 行、5MB 以内</p></div></li>
+      <li><b>3</b><div><h4>查看逐行结果</h4><p>失败行写明原因，下载后修改再重传</p></div></li>
+    </ol>
+
+    <div class="grid-up">
       <div class="card">
-        <div class="card__hd"><h3>上传花名册</h3><span class="t-xs">.xlsx · 单次最多 2000 行 · 5MB 以内</span></div>
+        <div class="card__hd"><h3>上传花名册</h3></div>
         <div class="card__bd">
           <el-upload
             ref="uploadRef"
@@ -140,83 +156,134 @@ const batchOpsWidth = computed(() => opsColWidth(batches.value.map(batchActions)
             :on-remove="onRemove"
           >
             <div class="up">
+              <IconUpload :size="32" class="up-i" />
               <b>将 .xlsx 文件拖到此处，或点击选择</b>
-              <div class="t-xs" style="margin-top: 4px">列：姓名、手机号、身份证号、项目（编号或名称）、岗位编号（选填）、入职日期、工号（选填）</div>
+              <p>列：姓名、手机号、身份证号、项目（编号或名称）、岗位编号（选填）、入职日期、工号（选填）</p>
+              <p>.xlsx 格式，单次最多 2000 行、5MB 以内 · 没有模板？点右上角「下载模板」</p>
             </div>
           </el-upload>
-          <div class="row" style="margin-top: 12px">
-            <span class="t-sm">{{ file ? `已选择：${file.name}` : '未选择文件' }}</span>
+          <div class="up-ft">
+            <span v-if="!file" class="up-f">未选择文件</span>
             <span class="spacer" />
-            <el-button type="primary" :loading="importing" :disabled="!file" @click="doImport">开始导入</el-button>
+            <el-button type="primary" :disabled="!file || !!why" @click="doImport">开始导入</el-button>
           </div>
+          <p v-if="why" class="blocked-why up-why" role="status">{{ why }}。换一个文件后可再导入</p>
         </div>
-
-        <template v-if="result">
-          <div class="divider" style="margin: 0" />
-          <div class="card__bd">
-            <div class="row" style="margin-bottom: 12px">
-              <span class="form-sec" style="margin: 0; flex: 1">本次导入结果</span>
-              <span class="mono t-xs">批次 {{ result.batchId }}</span>
-            </div>
-            <div class="grid g-4" style="gap: 10px">
-              <div class="stat"><div class="stat-l">总行数</div><div class="stat-v">{{ result.total }}</div></div>
-              <div class="stat"><div class="stat-l">成功</div><div class="stat-v" style="color: var(--ok)">{{ result.success }}</div></div>
-              <div class="stat" :class="{ 'stat--danger': result.failed > 0 }"><div class="stat-l">失败</div><div class="stat-v">{{ result.failed }}</div></div>
-              <div class="stat">
-                <div class="stat-l">计费口径</div>
-                <div style="margin-top: 10px"><span class="tag tag--lg" :class="result.inFreePeriod ? 'tag--ok' : 'tag--warn'">{{ result.inFreePeriod ? '免费期 · 计入存量' : '免费期外 · 计入增量' }}</span></div>
-              </div>
-            </div>
-            <template v-if="failedRows.length">
-              <div class="row" style="margin: 14px 0 8px">
-                <span class="t-sm strong">失败行</span>
-                <span class="spacer" />
-                <el-button size="small" type="primary" plain :loading="downloading === result.batchId" @click="download(result.batchId)">下载失败行</el-button>
-              </div>
-              <el-table :data="failedRows" size="small" max-height="320" row-key="rowNo">
-                <el-table-column label="行号" min-width="80"><template #default="{ row }"><span class="mono">{{ row.rowNo }}</span></template></el-table-column>
-                <el-table-column label="失败原因" min-width="260"><template #default="{ row }"><span class="t-sm" style="color: var(--danger)">{{ row.error || '—' }}</span></template></el-table-column>
-              </el-table>
-            </template>
-            <div v-else class="note note--ok" style="margin-top: 12px">全部导入成功。</div>
-          </div>
-        </template>
       </div>
 
-      <div class="grid" style="gap: 14px; align-content: start">
-        <div class="card">
-          <div class="card__hd"><h3>导入规则</h3></div>
-          <div class="card__bd">
-            <dl class="kv"><dt>来源渠道</dt><dd>花名册导入（绑定本公司）</dd></dl>
-            <dl class="kv"><dt>公域 / 私域</dt><dd><span class="tag tag--private">私域</span></dd></dl>
-            <dl class="kv"><dt>匹配范围</dt><dd>仅本公司内部调岗</dd></dl>
-            <dl class="kv"><dt>免费期内导入</dt><dd>计入存量基数，永久免费</dd></dl>
-            <div class="note" style="margin-top: 10px">存量基数按<b>免费期最后一天</b>的在岗人数统计，免费期满次日锁定。逐行处理，失败行不影响其他行。</div>
-          </div>
+      <div class="card">
+        <div class="card__hd"><h3>导入规则</h3></div>
+        <div class="card__bd">
+          <dl class="desc-list">
+            <div><dt>来源渠道</dt><dd>花名册导入（绑定本公司）</dd></div>
+            <div><dt>公域 / 私域</dt><dd><span class="status-tag status-tag--private">私域</span></dd></div>
+            <div><dt>匹配范围</dt><dd>仅本公司内部调岗</dd></div>
+            <div><dt>免费期内导入</dt><dd>计入存量基数，永久免费</dd></div>
+          </dl>
+          <p class="rule-note">存量基数按<b>免费期最后一天</b>的在岗人数统计，免费期满次日锁定。逐行处理，失败行不影响其他行。</p>
         </div>
       </div>
     </div>
 
-    <div class="card" style="margin-top: 14px">
+    <div v-if="result" class="card result">
+      <div class="card__hd">
+        <h3>本次导入结果</h3>
+        <span class="sub tnum">批次 {{ result.batchId }}</span>
+      </div>
+      <div class="card__bd">
+        <div class="sum">
+          <div class="sum-i"><span>总行数</span><b class="tnum">{{ result.total }}</b></div>
+          <div class="sum-i"><span>成功</span><b class="tnum">{{ result.success }}<small> 条</small></b></div>
+          <div class="sum-i" :class="{ bad: result.failed > 0 }"><span>失败</span><b class="tnum">{{ result.failed }}<small> 条</small></b></div>
+          <div class="sum-i">
+            <span>计费口径</span>
+            <span class="status-tag" :class="result.inFreePeriod ? 'status-tag--success' : 'status-tag--warning'">{{ result.inFreePeriod ? '免费期 · 计入存量' : '免费期外 · 计入增量' }}</span>
+          </div>
+          <span class="spacer" />
+          <el-button v-if="result.failed > 0" :loading="downloading === result.batchId" @click="download(result.batchId)"><IconDownload :size="16" class="btn-i" />下载失败行</el-button>
+        </div>
+        <div v-if="result.failed === 0" class="notice-bar notice-bar--ok all-ok">
+          <IconCircleCheck :size="16" class="notice-bar-i" />
+          <span>全部导入成功。</span>
+        </div>
+        <el-table class="row-tbl" :data="resultRows" row-key="rowNo" :row-class-name="rowClass">
+          <el-table-column label="行号" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.rowNo }}</span></template></el-table-column>
+          <el-table-column label="结果" width="100">
+            <template #default="{ row }">
+              <span class="status-tag" :class="row.success ? 'status-tag--success' : 'status-tag--danger'">{{ row.success ? '成功' : '失败' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="原因" min-width="300">
+            <template #default="{ row }"><span :class="row.success ? 'sub' : 'why-t'">{{ row.success ? '—' : row.error || '—' }}</span></template>
+          </el-table-column>
+        </el-table>
+        <div v-if="result.rows.length > rowPage.pageSize" class="pager">
+          <el-pagination v-model:current-page="rowPage.page" :page-size="rowPage.pageSize" :total="result.rows.length" layout="total, prev, pager, next" background size="small" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card tbl-card">
       <div class="card__hd"><h3>导入记录</h3><el-button size="small" @click="loadBatches">刷新</el-button></div>
-      <el-alert v-if="batchesError" type="error" :title="batchesError" show-icon :closable="false" />
       <el-table v-loading="batchesLoading" :data="batches" row-key="batchId">
-        <el-table-column label="批次" min-width="170" show-overflow-tooltip><template #default="{ row }"><span class="mono t-sm">{{ row.batchId }}</span></template></el-table-column>
-        <el-table-column label="导入时间" min-width="156"><template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
-        <el-table-column label="总行数" min-width="80" align="center"><template #default="{ row }"><span class="num">{{ row.totalRows }}</span></template></el-table-column>
-        <el-table-column label="成功" min-width="80" align="center"><template #default="{ row }"><span class="num" style="color: var(--ok)">{{ row.successRows }}</span></template></el-table-column>
-        <el-table-column label="失败" min-width="80" align="center"><template #default="{ row }"><span class="num" :style="{ color: row.failedRows ? 'var(--danger)' : undefined }">{{ row.failedRows }}</span></template></el-table-column>
-        <el-table-column label="计费口径" min-width="120"><template #default="{ row }"><span class="tag" :class="row.inFreePeriod ? 'tag--ok' : 'tag--warn'">{{ row.inFreePeriod ? '存量' : '增量' }}</span></template></el-table-column>
-        <el-table-column label="操作人" min-width="110"><template #default="{ row }"><span class="t-sm">{{ memberName(row.operatorId) }}</span></template></el-table-column>
-        <el-table-column v-if="batchOpsWidth" label="操作" :width="batchOpsWidth" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><RowActions :actions="batchActions(row)" :loading="downloading === row.batchId" @act="download(row.batchId)" /></template>
+        <el-table-column label="批次" min-width="160"><template #default="{ row }"><span class="tnum">{{ row.batchId }}</span></template></el-table-column>
+        <el-table-column label="导入时间" width="150"><template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.createdAt) }}</span></template></el-table-column>
+        <el-table-column label="总行数" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.totalRows }}</span></template></el-table-column>
+        <el-table-column label="成功" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.successRows }}</span></template></el-table-column>
+        <el-table-column label="失败" width="90" align="right"><template #default="{ row }"><span class="tnum" :class="{ 'why-t': row.failedRows }">{{ row.failedRows }}</span></template></el-table-column>
+        <el-table-column label="计费口径" width="110"><template #default="{ row }"><span class="status-tag" :class="row.inFreePeriod ? 'status-tag--success' : 'status-tag--warning'">{{ row.inFreePeriod ? '存量' : '增量' }}</span></template></el-table-column>
+        <el-table-column label="操作人" width="110"><template #default="{ row }">{{ memberName(row.operatorId) }}</template></el-table-column>
+        <el-table-column label="操作" :width="batchOpsWidth" align="right" class-name="ops-col">
+          <template #default="{ row }">
+            <el-button v-if="row.failedRows > 0" size="small" link type="primary" :loading="downloading === row.batchId" @click="download(row.batchId)">下载失败行</el-button>
+            <span v-else class="sub">—</span>
+          </template>
         </el-table-column>
-        <template #empty><el-empty :image-size="70" :description="batchesError ? '加载失败' : '暂无导入记录'" /></template>
+        <template #empty>
+          <div v-if="batchesError" class="state-box">
+            <IconCircleExclamationPoint :size="48" />
+            <h4>{{ batchesError }}</h4>
+            <p>请检查网络后重新加载</p>
+            <el-button @click="loadBatches">重新加载</el-button>
+          </div>
+          <div v-else-if="!batchesLoading" class="state-box">
+            <IconFileText :size="48" />
+            <h4>暂无导入记录</h4>
+            <p>按上面的步骤下载模板、填写后上传，导入记录会出现在这里</p>
+          </div>
+          <span v-else />
+        </template>
       </el-table>
     </div>
   </div>
 </template>
 
 <style scoped>
-.up { padding: 6px 0; color: var(--ink-700); }
+.btn-i { margin-right: var(--space-1); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: var(--space-4); list-style: none; }
+.steps li { display: flex; gap: var(--space-3); align-items: flex-start; min-width: 0; }
+.steps li > b { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--primary-bg); color: var(--primary-text); font-size: var(--font-size-min); font-weight: var(--font-weight-semibold); }
+.steps h4 { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.steps p { margin-top: var(--space-1); font-size: var(--font-size-aux); color: var(--text-3); }
+.grid-up { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
+/* 上传区：虚线边框（Element 拖拽区默认就是虚线），可拖拽或点击 */
+.up { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); color: var(--text-1); }
+.up-i { color: var(--primary); margin-bottom: var(--space-1); }
+.up p { font-size: var(--font-size-min); color: var(--text-3); }
+.up-ft { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.up-f { font-size: var(--font-size-aux); color: var(--text-2); }
+.up-why { margin-top: var(--space-2); }
+.all-ok { margin-bottom: var(--space-3); }
+.rule-note { margin-top: var(--space-4); font-size: var(--font-size-aux); line-height: 1.7; color: var(--text-2); }
+.rule-note b { color: var(--text-1); }
+.result, .tbl-card { margin-top: var(--space-gap); }
+.sum { display: flex; align-items: center; gap: var(--space-8); margin-bottom: var(--space-4); flex-wrap: wrap; }
+.sum-i { display: flex; flex-direction: column; gap: var(--space-1); }
+.sum-i > span:first-child { font-size: var(--font-size-aux); color: var(--text-2); }
+.sum-i b { font-size: var(--font-size-metric); font-weight: var(--font-weight-semibold); color: var(--text-1); line-height: 1.2; }
+.sum-i b small { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--text-3); }
+.sum-i.bad b { color: var(--danger-text); }
+.sub { font-size: var(--font-size-min); color: var(--text-3); }
+.tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.why-t { color: var(--danger-text); }
 </style>

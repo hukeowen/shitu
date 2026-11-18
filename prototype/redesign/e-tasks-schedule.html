@@ -1,0 +1,327 @@
+<!doctype html>
+<!-- PROTOTYPE — 可删除。改版方向 E「今日任务 + 日程（靛蓝）」，驻场工作台 A-01 一次性原型，用于选方向，不是正式代码。数据为演示数据。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>驻场工作台 · 方向 E · 仕兔</title>
+<style>
+  :root {
+    --bg: #F5F6F8; --surface: #FFFFFF; --border: #E6E8EC; --border-2: #F0F1F4;
+    --text: #1C1F26; --text-2: #3F4451; --text-3: #6B7180; --text-4: #9BA0AC;
+    --primary: #4F5BD5; --primary-hover: #4250C4; --primary-50: #EEF0FC; --primary-100: #DDE1F8;
+    --danger: #E5484D; --danger-50: #FFF1F1; --warn: #D9760B; --ok: #1F9D55; --ok-50: #EAF7EF;
+    --pri-bg: #FEF3C7; --pri-fg: #92400E; --pub-bg: #D5F5EE; --pub-fg: #0F5E52;
+    --r: 12px; --r-sm: 8px;
+    --shadow: 0 1px 2px rgba(20, 24, 40, .04), 0 1px 1px rgba(20, 24, 40, .02);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; min-width: 1200px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+
+  .app { display: grid; grid-template-columns: 224px 1fr; height: 100vh; }
+
+  /* 侧栏：与画布同色，选中项为白色浮起 */
+  .side { display: flex; flex-direction: column; padding: 20px 14px 16px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 18px; font-size: 17px; font-weight: 600; }
+  .org { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(255,255,255,.6); border: 1px solid var(--border); margin-bottom: 6px; }
+  .org b { font-weight: 500; }
+  .grp { font-size: 12px; color: var(--text-4); padding: 18px 10px 6px; }
+  .nav a { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--r-sm); color: var(--text-2); }
+  .nav a:hover { background: rgba(255,255,255,.7); }
+  .nav a.on { background: var(--surface); color: var(--primary); font-weight: 500; box-shadow: 0 1px 3px rgba(20,24,40,.08); }
+  .nav a .cnt { margin-left: auto; font-size: 12px; color: var(--text-3); }
+  .nav a .cnt.red { color: var(--danger); font-weight: 500; }
+  .me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-50); color: var(--primary); font-size: 13px; font-weight: 600; flex: none; }
+  .me b { display: block; font-weight: 500; }
+  .me small { color: var(--text-3); font-size: 12px; }
+
+  /* 主区 */
+  .main { display: flex; flex-direction: column; min-width: 0; padding: 24px 28px 24px 12px; overflow: hidden; }
+  .hello { display: flex; align-items: flex-start; gap: 16px; flex: none; }
+  .hello h1 { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.3; }
+  .hello p { margin: 4px 0 0; color: var(--text-3); }
+  .hello p b { color: var(--text); font-weight: 500; }
+  .hello .tools { margin-left: auto; display: flex; gap: 10px; }
+  .search { display: flex; align-items: center; gap: 8px; width: 280px; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-4); }
+  .btn { height: 38px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { border-color: #D4D7DE; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 500; }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+  .btn.outline { border-color: var(--primary-100); color: var(--primary); background: var(--surface); }
+  .btn.outline:hover { background: var(--primary-50); }
+
+  .stats { display: flex; gap: 0; margin: 16px 0 16px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); flex: none; }
+  .stat { flex: 1; padding: 0 16px; white-space: nowrap; border-left: 1px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+  .stat:first-child { padding-left: 4px; border-left: 0; }
+  .stat .l { color: var(--text-3); }
+  .stat .v { font-size: 22px; font-weight: 600; }
+  .stat .d { color: var(--text-4); font-size: 12px; }
+  .stat.alert .v { color: var(--danger); }
+
+  .cols { display: grid; grid-template-columns: 1fr 360px; gap: 16px; flex: 1; min-height: 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); }
+  .card-hd { display: flex; align-items: baseline; gap: 8px; padding: 16px 20px 4px; }
+  .card-hd h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .card-hd span { color: var(--text-3); font-size: 13px; }
+  .card-hd a { margin-left: auto; color: var(--primary); font-size: 13px; }
+
+  /* 待办分组 */
+  .todo { display: flex; flex-direction: column; min-height: 0; }
+  .todo-body { overflow-y: auto; padding: 0 20px 12px; }
+  .sec-t { display: flex; align-items: center; gap: 6px; margin: 16px 0 4px; font-size: 13px; color: var(--text-3); font-weight: 500; }
+  .sec-t .n { color: var(--text-4); font-weight: 400; }
+  .sec-t.urgent { color: var(--danger); }
+  .sec-t .hint { margin-left: 4px; font-weight: 400; color: var(--text-4); }
+  .item { display: grid; grid-template-columns: 36px 120px minmax(0, 1fr) 60px auto; align-items: center; gap: 12px; padding: 12px 8px; margin: 0 -8px; border-radius: var(--r-sm); transition: background .15s, opacity .2s; }
+  .item:hover { background: #F8F9FB; }
+  .item + .item { border-top: 1px solid var(--border-2); }
+  .item .av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); color: var(--text-2); font-weight: 500; }
+  .item .who b { display: block; font-weight: 500; }
+  .item .who small { color: var(--text-3); font-size: 13px; }
+  .item .what { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; color: var(--text-2); min-width: 0; }
+  .item .what > * { white-space: nowrap; }
+  .item .what .ctx { color: var(--text-3); font-size: 13px; white-space: nowrap; }
+  .item .left { text-align: right; font-weight: 600; font-size: 15px; color: var(--text-2); }
+  .item .left small { display: block; font-weight: 400; font-size: 12px; color: var(--text-4); }
+  .item .left.danger { color: var(--danger); } .item .left.warn { color: var(--warn); }
+  .item .act { display: flex; justify-content: flex-end; gap: 6px; }
+  .item.done { opacity: .55; }
+  .item.done .av { background: var(--ok-50); color: var(--ok); }
+  .item.done .what span:first-child { text-decoration: line-through; }
+  .undo { border: 0; background: none; color: var(--primary); font-size: 13px; padding: 4px 6px; }
+  .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .tag.private { background: var(--pri-bg); color: var(--pri-fg); }
+  .tag.public { background: var(--pub-bg); color: var(--pub-fg); }
+
+  /* 右栏 */
+  .right { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; }
+  .sched { padding-bottom: 16px; }
+  .sched-hd-extra { margin-left: auto; font-size: 13px; color: var(--text-3); }
+  .sched-hd-extra b { color: var(--ok); font-weight: 500; }
+  .timeline { position: relative; margin: 12px 20px 0 20px; }
+  .hour { height: 36px; display: grid; grid-template-columns: 44px 1fr; font-size: 12px; color: var(--text-4); }
+  .hour span { transform: translateY(-8px); }
+  .hour i { border-top: 1px solid var(--border-2); }
+  .ev { position: absolute; left: 52px; right: 0; border-radius: 6px; padding: 4px 10px; font-size: 12.5px; background: var(--primary-50); color: var(--primary); border-left: 3px solid var(--primary); display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; }
+  .ev .t { font-variant-numeric: tabular-nums; opacity: .8; }
+  .ev.arrived { background: var(--ok-50); color: var(--ok); border-left-color: var(--ok); }
+  .ev.arrived svg { width: 14px; height: 14px; margin-left: auto; }
+  .now { position: absolute; left: 44px; right: 0; height: 0; border-top: 1.5px solid var(--danger); }
+  .now::before { content: ""; position: absolute; left: -4px; top: -4.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+  .now span { position: absolute; right: 0; top: 3px; font-size: 11px; color: var(--danger); font-weight: 600; background: var(--surface); padding-right: 2px; }
+
+  .conv { padding-bottom: 18px; }
+  .conv-rows { padding: 8px 20px 0; display: grid; gap: 8px; }
+  .conv-row { display: grid; grid-template-columns: 64px 1fr 72px; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
+  .conv-row .track { height: 6px; border-radius: 3px; background: var(--border-2); overflow: hidden; }
+  .conv-row .track i { display: block; height: 100%; border-radius: 3px; background: var(--primary); }
+  .conv-row .val { text-align: right; color: var(--text); font-weight: 500; }
+  .conv-row .val small { color: var(--text-4); font-weight: 400; margin-left: 4px; }
+  .conv-foot { display: flex; justify-content: space-between; margin: 14px 20px 0; padding-top: 12px; border-top: 1px solid var(--border-2); font-size: 13px; color: var(--text-3); }
+  .conv-foot b { color: var(--text); font-weight: 600; }
+
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px); background: #1C1F26; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 1360px) { .cols { grid-template-columns: 1fr 300px; } .stat .d { display: none; } .hello .search { width: 220px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 15h2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-brief" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect x="2" y="6" width="20" height="14" rx="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#4F5BD5"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/></svg>
+      仕兔
+    </div>
+    <a class="org" href="#"><b>鑫诚劳务派遣</b><svg class="i" style="width:16px;height:16px;color:var(--text-4)"><use href="#i-down"/></svg></a>
+    <nav class="nav">
+      <div class="grp">驻场</div>
+      <a class="on" href="#"><svg class="i"><use href="#i-grid"/></svg>驻场工作台</a>
+      <a href="#"><svg class="i"><use href="#i-list"/></svg>待办清单<span class="cnt">13</span></a>
+      <a href="#"><svg class="i"><use href="#i-clock"/></svg>24 小时响应监控<span class="cnt red">3</span></a>
+      <a href="#"><svg class="i"><use href="#i-shield"/></svg>确权与签约</a>
+      <div class="grp">人才经纪人</div>
+      <a href="#"><svg class="i"><use href="#i-users"/></svg>流转池<span class="cnt">5</span></a>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg>AI 分析报告</a>
+      <a href="#"><svg class="i"><use href="#i-repeat"/></svg>二次匹配 / 释放</a>
+      <div class="grp">薪资发放</div>
+      <a href="#"><svg class="i"><use href="#i-wallet"/></svg>薪资核算与发放</a>
+      <a href="#"><svg class="i"><use href="#i-file"/></svg>预支抵扣对账</a>
+      <div class="grp">项目经理</div>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg>数据看板</a>
+      <a href="#"><svg class="i"><use href="#i-brief"/></svg>岗位管理</a>
+    </nav>
+    <div class="me"><span class="avatar">王</span><span><b>王磊</b><small>驻场 · 昆山二期</small></span></div>
+  </aside>
+
+  <main class="main">
+    <header class="hello">
+      <div>
+        <h1>早上好，王磊</h1>
+        <p>7 月 24 日 星期四 · 立讯精密（昆山）二期 · 今天有 <b>13</b> 件待办，<b style="color:var(--danger)">1</b> 件不到 1 小时就会超时</p>
+      </div>
+      <div class="tools">
+        <label class="search"><svg class="i"><use href="#i-search"/></svg>搜索求职者 / 岗位 / 工号</label>
+        <button class="btn primary" id="start">从最急的开始</button>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><span class="l">待面试</span><span class="v num">9</span><span class="d">今日预约 5 人</span></div>
+      <div class="stat"><span class="l">待确权</span><span class="v num">4</span><span class="d">1 人 6 小时内到期</span></div>
+      <div class="stat"><span class="l">今日到厂</span><span class="v num">7</span><span class="d">较昨日 +2</span></div>
+      <div class="stat"><span class="l">本月入职确权</span><span class="v num">62</span><span class="d">目标完成 82%</span></div>
+      <div class="stat alert"><span class="l">即将超时</span><span class="v num">3</span></div>
+    </section>
+
+    <section class="cols">
+      <div class="card todo">
+        <div class="card-hd"><h2>今日待办</h2><span>按紧急程度分组，显示最紧急的 5 件</span><a href="#">查看全部 13 件</a></div>
+        <div class="todo-body" id="todo">
+          <div class="sec-t urgent" data-sec="urgent"><svg class="i" style="width:15px;height:15px"><use href="#i-alert"/></svg>马上处理 <span class="n">1</span><span class="hint">· 1 小时内会被释放</span></div>
+          <div class="item" data-id="liu"><span class="av">刘</span><span class="who"><b>刘*</b><small class="num">138****4471</small></span>
+            <span class="what"><span>未匹配到 80% 以上岗位</span><span class="tag private">私域</span></span>
+            <span class="left danger num" data-s="2520">00:42<small>剩余</small></span>
+            <span class="act"><button class="btn sm">拨打</button><button class="btn sm primary" data-done="已流转给经纪人">流转经纪人</button></span></div>
+
+          <div class="sec-t" data-sec="interview">待面试 · 需要知悉并推送 <span class="n">2</span></div>
+          <div class="item" data-id="zhang"><span class="av">张</span><span class="who"><b>张*</b><small class="num">138****8656</small></span>
+            <span class="what"><span>SMT 贴片操作工</span><span class="tag private">私域</span><span class="ctx">今天 09:00 面试</span></span>
+            <span class="left warn num" data-s="13320">03:42<small>剩余</small></span>
+            <span class="act"><button class="btn sm outline" data-done="已推送面试信息">知悉推送</button></span></div>
+          <div class="item" data-id="li"><span class="av">李</span><span class="who"><b>李*</b><small class="num">159****0817</small></span>
+            <span class="what"><span>电子组装普工</span><span class="tag public">公域</span><span class="ctx">今天 09:00 面试</span></span>
+            <span class="left num" data-s="65160">18:06<small>剩余</small></span>
+            <span class="act"><button class="btn sm outline" data-done="已推送面试信息">知悉推送</button></span></div>
+
+          <div class="sec-t" data-sec="confirm">待确权 · 面试已通过 <span class="n">1</span></div>
+          <div class="item" data-id="zhou"><span class="av">周</span><span class="who"><b>周*</b><small class="num">137****4409</small></span>
+            <span class="what"><span>仓储分拣员</span><span class="tag public">公域</span><span class="ctx">07:32 已到厂</span></span>
+            <span class="left num" data-s="65920">18:22<small>剩余</small></span>
+            <span class="act"><button class="btn sm outline" data-done="已发起入职确权">入职确权</button></span></div>
+
+          <div class="sec-t" data-sec="pushed">已推送面试 · 等待到厂 <span class="n">1</span></div>
+          <div class="item" data-id="chen"><span class="av">陈</span><span class="who"><b>陈*</b><small class="num">137****8821</small></span>
+            <span class="what"><span>仓储分拣员</span><span class="tag private">私域</span><span class="ctx">今天 14:00 面试</span></span>
+            <span class="left num" data-s="75900">21:05<small>剩余</small></span>
+            <span class="act"><button class="btn sm">标记爽约</button><button class="btn sm outline" data-done="已确认到厂">到厂确认</button></span></div>
+
+          <div class="sec-t" data-sec="done" hidden>已处理 <span class="n" id="done-n">0</span></div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="card sched">
+          <div class="card-hd"><h2>今日到厂</h2><span class="sched-hd-extra">已到 <b>1</b> / 共 4 人</span></div>
+          <div class="timeline" id="tl">
+            <div class="hour"><span>07:00</span><i></i></div><div class="hour"><span>08:00</span><i></i></div><div class="hour"><span>09:00</span><i></i></div><div class="hour"><span>10:00</span><i></i></div><div class="hour"><span>11:00</span><i></i></div><div class="hour"><span>12:00</span><i></i></div><div class="hour"><span>13:00</span><i></i></div><div class="hour"><span>14:00</span><i></i></div><div class="hour"><span>15:00</span><i></i></div><div class="hour"><span>16:00</span><i></i></div><div class="hour"><span>17:00</span><i></i></div>
+            <div class="ev arrived" style="top:19px;height:20px"><span class="t">07:32</span>周* · 仓储分拣员<svg class="i"><use href="#i-check"/></svg></div>
+            <div class="ev" style="top:73px;height:26px"><span class="t">09:00</span>张*、李* · 面试</div>
+            <div class="ev" style="top:253px;height:26px"><span class="t">14:00</span>陈* · 面试</div>
+            <div class="now" id="now" style="top:48px"><span class="num">08:20</span></div>
+          </div>
+        </div>
+        <div class="card conv">
+          <div class="card-hd"><h2>本月转化</h2><a href="#">数据看板</a></div>
+          <div class="conv-rows">
+            <div class="conv-row"><span>报名</span><span class="track"><i style="width:100%"></i></span><span class="val num">128</span></div>
+            <div class="conv-row"><span>到厂确认</span><span class="track"><i style="width:75%"></i></span><span class="val num">96<small>75%</small></span></div>
+            <div class="conv-row"><span>面试通过</span><span class="track"><i style="width:61%"></i></span><span class="val num">78<small>81%</small></span></div>
+            <div class="conv-row"><span>入职确权</span><span class="track"><i style="width:48%"></i></span><span class="val num">62<small>80%</small></span></div>
+          </div>
+          <div class="conv-foot"><span>整体转化 <b class="num">48.4%</b></span><span>超时释放 <b class="num">11</b> 人</span><span>爽约 <b class="num">21</b> 人</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const t0 = Date.now();
+  const hhmm = s => String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0');
+  const todo = document.getElementById('todo');
+  const doneSec = todo.querySelector('[data-sec="done"]');
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  const say = m => { toast.textContent = m; toast.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 1800); };
+
+  function recount() {
+    todo.querySelectorAll('.sec-t').forEach(sec => {
+      let n = 0, el = sec.nextElementSibling;
+      while (el && el.classList.contains('item')) { n++; el = el.nextElementSibling; }
+      sec.querySelector('.n').textContent = n;
+      sec.hidden = n === 0;
+    });
+  }
+
+  todo.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const item = b.closest('.item');
+    if (b.classList.contains('undo')) {
+      const home = todo.querySelector(`[data-sec="${item.dataset.home}"]`);
+      let after = home; while (after.nextElementSibling && after.nextElementSibling.classList.contains('item')) after = after.nextElementSibling;
+      item.classList.remove('done'); item.querySelector('.av').textContent = item.dataset.av;
+      item.querySelector('.act').innerHTML = item.dataset.act;
+      after.after(item); recount(); return;
+    }
+    if (!b.dataset.done) { say(b.textContent + '：原型里未接入'); return; }
+    item.dataset.home = findSec(item);
+    item.dataset.av = item.querySelector('.av').textContent;
+    item.dataset.act = item.querySelector('.act').innerHTML;
+    item.classList.add('done');
+    item.querySelector('.av').innerHTML = '<svg class="i" style="width:16px;height:16px"><use href="#i-check"/></svg>';
+    item.querySelector('.act').innerHTML = `<span style="font-size:13px;color:var(--text-3)">${b.dataset.done}</span><button class="undo">撤销</button>`;
+    doneSec.after(item); recount(); say(b.dataset.done);
+  });
+  function findSec(item) { let el = item.previousElementSibling; while (el && !el.classList.contains('sec-t')) el = el.previousElementSibling; return el.dataset.sec; }
+
+  document.getElementById('start').addEventListener('click', () => {
+    const first = todo.querySelector('.item:not(.done)');
+    if (!first) return say('今天的待办都处理完了');
+    first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    first.animate([{ background: '#EEF0FC' }, { background: 'transparent' }], { duration: 1200 });
+  });
+
+  function tick() {
+    const el = Math.floor((Date.now() - t0) / 1000);
+    todo.querySelectorAll('.left[data-s]').forEach(x => { const s = Math.max(0, +x.dataset.s - el); x.firstChild.textContent = hhmm(s); });
+    const mins = 8 * 60 + 20 + Math.floor(el / 60);
+    const now = document.getElementById('now');
+    now.style.top = ((mins - 7 * 60) / 60 * 36) + 'px';
+    now.querySelector('span').textContent = hhmm(mins * 60);
+  }
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

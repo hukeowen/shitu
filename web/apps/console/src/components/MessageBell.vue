@@ -2,7 +2,8 @@
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { errorMessage, tenantApi, type InboxItem } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, type InboxItem } from '@shitu/api-client'
+import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
 import { canAccess } from '@/router/access'
 import { MENU } from '@/router/menu'
 import { useInboxStore } from '@/stores/inbox'
@@ -21,6 +22,9 @@ const page = reactive({ page: 1, pageSize: 20, total: 0 })
 const loading = ref(false)
 const error = ref('')
 const marking = ref(false)
+/** 「全部已读」失败的原因留在抽屉里；后端业务拒绝才置灰（重新打开抽屉后再判断），网络失败可以直接重试 */
+const readAllError = ref('')
+const readAllBlocked = ref(false)
 
 onMounted(() => inbox.start())
 onBeforeUnmount(() => inbox.stop())
@@ -41,6 +45,8 @@ async function load(reset = true) {
 }
 function open() {
   visible.value = true
+  readAllError.value = ''
+  readAllBlocked.value = false
   load()
   inbox.refresh()
 }
@@ -79,6 +85,8 @@ async function read(m: InboxItem) {
 }
 async function readAll() {
   marking.value = true
+  readAllError.value = ''
+  readAllBlocked.value = false
   try {
     await tenantApi.markRead()
     list.value.forEach((m) => (m.read = true))
@@ -86,7 +94,11 @@ async function readAll() {
     ElMessage.success('已全部标为已读')
     if (unreadOnly.value) load()
   } catch (e) {
-    ElMessage.error(errorMessage(e))
+    readAllError.value = errorMessage(e)
+    // 断网、超时也会包成 ApiError（code 为 NETWORK），只有后端真的回了业务错误才置灰
+    readAllBlocked.value = isApiError(e) && e.code !== 'NETWORK'
+    marking.value = false
+    ElMessage.error(readAllError.value)
   } finally {
     marking.value = false
   }
@@ -95,51 +107,75 @@ async function readAll() {
 
 <template>
   <el-badge :value="inbox.unread" :hidden="inbox.unread === 0" :max="99" class="bell-badge">
-    <button class="bell" type="button" title="消息" @click="open">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-        <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" />
-        <path d="M10 20.5a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
-      </svg>
+    <button class="bell" type="button" aria-label="消息" title="消息" @click="open">
+      <IconBell :size="18" />
     </button>
   </el-badge>
 
-  <el-drawer v-model="visible" title="消息" size="420px" append-to-body>
-    <div class="row" style="margin-bottom: 10px">
+  <el-drawer v-model="visible" title="消息" size="560px" class="msg-drawer" append-to-body>
+    <div class="row bar-top">
       <el-switch v-model="unreadOnly" active-text="只看未读" @change="load()" />
       <span class="spacer" />
-      <el-button size="small" :loading="marking" :disabled="inbox.unread === 0" @click="readAll">全部已读</el-button>
+      <el-button link type="primary" :loading="marking" :disabled="inbox.unread === 0 || loading || !!error || readAllBlocked" @click="readAll">全部已读</el-button>
     </div>
-    <el-alert v-if="error" type="error" :title="error" show-icon :closable="false" />
-    <div v-loading="loading && !list.length" class="msgs">
-      <div v-for="m in list" :key="m.id" class="msg" :class="{ unread: !m.read, hi: m.priority >= 2 }" @click="read(m)">
-        <div class="row" style="gap: 6px">
-          <i v-if="!m.read" class="dot" />
+    <p v-if="readAllError" class="form-err" role="alert">{{ readAllBlocked ? '暂时不能全部标为已读' : '全部已读没有成功，可以再试一次' }}：{{ readAllError }}</p>
+    <div v-if="error" class="state">
+      <IconCircleExclamationPoint :size="48" class="state-i" />
+      <p class="state-t">消息加载失败</p>
+      <p class="state-d">{{ error }}</p>
+      <el-button type="primary" @click="load()">重新加载</el-button>
+    </div>
+    <div v-else v-loading="loading && !list.length" class="msgs">
+      <div v-for="m in list" :key="m.id" class="msg" :class="{ unread: !m.read }" role="button" tabindex="0" @click="read(m)" @keydown.enter.prevent="read(m)" @keydown.space.prevent="read(m)">
+        <div class="msg-hd">
+          <i class="dot" aria-hidden="true" />
           <b class="mt">{{ m.title }}</b>
+          <span v-if="m.priority >= 2" class="status-tag status-tag--danger">紧急</span>
           <span class="spacer" />
-          <span class="mono t-xs">{{ fmtDateTime(m.createdAt).slice(5) }}</span>
+          <span class="time">{{ fmtDateTime(m.createdAt).slice(5) }}</span>
         </div>
-        <p class="t-sm mc">{{ m.content }}</p>
-        <span v-if="routeOf(m.link)" class="t-xs go">查看 →</span>
+        <p class="mc">{{ m.content }}</p>
+        <span v-if="routeOf(m.link)" class="go">查看<IconChevronRight :size="14" /></span>
       </div>
-      <el-empty v-if="!loading && !list.length && !error" :image-size="70" :description="unreadOnly ? '没有未读消息' : '暂无消息'" />
-      <div v-if="list.length < page.total" style="text-align: center; padding: 8px">
-        <el-button size="small" link type="primary" :loading="loading" @click="more">加载更多</el-button>
+      <div v-if="!loading && !list.length" class="state">
+        <IconInbox :size="48" class="state-i" />
+        <p class="state-t">{{ unreadOnly ? '没有未读消息' : '暂无消息' }}</p>
+        <p class="state-d">{{ unreadOnly ? '关掉「只看未读」可以看到全部消息' : '有新的待办和提醒时会出现在这里' }}</p>
+      </div>
+      <div v-if="list.length < page.total" class="more">
+        <el-button link type="primary" :loading="loading" @click="more">加载更多</el-button>
       </div>
     </div>
   </el-drawer>
 </template>
 
 <style scoped>
-.bell-badge { line-height: 1; }
-.bell { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); color: var(--ink-600); cursor: pointer; }
-.bell:hover { color: var(--ink-900); border-color: var(--line-2); }
+.bell-badge { line-height: 1; margin-right: var(--space-3); }  /* 角标向右探出半个宽度，留出位置不压住旁边的按钮 */
+.bell { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2); cursor: pointer; }
+.bell:hover { color: var(--text-1); background: var(--bg-hover); }
+.bell:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.bar-top { margin-bottom: var(--space-3); }
+.form-err { margin-bottom: var(--space-3); }
 .msgs { min-height: 120px; }
-.msg { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); margin-bottom: 8px; cursor: pointer; transition: .14s; }
-.msg:hover { border-color: var(--line-2); background: var(--surface-2); }
-.msg.unread { border-color: var(--signal-300); }
-.msg.hi { border-left: 3px solid var(--danger); }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); flex: none; }
-.mt { font-size: 13px; color: var(--ink-900); }
-.mc { margin-top: 4px; line-height: 1.6; color: var(--ink-700); }
-.go { color: var(--signal-700); }
+.msg { padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: var(--space-2); cursor: pointer; background: var(--bg-card); }
+.msg:hover { background: var(--bg-hover); }
+.msg:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.msg-hd { display: flex; align-items: center; gap: var(--space-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: transparent; }
+.msg.unread .dot { background: var(--primary); }
+.mt { min-width: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-regular); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg.unread .mt { font-weight: var(--font-weight-medium); }
+.time { flex: none; font-size: var(--font-size-min); color: var(--text-3); }
+.mc { margin: var(--space-1) 0 0 var(--space-4); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.go { display: inline-flex; align-items: center; gap: 2px; margin: var(--space-1) 0 0 var(--space-4); font-size: var(--font-size-aux); color: var(--primary-text); }
+.state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); text-align: center; }
+.state-i { color: var(--text-3); }
+.state-t { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.state-d { font-size: var(--font-size-aux); color: var(--text-3); }
+.more { text-align: center; padding: var(--space-2); }
+</style>
+
+<style>
+/* 抽屉挂在 body 上，标题样式写在不带 scoped 的块里，只作用于消息抽屉 */
+.msg-drawer .el-drawer__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 </style>

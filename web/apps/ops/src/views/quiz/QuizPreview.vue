@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { QuizQuestion } from '@shitu/api-client'
-import { QUESTION_TYPES, fieldLabel } from './quizMeta'
+import { IconCheck, IconChevronLeft, IconInbox } from '@shitu/ui-icons'
 
-/** C 端问薪页（S-12 / S-13）样式的只读预览：逐题翻页，可点选看效果 */
+/**
+ * 求职者答题页（seeker views/match/QuizView.vue，S-12 / S-13）样式的只读预览：逐题翻页，可点选看效果，不保存。
+ * 排法和尺寸照求职者端：白顶栏 → 「第 n / N 题」加细进度条 → 题干 18px / 600 → 大块白卡片选项（选中主色描边、浅底、带勾）→ 底部「上一题 / 下一题」。
+ */
 const props = defineProps<{ questions: QuizQuestion[] }>()
 const idx = ref(0)
 const picked = ref<Record<number, string>>({})
@@ -14,48 +17,67 @@ watch(
     if (idx.value > n - 1) idx.value = Math.max(0, n - 1)
   },
 )
+const total = computed(() => props.questions.length)
 const q = computed(() => props.questions[idx.value])
-const typeLabel = (t: string) => QUESTION_TYPES.find((x) => x.value === t)?.label ?? t
-const pickedOpt = computed(() => q.value?.options.find((o) => o.code === picked.value[idx.value]))
+const isLast = computed(() => idx.value >= total.value - 1)
+const kindText = computed(() => (q.value?.questionType === 'JUDGE' ? '判断题 · 切割大方向' : '选择题 · 细化需求'))
+const pickedCode = computed(() => picked.value[idx.value])
 
 function pick(code: string) {
   picked.value = { ...picked.value, [idx.value]: code }
+}
+function prev() {
+  if (idx.value > 0) idx.value--
+}
+function next() {
+  if (!isLast.value) idx.value++
 }
 </script>
 
 <template>
   <div class="phone">
     <div class="screen">
-      <div class="appbar">
-        <button type="button" class="ico" :disabled="idx === 0" aria-label="上一题" @click="idx--">‹</button>
-        <div class="ttl">AI 问薪 · {{ questions.length ? idx + 1 : 0 }} / {{ questions.length }}</div>
-        <button type="button" class="ico" :disabled="idx >= questions.length - 1" aria-label="下一题" @click="idx++">›</button>
+      <div class="nav">
+        <button type="button" class="nav-back" :disabled="idx === 0" aria-label="上一题" @click="prev"><IconChevronLeft :size="22" /></button>
+        <div class="nav-t">AI 问薪</div>
+        <span class="nav-act" aria-hidden="true">退出</span>
       </div>
-      <div class="qprog"><i v-for="(_, i) in questions" :key="i" :class="{ on: i <= idx }" @click="idx = i" /></div>
-      <div v-if="q" class="body">
-        <div class="ask">
-          <div class="bot" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="#E8590C" stroke-width="2" /><path d="M12 3v3m0 12v3" stroke="#fff" stroke-width="2" stroke-linecap="round" /></svg>
-          </div>
-          <div class="qbubble">
-            <div class="mono qtype">{{ typeLabel(q.questionType) }} · {{ fieldLabel(q.profileField) }}</div>
-            {{ q.stem || '（未填写题干）' }}
-            <div v-if="q.hint" class="hint">{{ q.hint }}</div>
-          </div>
+      <div v-if="q" class="pad">
+        <div class="prog-t"><b>第 {{ idx + 1 }} / {{ total }} 题</b><span>{{ kindText }}</span></div>
+        <div class="prog" role="progressbar" aria-valuemin="0" :aria-valuemax="total" :aria-valuenow="idx + 1">
+          <i :style="{ width: ((idx + 1) / total) * 100 + '%' }"></i>
         </div>
-        <div class="opts">
-          <button v-for="o in q.options" :key="o.code" type="button" class="qopt" :class="{ sel: picked[idx] === o.code }" @click="pick(o.code)">
-            <span class="k">{{ o.code || '?' }}</span>
-            <span class="lb">{{ o.label || '（未填写）' }}</span>
-            <span v-if="o.sub" class="sub">{{ o.sub }}</span>
+        <h1 class="stem">{{ q.stem || '（未填写题干）' }}</h1>
+        <p v-if="q.hint" class="stem-d">{{ q.hint }}</p>
+        <div class="opts" role="radiogroup" :aria-label="q.stem">
+          <button
+            v-for="o in q.options"
+            :key="o.code"
+            type="button"
+            class="qopt"
+            role="radio"
+            :aria-checked="pickedCode === o.code"
+            :class="{ sel: pickedCode === o.code }"
+            @click="pick(o.code)"
+          >
+            <span class="flex1">
+              {{ o.label || '（未填写选项文字）' }}
+              <span v-if="o.sub" class="sub">{{ o.sub }}</span>
+              <span v-if="o.needRegion" class="sub">选择后需选择城市</span>
+            </span>
+            <IconCheck v-if="pickedCode === o.code" :size="20" :stroke-width="2.25" />
           </button>
         </div>
-        <div v-if="pickedOpt?.needRegion" class="region">选中后弹出城市选择 ▾</div>
       </div>
-      <div v-else class="body empty">暂无题目</div>
-      <div class="foot">
-        <button type="button" class="next" :disabled="!questions.length" @click="idx = Math.min(idx + 1, questions.length - 1)">
-          {{ idx >= questions.length - 1 ? '生成画像，开始匹配' : '下一题' }}
+      <div v-else class="empty">
+        <IconInbox :size="48" :stroke-width="1.5" />
+        <div class="empty-t">暂时没有题目</div>
+        <div class="empty-d">左边新增题目后在这里预览</div>
+      </div>
+      <div class="bottom">
+        <button type="button" class="btn prev" :disabled="idx === 0" @click="prev">上一题</button>
+        <button type="button" class="btn btn--primary next" :disabled="!total" @click="next">
+          {{ isLast ? '生成我的求职画像' : '下一题' }}
         </button>
       </div>
     </div>
@@ -63,31 +85,56 @@ function pick(code: string) {
 </template>
 
 <style scoped>
-.phone { width: 320px; margin: 0 auto; padding: 10px; border-radius: 34px; background: #0D1117; box-shadow: var(--sh-1); }
-.screen { height: 600px; border-radius: 26px; overflow: hidden; background: var(--surface-2); display: flex; flex-direction: column; }
-.appbar { height: 46px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.appbar .ttl { flex: 1; text-align: center; font-size: 14px; font-weight: 700; color: var(--ink-900); }
-.ico { width: 26px; height: 26px; border: 0; background: transparent; font-size: 20px; color: var(--ink-700); cursor: pointer; }
-.ico:disabled { color: var(--ink-300); cursor: default; }
-.qprog { display: flex; gap: 3px; padding: 12px 14px 0; }
-.qprog i { flex: 1; height: 3px; border-radius: 2px; background: var(--line-2); cursor: pointer; }
-.qprog i.on { background: var(--signal); }
-.body { flex: 1; overflow: auto; padding: 14px; }
-.body.empty { display: grid; place-items: center; color: var(--ink-400); font-size: 13px; }
-.ask { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
-.bot { width: 30px; height: 30px; border-radius: 9px; background: var(--ink-900); display: grid; place-items: center; flex: none; }
-.qbubble { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 4px 16px 16px 16px; padding: 12px 14px; font-size: 14px; color: var(--ink-900); line-height: 1.55; word-break: break-all; }
-.qtype { font-size: 11px; margin-bottom: 5px; color: var(--signal); }
-.hint { font-size: 11.5px; color: var(--ink-400); margin-top: 2px; }
-.opts { display: grid; gap: 8px; }
-.qopt { width: 100%; text-align: left; padding: 12px 13px; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r-lg); font-size: 13.5px; font-weight: 600; color: var(--ink-800); display: flex; align-items: center; gap: 10px; cursor: pointer; font-family: inherit; }
-.qopt.sel { border-color: var(--signal); background: var(--signal-50); color: var(--signal-700); }
-.qopt .k { font-family: var(--f-mono); font-size: 11px; width: 20px; height: 20px; border-radius: 5px; background: var(--surface-3); display: grid; place-items: center; color: var(--ink-500); flex: none; }
-.qopt.sel .k { background: var(--signal); color: #fff; }
-.qopt .lb { flex: 1; min-width: 0; word-break: break-all; }
-.qopt .sub { font-size: 11px; font-weight: 400; color: var(--ink-400); flex: none; }
-.region { margin-top: 10px; padding: 10px 12px; border-radius: var(--r-sm); border: 1px dashed var(--signal-300); color: var(--signal-700); font-size: 12px; background: var(--signal-50); }
-.foot { flex: none; padding: 10px 14px 16px; }
-.next { width: 100%; height: 44px; border: 0; border-radius: 12px; background: var(--ink-900); color: #fff; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
-.next:disabled { opacity: .45; cursor: default; }
+/* 手机端的字号、圆角、间距：取值同 @shitu/ui-tokens 的 vant-theme.css（后台的同名变量是 element-theme.css 的桌面取值） */
+/* 手机端的字号、圆角、间距：取 tokens.css 的 --mobile-*（和 vant-theme.css 同一来源；后台的同名变量是 element-theme.css 的桌面取值） */
+.phone {
+  --font-size-title: var(--mobile-font-size-title);
+  --font-size-body: var(--mobile-font-size-body);
+  --radius-card: var(--mobile-radius-card);
+  --radius-control: var(--mobile-radius-control);
+  --space-page: var(--space-4);
+  width: 100%;
+  max-width: 336px;
+  margin: 0 auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  /* 外框圆角 = 屏幕圆角 + 外框内边距，两圈同心 */
+  border-radius: calc(var(--radius-card) + var(--space-2));
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+/* 矮屏（1280×800）上整台手机仍放得进吸顶区 */
+.screen { height: min(620px, calc(100vh - 260px)); border-radius: var(--radius-card); overflow: hidden; background: var(--bg-page); display: flex; flex-direction: column; }
+/* 顶栏：白底、高 44、标题居中 17px / 600、左侧返回、下边 1px 分隔线（同 van-nav-bar） */
+.nav { position: relative; flex: none; height: var(--mobile-nav-height); display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-4); background: var(--bg-card); border-bottom: 1px solid var(--border); }
+.nav-back { display: grid; place-items: center; width: var(--mobile-control-height); height: var(--mobile-control-height); margin-left: calc(-1 * var(--space-3)); padding: 0; border: 0; background: none; color: var(--text-1); cursor: pointer; }
+.nav-back:disabled { color: var(--text-placeholder); cursor: default; }
+.nav-t { position: absolute; left: 50%; transform: translateX(-50%); font-size: var(--mobile-nav-title-size); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.nav-act { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.pad { flex: 1; overflow: auto; padding: var(--space-page); }
+.prog-t { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); font-size: var(--font-size-aux); color: var(--text-3); }
+.prog-t b { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
+.prog { height: 4px; margin-top: var(--space-2); border-radius: var(--radius-tag); background: var(--border); overflow: hidden; }
+.prog i { display: block; height: 100%; border-radius: var(--radius-tag); background: var(--primary); transition: width .3s; }
+.stem { margin: var(--space-6) 0 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); word-break: break-all; }
+.stem-d { margin: var(--space-1) 0 0; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.opts { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+/* 选项：同 seeker styles/app.css 的 .qopt */
+.qopt { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 52px; padding: var(--space-3) var(--space-4); text-align: left; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); font-family: inherit; font-size: var(--font-size-section); font-weight: var(--font-weight-medium); line-height: 24px; color: var(--text-1); cursor: pointer; transition: border-color .15s, background .15s; }
+.qopt:active { background: var(--bg-hover); }
+.qopt.sel { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+.qopt > svg { flex: none; color: var(--primary); }
+.flex1 { flex: 1; min-width: 0; word-break: break-all; }
+.sub { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); line-height: 20px; color: var(--text-3); }
+.qopt.sel .sub { color: var(--primary-text); }
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-6); color: var(--text-3); text-align: center; }
+.empty-t { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.empty-d { font-size: var(--font-size-aux); }
+/* 底部通栏：白底、上边框，「上一题」占 1 份、「下一题」占 2 份，按钮高 48（同 van-button size="large"） */
+.bottom { flex: none; display: flex; gap: var(--space-3); padding: var(--space-2) var(--space-page); background: var(--bg-card); border-top: 1px solid var(--border); }
+.btn { height: var(--mobile-bottom-bar-button-height); padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-family: inherit; font-size: var(--font-size-section); color: var(--text-1); cursor: pointer; white-space: nowrap; }
+.btn--primary { border-color: var(--primary); background: var(--primary); color: var(--text-on-primary); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.prev { flex: 1; }
+.next { flex: 2; }
 </style>

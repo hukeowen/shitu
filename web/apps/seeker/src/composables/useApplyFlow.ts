@@ -37,6 +37,8 @@ export function useApplyFlow() {
       }
       await router.replace('/apply/success')
     } catch (e) {
+      // 先复位再给提示：提示弹窗要等用户点掉才返回，期间按钮不该还转着「提交中」
+      submitting.value = false
       await handleError(e, jobId, opts.fromKyc === true)
     } finally {
       submitting.value = false

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { errorMessage, seekerApi, useDict, type MyAppeal, type ReviewStatus } from '@shitu/api-client'
+import { IconChevronRight, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { formatServerTime } from '@/utils/time'
 
@@ -22,12 +23,16 @@ async function load() {
   }
 }
 void load()
+function retry() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   await load()
   refreshing.value = false
 }
 
-const TAG: Record<ReviewStatus, string> = { PENDING: 'tag-warn', APPROVED: 'tag-ok', REJECTED: 'tag-danger' }
+const TONE: Record<ReviewStatus, string> = { PENDING: 'status-tag--warning', APPROVED: 'status-tag--success', REJECTED: 'status-tag--danger' }
 const RESULT: Record<ReviewStatus, string> = {
   PENDING: '平台风控将在 5 个工作日内人工复核，结果会通过消息中心通知你',
   APPROVED: '申诉已通过',
@@ -38,34 +43,38 @@ const RESULT: Record<ReviewStatus, string> = {
 <template>
   <div class="apls">
     <AppBar title="我的申诉" fallback="/me" />
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
+    <van-pull-refresh v-model="refreshing" class="body" @refresh="onRefresh">
       <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-      <div v-else-if="loadError" class="page-state">
-        <van-empty image="error" :description="loadError">
-          <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-        </van-empty>
+      <div v-else-if="loadError" class="state-block">
+        <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">加载失败</div>
+        <div class="state-block-d">{{ loadError }}</div>
+        <van-button type="primary" @click="retry">重新加载</van-button>
+      </div>
+      <div v-else-if="!rows.length" class="state-block">
+        <IconInbox :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">暂无申诉记录</div>
+        <div class="state-block-d">实名认证时提示「身份证已被其他账号绑定」或「账号受限」，可在实名页提交申诉。</div>
+        <van-button type="primary" to="/kyc">返回实名认证</van-button>
       </div>
       <div v-else class="pad stack">
-        <section v-for="a in rows" :key="a.id" class="acard">
-          <div class="row-b">
-            <b class="strong t14">{{ label('KycReviewType', a.reviewType) }}</b>
-            <span class="tag" :class="TAG[a.status]"><i class="dot"></i>{{ label('ReviewStatus', a.status) }}</span>
+        <article v-for="a in rows" :key="a.id" class="acard">
+          <div class="item-hd">
+            <h3>{{ label('KycReviewType', a.reviewType) }}</h3>
+            <span class="status-tag" :class="TONE[a.status]">{{ label('ReviewStatus', a.status) }}</span>
           </div>
-          <div class="t-xs num" style="margin-top: 4px">提交于 {{ formatServerTime(a.createdAt) }}</div>
-          <div class="quote">{{ a.remark }}</div>
-          <div class="divider" style="margin: 10px 0"></div>
-          <div class="res" :class="a.status.toLowerCase()">
-            <b>{{ RESULT[a.status] }}</b>
+          <p class="item-meta">提交于 {{ formatServerTime(a.createdAt) }}</p>
+          <p class="quote">{{ a.remark }}</p>
+          <div class="res">
+            <p :class="a.status === 'PENDING' ? 'para' : 'res-t'">{{ RESULT[a.status] }}</p>
             <template v-if="a.status !== 'PENDING'">
-              <p v-if="a.reviewerRemark" class="t-sm">复核意见：{{ a.reviewerRemark }}</p>
-              <p class="t-xs num" style="margin-top: 4px">复核时间 {{ formatServerTime(a.reviewedAt) }}</p>
+              <p v-if="a.reviewerRemark" class="item-sub">复核意见：{{ a.reviewerRemark }}</p>
+              <p class="item-meta">复核时间 {{ formatServerTime(a.reviewedAt) }}</p>
             </template>
           </div>
-        </section>
-        <van-empty v-if="!rows.length" image="search" description="暂无申诉记录">
-          <p class="t-xs" style="line-height: 1.7; max-width: 280px; margin: 0 auto; text-align: center">实名认证时提示「身份证已被其他账号绑定」或「账号受限」，可在实名页提交申诉。</p>
-        </van-empty>
-        <router-link to="/kyc" class="t-sm back-kyc">返回实名认证 ›</router-link>
+        </article>
+        <p class="list-end">没有更多了</p>
+        <router-link to="/kyc" class="link more">返回实名认证<IconChevronRight :size="16" /></router-link>
         <div class="page-bottom-gap"></div>
       </div>
     </van-pull-refresh>
@@ -73,13 +82,10 @@ const RESULT: Record<ReviewStatus, string> = {
 </template>
 
 <style scoped>
-.apls { min-height: 100vh; background: var(--surface-2); }
-.t14 { font-size: 14px; }
-.quote { margin-top: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface-2); font-size: 13px; line-height: 1.7; color: var(--ink-700); white-space: pre-wrap; word-break: break-word; }
-.res b { font-size: 13px; }
-.res.pending b { color: var(--warn); font-weight: 600; font-size: 12.5px; }
-.res.approved b { color: var(--ok); }
-.res.rejected b { color: var(--danger); }
-.res p { margin-top: 4px; line-height: 1.7; }
-.back-kyc { display: block; text-align: center; color: var(--ink-500); text-decoration: none; }
+.apls { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
+.body { min-height: 60vh; }
+.quote { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.res { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.res-t { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
+.more { display: flex; justify-content: center; min-height: 44px; }
 </style>

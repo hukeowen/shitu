@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IconInbox, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
@@ -7,7 +8,7 @@ import DictTags from '@/components/DictTags.vue'
 import OneTimePasswordDialog from '@/components/OneTimePasswordDialog.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { usePagedList } from '@/composables/usePagedList'
-import { confirmAction } from '@/composables/useRemark'
+import { confirmInBox, isBlocked } from '@/composables/boxSubmit'
 import { useAuthStore } from '@/stores/auth'
 import { fmtDateTime } from '@/utils/format'
 
@@ -22,7 +23,7 @@ const isSelf = (row: AdminView) => row.adminId === auth.me?.adminId
 
 // ---------- 新建 / 编辑 ----------
 const formRef = ref<FormInstance>()
-const dlg = reactive({ visible: false, mode: 'create' as 'create' | 'edit', adminId: '', saving: false, error: '' })
+const dlg = reactive({ visible: false, mode: 'create' as 'create' | 'edit', adminId: '', saving: false, error: '', blocked: false })
 const form = reactive({ username: '', displayName: '', roles: [] as OpsRole[] })
 const rules: FormRules<typeof form> = {
   username: [
@@ -40,6 +41,7 @@ function openCreate() {
   dlg.mode = 'create'
   dlg.adminId = ''
   dlg.error = ''
+  dlg.blocked = false
   Object.assign(form, { username: '', displayName: '', roles: [] })
   dlg.visible = true
 }
@@ -47,6 +49,7 @@ function openEdit(row: AdminView) {
   dlg.mode = 'edit'
   dlg.adminId = row.adminId
   dlg.error = ''
+  dlg.blocked = false
   Object.assign(form, { username: row.username, displayName: row.displayName, roles: [...row.roles] })
   dlg.visible = true
 }
@@ -63,8 +66,9 @@ function showOtp(title: string, username: string, password: string) {
 }
 
 async function save() {
+  if (dlg.saving || dlg.blocked) return
   const ok = await formRef.value?.validate().catch(() => false)
-  if (!ok) return
+  if (!ok || dlg.saving || dlg.blocked) return
   dlg.saving = true
   dlg.error = ''
   try {
@@ -89,6 +93,7 @@ async function save() {
       list.load()
     }
   } catch (e) {
+    dlg.blocked = isBlocked(e)
     dlg.error = errorMessage(e)
   } finally {
     dlg.saving = false
@@ -98,42 +103,38 @@ async function save() {
 // ---------- 停用 / 启用 / 重置密码 ----------
 const acting = ref<string | null>(null)
 async function toggleStatus(row: AdminView) {
+  if (acting.value) return
   const disable = row.status === 'NORMAL'
-  const ok = await confirmAction(
-    disable ? '停用账号' : '启用账号',
-    disable ? `停用后「${row.displayName}（${row.username}）」将立即被踢下线且无法登录，确定停用？` : `确定启用「${row.displayName}（${row.username}）」？`,
-    disable,
-  )
-  if (!ok) return
   acting.value = row.adminId
   try {
-    await opsApi.setAdminStatus(row.adminId, disable ? 'DISABLED' : 'NORMAL')
+    const ok = await confirmInBox({
+      title: disable ? '停用账号' : '启用账号', action: disable ? '停用' : '启用', danger: disable,
+      text: disable ? `停用后「${row.displayName}（${row.username}）」将立即被踢下线且无法登录，确定停用？` : `确定启用「${row.displayName}（${row.username}）」？`,
+      api: () => opsApi.setAdminStatus(row.adminId, disable ? 'DISABLED' : 'NORMAL'),
+    })
+    if (!ok) return
     ElMessage.success(disable ? '已停用' : '已启用')
-    list.load()
-  } catch (e) {
-    ElMessage.error(errorMessage(e))
-  } finally {
-    acting.value = null
-  }
+    void list.load()
+  } finally { acting.value = null }
 }
 
 async function resetPassword(row: AdminView) {
-  const ok = await confirmAction(
-    '重置密码',
-    `将为「${row.displayName}（${row.username}）」生成新的一次性密码，原密码立即失效、该账号所有登录被踢下线，首次登录须修改密码。确定重置？`,
-    true,
-  )
-  if (!ok) return
+  if (acting.value) return
   acting.value = row.adminId
+  let password = ''
   try {
-    const r = await opsApi.resetAdminPassword(row.adminId)
-    showOtp('密码已重置 · 一次性新密码', row.username, r.initialPassword)
-    list.load()
-  } catch (e) {
-    ElMessage.error(errorMessage(e))
-  } finally {
-    acting.value = null
-  }
+    const ok = await confirmInBox({ title: '重置密码', action: '重置密码', confirmText: '确定', danger: true,
+      text: `将为「${row.displayName}（${row.username}）」生成新的一次性密码，原密码立即失效、该账号所有登录被踢下线，首次登录须修改密码。确定重置？`,
+      api: async () => { password = (await opsApi.resetAdminPassword(row.adminId)).initialPassword },
+    })
+    if (!ok) return
+    showOtp('密码已重置 · 一次性新密码', row.username, password)
+    void list.load()
+  } finally { acting.value = null }
+}
+function reset() {
+  keyword.value = ''
+  void list.search()
 }
 
 onMounted(() => list.load())
@@ -144,21 +145,22 @@ onMounted(() => list.load())
     <div class="page-hd">
       <div><h2>平台账号与权限</h2><p>超级管理员维护平台账号与角色：超级管理员 / 运营 / 财务 / 风控。新建与重置均生成一次性密码，首次登录强制修改</p></div>
       <div class="spacer" />
+      <el-button type="primary" @click="openCreate">新建账号</el-button>
     </div>
 
     <div class="card">
       <div class="toolbar">
         <el-input v-model="keyword" clearable placeholder="用户名 / 姓名" style="width: 220px" @keyup.enter="list.search()" @clear="list.search()" />
-        <el-button type="primary" @click="list.search()">查询</el-button>
         <div class="spacer" />
-        <el-button type="primary" @click="openCreate">新建账号</el-button>
+        <el-button :loading="list.loading.value" @click="list.search()">查询</el-button>
+        <el-button @click="reset">重置</el-button>
       </div>
 
-      <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" row-key="adminId">
-        <el-table-column label="用户名" min-width="130">
+      <el-table v-loading="list.loading.value" :data="list.loading.value ? [] : list.rows.value" class="tbl-48" row-key="adminId">
+        <el-table-column label="用户名" min-width="140">
           <template #default="{ row }">
             <span class="mono strong">{{ row.username }}</span>
-            <span v-if="isSelf(row)" class="tag tag--signal ml">我</span>
+            <span v-if="isSelf(row)" class="status-tag status-tag--info ml">我</span>
           </template>
         </el-table-column>
         <el-table-column label="姓名" prop="displayName" min-width="100" show-overflow-tooltip />
@@ -170,33 +172,31 @@ onMounted(() => list.load())
         </el-table-column>
         <el-table-column label="密码" width="110">
           <template #default="{ row }">
-            <span v-if="row.mustChangePassword" class="tag tag--warn">待首次改密</span>
+            <span v-if="row.mustChangePassword" class="status-tag status-tag--warning">待首次改密</span>
             <span v-else class="dim t-sm">已设置</span>
           </template>
         </el-table-column>
         <el-table-column label="最近登录" width="150">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.lastLoginAt) }}</span></template>
+          <template #default="{ row }"><span class="tnum t-sm">{{ fmtDateTime(row.lastLoginAt) }}</span></template>
         </el-table-column>
         <el-table-column label="创建时间" width="150">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
+          <template #default="{ row }"><span class="tnum t-sm">{{ fmtDateTime(row.createdAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" class-name="ops-col" width="190" align="right" fixed="right">
+        <el-table-column class-name="ops-col" label="操作" width="220" align="right" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" size="small" :disabled="acting === row.adminId" @click="resetPassword(row)">重置密码</el-button>
-            <el-tooltip v-if="isSelf(row)" content="不能停用自己的账号" placement="top">
-              <span><el-button link size="small" disabled>停用</el-button></span>
-            </el-tooltip>
+            <template v-if="isSelf(row)"><el-button link size="small" disabled>停用</el-button><div class="blocked-why">不能停用自己的账号</div></template>
             <el-button v-else link size="small" :type="row.status === 'NORMAL' ? 'danger' : 'success'" :disabled="acting === row.adminId" @click="toggleStatus(row)">
               {{ row.status === 'NORMAL' ? '停用' : '启用' }}
             </el-button>
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="list.error.value" :image-size="64" :description="list.error.value">
-            <el-button size="small" @click="list.load()">重试</el-button>
+          <el-empty v-if="!list.loading.value && list.error.value" :image-size="48" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
+            <el-button size="small" @click="list.load()">重新加载</el-button>
           </el-empty>
-          <el-empty v-else :image-size="64" description="暂无账号" />
+          <el-empty v-else-if="!list.loading.value" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>暂无账号</h3><p>当前列表没有账号，可以新建账号。</p></template><el-button type="primary" @click="openCreate">新建账号</el-button></el-empty>
         </template>
       </el-table>
       <div class="pager">
@@ -211,8 +211,8 @@ onMounted(() => list.load())
       </div>
     </div>
 
-    <el-dialog v-model="dlg.visible" :title="dlg.mode === 'create' ? '新建平台账号' : '编辑平台账号'" width="480px" :close-on-click-modal="false" destroy-on-close>
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="72px" @submit.prevent="save">
+    <el-dialog class="dlg-16" v-model="dlg.visible" :title="dlg.mode === 'create' ? '新建平台账号' : '编辑平台账号'" width="480px" :close-on-click-modal="false" destroy-on-close>
+      <el-form :disabled="dlg.saving" ref="formRef" :model="form" :rules="rules" label-width="72px" @submit.prevent="save">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" :disabled="dlg.mode === 'edit'" maxlength="32" placeholder="3–32 位小写字母、数字、_ 或 ." />
         </el-form-item>
@@ -230,8 +230,8 @@ onMounted(() => list.load())
         <div v-if="dlg.error" class="notice notice--danger err">{{ dlg.error }}</div>
       </el-form>
       <template #footer>
-        <el-button @click="dlg.visible = false">取消</el-button>
-        <el-button type="primary" :loading="dlg.saving" @click="save">{{ dlg.mode === 'create' ? '创建' : '保存' }}</el-button>
+        <el-button :disabled="dlg.saving" @click="dlg.visible = false">取消</el-button>
+        <el-button type="primary" :loading="dlg.saving" :disabled="dlg.blocked" @click="save">{{ dlg.mode === 'create' ? '创建' : '保存' }}</el-button>
       </template>
     </el-dialog>
 

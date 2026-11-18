@@ -4,10 +4,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, tenantApi, type MonthlyBill } from '@shitu/api-client'
+import { IconArrowLeftRight, IconBanknote, IconCircleExclamationPoint, IconInfo, IconReceipt, IconWallet } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
-import RowActions from '@/components/RowActions.vue'
-import { fmtDate, fmtYuan } from '@/utils/format'
-import { opsColWidth, type RowAction } from '@/utils/rowActions'
+import { boxSubmit } from '@/composables/boxSubmit'
+import { actionsColWidth } from '@/utils/actionsWidth'
+import { fmtDate, fmtSigned } from '@/utils/format'
 import { parseLocal } from '@/utils/time'
 import BillDetailDrawer from './BillDetailDrawer.vue'
 
@@ -21,12 +22,15 @@ const list = ref<MonthlyBill[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const selectedId = ref<string>('')
+/** 后端拒绝过异议的账单：只置灰这张账单的「提出异议」，原因用提醒色写在表格上方，刷新后重新判断 */
+const blocked = reactive<Record<string, string>>({})
 
 const selected = computed(() => list.value.find((b) => b.billId === selectedId.value) ?? list.value[0] ?? null)
 
 async function load() {
   loading.value = true
   loadError.value = ''
+  Object.keys(blocked).forEach((k) => delete blocked[k])
   try {
     const r = await tenantApi.bills(page.page, page.pageSize)
     list.value = [...r.records].sort((a, b) => b.billMonth.localeCompare(a.billMonth))
@@ -60,35 +64,28 @@ function overdue(date?: string | null): boolean {
 /** 结算截止已过且账单还没结清才标红；异议截止过了只是不能再提异议，置灰即可 */
 const settleOverdue = (b: MonthlyBill) => b.status !== 'SETTLED' && overdue(b.settleDeadline)
 
-function rowActions(b: MonthlyBill): RowAction[] {
-  const a: RowAction[] = [{ key: 'detail', label: '明细', link: true }]
-  if (canDispute(b)) a.push({ key: 'dispute', label: '提出异议', link: true })
-  return a
-}
-const opsWidth = computed(() => opsColWidth(list.value.map(rowActions)))
 
 async function dispute(b: MonthlyBill) {
-  let content = ''
+  // 确认框里提交：框不关、「提交异议」转圈；被拒时原因写在框里，页面上也留原因并置灰这张账单的「提出异议」
+  const s = boxSubmit(`对 ${b.billMonth} 账单提出异议，平台将复核并回复。异议截止 ${fmtDate(b.disputeDeadline)}。`, '提出异议', (content) => tenantApi.disputeBill(b.billId, content), (why) => {
+    blocked[b.billId] = why
+  })
   try {
-    const r = await ElMessageBox.prompt(`对 ${b.billMonth} 账单提出异议，平台将复核并回复。异议截止 ${fmtDate(b.disputeDeadline)}。`, '提出异议', {
+    await ElMessageBox.prompt(s.message, '提出异议', {
       confirmButtonText: '提交异议',
       cancelButtonText: '取消',
       inputType: 'textarea',
       inputPlaceholder: '请说明有异议的日期、人数或金额（必填）',
       inputValidator: (v: string) => (v && v.trim().length >= 5) || '请至少填写 5 个字',
+      beforeClose: s.beforeClose,
     })
-    content = r.value.trim()
   } catch {
+    // 取消 / 关闭；提交失败已在框里处理
     return
   }
-  try {
-    await tenantApi.disputeBill(b.billId, content)
-    ElMessage.success('异议已提交，平台将在 5 个工作日内复核')
-    load()
-    drawerRef.value?.reload()
-  } catch (e) {
-    ElMessage.error(errorMessage(e))
-  }
+  ElMessage.success('异议已提交，平台将在 5 个工作日内复核')
+  load()
+  drawerRef.value?.reload()
 }
 
 const drawer = reactive({ visible: false, billId: null as string | null })
@@ -98,6 +95,8 @@ function openDetail(b: MonthlyBill) {
   drawer.billId = b.billId
   drawer.visible = true
 }
+/** 操作列宽按这一页实际会出的按钮算（utils/actionsWidth.ts），1280 宽不横向滚动 */
+const opsWidth = computed(() => actionsColWidth(list.value.map((b) => ({ labels: canDispute(b) ? ['明细', '提出异议'] : ['明细'] })), 80))
 function rowClass({ row }: { row: MonthlyBill }) {
   return row.billId === selected.value?.billId ? 'row-sel' : ''
 }
@@ -115,78 +114,95 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <el-option v-for="b in list" :key="b.billId" :label="b.billMonth" :value="b.billId" />
       </el-select>
       <el-button v-if="selected" @click="openDetail(selected)">账单明细</el-button>
-      <el-button v-if="canDispute(selected)" type="warning" plain @click="selected && dispute(selected)">提出异议</el-button>
+      <el-button v-if="canDispute(selected)" :disabled="!!(selected && blocked[selected.billId])" @click="selected && dispute(selected)">提出异议</el-button>
     </div>
 
-    <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" style="margin-bottom: 14px">
-      <el-button size="small" @click="load">重试</el-button>
-    </el-alert>
-
     <template v-if="selected">
-      <div class="grid g-4">
-        <div class="stat">
+      <div class="kpis">
+        <div class="stat stat--icon">
+          <IconReceipt :size="20" class="stat-i" />
           <div class="stat-l">增长技术服务费</div>
-          <div class="stat-v">{{ fmtYuan(selected.serviceFee) }}</div>
-          <div class="stat-d">按日累计 · 增量人员计费</div>
+          <div class="stat-v money">{{ fmtSigned(selected.serviceFee, 'out') }}</div>
+          <div class="stat-d">应付 · 按日累计 · 增量人员计费</div>
         </div>
-        <div class="stat">
+        <div class="stat stat--icon">
+          <IconWallet :size="20" class="stat-i" />
           <div class="stat-l">人才流转费（应付）</div>
-          <div class="stat-v" style="color: var(--danger)">{{ fmtYuan(selected.transferPayable) }}</div>
+          <div class="stat-v money">{{ fmtSigned(selected.transferPayable, 'out') }}</div>
           <div class="stat-d">流入人员 · 10 元/人/天</div>
         </div>
-        <div class="stat">
+        <div class="stat stat--icon">
+          <IconArrowLeftRight :size="20" class="stat-i" />
           <div class="stat-l">人才流转费（应收）</div>
-          <div class="stat-v" style="color: var(--ok)">{{ fmtYuan(selected.transferReceivable) }}</div>
+          <div class="stat-v money">{{ fmtSigned(selected.transferReceivable, 'in') }}</div>
           <div class="stat-d">流出人员 · 8 元/人/天</div>
         </div>
-        <div class="stat stat--signal">
+        <div class="stat stat--icon stat--signal">
+          <IconBanknote :size="20" class="stat-i" />
           <div class="stat-l">本月应付合计</div>
-          <div class="stat-v">{{ fmtYuan(selected.payable) }}</div>
+          <div class="stat-v money total">{{ fmtSigned(selected.payable, 'out') }}</div>
           <div class="stat-d nowrap">结算截止 {{ fmtDate(selected.settleDeadline) }}</div>
         </div>
       </div>
-      <div class="note note--info" style="margin-top: 10px">
-        <b>应收与应付不轧差：</b>本月应付合计 = 服务费 + 应付流转费；作为来源方的应收流转费由平台另行结算到账，不抵扣本月应付。
-        <el-button link type="primary" style="margin-left: 6px" @click="router.push({ path: '/circulation/ledger', query: { month: selected.billMonth } })">查看流转账本 →</el-button>
+      <div class="notice-bar netting">
+        <IconInfo :size="16" class="notice-bar-i" />
+        <span>
+          <b>应收与应付不轧差：</b>本月应付合计 = 服务费 + 应付流转费；作为来源方的应收流转费由平台另行结算到账，不抵扣本月应付。
+          <el-button link type="primary" class="to-ledger" @click="router.push({ path: '/circulation/ledger', query: { month: selected.billMonth } })">查看流转账本 →</el-button>
+        </span>
       </div>
     </template>
 
-    <div class="card" style="margin-top: 14px">
-      <div class="card__hd"><h3>月度账单</h3><span class="t-xs">每月最后一天自动生成，平台下发后进入 5 个工作日异议期</span></div>
+    <div class="card tbl-card">
+      <div class="card__hd"><h3>月度账单</h3><span class="hint">每月最后一天自动生成，平台下发后进入 5 个工作日异议期</span></div>
+      <p v-for="(why, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ list.find((b) => b.billId === id)?.billMonth ?? id }} 账单{{ why }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="list" row-key="billId" :row-class-name="rowClass" @row-click="(r: MonthlyBill) => (selectedId = r.billId)">
-        <el-table-column label="账单月份" min-width="110">
-          <template #default="{ row }"><b class="mono">{{ row.billMonth }}</b></template>
+        <el-table-column label="账单月份" width="96">
+          <template #default="{ row }"><b class="code">{{ row.billMonth }}</b></template>
         </el-table-column>
-        <el-table-column label="增长服务费" min-width="120" align="right">
-          <template #default="{ row }"><span class="num">{{ fmtYuan(row.serviceFee) }}</span></template>
+        <el-table-column label="增长服务费" min-width="110" align="right">
+          <template #default="{ row }"><span class="money">{{ fmtSigned(row.serviceFee, 'out') }}</span></template>
         </el-table-column>
-        <el-table-column label="流转费应付" min-width="120" align="right">
-          <template #default="{ row }"><span class="num" style="color: var(--danger)">{{ fmtYuan(row.transferPayable) }}</span></template>
+        <el-table-column label="流转费应付" min-width="110" align="right">
+          <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferPayable, 'out') }}</span></template>
         </el-table-column>
-        <el-table-column label="流转费应收" min-width="120" align="right">
-          <template #default="{ row }"><span class="num" style="color: var(--ok)">{{ fmtYuan(row.transferReceivable) }}</span></template>
+        <el-table-column label="流转费应收" min-width="110" align="right">
+          <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferReceivable, 'in') }}</span></template>
         </el-table-column>
-        <el-table-column label="应付合计" min-width="120" align="right">
-          <template #default="{ row }"><b class="num">{{ fmtYuan(row.payable) }}</b></template>
+        <el-table-column label="应付合计" min-width="110" align="right">
+          <template #default="{ row }"><span class="money">{{ fmtSigned(row.payable, 'out') }}</span></template>
         </el-table-column>
         <el-table-column label="状态" min-width="96">
           <template #default="{ row }"><DictTag type="BillStatus" :value="row.status" /></template>
         </el-table-column>
-        <el-table-column label="异议截止" min-width="124">
+        <el-table-column label="异议截止" width="104">
+          <template #default="{ row }"><span class="code" :class="{ due: canDispute(row), past: row.disputeDeadline && !canDispute(row) }">{{ fmtDate(row.disputeDeadline) }}</span><div v-if="canDispute(row)" class="due-t">异议期内</div></template>
+        </el-table-column>
+        <el-table-column label="结算截止" width="104">
+          <template #default="{ row }"><span class="code" :class="{ overdue: settleOverdue(row) }" :title="settleOverdue(row) ? '已过结算截止日' : undefined">{{ fmtDate(row.settleDeadline) }}</span></template>
+        </el-table-column>
+        <el-table-column label="操作" :width="opsWidth" align="right" class-name="ops-col">
           <template #default="{ row }">
-            <span class="mono t-sm" :class="{ dim: row.disputeDeadline && !canDispute(row) }" :title="canDispute(row) ? '异议期内，可提出异议' : undefined">{{ fmtDate(row.disputeDeadline) }}</span>
+            <div class="acts">
+              <el-button size="small" link type="primary" @click.stop="openDetail(row)">明细</el-button>
+              <el-button v-if="canDispute(row)" size="small" link type="primary" :disabled="!!blocked[row.billId]" @click.stop="dispute(row)">提出异议</el-button>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="结算截止" min-width="124">
-          <template #default="{ row }">
-            <span class="mono t-sm" :style="{ color: settleOverdue(row) ? 'var(--danger)' : undefined }" :title="settleOverdue(row) ? '已过结算截止日' : undefined">{{ fmtDate(row.settleDeadline) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column v-if="opsWidth" label="操作" :width="opsWidth" fixed="right" class-name="ops-col">
-          <template #default="{ row }"><RowActions :actions="rowActions(row)" @act="(k) => (k === 'detail' ? openDetail(row) : dispute(row))" /></template>
-        </el-table-column>
+
         <template #empty>
-          <el-empty :image-size="80" :description="loadError ? '加载失败' : '暂无账单 · 每月最后一天自动生成'" />
+          <div v-if="loadError" class="state-box">
+            <IconCircleExclamationPoint :size="48" />
+            <h4>{{ loadError }}</h4>
+            <p>请检查网络后重新加载</p>
+            <el-button @click="load">重新加载</el-button>
+          </div>
+          <div v-else-if="!loading" class="state-box">
+            <IconReceipt :size="48" />
+            <h4>暂无账单</h4>
+            <p>每月最后一天自动生成，平台下发后会出现在这里</p>
+          </div>
+          <span v-else />
         </template>
       </el-table>
       <div v-if="page.total > page.pageSize" class="pager">
@@ -194,14 +210,14 @@ function rowClass({ row }: { row: MonthlyBill }) {
       </div>
     </div>
 
-    <div class="grid g-2" style="margin-top: 14px">
+    <div class="explain">
       <div class="card">
         <div class="card__hd"><h3>计费规则</h3></div>
         <div class="card__bd">
           <dl class="kv"><dt>增长技术服务费</dt><dd>max(在岗 − 存量基数, 0) × 单价 / 天</dd></dl>
           <dl class="kv"><dt>人才流转费（应付）</dt><dd>来源为其他公司的在岗员工 10 元/人/天</dd></dl>
           <dl class="kv"><dt>人才流转费（应收）</dt><dd>本公司来源的员工在别家在岗 8 元/人/天</dd></dl>
-          <div class="note" style="margin-top: 10px">存量人员<b>永久免费且不受离职影响</b>；三个月免费期内导入的员工计入存量。</div>
+          <p class="para">存量人员<b>永久免费且不受离职影响</b>；三个月免费期内导入的员工计入存量。</p>
         </div>
       </div>
       <div class="card">
@@ -215,11 +231,39 @@ function rowClass({ row }: { row: MonthlyBill }) {
       </div>
     </div>
 
-    <BillDetailDrawer ref="drawerRef" v-model="drawer.visible" :bill-id="drawer.billId" :can-dispute="canDispute(drawerBill)" @dispute="drawerBill && dispute(drawerBill)" />
+    <BillDetailDrawer
+      ref="drawerRef"
+      v-model="drawer.visible"
+      :bill-id="drawer.billId"
+      :can-dispute="canDispute(drawerBill)"
+      :blocked-why="drawer.billId ? blocked[drawer.billId] : undefined"
+      @dispute="drawerBill && dispute(drawerBill)"
+    />
   </div>
 </template>
 
 <style scoped>
-:deep(.row-sel) { --el-table-tr-bg-color: var(--signal-50); }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-gap); }
+.total { color: var(--primary-text); }
+.netting { margin-top: var(--space-gap); }
+.to-ledger { margin-left: var(--space-2); vertical-align: baseline; }
+.tbl-card { margin-top: var(--space-gap); }
+.tbl-tip { margin: var(--space-3) var(--space-4) 0; }
+.hint { font-size: var(--font-size-aux); color: var(--text-3); }
+.code { font-family: var(--font-mono); font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-1); white-space: nowrap; }
+b.code { font-weight: var(--font-weight-semibold); }
+.due { color: var(--warning-text); }
+.code.past { color: var(--text-3); }
+.code.overdue { color: var(--danger-text); }
+.due-t { font-size: var(--font-size-min); color: var(--warning-text); }
+.acts { display: inline-flex; gap: var(--space-2); justify-content: flex-end; white-space: nowrap; }
+.acts .el-button + .el-button { margin-left: 0; }
+.explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
+.para { margin: var(--space-3) 0 0; font-size: var(--font-size-aux); line-height: 1.8; color: var(--text-2); }
+.para b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+/* 选中的账单用中性浅底，不和「已下发」等信息色标签融在一起 */
+:deep(.row-sel) { --el-table-tr-bg-color: var(--bg-hover); }
 :deep(.el-table__row) { cursor: pointer; }
+/* 表格行高约 48（规范 Key Components 表格） */
+.tbl-card :deep(.el-table__body .el-table__cell) { height: 48px; }
 </style>

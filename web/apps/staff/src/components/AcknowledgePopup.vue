@@ -2,7 +2,8 @@
 import { shNowMs, shNow } from '@/utils/time'
 import { computed, reactive, ref, watch } from 'vue'
 import { showSuccessToast, showToast, type PickerOption } from 'vant'
-import { errorMessage, tenantApi, type SiteApplication } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, type SiteApplication } from '@shitu/api-client'
+import { IconCheck } from '@shitu/ui-icons'
 import { useAuthStore } from '@/stores/auth'
 import { fmtFull, nextWorkday9, parseLocal, toLocalIso } from '@/utils/time'
 
@@ -12,7 +13,11 @@ import { fmtFull, nextWorkday9, parseLocal, toLocalIso } from '@/utils/time'
  */
 const props = defineProps<{ application: SiteApplication | null }>()
 const show = defineModel<boolean>('show', { required: true })
-const emit = defineEmits<{ done: [app: SiteApplication] }>()
+const emit = defineEmits<{ done: [app: SiteApplication]; rejected: [e: unknown] }>()
+/** 提交被拒的原因：留在提交按钮上方，轻提示消失后还看得到 */
+const submitError = ref('')
+/** 后端业务拒绝后提交按钮置灰；改了表单内容可以再提交 */
+const rejected = ref(false)
 
 const auth = useAuthStore()
 const PRESET_DOCS = ['身份证', '一寸照片', '银行卡', '健康证', '学历证明']
@@ -38,8 +43,10 @@ const title = computed(() => (isRepush.value ? '修改面试信息' : '知悉并
 const allDocs = computed(() => [...PRESET_DOCS, ...customDocs.value])
 
 watch(show, (v) => {
+  if (v) submitError.value = ''
   if (v && props.application) void prefill(props.application)
 })
+watch([form, customDocs], () => (rejected.value = false), { deep: true })
 
 async function prefill(app: SiteApplication) {
   const existing = parseLocal(app.interviewAt)
@@ -169,6 +176,7 @@ async function submit() {
     return
   }
   submitting.value = true
+  submitError.value = ''
   try {
     const updated = await tenantApi.acknowledge(app.applicationId, {
       interviewAt: toLocalIso(form.interviewAt),
@@ -182,7 +190,11 @@ async function submit() {
     show.value = false
     emit('done', updated)
   } catch (e) {
-    showToast(errorMessage(e, '推送失败，请稍后重试'))
+    submitError.value = errorMessage(e, '推送失败，请稍后重试')
+    submitting.value = false
+    rejected.value = isApiError(e) && e.code !== 'NETWORK'
+    showToast(submitError.value)
+    emit('rejected', e)
   } finally {
     submitting.value = false
   }
@@ -195,7 +207,7 @@ async function submit() {
       <van-nav-bar :title="title" left-arrow safe-area-inset-top @click-left="show = false" />
       <div v-if="application" class="body">
         <section class="who">
-          <div class="avatar" :class="application.fromPublic ? 'avatar--t' : 'avatar--o'">{{ application.seekerName.slice(0, 1) }}</div>
+          <div class="avatar">{{ application.seekerName.slice(0, 1) }}</div>
           <div class="flex1">
             <b>{{ application.seekerName }}</b>
             <span>{{ application.jobTitle ?? '—' }}<template v-if="application.projectName"> · {{ application.projectName }}</template></span>
@@ -208,10 +220,12 @@ async function submit() {
             required
             is-link
             readonly
-            :model-value="fmtFull(form.interviewAt)"
-            :placeholder="'请选择'"
+            :class="{ 'has-hint': timeHint }"
             @click="openPicker"
-          />
+          >
+            <!-- 用文字而不是输入框显示：360 宽下能折行，不会截成「09:」 -->
+            <template #input><span class="pick-val">{{ fmtFull(form.interviewAt) }}</span></template>
+          </van-field>
           <div v-if="timeHint" class="hint">{{ timeHint }}</div>
           <van-field
             v-model="form.address"
@@ -221,6 +235,7 @@ async function submit() {
             rows="2"
             autosize
             maxlength="200"
+            :class="{ 'has-hint': addressHint }"
             :placeholder="prefilling ? '正在带出岗位地址…' : '工厂 / 园区 + 门岗，如：昆山开发区 XX 路 88 号 2 号门'"
           />
           <div v-if="addressHint" class="hint">{{ addressHint }}</div>
@@ -234,17 +249,16 @@ async function submit() {
               v-for="d in allDocs"
               :key="d"
               type="button"
-              class="chip"
-              :class="{ on: form.documents.includes(d) }"
+              class="chip-tap"
               :aria-pressed="form.documents.includes(d)"
               @click="toggleDoc(d)"
             >
-              <van-icon v-if="form.documents.includes(d)" name="success" size="12" />{{ d }}
+              <span class="chip" :class="{ on: form.documents.includes(d) }"><IconCheck :size="14" class="ck" />{{ d }}</span>
             </button>
           </div>
           <div class="custom">
             <input v-model="customInput" class="custom-in" maxlength="20" placeholder="其他材料，如：体检报告" enterkeyhint="done" @keyup.enter="addCustomDoc" />
-            <van-button size="small" plain type="primary" :disabled="!customInput.trim()" @click="addCustomDoc">添加</van-button>
+            <van-button plain type="primary" :disabled="!customInput.trim()" @click="addCustomDoc">添加</van-button>
           </div>
         </van-cell-group>
 
@@ -253,11 +267,12 @@ async function submit() {
           <van-field v-model="form.contactPhone" label="联系电话" type="tel" maxlength="20" placeholder="选填，求职者可直接拨打" />
         </van-cell-group>
 
-        <p class="tip t-xs">提交后将通过<b>短信 + 站内信</b>推送给求职者。面试信息可重复修改，以最后一次推送为准。</p>
+        <p class="tip">提交后将通过<b>短信 + 站内信</b>推送给求职者。面试信息可重复修改，以最后一次推送为准。</p>
       </div>
 
       <div class="foot">
-        <van-button block type="primary" class="btn-cta" :loading="submitting" loading-text="推送中…" :disabled="!application" @click="submit">
+        <p v-if="submitError" class="bar-why err" role="status">没有提交成功：{{ submitError }}</p>
+        <van-button block type="primary" class="btn-cta" size="large" :loading="submitting" loading-text="推送中…" :disabled="!application || rejected" @click="submit">
           {{ isRepush ? '保存并重新推送' : '确认知悉并推送' }}
         </van-button>
       </div>
@@ -273,22 +288,31 @@ async function submit() {
 </template>
 
 <style scoped>
-.ack { height: 100%; display: flex; flex-direction: column; background: var(--surface-2); }
+.ack { height: 100%; display: flex; flex-direction: column; background: var(--bg-page); }
 .body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 16px; }
 .who { display: flex; align-items: center; gap: 10px; padding: 14px 16px 4px; }
-.who b { display: block; font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.who span { display: block; font-size: 12px; color: var(--ink-500); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who b { display: block; font-size: var(--font-size-body); font-weight: 700; color: var(--text-1); }
+.who span { display: block; font-size: var(--font-size-aux); color: var(--text-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp { margin-top: 12px; }
-.hint { padding: 0 16px 10px; margin-top: -4px; font-size: 11.5px; color: var(--ink-400); background: var(--surface); }
-.docs-hd { padding: 12px 16px 4px; font-size: 14px; color: var(--ink-800); }
-.docs-hd span { font-size: 12px; color: var(--ink-400); }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px 4px; }
-.chip { display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--line-2); background: var(--surface); font-size: 13px; color: var(--ink-700); }
-.chip.on { border-color: var(--signal); background: var(--signal-50); color: var(--signal-700); font-weight: 600; }
+.pick-val { color: var(--text-1); overflow-wrap: anywhere; }
+.hint { position: relative; padding: 0 16px 12px; margin-top: -6px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); background: var(--bg-card); }
+/* 说明行接在字段下面：分隔线从字段底下挪到说明行底下，说明和它的字段看起来是一格 */
+.hint::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; border-bottom: 1px solid var(--border); transform: scaleY(.5); }
+.grp :deep(.van-cell.has-hint::after) { display: none; }
+.docs-hd { padding: 12px 16px 4px; font-size: var(--font-size-body); color: var(--text-1); }
+.docs-hd span { font-size: var(--font-size-aux); color: var(--text-3); }
+.chips { display: flex; flex-wrap: wrap; column-gap: var(--space-2); padding: 4px 16px 0; }
+/* 可点的小标签：外层按钮撑到 44 高当点击区，里面的标签保持原来大小 */
+.chip-tap { display: inline-flex; align-items: center; min-height: var(--control-height); padding: 0; border: 0; background: none; font: inherit; }
+/* 选中时左边多出 14 的勾和 4 的间距：没选中时左右各多留 9，选中前后宽度不变、文字居中 */
+.chip { display: inline-flex; align-items: center; gap: var(--space-1); height: 32px; padding: 0 19px; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-card); font-size: var(--font-size-aux); color: var(--text-2); }
+.chip .ck { display: none; }
+.chip.on { padding: 0 var(--space-3) 0 var(--space-2); border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+.chip.on .ck { display: inline-block; }
 .custom { display: flex; gap: 8px; align-items: center; padding: 8px 16px 14px; }
-.custom-in { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); font-size: 13px; background: var(--surface-2); color: var(--ink-800); outline: none; }
-.custom-in:focus { border-color: var(--signal); background: var(--surface); }
-.tip { padding: 12px 18px 0; line-height: 1.7; }
-.tip b { color: var(--ink-700); }
-.foot { flex: none; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.custom-in { flex: 1; min-width: 0; height: var(--control-height); padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-control); font-size: 16px; background: var(--bg-page); color: var(--text-1); outline: none; }
+.custom-in:focus { border-color: var(--primary); background: var(--bg-card); }
+.tip { padding: 12px 18px 0; font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
+.tip b { color: var(--text-2); }
+.foot { flex: none; padding: 10px var(--space-4) calc(10px + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--border); }
 </style>

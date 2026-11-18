@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { IconInbox, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { IconChevronDown, IconChevronUp } from '@shitu/ui-icons'
 import { opsApi, useDict, type AuditLogEntry } from '@shitu/api-client'
 import { usePagedList } from '@/composables/usePagedList'
 import { fmtDateTimeSec, prettyJson } from '@/utils/format'
@@ -9,6 +11,7 @@ import { AUDIT_ACTION_GROUPS, AUDIT_TARGET_OPTIONS, auditActionLabel, auditTarge
 const { options, label } = useDict()
 
 const filters = reactive({ actorDomain: '', actorId: '', companyId: '', action: '', targetType: '', targetId: '' })
+const expanded = ref(false)
 const range = ref<[string, string] | undefined>(undefined)
 
 /** AuthDomain 字典只有三套账号域，审计日志另有 SYSTEM（定时任务 / 系统动作） */
@@ -31,7 +34,7 @@ async function copy(text?: string | null) {
     ElMessage.warning('复制失败，请展开该行后手动选择复制')
   }
 }
-const DOMAIN_TAG: Record<string, string> = { OPS: 'tag--temp', TENANT: 'tag--info', SEEKER: 'tag--ok', SYSTEM: '' }
+const DOMAIN_TAG: Record<string, string> = { OPS: 'status-tag--pending', TENANT: 'status-tag--info', SEEKER: 'status-tag--success', SYSTEM: '' }
 
 const list = usePagedList<AuditLogEntry>((p) => {
   const t = (s: string) => s.trim() || undefined
@@ -67,12 +70,13 @@ onMounted(() => list.load())
     <div class="card">
       <el-form class="filters" :model="filters" label-position="top" @submit.prevent="list.search()">
         <el-form-item label="操作方">
-          <el-select v-model="filters.actorDomain" clearable placeholder="全部">
+          <el-select v-model="filters.actorDomain" :empty-values="[null, undefined]">
+            <el-option value="" label="全部" />
             <el-option v-for="o in domainOptions" :key="o.value" :value="o.value" :label="o.label" />
           </el-select>
         </el-form-item>
-        <el-form-item label="操作人 ID"><el-input v-model="filters.actorId" clearable /></el-form-item>
-        <el-form-item label="公司 ID"><el-input v-model="filters.companyId" clearable /></el-form-item>
+        <el-form-item v-show="expanded" label="操作人 ID"><el-input v-model="filters.actorId" clearable /></el-form-item>
+        <el-form-item v-show="expanded" label="公司 ID"><el-input v-model="filters.companyId" clearable /></el-form-item>
         <el-form-item label="动作">
           <el-select v-model="filters.action" clearable filterable placeholder="全部">
             <el-option-group v-for="g in actionGroups" :key="g.label" :label="g.label">
@@ -80,22 +84,23 @@ onMounted(() => list.load())
             </el-option-group>
           </el-select>
         </el-form-item>
-        <el-form-item label="对象类型">
+        <el-form-item v-show="expanded" label="对象类型">
           <el-select v-model="filters.targetType" clearable filterable placeholder="全部">
             <el-option v-for="o in AUDIT_TARGET_OPTIONS" :key="o.value" :value="o.value" :label="o.label" />
           </el-select>
         </el-form-item>
-        <el-form-item label="对象 ID"><el-input v-model="filters.targetId" clearable /></el-form-item>
-        <el-form-item label="日期" class="wide">
+        <el-form-item v-show="expanded" label="对象 ID"><el-input v-model="filters.targetId" clearable /></el-form-item>
+        <el-form-item v-show="expanded" label="日期" class="wide">
           <el-date-picker v-model="range" type="daterange" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" unlink-panels />
         </el-form-item>
         <el-form-item label=" " class="btns">
-          <el-button type="primary" native-type="submit">查询</el-button>
+          <el-button :loading="list.loading.value" native-type="submit">查询</el-button>
           <el-button @click="reset">重置</el-button>
+          <el-button link type="primary" :aria-expanded="expanded" @click="expanded = !expanded">{{ expanded ? '收起筛选' : '展开筛选' }}<component :is="expanded ? IconChevronUp : IconChevronDown" :size="16" /></el-button>
         </el-form-item>
       </el-form>
 
-      <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table" row-key="id">
+      <el-table v-loading="list.loading.value" :data="list.loading.value ? [] : list.rows.value" class="tbl-48" row-key="id">
         <el-table-column type="expand">
           <template #default="{ row }">
             <div class="exp">
@@ -109,11 +114,11 @@ onMounted(() => list.load())
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="时间" width="168" class-name="nowrap-col">
-          <template #default="{ row }"><span class="mono t-sm">{{ fmtDateTimeSec(row.createdAt) }}</span></template>
+        <el-table-column label="时间" width="160">
+          <template #default="{ row }"><span class="tnum t-sm">{{ fmtDateTimeSec(row.createdAt) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作方" width="104">
-          <template #default="{ row }"><span class="tag" :class="DOMAIN_TAG[row.actorDomain]">{{ domainLabel(row.actorDomain) }}</span></template>
+        <el-table-column label="操作方" width="110">
+          <template #default="{ row }"><span class="status-tag" :class="DOMAIN_TAG[row.actorDomain]">{{ domainLabel(row.actorDomain) }}</span></template>
         </el-table-column>
         <el-table-column label="操作人 ID" min-width="140" class-name="nowrap-col" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono t-sm">{{ row.actorId ?? '—' }}</span></template>
@@ -151,10 +156,10 @@ onMounted(() => list.load())
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty v-if="list.error.value" :image-size="64" :description="list.error.value">
-            <el-button size="small" @click="list.load()">重试</el-button>
+          <el-empty v-if="!list.loading.value && list.error.value" :image-size="48" :description="list.error.value"><template #image><IconCircleExclamationPoint :size="48" /></template>
+            <el-button size="small" @click="list.load()">重新加载</el-button>
           </el-empty>
-          <el-empty v-else :image-size="64" description="没有符合条件的日志" />
+          <el-empty v-else-if="!list.loading.value" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>没有符合条件的日志</h3><p>可重置筛选条件后重新查询。</p></template><el-button type="primary" @click="reset">重置筛选</el-button></el-empty>
         </template>
       </el-table>
       <div class="pager">
@@ -174,17 +179,19 @@ onMounted(() => list.load())
 </template>
 
 <style scoped>
-.filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 12px; padding: 12px 14px 0; border-bottom: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-md) var(--r-md) 0 0; }
+.filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 12px; padding: 12px 14px 0; border-bottom: 1px solid var(--border); background: var(--bg-card); border-radius: var(--radius-card) var(--radius-card) 0 0; }
 .filters :deep(.el-form-item) { margin-bottom: 12px; }
-.filters :deep(.el-form-item__label) { font-size: 12px; margin-bottom: 4px !important; line-height: 18px; }
+.filters :deep(.el-form-item__label) { font-size: 12px; margin-bottom: 4px; line-height: 18px; }
 .filters .wide { grid-column: span 2; }
 .filters :deep(.el-date-editor) { width: 100%; }
 .filters :deep(.el-select) { width: 100%; }
+.btns { grid-column: span 2; justify-self: end; }
+.filters :deep(.el-form-item__content) { min-width: 0; }
 .btns :deep(.el-form-item__content) { flex-wrap: nowrap; }
 .exp { padding: 8px 48px 12px; }
 .exp .codeblk { margin-top: 6px; max-height: 360px; }
 .meta { margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.code { color: var(--ink-400); word-break: break-all; }
-.trace { display: block; width: 100%; padding: 0; border: 0; background: transparent; font-size: 12px; color: var(--ink-500); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.trace:hover { color: var(--signal-700); }
+.code { color: var(--text-3); word-break: break-all; white-space: normal; }
+.trace { display: block; width: 100%; padding: 0; border: 0; background: transparent; font-size: var(--font-size-min); color: var(--text-2); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.trace:hover { color: var(--primary-text); }
 </style>

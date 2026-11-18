@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type FeedbackCategory, type FeedbackStatus, type MyFeedback } from '@shitu/api-client'
+import { IconCheck, IconInbox, IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { formatServerTime } from '@/utils/time'
 
 /**
@@ -27,6 +28,8 @@ const category = ref<FeedbackCategory | ''>('')
 const content = ref('')
 const contact = ref('')
 const submitting = ref(false)
+const errs = ref({ category: '', content: '', contact: '' })
+const rejected = ref('')
 
 const rows = ref<MyFeedback[]>([])
 const loading = ref(true)
@@ -44,21 +47,37 @@ async function load() {
   }
 }
 void load()
+function retry() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   await load()
   refreshing.value = false
 }
 
-function onContact(e: Event) {
-  contact.value = (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 11)
+const fmtContact = (v: string) => v.replace(/\D/g, '').slice(0, 11)
+
+function pick(c: FeedbackCategory) {
+  category.value = c
+  errs.value.category = ''
+}
+
+/** 校验没通过：轻提示之外原因留在字段下方，并滚到那个字段 */
+function invalid(field: 'category' | 'content' | 'contact', msg: string) {
+  errs.value[field] = msg
+  showToast(msg)
+  void nextTick(() => document.querySelector(`[data-field="${field}"]`)?.scrollIntoView({ block: 'center' }))
 }
 
 async function submit() {
   if (submitting.value) return
-  if (!category.value) return void showToast('请选择问题类型')
+  errs.value = { category: '', content: '', contact: '' }
+  rejected.value = ''
+  if (!category.value) return invalid('category', '请选择问题类型')
   const text = content.value.trim()
-  if (text.length < 5) return void showToast('请至少用 5 个字描述问题')
-  if (contact.value && !/^1[3-9]\d{9}$/.test(contact.value)) return void showToast('回访电话格式不正确')
+  if (text.length < 5) return invalid('content', '请至少用 5 个字描述问题')
+  if (contact.value && !/^1[3-9]\d{9}$/.test(contact.value)) return invalid('contact', '回访电话格式不正确')
   submitting.value = true
   try {
     await seekerApi.submitFeedback({ category: category.value, content: text, contact: contact.value || undefined })
@@ -68,92 +87,139 @@ async function submit() {
     contact.value = ''
     await load()
   } catch (e) {
-    showToast(errorMessage(e, '提交失败，请稍后重试'))
+    rejected.value = errorMessage(e, '提交失败，请稍后重试')
+    showToast(rejected.value)
   } finally {
     submitting.value = false
   }
 }
 
-const TAG: Record<FeedbackStatus, string> = { OPEN: 'tag-warn', REPLIED: 'tag-ok', CLOSED: 'tag-muted' }
+/** 和平台端同一套色调：待处理 = 提醒，已回复 = 成功，已关闭 = 中性 */
+const TONE: Record<FeedbackStatus, string> = { OPEN: 'status-tag--warning', REPLIED: 'status-tag--success', CLOSED: 'status-tag--neutral' }
 </script>
 
 <template>
   <div class="fb">
-    <header class="hd">
-      <h1>问题反馈</h1>
-      <p>遇到问题、想投诉或有建议，都可以在这里告诉平台</p>
-    </header>
+    <van-nav-bar title="问题反馈" fixed placeholder safe-area-inset-top z-index="50" />
 
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
       <div class="pad stack">
         <section class="acard">
-          <div class="lbl">问题类型</div>
-          <div class="chips">
-            <button v-for="c in cats" :key="c.value" type="button" class="chip" :class="{ on: category === c.value }" @click="category = c.value">{{ c.label }}</button>
+          <p class="para">遇到问题、想投诉或有建议，都可以在这里告诉平台</p>
+
+          <div id="fb-cat" class="lbl" data-field="category">问题类型</div>
+          <div class="opts" role="group" aria-labelledby="fb-cat">
+            <button v-for="c in cats" :key="c.value" type="button" class="chip-tap" :aria-pressed="category === c.value" @click="pick(c.value)">
+              <span class="chip opt"><IconCheck v-if="category === c.value" :size="14" :stroke-width="2.25" />{{ c.label }}</span>
+            </button>
           </div>
+          <p v-if="errs.category" class="fhint fhint--err" role="alert">{{ errs.category }}</p>
 
-          <div class="lbl" style="margin-top: 16px">问题描述</div>
-          <textarea v-model="content" class="ta" rows="5" :maxlength="MAX" placeholder="请写清楚发生了什么、涉及哪家公司或哪个岗位、你希望怎么解决"></textarea>
-          <div class="cnt t-xs">{{ content.length }} / {{ MAX }}</div>
+          <van-cell-group :border="false" class="grp">
+            <van-field
+              v-model="content"
+              class="ffield"
+              :class="{ bad: errs.content }"
+              type="textarea"
+              label="问题描述"
+              label-align="top"
+              rows="5"
+              :maxlength="MAX"
+              show-word-limit
+              placeholder="请写清楚发生了什么、涉及哪家公司或哪个岗位、你希望怎么解决"
+              data-field="content"
+              :error-message="errs.content"
+              :border="false"
+              @update:model-value="errs.content = ''"
+            />
+            <van-field
+              v-model="contact"
+              class="ffield"
+              :class="{ bad: errs.contact }"
+              type="tel"
+              label="回访电话（选填）"
+              label-align="top"
+              placeholder="如 13912345678"
+              :formatter="fmtContact"
+              data-field="contact"
+              :error-message="errs.contact"
+              :border="false"
+              @update:model-value="errs.contact = ''"
+            />
+            <p class="fhint">不填则用注册手机号联系你</p>
+          </van-cell-group>
+        </section>
 
-          <div class="lbl">回访电话（选填）</div>
-          <input class="inp" type="tel" inputmode="numeric" :value="contact" placeholder="不填则用注册手机号联系你" @input="onContact" />
-
-          <van-button block type="primary" class="submit" :loading="submitting" loading-text="提交中…" @click="submit">提交反馈</van-button>
-          <p class="t-xs tip">工资条金额有疑问，请到「我的工资」对应月份里提交工资申诉，会直接发给发薪公司处理。</p>
+        <section class="tipbar">
+          <IconInfo :size="20" />
+          <div class="flex1"><div class="tipbar-d first">工资条金额有疑问，请到「我的工资」对应月份里提交工资申诉，会直接发给发薪公司处理。</div></div>
         </section>
 
         <section class="acard">
-          <div class="acard-hd"><h4>我的反馈</h4><span v-if="rows.length" class="t-xs">{{ rows.length }} 条</span></div>
-          <div v-if="loading" class="state"><van-loading size="22" /></div>
-          <div v-else-if="loadError" class="state t-sm">{{ loadError }} <a class="lnk" @click="load">重试</a></div>
-          <div v-else-if="!rows.length" class="state t-sm">还没有提交过反馈</div>
-          <ul v-else class="list">
-            <li v-for="r in rows" :key="r.id">
-              <div class="row-b">
-                <b class="t14">{{ label('FeedbackCategory', r.category) }}</b>
-                <span class="tag" :class="TAG[r.status]"><i class="dot"></i>{{ label('FeedbackStatus', r.status) }}</span>
+          <div class="acard-hd"><h4>我的反馈</h4><span v-if="rows.length" class="cnt">{{ rows.length }} 条</span></div>
+          <div v-if="loading" class="page-state in-card"><van-loading size="28" vertical>加载中…</van-loading></div>
+          <div v-else-if="loadError" class="state-block state-block--sm">
+            <IconTriangleExclamationPoint :size="32" :stroke-width="1.5" />
+            <div class="state-block-t">{{ loadError }}</div>
+            <van-button @click="retry">重新加载</van-button>
+          </div>
+          <div v-else-if="!rows.length" class="state-block state-block--sm">
+            <IconInbox :size="32" :stroke-width="1.5" />
+            <div class="state-block-t">还没有提交过反馈</div>
+          </div>
+          <template v-else>
+            <div v-for="r in rows" :key="r.id" class="fb-item">
+              <div class="item-hd">
+                <h3>{{ label('FeedbackCategory', r.category) }}</h3>
+                <span class="status-tag" :class="TONE[r.status]">{{ label('FeedbackStatus', r.status) }}</span>
               </div>
-              <div class="t-xs num" style="margin-top: 3px">{{ formatServerTime(r.createdAt) }}</div>
-              <div class="quote">{{ r.content }}</div>
-              <div v-if="r.reply" class="reply">
+              <p class="item-meta">{{ formatServerTime(r.createdAt) }}</p>
+              <p class="fb-q">{{ r.content }}</p>
+              <div v-if="r.reply" class="fb-r">
                 <b>平台回复</b>
                 <p>{{ r.reply }}</p>
-                <span class="t-xs num">{{ formatServerTime(r.handledAt) }}</span>
+                <span>{{ formatServerTime(r.handledAt) }}</span>
               </div>
-            </li>
-          </ul>
+            </div>
+          </template>
         </section>
-        <div class="page-bottom-gap"></div>
+        <div class="bottom-bar-gap" :class="{ 'with-why': rejected }"></div>
       </div>
     </van-pull-refresh>
+
+    <!-- 这一页带底部标签栏，通栏按钮贴在标签栏上方；放在下拉刷新外面 -->
+    <div class="bottom-bar above-tabbar">
+      <p v-if="rejected" class="bar-why err" role="alert"><IconTriangleExclamationPoint :size="16" />没有提交成功：{{ rejected }}</p>
+      <van-button type="primary" size="large" block :loading="submitting" loading-text="提交中…" @click="submit">提交反馈</van-button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.fb { min-height: var(--page-h-tabbar); background: var(--surface-2); }
-.hd { padding: calc(18px + env(safe-area-inset-top)) 18px 20px; color: #fff; background: linear-gradient(160deg, #1E2834 0%, #10151C 100%); }
-.hd h1 { margin: 0; font-family: var(--f-dis); font-size: 20px; font-weight: 700; }
-.hd p { margin: 6px 0 0; font-size: 13px; color: rgba(255, 255, 255, .62); line-height: 1.6; text-wrap: pretty; }
-.lbl { font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 8px; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); font-size: 13px; color: var(--ink-700); }
-.chip.on { border-color: var(--signal); background: var(--signal-50); color: var(--signal-700); font-weight: 600; }
-.ta, .inp { width: 100%; box-sizing: border-box; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface-2); padding: 11px 12px; font-size: 14px; line-height: 1.7; color: var(--ink-900); outline: none; font-family: inherit; transition: border-color .15s, background .15s; }
-.ta { resize: none; }
-.inp { height: 46px; }
-.ta:focus, .inp:focus { background: var(--surface); border-color: var(--signal); }
-.cnt { text-align: right; margin: 4px 0 10px; color: var(--ink-400); }
-.submit { margin-top: 16px; height: 48px; border-radius: 14px; font-size: 16px; font-weight: 700; }
-.tip { margin-top: 10px; line-height: 1.7; color: var(--ink-500); }
-.state { padding: 18px 0; text-align: center; color: var(--ink-500); }
-.lnk { color: var(--signal-700); }
-.list { list-style: none; margin: 0; padding: 0; }
-.list li { padding: 12px 0; border-top: 1px solid var(--line); }
-.list li:first-child { border-top: 0; padding-top: 4px; }
-.t14 { font-size: 14px; }
-.quote { margin-top: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface-2); font-size: 13px; line-height: 1.7; color: var(--ink-700); white-space: pre-wrap; word-break: break-word; }
-.reply { margin-top: 8px; padding: 9px 11px; border-radius: var(--r-sm); background: var(--ok-bg, #EEF8F2); border-left: 3px solid var(--ok); }
-.reply b { font-size: 12.5px; color: var(--ok); }
-.reply p { margin: 3px 0 4px; font-size: 13px; line-height: 1.7; color: var(--ink-800); white-space: pre-wrap; word-break: break-word; }
+.fb { min-height: var(--page-h-tabbar); }
+/* 标签栏自己留了手势条的位置，这里只垫到它上方 */
+.above-tabbar { bottom: calc(var(--van-tabbar-height) + env(safe-area-inset-bottom)); padding-bottom: var(--space-2); }
+.bottom-bar-gap { height: 80px; }
+.bottom-bar-gap.with-why { height: 128px; }
+.lbl { margin-top: var(--space-4); font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); line-height: 20px; color: var(--text-2); }
+/* 两列等宽：选中多出的勾在格子里放得下，不会把整片挤得重新折行 */
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-2); }
+.opts .chip-tap { width: 100%; }
+.opts .opt { justify-content: center; width: 100%; }
+/* 可选的小块：外层 44 高的点击区，选中除了变色还带勾 */
+.opt { padding: var(--space-1) var(--space-3); border: 1px solid var(--border); background: var(--bg-card); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); }
+.chip-tap[aria-pressed="true"] .opt { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); font-weight: var(--font-weight-medium); }
+.chip-tap:focus-visible .opt { outline: 2px solid var(--primary); outline-offset: 2px; }
+.grp { margin-top: var(--space-3); }
+.tipbar-d.first { margin-top: 0; text-wrap: pretty; }
+.cnt { font-size: var(--font-size-aux); color: var(--text-3); }
+.in-card { padding: var(--space-4) 0 var(--space-2); }
+.fb-item { padding: var(--space-3) 0; border-top: 1px solid var(--divider); }
+.acard-hd + .fb-item { border-top: 0; padding-top: 0; }
+.fb-item:last-of-type { padding-bottom: 0; }
+.fb-q { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-r { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--success-soft); }
+.fb-r b { font-size: var(--font-size-aux); font-weight: var(--font-weight-medium); color: var(--success-text); }
+.fb-r p { margin-top: 2px; font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-r span { display: block; margin-top: 2px; font-size: var(--font-size-aux); color: var(--text-3); }
 </style>

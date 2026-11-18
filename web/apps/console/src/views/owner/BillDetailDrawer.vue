@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, h, ref, watch, type VNode } from 'vue'
 import { errorMessage, tenantApi, type BillDayLine, type BillDetail } from '@shitu/api-client'
+import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
-import { fmtDate, fmtDateTime, fmtYuan, toNum } from '@/utils/format'
+import { fmtDate, fmtDateTime, fmtSigned, toNum } from '@/utils/format'
 
-/** 账单详情：每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 异议记录 */
-const props = defineProps<{ billId: string | null; canDispute: boolean }>()
+/** 账单详情：每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 异议记录。blockedWhy：这张账单的异议被后端拒绝过的原因（置灰「提出异议」） */
+const props = defineProps<{ billId: string | null; canDispute: boolean; blockedWhy?: string }>()
 const visible = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ dispute: [] }>()
 
@@ -38,12 +39,13 @@ const days = computed(() => [...(detail.value?.days ?? [])].sort((a, b) => a.biz
 const freeDays = computed(() => days.value.filter((d) => d.inFreePeriod).length)
 
 type SummaryParam = { columns: { property?: string }[]; data: BillDayLine[] }
-const MONEY = new Set(['serviceFee', 'transferPayable', 'transferReceivable'])
-function summary({ columns, data }: SummaryParam): string[] {
+/** 合计行：应付的两列带「−」，应收带「+」，和明细行一致 */
+const MONEY: Record<string, 'in' | 'out'> = { serviceFee: 'out', transferPayable: 'out', transferReceivable: 'in' }
+function summary({ columns, data }: SummaryParam): (string | VNode)[] {
   return columns.map((c, i) => {
     if (i === 0) return '合计'
     const p = c.property as keyof BillDayLine | undefined
-    if (p && MONEY.has(p)) return fmtYuan(data.reduce((s, d) => s + toNum(d[p]), 0))
+    if (p && MONEY[p]) return h('span', { class: 'money' }, fmtSigned(data.reduce((s, d) => s + toNum(d[p]), 0), MONEY[p]))
     if (p === 'incrementCount') return `${data.reduce((s, d) => s + toNum(d.incrementCount), 0)} 人天`
     return ''
   })
@@ -51,84 +53,111 @@ function summary({ columns, data }: SummaryParam): string[] {
 </script>
 
 <template>
-  <el-drawer v-model="visible" size="760px" :title="detail ? `${detail.bill.billMonth} 月度账单` : '账单详情'">
-    <div v-loading="loading" style="min-height: 200px">
-      <el-alert v-if="error" type="error" :title="error" show-icon :closable="false" />
+  <el-drawer v-model="visible" size="720px" class="bill-drawer" :title="detail ? `${detail.bill.billMonth} 月度账单` : '账单详情'">
+    <div v-loading="loading" class="wrap">
+      <div v-if="error" class="state-box">
+        <IconCircleExclamationPoint :size="48" />
+        <h4>{{ error }}</h4>
+        <p>请检查网络后重新加载</p>
+        <el-button @click="billId && load(billId)">重新加载</el-button>
+      </div>
       <template v-else-if="detail">
-        <div class="row-wrap" style="margin-bottom: 12px">
-          <DictTag type="BillStatus" :value="detail.bill.status" lg />
-          <span class="mono t-xs">{{ detail.bill.billId }}</span>
+        <div class="hd">
+          <DictTag type="BillStatus" :value="detail.bill.status" />
+          <span class="code hint">{{ detail.bill.billId }}</span>
           <span class="spacer" />
-          <el-button v-if="canDispute" size="small" type="warning" plain @click="emit('dispute')">提出异议</el-button>
+          <el-button v-if="canDispute" :disabled="!!blockedWhy" @click="emit('dispute')">提出异议</el-button>
         </div>
-        <div class="grid g-4" style="gap: 10px">
-          <div class="stat"><div class="stat-l">增长技术服务费</div><div class="stat-v money">{{ fmtYuan(detail.bill.serviceFee) }}</div></div>
-          <div class="stat"><div class="stat-l">流转费 · 应付</div><div class="stat-v money" style="color: var(--danger)">{{ fmtYuan(detail.bill.transferPayable) }}</div></div>
-          <div class="stat"><div class="stat-l">流转费 · 应收</div><div class="stat-v money" style="color: var(--ok)">{{ fmtYuan(detail.bill.transferReceivable) }}</div></div>
-          <div class="stat stat--signal"><div class="stat-l">应付合计</div><div class="stat-v money">{{ fmtYuan(detail.bill.payable) }}</div></div>
-        </div>
-        <div class="t-xs" style="margin-top: 6px">应付合计 = 服务费 + 应付流转费；应收流转费由平台另行结算，<b class="strong">不与应付轧差</b>。</div>
+        <p v-if="blockedWhy" class="blocked-why hd-why" role="status">{{ blockedWhy }}</p>
 
-        <div class="grid g-2" style="gap: 0 20px; margin-top: 12px">
-          <div>
-            <dl class="kv"><dt>下发时间</dt><dd class="mono">{{ fmtDateTime(detail.bill.issuedAt) }}</dd></dl>
-            <dl class="kv"><dt>异议截止</dt><dd class="mono">{{ fmtDate(detail.bill.disputeDeadline) }}</dd></dl>
-          </div>
-          <div>
-            <dl class="kv"><dt>结算截止</dt><dd class="mono">{{ fmtDate(detail.bill.settleDeadline) }}</dd></dl>
-            <dl class="kv"><dt>结算时间</dt><dd class="mono">{{ fmtDateTime(detail.bill.settledAt) }}</dd></dl>
-          </div>
-        </div>
+        <section class="blk">
+          <h4 class="blk-t">金额</h4>
+          <dl class="desc-list">
+            <div><dt>增长技术服务费（应付）</dt><dd class="money">{{ fmtSigned(detail.bill.serviceFee, 'out') }}</dd></div>
+            <div><dt>流转费 · 应付</dt><dd class="money">{{ fmtSigned(detail.bill.transferPayable, 'out') }}</dd></div>
+            <div><dt>流转费 · 应收</dt><dd class="money">{{ fmtSigned(detail.bill.transferReceivable, 'in') }}</dd></div>
+            <div><dt>应付合计</dt><dd class="money total">{{ fmtSigned(detail.bill.payable, 'out') }}</dd></div>
+          </dl>
+          <p class="hint fine">应付合计 = 服务费 + 应付流转费；应收流转费由平台另行结算，<b>不与应付轧差</b>。</p>
+        </section>
 
-        <div class="form-sec" style="margin-top: 18px">每日计费明细<span class="t-xs" style="font-weight: 400">（{{ days.length }} 天{{ freeDays ? `，其中免费期 ${freeDays} 天` : '' }}）</span></div>
-        <el-table :data="days" size="small" max-height="380" show-summary :summary-method="summary" row-key="bizDate">
-          <el-table-column label="日期" min-width="90" prop="bizDate">
-            <template #default="{ row }"><span class="mono">{{ row.bizDate.slice(5) }}</span></template>
-          </el-table-column>
-          <el-table-column label="" min-width="76">
-            <template #default="{ row }"><span v-if="row.inFreePeriod" class="tag tag--ok">免费期</span></template>
-          </el-table-column>
-          <el-table-column label="在岗" min-width="64" align="right" prop="employedCount">
-            <template #default="{ row }"><span class="num">{{ row.employedCount }}</span></template>
-          </el-table-column>
-          <el-table-column label="存量" min-width="64" align="right" prop="stockBase">
-            <template #default="{ row }"><span class="num dim">{{ row.stockBase }}</span></template>
-          </el-table-column>
-          <el-table-column label="增量" min-width="64" align="right" prop="incrementCount">
-            <template #default="{ row }"><span class="num" style="color: var(--signal)">{{ row.incrementCount }}</span></template>
-          </el-table-column>
-          <el-table-column label="服务费" min-width="104" align="right" prop="serviceFee">
-            <template #default="{ row }"><span class="num">{{ fmtYuan(row.serviceFee) }}</span></template>
-          </el-table-column>
-          <el-table-column label="流转应付" min-width="104" align="right" prop="transferPayable">
-            <template #default="{ row }"><span class="num">{{ fmtYuan(row.transferPayable) }}</span></template>
-          </el-table-column>
-          <el-table-column label="流转应收" min-width="104" align="right" prop="transferReceivable">
-            <template #default="{ row }"><span class="num">{{ fmtYuan(row.transferReceivable) }}</span></template>
-          </el-table-column>
-          <template #empty><span class="t-xs">暂无每日明细</span></template>
-        </el-table>
-        <div class="note" style="margin-top: 10px">增长服务费 = max(当日在岗人数 − 存量基数, 0) × 单价；免费期内不计费，存量基数在免费期满次日锁定。</div>
+        <section class="blk">
+          <h4 class="blk-t">时间</h4>
+          <dl class="desc-list">
+            <div><dt>下发时间</dt><dd>{{ fmtDateTime(detail.bill.issuedAt) }}</dd></div>
+            <div><dt>异议截止</dt><dd>{{ fmtDate(detail.bill.disputeDeadline) }}</dd></div>
+            <div><dt>结算截止</dt><dd>{{ fmtDate(detail.bill.settleDeadline) }}</dd></div>
+            <div><dt>结算时间</dt><dd>{{ fmtDateTime(detail.bill.settledAt) }}</dd></div>
+          </dl>
+        </section>
 
-        <div class="form-sec" style="margin-top: 18px">异议记录</div>
-        <div v-if="!detail.disputes.length" class="t-sm dim">暂无异议</div>
-        <div v-for="d in detail.disputes" :key="d.id" class="dispute">
-          <div class="row">
-            <DictTag type="DisputeStatus" :value="d.status" />
-            <span class="mono t-xs">{{ fmtDateTime(d.createdAt) }}</span>
+        <section class="blk">
+          <h4 class="blk-t">每日计费明细<small>{{ days.length }} 天{{ freeDays ? `，其中免费期 ${freeDays} 天` : '' }}</small></h4>
+          <el-table class="days" :data="days" max-height="380" show-summary :summary-method="summary" row-key="bizDate">
+            <el-table-column label="日期" width="72" prop="bizDate">
+              <template #default="{ row }"><span class="code">{{ row.bizDate.slice(5) }}</span></template>
+            </el-table-column>
+            <el-table-column label="" width="84">
+              <template #default="{ row }"><span v-if="row.inFreePeriod" class="status-tag status-tag--success">免费期</span></template>
+            </el-table-column>
+            <el-table-column label="在岗" width="60" align="right" prop="employedCount" />
+            <el-table-column label="存量" width="60" align="right" prop="stockBase">
+              <template #default="{ row }"><span class="hint">{{ row.stockBase }}</span></template>
+            </el-table-column>
+            <el-table-column label="增量" width="84" align="right" prop="incrementCount" />
+            <el-table-column label="服务费" min-width="96" align="right" prop="serviceFee">
+              <template #default="{ row }"><span class="money">{{ fmtSigned(row.serviceFee, 'out') }}</span></template>
+            </el-table-column>
+            <el-table-column label="流转应付" min-width="96" align="right" prop="transferPayable">
+              <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferPayable, 'out') }}</span></template>
+            </el-table-column>
+            <el-table-column label="流转应收" min-width="96" align="right" prop="transferReceivable">
+              <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferReceivable, 'in') }}</span></template>
+            </el-table-column>
+            <template #empty><span class="hint">暂无每日明细</span></template>
+          </el-table>
+          <p class="hint fine">增长服务费 = max(当日在岗人数 − 存量基数, 0) × 单价；免费期内不计费，存量基数在免费期满次日锁定。</p>
+        </section>
+
+        <section class="blk">
+          <h4 class="blk-t">异议记录</h4>
+          <p v-if="!detail.disputes.length" class="hint">暂无异议</p>
+          <div v-for="d in detail.disputes" :key="d.id" class="dispute">
+            <div class="dispute-hd">
+              <DictTag type="DisputeStatus" :value="d.status" />
+              <span class="hint">{{ fmtDateTime(d.createdAt) }}</span>
+            </div>
+            <p class="dispute-t">{{ d.content }}</p>
+            <div v-if="d.reply" class="reply"><b>平台回复：</b>{{ d.reply }}<span class="hint reply-at">{{ fmtDateTime(d.repliedAt) }}</span></div>
           </div>
-          <p class="t-sm" style="margin-top: 6px; color: var(--ink-800)">{{ d.content }}</p>
-          <div v-if="d.reply" class="note note--info" style="margin-top: 8px"><b>平台回复：</b>{{ d.reply }}<span class="mono t-xs" style="margin-left: 8px">{{ fmtDateTime(d.repliedAt) }}</span></div>
-        </div>
+        </section>
       </template>
     </div>
   </el-drawer>
 </template>
 
 <style scoped>
-.money { font-size: 20px; white-space: nowrap; }
-/* 合计行：与正文同字号并加粗，金额不折行 */
-:deep(.el-table__footer-wrapper td.el-table__cell) { background: var(--surface-2); border-top: 1px solid var(--line-2); }
-:deep(.el-table__footer-wrapper td.el-table__cell .cell) { font-size: 13.5px; font-weight: 650; color: var(--ink-900); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.dispute { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 8px; }
+.wrap { min-height: 200px; }
+.hd { display: flex; align-items: center; gap: var(--space-2); }
+.hd-why { margin-top: var(--space-2); }
+.hd + .blk, .hd-why + .blk { margin-top: var(--space-6); }
+.hint { font-size: var(--font-size-aux); color: var(--text-3); }
+.code { font-family: var(--font-mono); }
+/* 合计行：600 字重、一级文字（Element 默认比正文还淡） */
+.days :deep(.el-table__footer .cell) { font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; }
+.total { font-size: var(--font-size-section); color: var(--primary-text); }
+.fine { margin: var(--space-3) 0 0; line-height: 1.6; }
+.fine b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.dispute { border: 1px solid var(--border); border-radius: var(--radius-card); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-2); }
+.dispute-hd { display: flex; align-items: center; gap: var(--space-2); }
+.dispute-t { margin: var(--space-2) 0 0; font-size: var(--font-size-body); line-height: 1.6; color: var(--text-1); }
+.reply { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); }
+.reply b { font-weight: var(--font-weight-semibold); }
+.reply-at { margin-left: var(--space-2); }
+</style>
+
+<style>
+/* 抽屉挂在 body 上：标题用区块标题样式（同消息抽屉），标题下不留大块空白 */
+.bill-drawer .el-drawer__title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.bill-drawer .el-drawer__header { margin-bottom: 0; }
 </style>

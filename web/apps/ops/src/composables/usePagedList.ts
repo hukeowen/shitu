@@ -1,5 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { errorMessage, type PageResult } from '@shitu/api-client'
+import { isNetwork } from './boxSubmit'
 
 export interface PageParams {
   page: number
@@ -7,7 +8,7 @@ export interface PageParams {
 }
 
 /**
- * 分页列表：rows / total / loading / error + load()。
+ * 分页列表：rows / total / loading / error + load()；offline 表示这次失败是断网、超时（失败文案按它区分）。
  * 筛选条件由调用方在 fetcher 闭包里读取；条件变化时调用 search()（回到第 1 页）。
  */
 export function usePagedList<T>(fetcher: (p: PageParams) => Promise<PageResult<T>>, pageSize = 20) {
@@ -17,12 +18,14 @@ export function usePagedList<T>(fetcher: (p: PageParams) => Promise<PageResult<T
   const size = ref(pageSize)
   const loading = ref(false)
   const error = ref('')
+  const offline = ref(false)
   let seq = 0
 
   async function load() {
     const my = ++seq
     loading.value = true
     error.value = ''
+    offline.value = false
     try {
       const r = await fetcher({ page: page.value, pageSize: size.value })
       if (my !== seq) return
@@ -36,6 +39,7 @@ export function usePagedList<T>(fetcher: (p: PageParams) => Promise<PageResult<T
     } catch (e) {
       if (my !== seq) return
       error.value = errorMessage(e, '加载失败，请稍后重试')
+      offline.value = isNetwork(e)
       rows.value = []
       total.value = 0
     } finally {
@@ -59,5 +63,5 @@ export function usePagedList<T>(fetcher: (p: PageParams) => Promise<PageResult<T
     return load()
   }
 
-  return { rows, total, page, pageSize: size, loading, error, load, search, onPageChange, onSizeChange }
+  return { rows, total, page, pageSize: size, loading, error, offline, load, search, onPageChange, onSizeChange }
 }

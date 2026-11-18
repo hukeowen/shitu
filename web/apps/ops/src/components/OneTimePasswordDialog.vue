@@ -31,16 +31,16 @@ async function copy() {
   <el-dialog
     v-model="visible"
     :title="title"
-    width="440px"
+    width="480px"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
     append-to-body
     @closed="copied = false"
   >
-    <div class="notice notice--warn">该密码仅显示这一次，关闭后无法再次查看。请立即复制并通过安全渠道交给账号使用人，对方首次登录须修改密码。</div>
+    <div class="notice-bar notice-bar--warn">该密码仅显示这一次，关闭后无法再次查看。请立即复制并通过安全渠道交给账号使用人，对方首次登录须修改密码。</div>
     <dl class="kv-grid one box">
-      <div class="kv"><dt>用户名</dt><dd class="mono">{{ username }}</dd></div>
-      <div class="kv"><dt>一次性密码</dt><dd class="pwd mono">{{ password }}</dd></div>
+      <div class="kv"><dt>用户名</dt><dd>{{ username }}</dd></div>
+      <div class="kv"><dt>一次性密码</dt><dd class="pwd">{{ password }}</dd></div>
     </dl>
     <template #footer>
       <el-button @click="copy">{{ copied ? '再次复制' : '复制密码' }}</el-button>
@@ -50,6 +50,7 @@ async function copy() {
 </template>
 
 <style scoped>
-.box { margin-top: 14px; }
-.pwd { font-size: 18px; letter-spacing: .08em; color: var(--signal-700); user-select: all; }
+.box { margin-top: var(--space-4); }
+/* 密码是一串编码：等宽字体，加大字号方便抄写 */
+.pwd { font-family: var(--font-mono); font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); letter-spacing: .08em; color: var(--text-1); user-select: all; }
 </style>

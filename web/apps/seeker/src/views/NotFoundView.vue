@@ -26,9 +26,9 @@ const auth = useAuthStore()
 </template>
 
 <style scoped>
-.nf { min-height: 100vh; background: var(--surface-2); }
+.nf { min-height: 100vh; background: var(--bg-page); }
 .nf-c { text-align: center; padding: 26px 16px 18px; }
-.nf-ic { background: var(--surface-3); color: var(--ink-500); }
-.nf-t { font-size: 17px; font-weight: 700; color: var(--ink-900); }
+.nf-ic { background: var(--bg-fill); color: var(--text-3); }
+.nf-t { font-size: 17px; font-weight: 700; color: var(--text-1); }
 .nf-d { margin-top: 6px; line-height: 1.7; }
 </style>

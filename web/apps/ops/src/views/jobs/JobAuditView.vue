@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 岗位审核 · 合同备案（第 8 类审核处理：标签页 → 表格 → 岗位抽屉 / 表格里审核合同） */
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePendingStore } from '@/stores/pending'
@@ -24,16 +25,15 @@ watch(
   <div>
     <div class="page-hd">
       <div><h2>岗位审核 · 合同备案</h2><p>劳务公司发布岗位前必须有与甲方审核通过且在有效期内的合作合同；岗位审核通过后进入匹配池</p></div>
-      <div class="spacer" />
     </div>
 
     <el-tabs v-model="tab" class="tabs">
       <el-tab-pane name="jobs">
-        <template #label>岗位审核<span v-if="pending.counts?.jobs" class="cnt">{{ pending.counts.jobs }}</span></template>
+        <template #label>岗位审核<span v-if="pending.counts?.jobs" class="status-tag status-tag--warning cnt">{{ pending.counts.jobs }}</span></template>
         <JobQueue v-if="tab === 'jobs'" />
       </el-tab-pane>
       <el-tab-pane name="contracts">
-        <template #label>合同备案<span v-if="pending.counts?.contracts" class="cnt">{{ pending.counts.contracts }}</span></template>
+        <template #label>合同备案<span v-if="pending.counts?.contracts" class="status-tag status-tag--warning cnt">{{ pending.counts.contracts }}</span></template>
         <ContractQueue v-if="tab === 'contracts'" />
       </el-tab-pane>
     </el-tabs>
@@ -41,6 +41,9 @@ watch(
 </template>
 
 <style scoped>
-.tabs :deep(.el-tabs__header) { margin-bottom: 12px; }
-.cnt { margin-left: 6px; font-family: var(--f-mono); font-size: 10px; background: var(--danger); color: #fff; padding: 0 5px; height: 15px; line-height: 15px; border-radius: 8px; display: inline-block; }
+.tabs :deep(.el-tabs__header) { margin-bottom: var(--space-4); }
+.tabs :deep(.el-tabs__item.is-active),
+.tabs :deep(.el-tabs__item:hover) { color: var(--primary-text); }
+/* 页签上的待办数：共享状态标签（提醒色），没拿到数据时不显示 */
+.cnt { margin-left: var(--space-2); font-variant-numeric: tabular-nums; }
 </style>

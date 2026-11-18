@@ -42,7 +42,7 @@ export function splitActions(app: SiteApplication): { main: ActionBtn[]; more: A
   else if (has(app, 'RESEND_CONTRACT')) main = ['RESEND_CONTRACT']
   const btn = (k: SiteApplicationAction, inMain: boolean): ActionBtn => ({
     key: k,
-    text: inMain && k === 'FAIL' ? '未通过' : ACTION_TEXT[k],
+    text: ACTION_TEXT[k],
     type: inMain ? (k === 'FAIL' ? 'default' : 'primary') : DANGER.includes(k) ? 'danger' : 'default',
   })
   return {
@@ -51,5 +51,35 @@ export function splitActions(app: SiteApplication): { main: ActionBtn[]; more: A
   }
 }
 
-/** 合同状态徽标配色：统一定义在 utils/status */
-export { CONTRACT_TAG } from '@/utils/status'
+/** 合同状态的共享状态标签色调（中文名取字典 ContractStatus；与 console 的 ContractStatus 色调一致） */
+export const CONTRACT_TONE: Record<string, string> = {
+  PENDING_SIGN: 'warning',
+  EFFECTIVE: 'success',
+  EXPIRED: 'neutral',
+  DISSOLVED: 'neutral',
+  TERMINATED: 'neutral',
+  VOIDED: 'neutral',
+}
+
+/** 归属的共享状态标签色调：私域、公域、报名中（临时私域） */
+export const DOMAIN_TONE: Record<string, string> = {
+  PRIVATE: 'private',
+  PUBLIC: 'public',
+  TEMP_PRIVATE: 'pending',
+}
+
+/**
+ * 状态的配色语义统一定义在 utils/status（warn = 等你处理；info = 进行中；ok = 已完成；danger = 失败；muted = 已结束），
+ * 这里换算成共享状态标签的色调，用法：:class="`status-tag--${tagTone(STAGE_TAG[stage])}`"
+ */
+const TAG_TONE: Record<string, string> = {
+  'tag-warn': 'warning',
+  'tag-info': 'info',
+  'tag-ok': 'success',
+  'tag-danger': 'danger',
+  'tag-muted': 'neutral',
+  'tag-private': 'private',
+}
+export function tagTone(tag?: string | null): string {
+  return (tag && TAG_TONE[tag]) || 'neutral'
+}

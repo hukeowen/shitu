@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<!-- PROTOTYPE — 可删除。仕兔官网首页，用于定全端统一视觉风格（三个方向 HTML 相同，只换 style）。数据为共用演示数据。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>仕兔 · 蓝领招聘与劳务派遣平台</title>
+<style>
+
+:root {
+  --text: #1A1D23; --text-2: #4B5260; --text-3: #8A909C; --line: #F0F1F3; --surface: #FFFFFF;
+  --danger: #E5484D; --warn: #E8890C; --ok: #18A058;
+  --pri-bg: #FFF3E0; --pri-fg: #B45309; --chip: #F2F3F5;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px; line-height: 1.6; color: var(--text); background: var(--surface);
+  -webkit-font-smoothing: antialiased; min-width: 1200px;
+}
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+button { font: inherit; cursor: pointer; }
+.num { font-variant-numeric: tabular-nums; }
+svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+svg.qr { display: block; fill: var(--text); }
+.logo-bg { fill: var(--primary); }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+
+/* 按钮 */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: var(--r-btn); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 16px; font-weight: 500; white-space: nowrap; }
+.btn:hover { border-color: var(--text-3); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn.sm { height: 36px; padding: 0 16px; font-size: 15px; }
+.btn svg.i { width: 18px; height: 18px; }
+
+/* 顶栏 */
+.hd { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--border); }
+.hd .wrap { display: flex; align-items: center; height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+.brand small { font-size: 13px; font-weight: 400; color: var(--text-3); letter-spacing: 0; padding-left: 12px; margin-left: 2px; border-left: 1px solid var(--border); }
+.hd nav { display: flex; gap: 36px; margin-left: 64px; }
+.hd nav a { font-size: 15px; color: var(--text-2); height: 64px; display: flex; align-items: center; }
+.hd nav a:hover { color: var(--link); }
+.hd .acts { margin-left: auto; display: flex; align-items: center; gap: 24px; }
+.hd .acts .login { font-size: 15px; color: var(--text-2); }
+.hd .acts .login:hover { color: var(--link); }
+
+/* 首屏 */
+.hero { padding: 56px 0 80px; }
+.hero .wrap { display: grid; grid-template-columns: 1fr 520px; gap: 72px; align-items: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--link); }
+.eyebrow::before { content: ""; width: 16px; height: 2px; background: var(--primary); }
+.hero h1 { margin-top: 20px; font-size: 46px; line-height: 1.3; font-weight: 600; letter-spacing: .5px; }
+.hero h1 em { font-style: normal; color: var(--link); }
+.hero .lead { margin-top: 20px; font-size: 18px; line-height: 1.75; color: var(--text-2); max-width: 520px; }
+.hero .cta { margin-top: 36px; display: flex; gap: 12px; }
+.scan { margin-top: 28px; display: inline-flex; align-items: center; gap: 16px; padding: 12px 20px 12px 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); }
+.scan .qr-box { padding: 6px; border: 1px solid var(--border); border-radius: var(--r-tag); background: #fff; }
+.scan b { display: block; font-size: 15px; font-weight: 600; }
+.scan span { font-size: 14px; color: var(--text-2); }
+.hero .facts { margin-top: 32px; display: flex; gap: 28px; color: var(--text-2); font-size: 14px; }
+.hero .facts li { display: flex; align-items: center; gap: 6px; }
+.hero .facts svg.i { width: 18px; height: 18px; color: var(--ok); }
+
+/* 首屏右侧：求职者手机画面 */
+.stage { position: relative; height: 620px; background: var(--tint); border-radius: var(--r-lg); overflow: hidden; }
+.phone { position: absolute; left: 50%; top: 48px; width: 360px; height: 640px; margin-left: -180px; border: 10px solid #1A1D23; border-radius: 48px; background: var(--bg); overflow: hidden; }
+.ph-status { height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 6px 22px 0; font-size: 14px; font-weight: 600; background: var(--surface); }
+.ph-status .bat { width: 24px; height: 12px; border: 1.5px solid var(--text); border-radius: 3px; padding: 1.5px; }
+.ph-status .bat i { display: block; width: 70%; height: 100%; background: var(--text); border-radius: 1px; }
+.ph-nav { height: 48px; display: grid; grid-template-columns: 72px 1fr 72px; align-items: center; padding: 0 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.ph-nav svg.i { width: 22px; height: 22px; }
+.ph-nav b { text-align: center; font-size: 16px; font-weight: 600; }
+.ph-nav a { text-align: right; font-size: 14px; color: var(--link); }
+.ph-tip { padding: 10px 16px; font-size: 13px; color: var(--text-2); }
+.ph-list { padding: 0 12px; display: flex; flex-direction: column; gap: 10px; }
+.job { background: var(--surface); border-radius: var(--m-r); padding: 14px; }
+.job .t { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.job .t b { font-size: 16px; font-weight: 600; }
+.ph-match { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: var(--m-tag); white-space: nowrap; }
+.job .pay { margin-top: 4px; color: var(--salary); font-size: 20px; font-weight: 600; line-height: 1.4; }
+.job .pay small { font-size: 13px; font-weight: 500; }
+.job .pay span { font-size: 13px; font-weight: 400; color: var(--text-3); }
+.tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.tags span { font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: var(--m-tag); background: var(--chip); color: var(--text-2); }
+.job .meta { margin-top: 8px; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-2); }
+.job .meta svg.i { width: 15px; height: 15px; color: var(--text-3); }
+.job .meta .sep { margin: 0 6px; width: 1px; height: 11px; background: var(--border); }
+.job .why { margin-top: 10px; padding: 8px 10px; border-radius: var(--m-tag); background: var(--bg); font-size: 13px; line-height: 1.6; color: var(--text-2); }
+.job .why b { font-weight: 500; color: var(--text); }
+.job .ft { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.job .ft p { font-size: 13px; color: var(--text-2); line-height: 1.45; }
+.job .ft p span { display: block; font-size: 12px; color: var(--text-3); }
+.job .ft button { height: 34px; padding: 0 14px; border: 0; border-radius: var(--m-btn); background: var(--primary); color: #fff; font-size: 15px; font-weight: 500; white-space: nowrap; }
+
+/* 区块通用 */
+.sec { padding: 112px 0; }
+.sec.gray { background: var(--bg); }
+.sec-hd { max-width: 720px; }
+.sec-hd h2 { margin-top: 14px; font-size: 34px; line-height: 1.35; font-weight: 600; }
+.sec-hd p { margin-top: 14px; font-size: 17px; line-height: 1.75; color: var(--text-2); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); }
+.ico { width: 40px; height: 40px; display: grid; place-items: center; flex: none; }
+.ico svg.i { width: 26px; height: 26px; }
+
+/* 求职者三步 */
+.steps { margin-top: 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.step { padding: 32px 28px 28px; display: flex; flex-direction: column; }
+.step .no { display: flex; align-items: center; justify-content: space-between; }
+.step .no span { font-size: 14px; font-weight: 500; color: var(--link); }
+.step h3 { margin-top: 20px; font-size: 20px; font-weight: 600; }
+.step p { margin-top: 8px; font-size: 15px; line-height: 1.75; color: var(--text-2); flex: 1; }
+.step .demo { margin-top: 24px; padding: 14px 16px; border-radius: var(--r-btn); background: var(--bg); font-size: 13px; color: var(--text-2); min-height: 76px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.prog { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.prog i { display: block; width: 43%; height: 100%; background: var(--primary); border-radius: 3px; }
+.demo .row { display: flex; justify-content: space-between; align-items: center; }
+.demo .row b { font-weight: 500; color: var(--text); }
+.demo .pills { display: flex; gap: 8px; }
+.demo .pills span { flex: 1; text-align: center; padding: 6px 0; border-radius: var(--r-tag); background: var(--surface); border: 1px solid var(--border); font-size: 13px; }
+.demo .pills span b { display: block; font-size: 16px; font-weight: 600; color: var(--text); }
+.demo .call { display: flex; align-items: center; gap: 10px; }
+.demo .call svg.i { width: 18px; height: 18px; color: var(--ok); }
+.demo .call b { display: block; font-weight: 500; color: var(--text); font-size: 14px; }
+.assure { margin-top: 16px; display: grid; grid-template-columns: repeat(4, 1fr); }
+.assure li { padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+.assure li + li { border-left: 1px solid var(--line); }
+.assure li .ico { width: 32px; height: 32px; }
+.assure li .ico svg.i { width: 22px; height: 22px; }
+.assure b { display: block; font-size: 16px; font-weight: 600; }
+.assure li div span { display: block; margin-top: 4px; font-size: 14px; line-height: 1.6; color: var(--text-2); }
+
+/* 给劳务公司 */
+.biz { margin-top: 56px; display: grid; grid-template-columns: 380px 1fr; gap: 56px; align-items: start; }
+.caps li { display: flex; gap: 16px; padding: 24px 0; border-bottom: 1px solid var(--line); }
+.caps li:first-child { padding-top: 4px; }
+.caps b { display: block; font-size: 18px; font-weight: 600; line-height: 1.5; }
+.caps li div span { display: block; margin-top: 6px; font-size: 15px; line-height: 1.7; color: var(--text-2); }
+.caps-more { margin-top: 28px; display: flex; gap: 12px; }
+
+/* 后台缩略画面 */
+.console { display: grid; grid-template-columns: 156px 1fr; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--bg); font-size: 13px; }
+.c-side { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 10px; }
+.c-side .brand { font-size: 15px; gap: 8px; padding: 0 6px; }
+.c-org { margin: 14px 0 10px; padding: 8px; border-radius: var(--r-btn); background: var(--bg); }
+.c-org b { display: block; font-size: 13px; font-weight: 600; }
+.c-org span { font-size: 12px; color: var(--text-3); }
+.c-nav a { position: relative; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border-radius: var(--r-btn); color: var(--text-2); font-size: 13px; white-space: nowrap; }
+.c-nav a svg.i { width: 16px; height: 16px; }
+.c-nav a em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--text-3); }
+.c-nav a em.red { color: var(--danger); font-weight: 500; }
+.c-main { padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.c-top { display: flex; align-items: baseline; gap: 10px; }
+.c-top b { font-size: 16px; font-weight: 600; }
+.c-top span { color: var(--text-3); font-size: 13px; }
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; }
+.kpi span { display: block; font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.kpi b { display: block; margin-top: 2px; font-size: 22px; font-weight: 600; line-height: 1.3; }
+.kpi small { display: block; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.kpi.hl b { color: var(--link); }
+.c-alert { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r-btn); background: #FDECEC; color: #B4232A; font-size: 13px; }
+.c-alert svg.i { width: 16px; height: 16px; }
+.c-alert a { margin-left: auto; font-weight: 500; }
+.c-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.c-list .lh { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.c-list .lh b { font-size: 14px; font-weight: 600; }
+.c-list .lh span { font-size: 12px; color: var(--text-3); }
+.c-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.c-row:last-child { border-bottom: 0; }
+.c-row .who { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.c-row .who small { font-weight: 400; font-size: 12px; color: var(--text-3); }
+.c-row .sub { grid-column: 1; font-size: 12px; color: var(--text-2); }
+.c-row .left { grid-row: 1 / 3; grid-column: 2; text-align: right; align-self: center; }
+.c-row .left b { display: block; font-size: 15px; font-weight: 600; }
+.c-row .left span { font-size: 12px; color: var(--text-3); }
+.c-row .left.danger b { color: var(--danger); }
+.c-row .left.warn b { color: var(--warn); }
+.tag { font-size: 12px; line-height: 18px; padding: 0 6px; border-radius: var(--r-tag); font-weight: 500; }
+.tag.pri { background: var(--pri-bg); color: var(--pri-fg); }
+.tag.pub { background: var(--pub-bg); color: var(--pub-fg); }
+
+/* 规则透明 */
+.rules { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.rule { padding: 32px 36px; }
+.rule > h3 { font-size: 20px; font-weight: 600; }
+.rule > p { margin-top: 4px; font-size: 14px; color: var(--text-2); }
+.fee { margin-top: 24px; padding: 24px 0 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 6px 24px; }
+.fee + .fee { margin-top: 24px; }
+.fee .name { font-size: 16px; font-weight: 600; }
+.fee .amt { grid-row: 1 / 3; grid-column: 2; text-align: right; white-space: nowrap; }
+.fee .amt b { font-size: 36px; font-weight: 600; line-height: 1.2; }
+.fee .amt span { font-size: 14px; color: var(--text-2); margin-left: 4px; }
+.fee .desc { font-size: 14px; line-height: 1.7; color: var(--text-2); }
+.fee .note { grid-column: 1 / 3; justify-self: start; margin-top: 6px; font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: var(--r-tag); background: var(--tint); color: var(--link); }
+.audit li { display: flex; gap: 16px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+.audit .ico { width: 32px; height: 32px; }
+.audit .ico svg.i { width: 24px; height: 24px; }
+.audit b { display: block; font-size: 16px; font-weight: 600; }
+.audit li div span { display: block; margin-top: 4px; font-size: 14px; line-height: 1.7; color: var(--text-2); }
+
+/* 页尾 CTA */
+.end { padding: 0 0 112px; background: var(--bg); }
+.end-card { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 48px; padding: 48px 56px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); }
+.end-card h2 { font-size: 30px; line-height: 1.35; font-weight: 600; }
+.end-card p { margin-top: 10px; font-size: 16px; color: var(--text-2); }
+.end-card .cta { margin-top: 28px; display: flex; gap: 12px; }
+.end-card .side { display: flex; align-items: center; gap: 20px; padding-left: 48px; border-left: 1px solid var(--line); }
+.end-card .side .qr-box { padding: 8px; border: 1px solid var(--border); border-radius: var(--r-tag); }
+.end-card .side b { display: block; font-size: 16px; font-weight: 600; }
+.end-card .side span { display: block; margin-top: 4px; font-size: 14px; color: var(--text-2); }
+
+/* 页脚 */
+.ft { background: var(--surface); border-top: 1px solid var(--border); }
+.ft-main { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 40px; padding: 56px 0 40px; }
+.ft-main .brand { font-size: 18px; }
+.ft-main > div > p { margin-top: 12px; font-size: 14px; color: var(--text-2); line-height: 1.7; }
+.ft-main h4 { font-size: 15px; font-weight: 600; }
+.ft-main ul { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: var(--text-2); }
+.ft-main ul a:hover { color: var(--link); }
+.ft-bottom { display: flex; justify-content: space-between; padding: 20px 0 28px; border-top: 1px solid var(--line); font-size: 13px; color: var(--text-3); }
+.ft-bottom span + span { margin-left: 24px; }
+/* == 方向变量 BEGIN == */
+/* D3 安心绿：平整、克制、偏工具感 */
+:root {
+  --primary: #0E9F6E; --primary-hover: #0B8A5F; --link: #0B7A55;
+  --tint: #E8F7F0; --tint-line: #C5EBDA; --salary: #FF5A1F;
+  --bg: #F4F6F5; --border: #E3E8E5;
+  --r: 6px; --r-btn: 4px; --r-tag: 3px; --r-lg: 8px;
+  --m-r: 10px; --m-btn: 6px; --m-tag: 3px;
+  --pub-bg: #EAF1FF; --pub-fg: #2453C7;
+}
+/* 图标：无底色，用文字色 */
+.ico { color: var(--text); }
+/* 选中态：主色字 + 左侧 3px 线，不加浅底 */
+.c-nav a.on { background: none; color: var(--link); font-weight: 500; border-radius: 0; }
+.c-nav a.on::before { content: ""; position: absolute; left: -10px; top: 6px; bottom: 6px; width: 3px; background: var(--primary); }
+/* 匹配度：描边，不用浅底 */
+.ph-match { background: none; color: var(--link); border: 1px solid var(--tint-line); }
+/* 平整：卡片不加阴影，小标题用竖线 */
+.card { box-shadow: none; }
+.eyebrow::before { width: 3px; height: 14px; }
+.hero h1 em { color: var(--link); }
+/* == 方向变量 END == */
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-check-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 15h2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12s-8-7-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></symbol>
+  <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="4" rx="1.5"/></symbol>
+  <symbol id="i-id" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0"/><path d="M15 10h3"/><path d="M15 14h3"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M21 14v1"/><path d="M21 21h-4"/><path d="M14 21v-1"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 10h1"/><path d="M14 10h1"/><path d="M9 14h1"/><path d="M14 14h1"/><path d="M10 21v-3h4v3"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="qr" viewBox="0 0 21 21"><path d="M0 0h7v1h-7zM8 0h2v1h-2zM11 0h1v1h-1zM14 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h2v1h-2zM11 1h2v1h-2zM14 1h1v1h-1zM20 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM8 2h3v1h-3zM12 2h1v1h-1zM14 2h1v1h-1zM16 2h3v1h-3zM20 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM8 3h1v1h-1zM12 3h1v1h-1zM14 3h1v1h-1zM16 3h3v1h-3zM20 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM9 4h1v1h-1zM11 4h2v1h-2zM14 4h1v1h-1zM16 4h3v1h-3zM20 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h2v1h-2zM11 5h1v1h-1zM14 5h1v1h-1zM20 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h7v1h-7zM8 7h1v1h-1zM10 7h2v1h-2zM0 8h2v1h-2zM4 8h1v1h-1zM6 8h1v1h-1zM9 8h1v1h-1zM11 8h2v1h-2zM14 8h1v1h-1zM16 8h1v1h-1zM0 9h1v1h-1zM4 9h1v1h-1zM7 9h1v1h-1zM9 9h1v1h-1zM14 9h2v1h-2zM17 9h4v1h-4zM0 10h1v1h-1zM2 10h3v1h-3zM6 10h2v1h-2zM12 10h3v1h-3zM17 10h4v1h-4zM2 11h4v1h-4zM12 11h1v1h-1zM17 11h3v1h-3zM0 12h5v1h-5zM6 12h1v1h-1zM8 12h3v1h-3zM13 12h5v1h-5zM20 12h1v1h-1zM9 13h4v1h-4zM14 13h2v1h-2zM18 13h1v1h-1zM20 13h1v1h-1zM0 14h7v1h-7zM12 14h3v1h-3zM18 14h2v1h-2zM0 15h1v1h-1zM6 15h1v1h-1zM13 15h1v1h-1zM15 15h5v1h-5zM0 16h1v1h-1zM2 16h3v1h-3zM6 16h1v1h-1zM9 16h1v1h-1zM13 16h5v1h-5zM0 17h1v1h-1zM2 17h3v1h-3zM6 17h1v1h-1zM8 17h1v1h-1zM11 17h1v1h-1zM16 17h2v1h-2zM19 17h1v1h-1zM0 18h1v1h-1zM2 18h3v1h-3zM6 18h1v1h-1zM9 18h2v1h-2zM13 18h3v1h-3zM18 18h1v1h-1zM0 19h1v1h-1zM6 19h1v1h-1zM9 19h1v1h-1zM11 19h2v1h-2zM17 19h1v1h-1zM20 19h1v1h-1zM0 20h7v1h-7zM8 20h3v1h-3zM12 20h3v1h-3zM16 20h2v1h-2zM20 20h1v1h-1z"/></symbol>
+</svg>
+
+<header class="hd">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect class="logo-bg" x="1" y="1" width="22" height="22" rx="6"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/></svg>
+      仕兔<small>蓝领招聘 · 劳务派遣</small>
+    </a>
+    <nav>
+      <a href="#seeker">求职者</a>
+      <a href="#biz">劳务公司</a>
+      <a href="#rules">关于我们</a>
+    </nav>
+    <div class="acts">
+      <a class="login" href="#">登录</a>
+      <a class="btn primary sm" href="#join">劳务公司入驻</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">蓝领招聘与劳务派遣平台</span>
+      <h1>工厂找活，<br>1 分钟出 <em>3 个靠谱岗位</em></h1>
+      <p class="lead">AI 问薪 7 道题，只推荐匹配度 80% 以上的岗位。<br>报名后，驻场老师 24 小时内联系你。</p>
+      <div class="cta">
+        <a class="btn primary" href="#join">劳务公司申请入驻</a>
+        <a class="btn" href="#seeker">我要找工作</a>
+      </div>
+      <div class="scan">
+        <span class="qr-box"><svg class="qr" width="72" height="72"><use href="#qr"/></svg></span>
+        <div><b>找工作，微信扫一扫</b><span>答 7 道题，马上开始匹配</span></div>
+      </div>
+      <ul class="facts">
+        <li><svg class="i"><use href="#i-check-c"/></svg>实名核验</li>
+        <li><svg class="i"><use href="#i-check-c"/></svg>线上电子签约</li>
+        <li><svg class="i"><use href="#i-check-c"/></svg>劳务公司持证入驻</li>
+      </ul>
+    </div>
+
+    <div class="stage" aria-label="求职者手机端：匹配结果">
+      <div class="phone">
+        <div class="ph-status"><span class="num">9:41</span><span class="bat"><i></i></span></div>
+        <div class="ph-nav"><svg class="i"><use href="#i-left"/></svg><b>为你匹配的 3 个岗位</b><a href="#">重新匹配</a></div>
+        <p class="ph-tip">从中选 1 个报名，报名后驻场老师 24 小时内联系你</p>
+        <div class="ph-list">
+          <div class="job">
+            <div class="t"><b>SMT 贴片操作工</b><span class="ph-match num">匹配度 92%</span></div>
+            <div class="pay num">5,800–6,800<small> 元/月</small> <span>（综合）</span></div>
+            <div class="tags"><span>包吃包住</span><span>4 人间空调</span><span>两班倒</span></div>
+            <div class="meta"><svg class="i"><use href="#i-pin"/></svg>昆山周市镇<i class="sep"></i>剩余 12 个名额</div>
+            <p class="why"><b>推荐理由：</b>与你 3 年 SMT 经验对口，薪资在你期望范围内，厂区离你选的地方 6 公里</p>
+            <div class="ft"><p>立讯精密（昆山）二期<span>鑫诚劳务</span></p><button type="button">查看并报名</button></div>
+          </div>
+          <div class="job">
+            <div class="t"><b>电子组装普工</b><span class="ph-match num">匹配度 87%</span></div>
+            <div class="pay num">5,300–6,200<small> 元/月</small></div>
+            <div class="tags"><span>包住 6 人间</span><span>长白班</span></div>
+            <div class="meta"><svg class="i"><use href="#i-pin"/></svg>苏州吴中<i class="sep"></i>剩余 30 个名额</div>
+            <div class="ft"><p>纬创资通（苏州）<span>鑫诚劳务</span></p><button type="button">查看并报名</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec gray" id="seeker">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="eyebrow">给求职者</span>
+      <h2>三步找到活儿，报名后有人带你进厂</h2>
+      <p>微信扫码就能用。不用一页页翻岗位，答完题直接给你 3 个合适的。</p>
+    </div>
+    <div class="steps">
+      <div class="card step">
+        <div class="no"><span class="num">第 1 步</span><span class="ico"><svg class="i"><use href="#i-chat"/></svg></span></div>
+        <h3>做 7 道题</h3>
+        <p>AI 问薪，约 1 分钟答完，说清你想干什么活、想拿多少钱。</p>
+        <div class="demo">
+          <div class="row"><span>AI 问薪</span><b class="num">第 3 / 7 题</b></div>
+          <div class="prog"><i></i></div>
+        </div>
+      </div>
+      <div class="card step">
+        <div class="no"><span class="num">第 2 步</span><span class="ico"><svg class="i"><use href="#i-cards"/></svg></span></div>
+        <h3>看 3 个岗位</h3>
+        <p>匹配度 80% 以上才推荐。都不满意可以重新匹配，次数不限。</p>
+        <div class="demo">
+          <div class="pills num"><span><b>92%</b>SMT 贴片</span><span><b>87%</b>电子组装</span><span><b>83%</b>仓储分拣</span></div>
+        </div>
+      </div>
+      <div class="card step">
+        <div class="no"><span class="num">第 3 步</span><span class="ico"><svg class="i"><use href="#i-phone"/></svg></span></div>
+        <h3>报名后 24 小时有人联系</h3>
+        <p>选 1 个报名，驻场老师 24 小时内联系你，安排到厂面试和入职。</p>
+        <div class="demo">
+          <div class="call"><svg class="i"><use href="#i-phone"/></svg><div><b>驻场老师会打电话给你</b>报名后 24 小时内</div></div>
+        </div>
+      </div>
+    </div>
+    <ul class="card assure">
+      <li><span class="ico"><svg class="i"><use href="#i-id"/></svg></span><div><b>实名核验</b><span>身份信息实名核验</span></div></li>
+      <li><span class="ico"><svg class="i"><use href="#i-pen"/></svg></span><div><b>线上电子签约</b><span>劳动合同在手机上签</span></div></li>
+      <li><span class="ico"><svg class="i"><use href="#i-wallet"/></svg></span><div><b>薪资预支</b><span>在岗满 7 天可申请<br>每次 500 元，每月最多 4 次</span></div></li>
+      <li><span class="ico"><svg class="i"><use href="#i-file"/></svg></span><div><b>工资条线上查</b><span>每月工资明细，手机上看</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec" id="biz">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="eyebrow">给劳务公司</span>
+      <h2>招来的人归你，跟进不漏人，签约全在线</h2>
+      <p>从扫码拉新到入职确权，驻场老师在一个工作台里处理完。</p>
+    </div>
+    <div class="biz">
+      <div>
+        <ul class="caps">
+          <li><span class="ico"><svg class="i"><use href="#i-scan"/></svg></span><div><b>渠道码锁定来源</b><span>生成公司渠道二维码，求职者扫码注册后，归属锁定到你的公司。</span></div></li>
+          <li><span class="ico"><svg class="i"><use href="#i-list"/></svg></span><div><b>驻场工作台</b><span>待办按剩余时间排序，24 小时响应提醒，快超时的人排在最前面。</span></div></li>
+          <li><span class="ico"><svg class="i"><use href="#i-trend"/></svg></span><div><b>人才流转收益</b><span>匹配不上的人由人才经纪人二次推荐；你带来的人被其他公司录用，你持续拿流转费。</span></div></li>
+          <li><span class="ico"><svg class="i"><use href="#i-pen"/></svg></span><div><b>全流程在线签约</b><span>到厂、面试结果、入职确权、电子签约，每一步都在线留痕。</span></div></li>
+        </ul>
+        <div class="caps-more">
+          <a class="btn primary" href="#join">申请入驻</a>
+          <a class="btn" href="#rules">看费用说明</a>
+        </div>
+      </div>
+
+      <div class="console" aria-label="公司后台：驻场工作台">
+        <aside class="c-side">
+          <div class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect class="logo-bg" x="1" y="1" width="22" height="22" rx="6"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/></svg>仕兔</div>
+          <div class="c-org"><b>鑫诚劳务派遣</b><span class="num">C10023</span></div>
+          <nav class="c-nav">
+            <a class="on" href="#"><svg class="i"><use href="#i-grid"/></svg>驻场工作台</a>
+            <a href="#"><svg class="i"><use href="#i-list"/></svg>待办清单<em class="num">13</em></a>
+            <a href="#"><svg class="i"><use href="#i-clock"/></svg>24 小时响应<em class="red num">3</em></a>
+            <a href="#"><svg class="i"><use href="#i-shield"/></svg>确权与签约</a>
+            <a href="#"><svg class="i"><use href="#i-users"/></svg>流转池</a>
+            <a href="#"><svg class="i"><use href="#i-scan"/></svg>渠道二维码</a>
+            <a href="#"><svg class="i"><use href="#i-wallet"/></svg>薪资与预支</a>
+          </nav>
+        </aside>
+        <div class="c-main">
+          <div class="c-top"><b>驻场工作台</b><span>立讯精密（昆山）二期 · 王磊</span></div>
+          <div class="kpis num">
+            <div class="kpi"><span>今日到厂</span><b>7</b><small>人</small></div>
+            <div class="kpi"><span>待面试</span><b>9</b><small>人</small></div>
+            <div class="kpi"><span>待确权</span><b>4</b><small>人</small></div>
+            <div class="kpi"><span>待入职</span><b>13</b><small>人</small></div>
+            <div class="kpi hl"><span>本月入职确权</span><b>62</b><small>目标完成 82%</small></div>
+          </div>
+          <div class="c-alert"><svg class="i"><use href="#i-alert"/></svg>3 人即将超时，最短剩余 <b class="num">00:42</b><a href="#">立即跟进</a></div>
+          <div class="c-list">
+            <div class="lh"><b>今日待办 5 人</b><span>按剩余时间</span></div>
+            <div class="c-row"><div class="who">刘*<small class="num">138****4471</small><span class="tag pri">私域</span></div><div class="sub">未匹配岗位 · 拨打或流转经纪人</div><div class="left danger num"><b>00:42</b><span>剩余</span></div></div>
+            <div class="c-row"><div class="who">张*<small class="num">138****8656</small><span class="tag pri">私域</span></div><div class="sub">SMT 贴片操作工 · 今天 09:00 面试</div><div class="left warn num"><b>03:42</b><span>剩余</span></div></div>
+            <div class="c-row"><div class="who">李*<small class="num">159****0817</small><span class="tag pub">公域</span></div><div class="sub">电子组装普工 · 今天 09:00 面试</div><div class="left num"><b>18:06</b><span>剩余</span></div></div>
+            <div class="c-row"><div class="who">周*<small class="num">137****4409</small><span class="tag pub">公域</span></div><div class="sub">仓储分拣员 · 07:32 已到厂、面试通过</div><div class="left num"><b>18:22</b><span>剩余</span></div></div>
+            <div class="c-row"><div class="who">陈*<small class="num">137****8821</small><span class="tag pri">私域</span></div><div class="sub">仓储分拣员 · 今天 14:00 面试、已推送</div><div class="left num"><b>21:05</b><span>剩余</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec gray" id="rules">
+  <div class="wrap">
+    <div class="sec-hd">
+      <span class="eyebrow">规则透明</span>
+      <h2>费用怎么收、谁能入驻，先说清楚</h2>
+      <p>收费标准和审核要求对所有劳务公司一样，写在这里。</p>
+    </div>
+    <div class="rules">
+      <div class="card rule">
+        <h3>费用说明</h3>
+        <p>面向入驻的劳务公司</p>
+        <div class="fee">
+          <span class="name">增长技术服务费</span>
+          <span class="amt num"><b>0.10</b><span>元 / 人 / 天</span></span>
+          <span class="desc">按人按天计算</span>
+          <span class="note">入驻前三个月免费</span>
+        </div>
+        <div class="fee">
+          <span class="name">人才流转费</span>
+          <span class="amt num"><b>8</b><span>元 / 人 / 天</span></span>
+          <span class="desc">你带来的求职者被其他公司录用，你作为来源公司持续拿流转费。</span>
+        </div>
+      </div>
+      <div class="card rule">
+        <h3>平台审核</h3>
+        <p>入驻和发布岗位都要过审核</p>
+        <ul class="audit">
+          <li><span class="ico"><svg class="i"><use href="#i-building"/></svg></span><div><b>营业执照与劳务派遣许可证</b><span>两证审核通过后才能入驻。</span></div></li>
+          <li><span class="ico"><svg class="i"><use href="#i-file"/></svg></span><div><b>甲方合同备案</b><span>发布岗位需上传与用工企业（甲方）的合同备案。</span></div></li>
+          <li><span class="ico"><svg class="i"><use href="#i-shield"/></svg></span><div><b>投诉三次属实，自动下架</b><span>投诉经核实属实累计三次，自动下架。</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="end" id="join">
+  <div class="wrap">
+    <div class="end-card">
+      <div>
+        <h2>劳务公司入驻，前三个月免费</h2>
+        <p>营业执照与劳务派遣许可证审核通过后，即可使用渠道二维码和驻场工作台。</p>
+        <div class="cta">
+          <a class="btn primary" href="#">申请入驻<svg class="i"><use href="#i-arrow"/></svg></a>
+          <a class="btn" href="#"><svg class="i"><use href="#i-phone"/></svg>电话咨询 400-xxx-xxxx</a>
+        </div>
+      </div>
+      <div class="side">
+        <span class="qr-box"><svg class="qr" width="96" height="96"><use href="#qr"/></svg></span>
+        <div><b>想找工作？</b><span>微信扫一扫，7 道题</span><span>1 分钟出 3 个岗位</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="ft">
+  <div class="wrap">
+    <div class="ft-main">
+      <div>
+        <a class="brand" href="#"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect class="logo-bg" x="1" y="1" width="22" height="22" rx="6"/><path d="M8 17V9.5C8 7.8 9.3 6.5 11 6.5s3 1.3 3 3V17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 12h3" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/></svg>仕兔</a>
+        <p>蓝领招聘与劳务派遣平台<br>求职者找活，劳务公司招人和管人</p>
+      </div>
+      <div><h4>求职者</h4><ul><li><a href="#">AI 问薪</a></li><li><a href="#">薪资预支</a></li><li><a href="#">工资条</a></li></ul></div>
+      <div><h4>劳务公司</h4><ul><li><a href="#">申请入驻</a></li><li><a href="#">驻场工作台</a></li><li><a href="#">费用说明</a></li></ul></div>
+      <div><h4>联系我们</h4><ul><li>客服电话 400-xxx-xxxx</li><li>商务合作 400-xxx-xxxx</li><li>邮箱 service@xxxx.com</li></ul></div>
+    </div>
+    <div class="ft-bottom"><div><span>© 2026 仕兔</span><span>ICP 备案号：xxxxxxxx 号</span></div><div><span>用户协议</span><span>隐私政策</span></div></div>
+  </div>
+</footer>
+</body>
+</html>

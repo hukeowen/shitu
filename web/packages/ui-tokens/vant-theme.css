@@ -1,25 +1,107 @@
-/* Vant 4 主题映射：在 tokens.css 之后引入 */
-:root {
-  --van-primary-color: var(--signal);
-  --van-success-color: var(--ok);
-  --van-danger-color: var(--danger);
-  --van-warning-color: var(--warn);
-  --van-text-color: var(--ink-800);
-  --van-text-color-2: var(--ink-500);
-  --van-text-color-3: var(--ink-400);
-  --van-border-color: var(--line);
-  --van-background: var(--paper);
-  --van-background-2: var(--surface);
-  --van-active-color: var(--surface-3);
-  --van-base-font: var(--f-cn);
-  --van-price-font: var(--f-dis);
-  --van-radius-sm: var(--r-xs);
-  --van-radius-md: var(--r-sm);
-  --van-radius-lg: var(--r-md);
-  --van-button-primary-background: var(--signal);
-  --van-button-primary-border-color: var(--signal);
-  --van-tabbar-item-active-color: var(--signal);
-  --van-nav-bar-icon-color: var(--ink-800);
+/* Vant 4 主题映射（手机端：seeker、staff），在 tokens.css 之后引入。
+ * 选择器用 :root:root 提高优先级：按需引入的组件样式在本文件之后加载，
+ * 其中也在 :root 上定义了 --van-button-* 这类变量，同优先级时后加载的会盖掉这里的值。 */
+:root:root {
+  /* 手机端的字号、圆角、控件高度、间距：取值在 tokens.css 的 --mobile-*（后台的手机预览也读那里） */
+  --font-size-title: var(--mobile-font-size-title);
+  --font-size-body:  var(--mobile-font-size-body);
+  --radius-card:     var(--mobile-radius-card);
+  --radius-control:  var(--mobile-radius-control);
+  --control-height:  var(--mobile-control-height);   /* 主按钮；也是最小点击区 */
+  --bottom-bar-button-height: var(--mobile-bottom-bar-button-height);   /* 页面底部通栏按钮 */
+  --space-page: var(--space-4);   /* 页面左右边距 */
+  --space-card: var(--space-4);   /* 卡片内边距 */
+  --space-gap:  var(--space-3);   /* 卡片间距 */
+
+  /* 颜色。danger / warning / success 取文字色：Vant 同一个变量既当文字色又当实心按钮底色，文字色两头都达标 */
+  --van-blue: var(--primary);
+  --van-primary-color: var(--primary);
+  --van-success-color: var(--success-text);
+  --van-danger-color: var(--danger-text);
+  --van-warning-color: var(--warning-text);
+  --van-red: var(--danger-solid);
+  --van-text-color: var(--text-1);
+  --van-text-color-2: var(--text-3);
+  --van-text-color-3: var(--text-placeholder);
+  --van-gray-3: var(--border);
+  --van-gray-6: var(--text-3);
+  --van-gray-7: var(--text-2);
+  --van-border-color: var(--border);
+  --van-background: var(--bg-page);
+  --van-background-2: var(--bg-card);
+  --van-active-color: var(--bg-fill);
+
+  /* 字体和字号：没有小于 12px 的字 */
+  --van-base-font: var(--font-sans);
+  --van-price-font: var(--font-sans);
+  --van-font-size-xs: var(--font-size-min);
+  --van-font-size-sm: var(--font-size-aux);
+  --van-font-size-md: var(--font-size-body);
+  --van-font-size-lg: var(--font-size-section);
+  --van-line-height-xs: 16px;
+  --van-line-height-sm: 18px;
+  --van-line-height-md: 22px;
+  --van-line-height-lg: 24px;
+
+  /* 圆角 */
+  --van-radius-sm: var(--radius-tag);
+  --van-radius-md: var(--radius-control);
+  --van-radius-lg: var(--radius-card);
+
+  /* 按钮 */
+  --van-button-default-height: var(--control-height);
+  --van-button-large-height: var(--bottom-bar-button-height);
+  --van-button-mini-font-size: var(--font-size-min);
+  --van-button-radius: var(--radius-control);
+  --van-button-default-border-color: var(--border);
+  --van-button-primary-color: var(--text-on-primary);
+  --van-button-primary-background: var(--primary);
+  --van-button-primary-border-color: var(--primary);
+  --van-button-plain-background: var(--bg-card);
+
+  /* 输入框和单元格 */
+  --van-field-label-color: var(--text-2);
+  --van-field-placeholder-text-color: var(--text-placeholder);
+  --van-field-error-message-color: var(--danger-text);
+  --van-field-error-message-font-size: var(--font-size-min);
+  --van-field-required-mark-color: var(--danger-text);
+  --van-cell-required-color: var(--danger-text);
+  --van-cell-value-color: var(--text-2);
+  --van-cell-border-color: var(--divider);
+
+  /* 开关、单选、多选 */
+  --van-switch-on-background: var(--primary);
+  --van-checkbox-checked-icon-color: var(--primary);
+  --van-radio-checked-icon-color: var(--primary);
+
+  /* 标签 */
+  --van-tag-radius: var(--radius-tag);
+  --van-tag-font-size: var(--font-size-min);
+  --van-tag-line-height: 20px;
+  --van-tag-primary-color: var(--primary);
+
+  /* 顶栏、底部标签栏、分段标签 */
+  --van-nav-bar-height: var(--mobile-nav-height);
+  --van-nav-bar-background: var(--bg-card);
+  --van-nav-bar-title-font-size: var(--mobile-nav-title-size);
+  --van-nav-bar-title-text-color: var(--text-1);
+  --van-nav-bar-icon-color: var(--text-1);
+  --van-nav-bar-text-color: var(--text-1);
+  --van-tabbar-item-font-size: var(--font-size-min);
+  --van-tabbar-item-text-color: var(--text-3);
+  --van-tabbar-item-active-color: var(--primary);
+  --van-tab-text-color: var(--text-2);
+  --van-tab-active-text-color: var(--primary-text);
+  --van-tabs-bottom-bar-color: var(--primary);
+  --van-tabs-bottom-bar-height: 2px;
+
+  /* 轻提示稳定态遮住下层正文，避免两层文字叠印。 */
+  --van-toast-background: var(--text-1);
+  --van-toast-text-color: var(--text-on-primary);
+
+  /* 弹窗 */
+  --van-dialog-radius: var(--radius-card);
+  --van-dialog-confirm-button-text-color: var(--primary-text);
 }
 
 /* 轻提示不拦截点击：登录成功等提示出现在屏幕正中，正好盖住首页主按钮，两秒内点不动。

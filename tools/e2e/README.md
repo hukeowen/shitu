@@ -1,7 +1,7 @@
 # 本地联调冒烟（真实后端 + 开发库）
 
 对 `http://localhost:8080` 的开发后端发真实请求，补充 `server` 里的端到端测试（那些跑在独立的 `shitu_it` 库上）。
-用演示公司 C10002（老板 13800000001 / 项目经理 13800000002 / 驻场 13800000003，渠道码 `qYAtWMU9`）。
+用演示公司（空库首次启动时由后端创建，老板 13800000001 / 项目经理 13800000002 / 驻场 13800000003）。公司编号和公司码每个库不一样，脚本自己查，不用配；要指定公司码时设环境变量 `CHANNEL_CODE`。
 
 | 脚本 | 内容 |
 |---|---|
@@ -41,3 +41,75 @@ node shot.mjs login-ops http://127.0.0.1:5176/login        # 单页截图（加�
 ```
 
 截图输出到 `shots/`（不入库）。
+
+## 改版前后截图对照
+
+界面改版用：先把四个端每个页面截一遍存成基线，改完再截一遍，生成左右对照页。
+
+| 脚本 | 内容 |
+|---|---|
+| `seed.mjs` | 造截图用的数据：各阶段的求职者、花名册老员工、工资条、预支、离职、工伤、知识库、投诉、反馈、流转池、待审岗位、入驻申请等。人物和单据编号写进 `shots/baseline-data.json`（跟着本机库走，不入库） |
+| `routes.mjs` | 截图清单：四个端每个路由页面用谁登录、打开哪个地址。新增页面要在这里登记，漏了 `shots.mjs` 会提示 |
+| `shots.mjs` | 批量截图，可以只截某个端或某组路由 |
+| `compare.mjs` | 生成对照页：左边基线，右边当前截图，按路由排列 |
+| `states.mjs` | 状态截图：加载中、失败、弹层、被拒提示和 360 宽。每个状态在脚本里登记一项（人物、地址、要拦截的接口、打开后点什么、截图前的检查）；有横向溢出、求职者端出现内部术语、检查没过时退出码为 1。会落库的接口（发起匹配、报名、投诉、实名、申诉、保存简历、发起预支、工资申诉、标记消息已读、提交反馈、退出登录）一律拦住；驻场端（`STAFF_SAFE`）把 `/tenant/` 下除 GET 以外的请求全部挂住（知悉推送、到厂、面试结果、爽约、取消、确权、流转经纪人、标记已读、登录、退出，以及请假 / 旷工等 PUT、PATCH、DELETE），`write-guard` 状态自检这一条；平台中台（`OPS_SAFE`，`--app ops`）同样把 `/api/v1/ops/` 下除 GET 以外的请求全部挂住（登录、退出、改密码、审核、保存、重置密码），平台账号用 `ops.cookies`，`shell_workbench` 状态自检 |
+
+### 运行前提
+
+0. **Node 22 或更高**（脚本用了 `Object.groupBy`、`zlib.crc32`，不装任何依赖）。
+1. **后端**跑在 8080，local profile，连本机专用库（不是共享的开发库，`seed.mjs` 会写很多数据）。
+2. **四个 dev server**，在 `web/apps/<端>` 下分别执行 `npx vite --host 127.0.0.1 --port <端口>`：console 5175、ops 5176、seeker 5183、staff 5184。
+3. **Chrome 调试端口 9888**。不想占用日常的 Chrome 可以单开一个无界面的：
+   ```bash
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --remote-debugging-port=9888 \
+     --user-data-dir=/tmp/shitu-chrome --hide-scrollbars about:blank
+   ```
+4. **演示账号**：
+   - 公司成员（老板 / 项目经理 / 驻场）用短信登录，验证码在开发环境直接回显，脚本自动完成。
+   - 平台账号要先按上面「准备」一节存好 `ops.cookies`。新库的 `admin` 首次登录必须先改密码（`PUT /api/v1/ops/me/password`），改完要重新登录一次。
+   - 求职者由 `seed.mjs` 注册，会话缓存在 `seeker-<手机号>.rt`。
+
+### 命令
+
+```bash
+node seed.mjs                               # 每个库只跑一次；已有 shots/baseline-data.json 时拒绝重跑
+node shots.mjs baseline                     # 改样式之前：四个端全部页面 → shots/baseline/
+node shots.mjs current --app seeker         # 改完之后：只截求职者端 → shots/current/
+node shots.mjs current --route /pm,/owner/bills   # 只截某组路由（按前缀匹配，'/' 只匹配首页）
+node compare.mjs --app seeker               # → shots/compare-seeker.html，用浏览器打开
+node compare.mjs --route /pm                # → shots/compare-pm.html
+node states.mjs <任务目录>/screenshots --app seeker   # 状态截图，文件名 <端>_<页面>_<状态>_<宽>x<高>.png；--only login 只截名字里带 login 的
+```
+
+- 视口：后台 1440×900，手机 390×844（2 倍图）。每页存一张首屏；页面比一屏长时另存 `.full.png` 整页图（整页图里固定在底部的按钮栏会停在第一屏的位置，属正常）。
+- `shots.mjs` 逐页报告：有没有落到别的页面、是否空白、有没有脚本异常和 ≥ 400 的接口，明细在 `shots/<目录>/report.json`，对照页里也会标出来。
+- `shots.mjs` 开头还会对着路由表查页面里写死的站内跳转地址（`router.push('/x')`、`to="/x"`），有找不到的就列出来，退出码为 1。
+- `compare.mjs` 默认拿 `baseline` 对 `current`，可用 `--base`、`--cur` 换目录，`--out` 指定文件名。生成后可在页面内按端和 17 类页面排法交叉筛选、重置；同页含多种排法时会出现在各对应类型中（映射在 `routes.mjs` 的 `TYPE_ROUTES`，新增路由同时登记类型，运行 `node --test routes.test.mjs` 验证）。
+- 对照页展示的是已有图片，不能凭目录名 `current` 认定它与当前提交一致。每侧显示文件修改时间（不是拍摄时间或版本证明），保留各侧 `report.json` 的问题；缺图明确显示路径。正式验收时补齐最新截图后重新生成对照页。
+- 一个路由在不同状态下长得不一样时，在 `routes.mjs` 里登记多个人物（求职者首页就截了游客、自由求职、专属服务、待面试、在岗几种）。
+- 报名成功页、入驻申请页、游客首页不能直接输地址进，`routes.mjs` 里给它们配了进入脚本。
+
+### 网络失败后重试回归（不产截图）
+
+```bash
+node tools/e2e/network-retry.mjs
+node tools/e2e/network-retry.mjs --app staff --only reason,advance --mode fail
+```
+
+复用上述专用 Chrome、本机服务和已有测试人物会话；缺少或过期会话时检查失败，不自动发送短信登录。`--app` 支持 seeker / staff；`--only` 支持 recommendations、reason、ack、confirm、advance、messages、incidents、absence、transfer，以及共用组件入口 reason-todo、reason-detail、ack-reminders、advance-detail（逗号分隔）；`--mode` 支持 fail / hang / business，省略时全部运行。
+
+`fail` 中断真实请求，`hang` 等待客户端原有 15 秒超时；检查提示、输入保留、提交状态复位，以及无需刷新即可发起第二次请求并成功。`business` 返回业务拒绝信封，检查原有禁用与原因留存。所有业务写请求由 CDP 拦截，只有会话刷新放行；成功响应使用测试夹具，不产生真实报名、推送、上报或其他业务数据。测试会轮换已有会话，不与其他浏览器脚本并行运行。
+
+### 注意
+
+- 后端限制同一 IP 每小时 30 条短信验证码。`seed.mjs` 要新登录约 29 个手机号，跑它前后一小时内别跑 `flow.mjs`、`ui-smoke.mjs`（各自还要注册新求职者）。
+- 基线和后续截图要在同一份数据上才好对照。造完数据后别再往库里加人；列表里的「剩余时间」等会随时间变化，属正常差异。
+- `states.mjs` 的拦截规则（`rules`，见 `cdp.mjs` 的 `intercept`）按顺序取第一条对得上的：`url` 是地址里包含的一段，所以地址更长的那条要排在前面（`/seeker/kyc/appeals` 排在 `/seeker/kyc` 前）。读取和提交是同一个地址时加 `method` 只拦一种请求方法，例如 `{ url: '/seeker/resume', method: 'PUT', action: 'hang' }` 只挂住保存、不影响打开页面；`method: '!GET'` 表示除 GET 以外的所有方法。`action: 'continue'` 是放行：排在一条更宽的规则前面给它开例外，例如驻场端先放行 `/tenant/auth/refresh`，再挂住 `/tenant/` 下的写请求，否则页面换不到令牌、进不去。
+- 要截「先正常打开、再点按钮时接口挂住」（如待签合同页点「刷新状态」的查询中），把规则写在 `lateRules` 里：页面打开并安静下来之后才生效，排在 `rules` 前面。
+- `ui-smoke.mjs` 每跑一次会注册一个新求职者（演示公司多一个私域待匹配的人），驻场工作台、提醒这几页的数字会跟着变。
+- 造完数据后存一份库快照，数据被弄乱时可以恢复（恢复会覆盖整个本机库，先停后端；恢复后各 `*.rt` 会话失效，脚本会自动重新登录，`ops.cookies` 要重新存）：
+  ```bash
+  docker exec -e MYSQL_PWD=<root 密码> shitu-mysql mysqldump -uroot --single-transaction shitu | gzip > shots/baseline/db-after-seed.sql.gz
+  gunzip -c shots/baseline/db-after-seed.sql.gz | docker exec -i -e MYSQL_PWD=<root 密码> shitu-mysql mysql -uroot shitu
+  ```
+- 演示公司刚入驻、还在免费期，造不出月账单和跨公司流转：费用账单、对账管理、流转账本这几页只能截到空状态。

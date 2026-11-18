@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
-import { errorMessage, tenantApi, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
 import AcknowledgePopup from '@/components/AcknowledgePopup.vue'
 import ConfirmOnboardPopup from '@/components/ConfirmOnboardPopup.vue'
 import ReasonDialog from '@/components/ReasonDialog.vue'
@@ -12,9 +12,17 @@ import { splitActions } from '@/utils/actions'
  * M-02 知悉推送 / 修改面试信息、M-05 到厂确认 + 面试结果、M-06/M-07 确权签约 / 重发、M-08 爽约、M-10 取消报名。
  * 只执行后端 allowedActions 里有的操作。
  */
-const emit = defineEmits<{ done: [action: SiteApplicationAction, app: SiteApplication | null] }>()
+const emit = defineEmits<{
+  done: [action: SiteApplicationAction, app: SiteApplication | null]
+  /** 后端业务拒绝（不是网络失败）：页面把这条的按钮置灰、原因留在卡片上，刷新后重新判断 */
+  rejected: [app: SiteApplication, action: SiteApplicationAction, reason: string]
+}>()
 
 const target = shallowRef<SiteApplication | null>(null)
+const pending = shallowRef<SiteApplicationAction | null>(null)
+function reject(e: unknown) {
+  if (isApiError(e) && e.code !== 'NETWORK' && target.value && pending.value) emit('rejected', target.value, pending.value, errorMessage(e))
+}
 const ackShow = ref(false)
 const cfShow = ref(false)
 const cfResend = ref(false)
@@ -28,7 +36,7 @@ async function confirmThen(title: string, message: string, confirmText: string, 
       title,
       message,
       confirmButtonText: confirmText,
-      confirmButtonColor: danger ? 'var(--danger)' : undefined,
+      confirmButtonColor: danger ? 'var(--danger-text)' : undefined,
       beforeClose: async (action) => {
         if (action !== 'confirm') return true
         try {
@@ -36,6 +44,7 @@ async function confirmThen(title: string, message: string, confirmText: string, 
           return true
         } catch (e) {
           showToast(errorMessage(e, '操作失败，请稍后重试'))
+          reject(e)
           return false
         }
       },
@@ -56,6 +65,7 @@ const failWrap = (fn: (reason: string) => Promise<unknown>) => async (reason: st
     await fn(reason)
   } catch (e) {
     showToast(errorMessage(e, '操作失败，请稍后重试'))
+    reject(e)
     throw e
   }
 }
@@ -66,6 +76,7 @@ async function run(action: SiteApplicationAction, app: SiteApplication) {
     return
   }
   target.value = app
+  pending.value = action
   const id = app.applicationId
   let ok = false
   switch (action) {
@@ -135,7 +146,7 @@ const sheetShow = ref(false)
 const sheetApp = shallowRef<SiteApplication | null>(null)
 const sheetActions = computed(() =>
   sheetApp.value
-    ? splitActions(sheetApp.value).more.map((b) => ({ name: b.text, key: b.key, color: b.type === 'danger' ? 'var(--danger)' : undefined }))
+    ? splitActions(sheetApp.value).more.map((b) => ({ name: b.text, key: b.key, color: b.type === 'danger' ? 'var(--danger-text)' : undefined }))
     : [],
 )
 function more(app: SiteApplication) {
@@ -155,8 +166,8 @@ defineExpose({ run, more })
 </script>
 
 <template>
-  <AcknowledgePopup v-model:show="ackShow" :application="target" @done="onAcked" />
-  <ConfirmOnboardPopup v-model:show="cfShow" :application="target" :resend="cfResend" @done="emit('done', cfResend ? 'RESEND_CONTRACT' : 'CONFIRM', null)" />
+  <AcknowledgePopup v-model:show="ackShow" :application="target" @done="onAcked" @rejected="reject" />
+  <ConfirmOnboardPopup v-model:show="cfShow" :application="target" :resend="cfResend" @rejected="reject" @done="emit('done', cfResend ? 'RESEND_CONTRACT' : 'CONFIRM', null)" />
   <ReasonDialog ref="reason" />
   <van-action-sheet
     v-model:show="sheetShow"

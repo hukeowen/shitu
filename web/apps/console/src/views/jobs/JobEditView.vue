@@ -13,7 +13,9 @@ import {
   type ProjectView,
   type ShiftType,
 } from '@shitu/api-client'
+import { IconCircleExclamationPoint, IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
+import { boxSubmit, isBlocked } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
 import { salaryRange } from '@/utils/format'
 
@@ -228,7 +230,25 @@ function toRequest(): JobRequest {
   }
 }
 
+/** 项目甲方没有有效合同（TEN_4004）时，原因后面接的下一步（两条保存路径同一句） */
+const CONTRACT_HINT = '请先在「项目与甲方 → 合作合同」上传合同并等待平台审核通过。'
+const contractHint = (e: unknown) => (isApiError(e, 'TEN_4004') ? CONTRACT_HINT : undefined)
+
+/** 保存被后端业务拒绝的原因：写在底部操作条上，保存置灰，改了表单再放开 */
+const saveWhy = ref('')
+watch(form, () => (saveWhy.value = ''), { deep: true })
+
+async function request() {
+  if (isEdit.value && job.value) await tenantApi.updateJob(job.value.jobId, toRequest())
+  else await tenantApi.createJob(toRequest())
+}
+function done() {
+  ElMessage.success(isEdit.value ? '已保存，岗位已重新提交平台审核' : '岗位已提交，等待平台审核')
+  router.push('/pm/jobs')
+}
+
 async function submit() {
+  if (saving.value) return
   const ok = await formRef.value?.validate().catch(() => false)
   if (!ok) {
     ElMessage.warning('请检查表单中标红的字段')
@@ -239,29 +259,30 @@ async function submit() {
     return
   }
   if (reauditWarn.value) {
+    // 确认框里提交（规范 Page States「后台确认框一律在框内提交」）：确认按钮转圈，被拒时原因留在框里和操作条上
+    const s = boxSubmit('保存后将重新提交平台审核，审核期间暂停匹配。确定保存？', '保存', request, (why) => (saveWhy.value = why), contractHint)
     try {
-      await ElMessageBox.confirm('保存后将重新提交平台审核，审核期间暂停匹配。确定保存？', '重新提交审核', {
+      await ElMessageBox.confirm(s.message, '重新提交审核', {
         type: 'warning',
         confirmButtonText: '保存并提交审核',
         cancelButtonText: '取消',
+        beforeClose: s.beforeClose,
       })
     } catch {
       return
     }
+    done()
+    return
   }
   saving.value = true
   try {
-    if (isEdit.value && job.value) {
-      await tenantApi.updateJob(job.value.jobId, toRequest())
-      ElMessage.success('已保存，岗位已重新提交平台审核')
-    } else {
-      await tenantApi.createJob(toRequest())
-      ElMessage.success('岗位已提交，等待平台审核')
-    }
-    router.push('/pm/jobs')
+    await request()
+    done()
   } catch (e) {
+    saving.value = false
+    if (isBlocked(e)) saveWhy.value = `暂时不能保存：${errorMessage(e)}${contractHint(e) ? `。${CONTRACT_HINT}` : ''}`
     if (isApiError(e, 'TEN_4004')) {
-      ElMessageBox.alert(`${errorMessage(e)}。请先在「项目与甲方 → 合作合同」上传合同并等待平台审核通过。`, '无法发布', {
+      ElMessageBox.alert(`${errorMessage(e)}。${CONTRACT_HINT}`, '无法发布', {
         confirmButtonText: '知道了',
       })
     } else {
@@ -285,46 +306,53 @@ const preview = computed(() => {
 </script>
 
 <template>
-  <div v-loading="loading">
+  <div class="page">
     <div class="page-hd">
       <div>
         <h2>{{ isEdit ? '编辑岗位' : '创建岗位' }}</h2>
         <p>岗位信息将作为 AI 问薪匹配的输入，并直接展示于求职者端岗位详情页</p>
       </div>
-      <span class="spacer" />
-      <el-button @click="router.push('/pm/jobs')">取消</el-button>
-      <el-button type="primary" :loading="saving" :disabled="!!loadError || !meStore.can('JOB_MANAGE')" @click="submit">
-        {{ isEdit ? '保存并提交审核' : '提交审核并发布' }}
-      </el-button>
     </div>
 
-    <el-alert v-if="loadError" type="error" :title="loadError" show-icon :closable="false" style="margin-bottom: 14px">
-      <el-button size="small" @click="init">重试</el-button>
-    </el-alert>
-
-    <div v-if="reauditWarn" class="note note--warn" style="margin-bottom: 14px">
-      <b>该岗位当前为「{{ label('JobStatus', job?.status) }}」：</b>保存后将重新提交平台审核，审核期间暂停匹配。仅调整名额请回到列表使用「名额」按钮（无需审核）。
+    <div v-loading="loading" class="body">
+    <div v-if="loadError" class="card">
+      <div class="state-box">
+        <IconCircleExclamationPoint :size="48" />
+        <h4>{{ loadError }}</h4>
+        <p>请检查网络后重新加载</p>
+        <el-button @click="init">重新加载</el-button>
+      </div>
     </div>
-    <div v-if="job?.auditRemark && (job.status === 'REJECTED' || job.status === 'FORCE_OFFLINE')" class="note note--danger" style="margin-bottom: 14px">
-      <b>{{ job.status === 'REJECTED' ? '平台驳回原因' : '强制下架原因' }}：</b>{{ job.auditRemark }}
-    </div>
 
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="job-form" scroll-to-error>
-      <div class="grid g-32">
-        <div class="grid" style="align-content: start">
-          <div class="card">
-            <div class="card__hd"><h3>基本信息</h3></div>
-            <div class="card__bd">
-              <div class="grid g-2 tight">
+    <template v-else>
+      <div v-if="reauditWarn" class="notice-bar notice-bar--warn tip">
+        <IconInfo :size="16" class="notice-bar-i" />
+        <span><b>该岗位当前为「{{ label('JobStatus', job?.status) }}」：</b>保存后将重新提交平台审核，审核期间暂停匹配。仅调整名额请回到列表使用「名额」按钮（无需审核）。</span>
+      </div>
+      <div v-if="job?.auditRemark && (job.status === 'REJECTED' || job.status === 'FORCE_OFFLINE')" class="notice-bar notice-bar--danger tip">
+        <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
+        <span><b>{{ job.status === 'REJECTED' ? '平台驳回原因' : '强制下架原因' }}：</b>{{ job.auditRemark }}</span>
+      </div>
+      <div v-if="!isEdit && !loading && !projects.length" class="notice-bar notice-bar--warn tip">
+        <IconInfo :size="16" class="notice-bar-i" />
+        <span><b>暂无进行中的项目：</b>岗位要发布在进行中、且甲方有有效合作合同的项目下，请先在「项目与甲方」建好项目并上传合同。</span>
+      </div>
+
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="job-form" scroll-to-error>
+        <div class="layout">
+          <div class="cards">
+            <section class="card">
+              <div class="card__hd"><h3>基本信息</h3></div>
+              <div class="card__bd fields">
                 <el-form-item label="岗位名称" prop="title"><el-input v-model="form.title" maxlength="64" placeholder="如：SMT 贴片操作工" /></el-form-item>
                 <el-form-item label="所属项目" prop="projectId">
                   <el-select v-model="form.projectId" filterable placeholder="选择项目" style="width: 100%" :disabled="isEdit" no-data-text="暂无进行中的项目">
                     <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" :disabled="!p.contractEffective">
                       <span>{{ p.name }}</span>
-                      <span class="t-xs" style="float: right">{{ p.contractEffective ? p.clientName : '无有效合同' }}</span>
+                      <span class="opt-r">{{ p.contractEffective ? p.clientName : '无有效合同' }}</span>
                     </el-option>
                   </el-select>
-                  <div v-if="isEdit" class="t-xs" style="margin-top: 4px">岗位创建后不能更换所属项目</div>
+                  <div v-if="isEdit" class="field-hint">岗位创建后不能更换所属项目</div>
                 </el-form-item>
                 <el-form-item label="工种" prop="jobType">
                   <el-select v-model="form.jobType" placeholder="选择工种" style="width: 100%">
@@ -334,17 +362,15 @@ const preview = computed(() => {
                 <el-form-item label="岗位性质">
                   <el-switch v-model="form.factoryJob" active-text="工厂岗位" inactive-text="非工厂岗位" />
                 </el-form-item>
+                <el-form-item label="岗位职责" prop="duties" class="full">
+                  <el-input v-model="form.duties" type="textarea" :rows="4" maxlength="2000" show-word-limit placeholder="逐条描述岗位工作内容…" />
+                </el-form-item>
               </div>
-              <el-form-item label="岗位职责" prop="duties">
-                <el-input v-model="form.duties" type="textarea" :rows="4" maxlength="2000" show-word-limit placeholder="逐条描述岗位工作内容…" />
-              </el-form-item>
-            </div>
-          </div>
+            </section>
 
-          <div class="card">
-            <div class="card__hd"><h3>薪资与班次</h3></div>
-            <div class="card__bd">
-              <div class="grid g-3 tight">
+            <section class="card">
+              <div class="card__hd"><h3>薪资与班次</h3></div>
+              <div class="card__bd fields">
                 <el-form-item label="月综合薪资下限（元）" prop="salaryMin">
                   <el-input-number v-model="form.salaryMin" :min="1" :max="99999" :step="100" :controls="false" placeholder="最低，如 5800" class="num-left" style="width: 100%" />
                 </el-form-item>
@@ -356,34 +382,34 @@ const preview = computed(() => {
                     <el-option v-for="o in options('ShiftType')" :key="o.value" :label="o.label" :value="o.value" />
                   </el-select>
                 </el-form-item>
-              </div>
-              <el-form-item label="福利待遇">
-                <el-input v-model="form.benefits" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="如：五险、全勤奖 200、夜班补贴 25/班、免费班车" />
-              </el-form-item>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__hd"><h3>食宿</h3></div>
-            <div class="card__bd">
-              <div class="row" style="gap: 28px; margin-bottom: 8px">
-                <el-checkbox v-model="form.mealProvided">包吃</el-checkbox>
-                <el-checkbox v-model="form.dormProvided">包住</el-checkbox>
-              </div>
-              <div v-if="form.dormProvided" class="dorm">
-                <el-form-item label="宿舍人数（人/间）">
-                  <el-input-number v-model="form.dormRoomSize" :min="1" :max="20" placeholder="如 4" />
+                <el-form-item label="福利待遇" class="full">
+                  <el-input v-model="form.benefits" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="如：五险、全勤奖 200、夜班补贴 25/班、免费班车" />
                 </el-form-item>
-                <el-checkbox v-model="form.dormAircon">空调</el-checkbox>
-                <el-checkbox v-model="form.dormPrivateBath">独立卫浴</el-checkbox>
               </div>
-            </div>
-          </div>
+            </section>
 
-          <div class="card">
-            <div class="card__hd"><h3>入职要求</h3></div>
-            <div class="card__bd">
-              <div class="grid g-3 tight">
+            <section class="card">
+              <div class="card__hd"><h3>食宿</h3></div>
+              <div class="card__bd fields">
+                <el-form-item label="吃"><el-checkbox v-model="form.mealProvided">包吃</el-checkbox></el-form-item>
+                <el-form-item label="住"><el-checkbox v-model="form.dormProvided">包住</el-checkbox></el-form-item>
+                <template v-if="form.dormProvided">
+                  <el-form-item label="宿舍人数（人/间）">
+                    <el-input-number v-model="form.dormRoomSize" :min="1" :max="20" placeholder="如 4" />
+                  </el-form-item>
+                  <el-form-item label="宿舍设施">
+                    <div class="checks">
+                      <el-checkbox v-model="form.dormAircon">空调</el-checkbox>
+                      <el-checkbox v-model="form.dormPrivateBath">独立卫浴</el-checkbox>
+                    </div>
+                  </el-form-item>
+                </template>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card__hd"><h3>入职要求</h3></div>
+              <div class="card__bd fields">
                 <el-form-item label="最小年龄">
                   <el-input-number v-model="form.ageMin" :min="16" :max="65" style="width: 100%" @change="formRef?.validateField('ageMax')" />
                 </el-form-item>
@@ -398,22 +424,20 @@ const preview = computed(() => {
                     <el-option :value="3" label="3 年以上" />
                   </el-select>
                 </el-form-item>
+                <el-form-item label="所需证件" prop="requiredDocuments" class="full">
+                  <el-select v-model="form.requiredDocuments" multiple filterable allow-create default-first-option :reserve-keyword="false" placeholder="选择或输入后回车添加" style="width: 100%">
+                    <el-option v-for="d in DOC_SUGGEST" :key="d" :label="d" :value="d" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="注意事项" class="full">
+                  <el-input v-model="form.notes" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="纹身要求、体检项目、试岗期等…" />
+                </el-form-item>
               </div>
-              <el-form-item label="所需证件" prop="requiredDocuments">
-                <el-select v-model="form.requiredDocuments" multiple filterable allow-create default-first-option :reserve-keyword="false" placeholder="选择或输入后回车添加" style="width: 100%">
-                  <el-option v-for="d in DOC_SUGGEST" :key="d" :label="d" :value="d" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="注意事项">
-                <el-input v-model="form.notes" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="纹身要求、体检项目、试岗期等…" />
-              </el-form-item>
-            </div>
-          </div>
+            </section>
 
-          <div class="card">
-            <div class="card__hd"><h3>面试</h3></div>
-            <div class="card__bd">
-              <div class="grid g-2 tight">
+            <section class="card">
+              <div class="card__hd"><h3>面试</h3></div>
+              <div class="card__bd fields">
                 <el-form-item label="面试地址" prop="interviewAddress">
                   <el-input v-model="form.interviewAddress" maxlength="200" placeholder="如：立讯精密二期 · 招聘大厅" />
                 </el-form-item>
@@ -421,74 +445,112 @@ const preview = computed(() => {
                   <el-input v-model="form.interviewTimeDesc" maxlength="100" placeholder="如：每日 09:00 / 14:00（工作日）" />
                 </el-form-item>
               </div>
-            </div>
-          </div>
+            </section>
 
-          <div class="card">
-            <div class="card__hd"><h3>名额</h3></div>
-            <div class="card__bd">
-              <el-form-item label="招聘总名额" prop="quotaTotal" style="margin-bottom: 4px">
-                <el-input-number v-model="form.quotaTotal" :min="minQuota" :max="9999" step-strictly />
-              </el-form-item>
-              <div v-if="job" class="t-xs">已被报名占用 {{ job.quotaOccupied }} 个，总名额不能低于该数。</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid side" style="align-content: start">
-          <div class="card" style="border-color: var(--signal-300)">
-            <div class="card__hd"><h3>甲方合同关联</h3><span class="tag tag--signal">平台强审</span></div>
-            <div class="card__bd">
-              <p class="t-sm" style="margin-bottom: 12px; line-height: 1.8">岗位必须发布在<b class="strong">有审核通过且在有效期内合作合同</b>的甲方项目下，平台将核对岗位与甲方的相关性。</p>
-              <template v-if="project">
-                <dl class="kv"><dt>项目</dt><dd>{{ project.name }}</dd></dl>
-                <dl class="kv"><dt>甲方企业</dt><dd>{{ project.clientName }}</dd></dl>
-                <dl class="kv"><dt>地点</dt><dd>{{ project.city }} {{ project.district }}</dd></dl>
-                <dl class="kv">
-                  <dt>合同状态</dt>
-                  <dd><span v-if="project.contractEffective" class="tag tag--ok">合同有效</span><span v-else class="tag tag--danger">无有效合同</span></dd>
-                </dl>
-                <div v-if="!project.contractEffective" class="note note--danger" style="margin-top: 10px">该甲方暂无有效合同，无法发布岗位。请先到「项目与甲方 → 合作合同」上传。</div>
-              </template>
-              <div v-else class="t-xs">请先选择所属项目。下拉中置灰的项目为甲方无有效合同。</div>
-              <el-button v-if="meStore.can('CLIENT_CONTRACT_MANAGE')" link type="primary" style="margin-top: 8px" @click="router.push({ path: '/settings/projects', query: { tab: 'contracts' } })">管理项目与合同 →</el-button>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__hd"><h3>求职者端预览</h3><DictTag v-if="job" type="JobStatus" :value="job.status" /></div>
-            <div class="card__bd">
-              <div class="pv">
-                <div class="pv-main">
-                  <b class="pv-title">{{ form.title || '岗位名称' }}</b>
-                  <div class="t-xs" style="margin-top: 2px">{{ project?.name ?? '所属项目' }} · {{ meStore.me?.company.shortName || meStore.me?.company.name }}</div>
-                  <div v-if="form.salaryMin || form.salaryMax" class="pv-salary">{{ salaryRange(form.salaryMin, form.salaryMax) }}<small> 元/月</small></div>
-                  <div v-else class="pv-salary pv-salary--empty">薪资待填写</div>
-                  <div class="row-wrap" style="margin-top: 8px"><span v-for="c in preview" :key="c" class="tag">{{ c }}</span></div>
-                </div>
-                <div class="pv-ft"><span class="t-xs">{{ form.interviewAddress || '面试地址' }}</span><span class="tag tag--signal">报名面试</span></div>
+            <section class="card">
+              <div class="card__hd"><h3>名额</h3></div>
+              <div class="card__bd fields">
+                <el-form-item label="招聘总名额" prop="quotaTotal">
+                  <el-input-number v-model="form.quotaTotal" :min="minQuota" :max="9999" step-strictly />
+                  <div v-if="job" class="field-hint">已被报名占用 {{ job.quotaOccupied }} 个，总名额不能低于该数。</div>
+                </el-form-item>
               </div>
-              <div class="t-xs" style="margin-top: 10px">该卡片仅在用户完成 AI 问薪匹配且匹配度 ≥80% 时出现，平台不提供岗位列表浏览。</div>
-            </div>
+            </section>
+          </div>
+
+          <div class="col-r">
+            <section class="card">
+              <div class="card__hd"><h3>甲方合同关联</h3><span class="status-tag status-tag--info">平台强审</span></div>
+              <div class="card__bd">
+                <p class="para">岗位必须发布在<b>有审核通过且在有效期内合作合同</b>的甲方项目下，平台将核对岗位与甲方的相关性。</p>
+                <template v-if="project">
+                  <dl class="kv"><dt>项目</dt><dd>{{ project.name }}</dd></dl>
+                  <dl class="kv"><dt>甲方企业</dt><dd>{{ project.clientName }}</dd></dl>
+                  <dl class="kv"><dt>地点</dt><dd>{{ project.city }} {{ project.district }}</dd></dl>
+                  <dl class="kv">
+                    <dt>合同状态</dt>
+                    <dd><span v-if="project.contractEffective" class="status-tag status-tag--success">合同有效</span><span v-else class="status-tag status-tag--danger">无有效合同</span></dd>
+                  </dl>
+                  <div v-if="!project.contractEffective" class="notice-bar notice-bar--danger side-tip">
+                    <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
+                    <span>该甲方暂无有效合同，无法发布岗位。请先到「项目与甲方 → 合作合同」上传。</span>
+                  </div>
+                </template>
+                <p v-else class="field-hint">请先选择所属项目。下拉中置灰的项目为甲方无有效合同。</p>
+                <el-button v-if="meStore.can('CLIENT_CONTRACT_MANAGE')" link type="primary" class="side-link" @click="router.push({ path: '/settings/projects', query: { tab: 'contracts' } })">管理项目与合同 →</el-button>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card__hd"><h3>求职者端预览</h3><DictTag v-if="job" type="JobStatus" :value="job.status" /></div>
+              <div class="card__bd">
+                <div class="pv">
+                  <div class="pv-main">
+                    <b class="pv-title">{{ form.title || '岗位名称' }}</b>
+                    <div class="pv-sub">{{ project?.name ?? '所属项目' }} · {{ meStore.me?.company.shortName || meStore.me?.company.name }}</div>
+                    <div v-if="form.salaryMin || form.salaryMax" class="pv-salary">{{ salaryRange(form.salaryMin, form.salaryMax) }}<small>元/月（综合）</small></div>
+                    <div v-else class="pv-salary pv-salary--empty">薪资待填写</div>
+                    <div class="pv-tags"><span v-for="c in preview" :key="c" class="status-tag">{{ c }}</span></div>
+                  </div>
+                  <div class="pv-ft"><span class="pv-sub">{{ form.interviewAddress || '面试地址' }}</span><span class="status-tag status-tag--info">报名面试</span></div>
+                </div>
+                <p class="field-hint">该卡片仅在用户完成 AI 问薪匹配且匹配度 ≥80% 时出现，平台不提供岗位列表浏览。</p>
+              </div>
+            </section>
           </div>
         </div>
-      </div>
-    </el-form>
+      </el-form>
+    </template>
+    </div>
+
+    <!-- 底部固定操作条（规范第 6 类）：取消 / 保存，保存用主色；被拒原因写在按钮左边 -->
+    <div class="save-bar">
+      <p v-if="saveWhy" class="blocked-why save-bar-why" role="alert">{{ saveWhy }}</p>
+      <span class="spacer" />
+      <el-button @click="router.push('/pm/jobs')">取消</el-button>
+      <el-button type="primary" :loading="saving" :disabled="!!loadError || !meStore.can('JOB_MANAGE') || !!saveWhy" @click="submit">
+        {{ isEdit ? '保存并提交审核' : '提交审核并发布' }}
+      </el-button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.tight { gap: 0 14px; }
-.dorm { display: flex; align-items: flex-end; gap: 22px; padding: 12px 14px 0; background: var(--surface-2); border: 1px dashed var(--line-2); border-radius: var(--r-md); }
-.dorm .el-checkbox { margin-bottom: 18px; }
-.side { position: sticky; top: 72px; }
-.pv { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
-.pv-main { padding: 12px; }
-.pv-title { font-size: 15px; color: var(--ink-900); }
-.pv-salary { font-family: var(--f-dis); font-size: 22px; font-weight: 700; color: var(--signal); margin-top: 6px; }
-.pv-salary--empty { font-size: 15px; font-weight: 500; color: var(--ink-400); }
+.page { min-height: calc(100vh - var(--layout-top-height) - var(--space-page) * 2); display: flex; flex-direction: column; }
+.tip { margin-bottom: var(--space-gap); }
+.body { margin-bottom: var(--space-gap); }
+/* 加载遮罩：只盖页面头以下；表单很长时转圈不落到首屏以下 */
+.body :deep(.el-loading-spinner) { top: min(50%, 40vh); }
+.layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-gap); align-items: start; }
+.cards, .col-r { display: grid; gap: var(--space-gap); align-content: start; }
+.col-r { position: sticky; top: calc(var(--layout-top-height) + var(--space-page)); }
+/* 每区两列字段；长文本占满一行 */
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-4); }
+.fields .full { grid-column: 1 / -1; }
+.field-hint { margin: var(--space-1) 0 0; font-size: var(--font-size-min); line-height: 1.5; color: var(--text-3); }
+.opt-r { float: right; font-size: var(--font-size-min); color: var(--text-3); }
+.checks { display: flex; gap: var(--space-6); }
+.para { margin: 0 0 var(--space-3); font-size: var(--font-size-aux); line-height: 1.8; color: var(--text-2); }
+.para b { color: var(--text-1); font-weight: var(--font-weight-semibold); }
+.side-tip { margin-top: var(--space-3); }
+.side-link { margin-top: var(--space-2); }
+.pv { border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; margin-bottom: var(--space-3); }
+.pv-main { padding: var(--space-3); }
+.pv-title { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.pv-sub { display: block; margin-top: var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
+.pv-salary { margin-top: var(--space-2); font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--salary); }
+.pv-salary small { margin-left: var(--space-1); font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.pv-salary--empty { font-size: var(--font-size-body); font-weight: var(--font-weight-regular); color: var(--text-3); }
 /* 数字输入框与其它输入框一致：内容和占位提示都靠左 */
 .num-left :deep(.el-input__inner) { text-align: left; }
-.pv-salary small { font-family: var(--f-cn); font-size: 11px; color: var(--ink-400); font-weight: 500; }
-.pv-ft { padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pv-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.pv-ft { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--bg-fill); border-top: 1px solid var(--divider); }
+.pv-ft .pv-sub { margin-top: 0; }
+.save-bar {
+  position: sticky; bottom: 0; z-index: 10; display: flex; align-items: center; gap: var(--space-3);
+  margin: auto calc(var(--space-page) * -1) calc(var(--space-page) * -1); padding: var(--space-3) var(--space-page);
+  background: var(--bg-card); border-top: 1px solid var(--border);
+}
+.save-bar .el-button + .el-button { margin-left: 0; }
+.save-bar-why { min-width: 0; }
 </style>

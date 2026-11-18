@@ -2,8 +2,9 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type LaborContractView } from '@shitu/api-client'
+import { IconInbox, IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
-import { CONTRACT_TAG_CLASS, sortContracts, termText } from '@/utils/contract'
+import { CONTRACT_TONE, sortContracts, termText } from '@/utils/contract'
 import { formatServerTime } from '@/utils/time'
 
 /**
@@ -29,6 +30,10 @@ async function load() {
   }
 }
 void load()
+function retry() {
+  loading.value = true
+  void load()
+}
 async function onRefresh() {
   await load()
   refreshing.value = false
@@ -44,68 +49,73 @@ function open(c: LaborContractView) {
 <template>
   <div class="cts">
     <AppBar title="我的合同" fallback="/me" />
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-      <div class="body">
-        <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
-        <div v-else-if="loadError" class="page-state">
-          <van-empty image="error" :description="loadError">
-            <van-button round type="primary" size="small" @click="load">重新加载</van-button>
-          </van-empty>
-        </div>
-        <div v-else-if="!list.length" class="page-state">
-          <van-empty description="还没有劳动合同">
-            <p class="t-xs">面试通过、驻场办理入职后，合同将在这里签署和留存</p>
-          </van-empty>
-        </div>
+    <van-pull-refresh v-model="refreshing" class="body" @refresh="onRefresh">
+      <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
+      <div v-else-if="loadError" class="state-block">
+        <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">加载失败</div>
+        <div class="state-block-d">{{ loadError }}</div>
+        <van-button type="primary" @click="retry">重新加载</van-button>
+      </div>
+      <div v-else-if="!list.length" class="state-block">
+        <IconInbox :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">还没有劳动合同</div>
+        <div class="state-block-d">面试通过、驻场办理入职后，合同将在这里签署和留存</div>
+      </div>
 
-        <template v-else>
-          <div class="pad-x" style="padding-top: 12px">
-            <div class="t-xs">共 {{ list.length }} 份<template v-if="effective"> · {{ effective }} 份生效中</template> · 按签署时间倒序，历史合同全部保留</div>
+      <div v-else class="pad stack">
+        <p class="sum">共 {{ list.length }} 份<template v-if="effective"> · {{ effective }} 份生效中</template> · 按签署时间倒序，历史合同全部保留</p>
+        <article
+          v-for="c in list"
+          :key="c.contractId"
+          class="acard tap"
+          role="button"
+          tabindex="0"
+          @click="open(c)"
+          @keydown.enter="open(c)"
+          @keydown.space.prevent="open(c)"
+        >
+          <div class="item-hd">
+            <h3>{{ c.title }}</h3>
+            <span class="status-tag" :class="CONTRACT_TONE[c.status]">{{ label('ContractStatus', c.status) }}</span>
           </div>
-          <div class="pad stack">
-            <article
-              v-for="c in list"
-              :key="c.contractId"
-              class="acard ct"
-              :class="{ cur: c.status === 'EFFECTIVE', wait: c.status === 'PENDING_SIGN', dim: c.status !== 'EFFECTIVE' && c.status !== 'PENDING_SIGN' }"
-              @click="open(c)"
-            >
-              <div class="row-b" style="margin-bottom: 10px">
-                <span class="tag" :class="CONTRACT_TAG_CLASS[c.status]"><i class="dot"></i>{{ label('ContractStatus', c.status) }}</span>
-                <span class="mono t-xs no">{{ c.contractNo }}</span>
-              </div>
-              <div class="ct-t">{{ c.title }}</div>
-              <div class="t-sm" style="margin-top: 2px">签约公司：{{ c.companyName || '—' }}</div>
-              <div class="divider" style="margin: 10px 0"></div>
-              <dl>
-                <div class="kv"><dt>签署时间</dt><dd class="num">{{ c.signedAt ? formatServerTime(c.signedAt, false) : '待签署' }}</dd></div>
-                <div class="kv"><dt>合同期限</dt><dd class="num">{{ termText(c) }}</dd></div>
-                <div class="kv"><dt>岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
-              </dl>
-              <div class="row" style="gap: 9px; margin-top: 12px">
-                <van-button v-if="c.status === 'PENDING_SIGN'" type="primary" size="small" class="flex1 b" @click.stop="open(c)">去签署</van-button>
-                <van-button v-else size="small" class="flex1 b" @click.stop="open(c)">查看详情</van-button>
-              </div>
-            </article>
+          <p class="item-sub">签约公司：{{ c.companyName || '—' }}</p>
+          <p class="item-meta code">{{ c.contractNo }}</p>
+          <dl class="facts">
+            <div class="kv"><dt>签署时间</dt><dd>{{ c.signedAt ? formatServerTime(c.signedAt, false) : '待签署' }}</dd></div>
+            <div class="kv"><dt>合同期限</dt><dd>{{ termText(c) }}</dd></div>
+            <div class="kv"><dt>岗位</dt><dd>{{ c.jobTitle || '—' }}</dd></div>
+          </dl>
+          <div class="acts">
+            <van-button v-if="c.status === 'PENDING_SIGN'" type="primary" tabindex="-1" @click.stop="open(c)">去签署</van-button>
+            <van-button v-else tabindex="-1" @click.stop="open(c)">查看详情</van-button>
+          </div>
+        </article>
 
-            <div class="note note--info">
-              <b>合同会一直保留。</b>签约入职后合同显示「{{ label('ContractStatus', 'EFFECTIVE') }}」，离职后变为「{{ label('ContractStatus', 'TERMINATED') }}」；即使以后换了公司，以前签过的合同也都能在这里查到。
-            </div>
-            <div class="page-bottom-gap"></div>
-          </div>
-        </template>
+        <section class="tipbar">
+          <IconInfo :size="20" />
+          <div class="flex1"><div class="tipbar-d first"><b class="strong">合同会一直保留。</b>签约入职后合同显示「{{ label('ContractStatus', 'EFFECTIVE') }}」，离职后变为「{{ label('ContractStatus', 'TERMINATED') }}」；即使以后换了公司，以前签过的合同也都能在这里查到。</div></div>
+        </section>
+        <p class="list-end">没有更多了</p>
+        <div class="page-bottom-gap"></div>
       </div>
     </van-pull-refresh>
   </div>
 </template>
 
 <style scoped>
-.cts { min-height: 100vh; background: var(--surface-2); }
-.body { min-height: 70vh; }
-.ct.cur { border-color: var(--ok-line); }
-.ct.wait { border-color: var(--warn-line); }
-.ct.dim { opacity: .82; }
-.ct-t { font-size: 15px; font-weight: 700; color: var(--ink-900); }
-.no { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.b { border-radius: 9px !important; height: 36px !important; font-weight: 600; }
+.cts { min-height: 100vh; --van-loading-spinner-color: var(--primary); }
+.body { min-height: 60vh; }
+.sum { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-wrap: balance; }
+.tap { cursor: pointer; }
+.tap:active { background: var(--bg-hover); }
+.tap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.code { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.facts { margin-top: var(--space-3); border-top: 1px solid var(--divider); }
+.facts dd { word-break: normal; overflow-wrap: anywhere; }
+/* 卡片底部的操作靠右 */
+.acts { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+.acts .van-button { min-width: 104px; }
+/* 折行时不留孤字 */
+.tipbar-d.first { margin-top: 0; text-wrap: pretty; }
 </style>

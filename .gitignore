@@ -30,3 +30,22 @@ web/packages/api-client/src/generated/
 
 # Local uploads (LocalFileStorage)
 data/
+
+
+# ATW 及各 AI 平台生成的文件，不纳入版本控制
+.atw/
+.agents/
+.claude/
+.pi/
+.omp/
+AGENTS.md
+docs/agents/
+.gitattributes
+skills-lock.json
+GLOSSARY.md
+
+# macOS
+.DS_Store
+
+# 改版选型时收集的别家产品界面截图，只留本机参考，不入库
+prototype/redesign/references/

@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules, InputInstance } from 'element-plus'
 import { errorMessage, isApiError, logout, opsApi } from '@shitu/api-client'
+import { BrandMark, IconRefreshCw } from '@shitu/ui-icons'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
 import { APP_TITLE, HOME_PATH } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -12,21 +13,17 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-/** 左侧品牌区的说明文案 */
-const POINTS = [
-  { t: '入驻与岗位审核', d: '核验营业执照与派遣许可，合同备案后岗位才能上架' },
-  { t: '计费与对账', d: '按日结算服务费与流转费，月账单下发、异议复核、登记结算' },
-  { t: '风控与合规', d: '投诉核实、诚信分与处罚、实名复核与黑名单' },
-  { t: '全程留痕', d: '登录、审核、处罚、参数发布等关键操作全部写入审计日志' },
-]
-
 const step = ref<'login' | 'change'>('login')
 const formRef = ref<FormInstance>()
 const captchaInput = ref<InputInstance>()
 const form = reactive({ username: '', password: '', captchaCode: '' })
 const captcha = reactive({ id: '', image: '', loading: false, error: '' })
 const submitting = ref(false)
-const notice = ref<{ tone: 'danger' | 'warn' | 'ok' | 'info'; text: string } | null>(null)
+const notice = ref<{ tone: 'warn' | 'ok' | 'info'; text: string } | null>(null)
+/** 登录被拒的原因：留在主按钮上方，下一次提交时清掉 */
+const formError = ref('')
+/** 账号锁定（AUTH_4009）、登录太频繁（AUTH_4006）用提醒色，其余被拒用危险色（同改版前） */
+const formWarn = ref(false)
 
 const rules: FormRules<typeof form> = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -58,6 +55,7 @@ async function submit() {
   if (!ok) return
   submitting.value = true
   notice.value = null
+  formError.value = ''
   try {
     const res = await opsApi.login({
       username: form.username.trim(),
@@ -78,8 +76,8 @@ async function submit() {
     // 验证码一次性：失败后必须换一张
     form.captchaCode = ''
     loadCaptcha()
-    const tone = isApiError(e, 'AUTH_4009') || isApiError(e, 'AUTH_4006') ? 'warn' : 'danger'
-    notice.value = { tone, text: errorMessage(e, '登录失败，请稍后重试') }
+    formError.value = errorMessage(e, '登录失败，请稍后重试')
+    formWarn.value = isApiError(e, 'AUTH_4009') || isApiError(e, 'AUTH_4006')
     if (isApiError(e, 'AUTH_4005')) captchaInput.value?.focus()
     if (isApiError(e, 'AUTH_4008')) form.password = ''
   } finally {
@@ -104,6 +102,7 @@ async function switchAccount() {
     auth.clear()
     step.value = 'login'
     notice.value = null
+    formError.value = ''
     loadCaptcha()
   }
 }
@@ -125,112 +124,70 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="login">
-    <section class="hero">
+  <main class="login">
+    <div class="login-card">
       <div class="brand">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--signal)" />
-          <path d="M12 5.5 18 8v4.2c0 3.2-2.5 5.3-6 6.3-3.5-1-6-3.1-6-6.3V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
-        </svg>
+        <BrandMark :size="32" />
         <b>{{ APP_TITLE }}</b>
       </div>
+      <template v-if="step === 'login'">
+        <h1>登录运营中台</h1>
+        <p class="sub">使用平台账号登录。连续 5 次密码错误将锁定 15 分钟。</p>
+        <div v-if="notice" class="notice-bar ntc" :class="`notice-bar--${notice.tone}`" role="status">{{ notice.text }}</div>
+        <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form-roomy" @submit.prevent="submit">
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="form.username" autocomplete="username" maxlength="32" placeholder="请输入用户名" />
+          </el-form-item>
+          <el-form-item label="密码" prop="password">
+            <el-input v-model="form.password" type="password" show-password autocomplete="current-password" placeholder="请输入密码" />
+          </el-form-item>
+          <el-form-item label="图形验证码" prop="captchaCode">
+            <div class="cap-row">
+              <el-input ref="captchaInput" v-model="form.captchaCode" maxlength="6" placeholder="请输入右侧字符" />
+              <button type="button" class="cap" title="看不清？点击换一张" :disabled="captcha.loading" @click="loadCaptcha">
+                <img v-if="captcha.image && !captcha.error" :src="captcha.image" alt="图形验证码" />
+                <span v-else class="cap-t"><IconRefreshCw v-if="!captcha.loading" :size="14" />{{ captcha.loading ? '加载中…' : captcha.error ? '重新获取' : '点击获取' }}</span>
+              </button>
+            </div>
+            <p v-if="captcha.error" class="cap-err" role="alert">图形验证码加载失败：{{ captcha.error }}</p>
+          </el-form-item>
+          <p v-if="formError" class="form-err" :class="{ 'form-err--warn': formWarn }" role="alert">{{ formError }}</p>
+          <el-button type="primary" native-type="submit" size="large" class="btn" :loading="submitting">登录</el-button>
+        </el-form>
+        <p class="tip">仕兔平台运营中台 · 仅限内网访问</p>
+      </template>
 
-      <div class="slogan">
-        <h1>平台治理与审核，<br /><em>每一步都有记录</em></h1>
-        <p>面向平台运营、财务与风控团队的工作台。</p>
-        <ul class="points">
-          <li v-for="p in POINTS" :key="p.t">
-            <span class="ck" aria-hidden="true">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>
-            </span>
-            <div><b>{{ p.t }}</b><span>{{ p.d }}</span></div>
-          </li>
-        </ul>
-      </div>
-
-      <div class="foot">仅限内网访问 · 已启用 IP 白名单 · 关键操作全程审计</div>
-    </section>
-
-    <section class="panel">
-      <div class="box">
-        <template v-if="step === 'login'">
-          <div class="hi">平台账号</div>
-          <h2>登录运营中台</h2>
-          <p class="sub">使用平台账号登录。连续 5 次密码错误将锁定 15 分钟。</p>
-          <div v-if="notice" class="notice" :class="`notice--${notice.tone}`">{{ notice.text }}</div>
-          <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form" @submit.prevent="submit">
-            <el-form-item label="用户名" prop="username">
-              <el-input v-model="form.username" autocomplete="username" maxlength="32" placeholder="请输入用户名" />
-            </el-form-item>
-            <el-form-item label="密码" prop="password">
-              <el-input v-model="form.password" type="password" show-password autocomplete="current-password" placeholder="请输入密码" />
-            </el-form-item>
-            <el-form-item label="图形验证码" prop="captchaCode">
-              <div class="cap-row">
-                <el-input ref="captchaInput" v-model="form.captchaCode" maxlength="6" placeholder="请输入右侧字符" />
-                <button type="button" class="cap" title="看不清？点击换一张" :disabled="captcha.loading" @click="loadCaptcha">
-                  <img v-if="captcha.image && !captcha.error" :src="captcha.image" alt="图形验证码" />
-                  <span v-else class="t-xs">{{ captcha.loading ? '加载中…' : captcha.error || '点击获取' }}</span>
-                </button>
-              </div>
-            </el-form-item>
-            <el-button type="primary" native-type="submit" class="btn" :loading="submitting">登录</el-button>
-          </el-form>
-        </template>
-
-        <template v-else>
-          <div class="hi">首次登录</div>
-          <h2>修改密码</h2>
-          <p class="sub">账号 <b class="mono">{{ auth.me?.username }}</b>（{{ auth.me?.displayName }}）· 修改成功后需重新登录。</p>
-          <div v-if="notice" class="notice" :class="`notice--${notice.tone}`">{{ notice.text }}</div>
-          <div class="form">
-            <ChangePasswordForm submit-text="修改密码并重新登录" @success="onPasswordChanged" />
-          </div>
-          <el-button link class="switch" @click="switchAccount">使用其他账号登录</el-button>
-        </template>
-      </div>
-    </section>
-  </div>
+      <template v-else>
+        <h1>首次登录 · 修改密码</h1>
+        <p class="sub">账号 <b>{{ auth.me?.username }}</b>（{{ auth.me?.displayName }}）· 修改成功后需重新登录。</p>
+        <div v-if="notice" class="notice-bar ntc" :class="`notice-bar--${notice.tone}`" role="status">{{ notice.text }}</div>
+        <ChangePasswordForm submit-text="修改密码并重新登录" @success="onPasswordChanged" />
+        <div class="switch"><el-button link type="primary" @click="switchAccount">使用其他账号登录</el-button></div>
+      </template>
+    </div>
+  </main>
 </template>
 
 <style scoped>
-.login { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(460px, 1fr); background: var(--paper); }
-
-/* ------------------------------------------------------------ 品牌区（浅色，与后台主题一致） */
-.hero {
-  position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 40px; padding: 40px 56px; overflow: hidden;
-  background: linear-gradient(160deg, var(--surface) 0%, var(--signal-50) 100%); border-right: 1px solid var(--line);
-}
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand b { font-size: 18px; font-weight: 650; color: var(--ink-900); letter-spacing: -.01em; }
-.slogan { max-width: 520px; }
-.slogan h1 { margin: 0; font-size: 34px; line-height: 1.35; font-weight: 650; letter-spacing: -.01em; color: var(--ink-900); }
-.slogan h1 em { font-style: normal; color: var(--signal); }
-.slogan p { margin: 14px 0 0; font-size: 15px; line-height: 1.8; color: var(--ink-500); }
-.points { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 12px; }
-.points li { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--sh-1); }
-.ck { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--signal-50); color: var(--signal); }
-.points b { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink-900); }
-.points li span:not(.ck) { display: block; margin-top: 2px; font-size: 13px; line-height: 1.6; color: var(--ink-500); }
-.foot { font-size: 12.5px; color: var(--ink-400); }
-
-/* ------------------------------------------------------------ 表单区 */
-.panel { display: grid; place-items: center; padding: 48px 24px; background: var(--paper); }
-.box { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 40px 40px 32px; box-shadow: var(--sh-2); }
-.hi { font-size: 13px; color: var(--signal-700); font-weight: 600; }
-h2 { margin: 6px 0 8px; font-size: 24px; font-weight: 650; letter-spacing: -.01em; color: var(--ink-900); }
-.sub { margin: 0 0 24px; font-size: 13px; color: var(--ink-500); line-height: 1.7; }
-.notice { margin-bottom: 16px; }
-.form { margin-top: 4px; }
-.box :deep(.el-form-item__label) { font-weight: 600; color: var(--ink-700); padding-bottom: 6px; }
-.box :deep(.el-input__wrapper) { height: 44px; border-radius: 10px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2) inset; transition: box-shadow .15s; }
-.box :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px var(--ink-300) inset; }
-.box :deep(.el-input__wrapper.is-focus) { box-shadow: 0 0 0 1px var(--signal) inset, 0 0 0 3px var(--signal-50); }
-.box :deep(.el-form-item.is-error .el-input__wrapper) { box-shadow: 0 0 0 1.5px var(--el-color-danger) inset; }
-.cap-row { display: flex; gap: 10px; width: 100%; }
-.cap { flex: none; width: 124px; height: 44px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-2); cursor: pointer; overflow: hidden; display: grid; place-items: center; }
+/* 规范第 12 类：页面底色上居中一张宽约 400 的白卡片，从上到下品牌标、标题、表单、通栏主按钮（同 console 登录页） */
+.login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-8) var(--space-6); background: var(--bg-page); }
+.login-card { width: 400px; max-width: 100%; padding: var(--space-8); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+.brand { display: flex; align-items: center; gap: var(--space-2); }
+.brand b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+h1 { margin: var(--space-6) 0 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.sub { margin: var(--space-2) 0 var(--space-6); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-3); }
+.sub b { color: var(--text-1); font-weight: var(--font-weight-medium); }
+.ntc { margin: calc(-1 * var(--space-2)) 0 var(--space-4); }
+.cap-row { display: flex; gap: var(--space-2); width: 100%; }
+.cap-row .el-input { flex: 1; min-width: 0; }
+.cap { flex: none; width: 112px; height: var(--control-height); padding: 0 var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); cursor: pointer; overflow: hidden; display: grid; place-items: center; font-family: inherit; font-size: var(--font-size-min); line-height: 1.3; color: var(--text-3); }
+.cap:disabled { cursor: progress; }
+.cap-t { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; }
+/* 验证码加载失败的完整原因：字段下方 12px 危险文字色，和字段错误提示同一位置 */
+.cap-err { margin: var(--space-1) 0 0; width: 100%; font-size: var(--font-size-min); line-height: 1.5; color: var(--danger-text); }
 .cap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.btn, .box :deep(.el-button--primary) { width: 100%; height: 44px; margin-top: 10px; border-radius: 10px; font-size: 15px; font-weight: 600; }
-.switch { margin-top: 14px; }
-@media (max-width: 900px) { .login { grid-template-columns: 1fr; } .hero { display: none; } }
+.form-err { margin-bottom: var(--space-3); }
+.btn { width: 100%; margin-top: var(--space-1); }
+.tip { margin: var(--space-6) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--divider); font-size: var(--font-size-min); color: var(--text-3); text-align: center; }
+.switch { margin-top: var(--space-4); text-align: center; }
 </style>
