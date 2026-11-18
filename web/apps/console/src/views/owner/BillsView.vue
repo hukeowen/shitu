@@ -11,10 +11,13 @@ import { actionsColWidth } from '@/utils/actionsWidth'
 import { fmtDate, fmtSigned } from '@/utils/format'
 import { parseLocal } from '@/utils/time'
 import BillDetailDrawer from './BillDetailDrawer.vue'
+import BillPayDialog from './BillPayDialog.vue'
+import { canPay, payLabel, payState } from './billPayment'
 
 /**
  * A-16 费用账单（T-403，老板）：增长技术服务费 + 人才流转费应付 / 应收分开展示（不轧差）。
  * 账单下发后 5 个工作日内可提出异议（D-23，按节假日日历，截止日以后端 disputeDeadline 为准）。
+ * 付款：老板线下对公转账后在账单上提交付款凭证，平台核对到账后账单结清；逾期天数以后端 overdueDays 为准。
  */
 const router = useRouter()
 const page = reactive({ page: 1, pageSize: 12, total: 0 })
@@ -54,16 +57,8 @@ function canDispute(b: MonthlyBill | null): boolean {
   return shNowMs() <= end.getTime()
 }
 
-/** 某个截止日是否已过（截止日当天不算过期） */
-function overdue(date?: string | null): boolean {
-  const end = date ? parseLocal(date.slice(0, 10)) : null
-  if (!end) return false
-  end.setHours(23, 59, 59, 999)
-  return shNowMs() > end.getTime()
-}
-/** 结算截止已过且账单还没结清才标红；异议截止过了只是不能再提异议，置灰即可 */
-const settleOverdue = (b: MonthlyBill) => b.status !== 'SETTLED' && overdue(b.settleDeadline)
-
+/** 结算截止已过且账单还没结清才标红（以后端算的逾期天数为准）；异议截止过了只是不能再提异议，置灰即可 */
+const settleOverdue = (b: MonthlyBill) => b.overdueDays > 0
 
 async function dispute(b: MonthlyBill) {
   // 确认框里提交：框不关、「提交异议」转圈；被拒时原因写在框里，页面上也留原因并置灰这张账单的「提出异议」
@@ -95,8 +90,24 @@ function openDetail(b: MonthlyBill) {
   drawer.billId = b.billId
   drawer.visible = true
 }
+// ---------- 提交付款凭证
+const pay = reactive({ visible: false, billId: null as string | null })
+const payBill = computed(() => list.value.find((b) => b.billId === pay.billId) ?? null)
+function openPay(b: MonthlyBill) {
+  pay.billId = b.billId
+  pay.visible = true
+}
+function onPaid() {
+  load()
+  drawerRef.value?.reload()
+}
+
+/** 这一行平铺的操作按钮 */
+function rowActions(b: MonthlyBill): string[] {
+  return ['明细', ...(canDispute(b) ? ['提出异议'] : []), ...(canPay(b) ? [payLabel(b)] : [])]
+}
 /** 操作列宽按这一页实际会出的按钮算（utils/actionsWidth.ts），1280 宽不横向滚动 */
-const opsWidth = computed(() => actionsColWidth(list.value.map((b) => ({ labels: canDispute(b) ? ['明细', '提出异议'] : ['明细'] })), 80))
+const opsWidth = computed(() => actionsColWidth(list.value.map((b) => ({ labels: rowActions(b) })), 80))
 function rowClass({ row }: { row: MonthlyBill }) {
   return row.billId === selected.value?.billId ? 'row-sel' : ''
 }
@@ -115,6 +126,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
       </el-select>
       <el-button v-if="selected" @click="openDetail(selected)">账单明细</el-button>
       <el-button v-if="canDispute(selected)" :disabled="!!(selected && blocked[selected.billId])" @click="selected && dispute(selected)">提出异议</el-button>
+      <el-button v-if="canPay(selected)" type="primary" @click="openPay(selected)">{{ payLabel(selected) }}</el-button>
     </div>
 
     <template v-if="selected">
@@ -154,7 +166,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
     </template>
 
     <div class="card tbl-card">
-      <div class="card__hd"><h3>月度账单</h3><span class="hint">每月最后一天自动生成，平台下发后进入 5 个工作日异议期</span></div>
+      <div class="card__hd"><h3>月度账单</h3><span class="hint">每月最后一天自动生成，平台下发后进入 5 个工作日异议期；对公转账后提交付款凭证，平台确认到账即结清</span></div>
       <p v-for="(why, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ list.find((b) => b.billId === id)?.billMonth ?? id }} 账单{{ why }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="list" row-key="billId" :row-class-name="rowClass" @row-click="(r: MonthlyBill) => (selectedId = r.billId)">
         <el-table-column label="账单月份" width="96">
@@ -173,19 +185,23 @@ function rowClass({ row }: { row: MonthlyBill }) {
           <template #default="{ row }"><span class="money">{{ fmtSigned(row.payable, 'out') }}</span></template>
         </el-table-column>
         <el-table-column label="状态" min-width="96">
-          <template #default="{ row }"><DictTag type="BillStatus" :value="row.status" /></template>
+          <template #default="{ row }">
+            <DictTag type="BillStatus" :value="row.status" />
+            <div v-if="payState(row)" class="pay-t" :class="`pay-t--${payState(row)?.tone}`">{{ payState(row)?.label }}</div>
+          </template>
         </el-table-column>
         <el-table-column label="异议截止" width="104">
           <template #default="{ row }"><span class="code" :class="{ due: canDispute(row), past: row.disputeDeadline && !canDispute(row) }">{{ fmtDate(row.disputeDeadline) }}</span><div v-if="canDispute(row)" class="due-t">异议期内</div></template>
         </el-table-column>
         <el-table-column label="结算截止" width="104">
-          <template #default="{ row }"><span class="code" :class="{ overdue: settleOverdue(row) }" :title="settleOverdue(row) ? '已过结算截止日' : undefined">{{ fmtDate(row.settleDeadline) }}</span></template>
+          <template #default="{ row }"><span class="code" :class="{ overdue: settleOverdue(row) }" :title="settleOverdue(row) ? '已过结算截止日' : undefined">{{ fmtDate(row.settleDeadline) }}</span><div v-if="settleOverdue(row)" class="overdue-t">已逾期 {{ row.overdueDays }} 天</div></template>
         </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" class-name="ops-col">
           <template #default="{ row }">
             <div class="acts">
               <el-button size="small" link type="primary" @click.stop="openDetail(row)">明细</el-button>
               <el-button v-if="canDispute(row)" size="small" link type="primary" :disabled="!!blocked[row.billId]" @click.stop="dispute(row)">提出异议</el-button>
+              <el-button v-if="canPay(row)" size="small" link type="primary" @click.stop="openPay(row)">{{ payLabel(row) }}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -227,6 +243,9 @@ function rowClass({ row }: { row: MonthlyBill }) {
           <dl class="kv"><dt>账单生成</dt><dd>每月最后一天自动生成</dd></dl>
           <dl class="kv"><dt>结算截止</dt><dd>次月 15 日前</dd></dl>
           <dl class="kv"><dt>异议期</dt><dd>下发后 5 个工作日内（节假日顺延）</dd></dl>
+          <dl class="kv"><dt>付款方式</dt><dd>对公转账后提交付款凭证</dd></dl>
+          <p class="para">按账单上的平台收款账户<b>一次付清应付合计</b>，转账后点「提交付款凭证」填写付款信息并上传回单；平台核对到账后账单变为「已结算」，凭证被退回的可以核对后重新提交。</p>
+          <p class="para">过了结算截止日还没结清的账单会收到催缴提醒；<b>长期逾期未结清，公司会被自动限流</b>，结清后自动恢复。</p>
         </div>
       </div>
     </div>
@@ -237,8 +256,12 @@ function rowClass({ row }: { row: MonthlyBill }) {
       :bill-id="drawer.billId"
       :can-dispute="canDispute(drawerBill)"
       :blocked-why="drawer.billId ? blocked[drawer.billId] : undefined"
+      :can-pay="canPay(drawerBill)"
+      :pay-label="payLabel(drawerBill)"
       @dispute="drawerBill && dispute(drawerBill)"
+      @pay="drawerBill && openPay(drawerBill)"
     />
+    <BillPayDialog v-model="pay.visible" :bill="payBill" @done="onPaid" />
   </div>
 </template>
 
@@ -256,6 +279,12 @@ b.code { font-weight: var(--font-weight-semibold); }
 .code.past { color: var(--text-3); }
 .code.overdue { color: var(--danger-text); }
 .due-t { font-size: var(--font-size-min); color: var(--warning-text); }
+.overdue-t { font-size: var(--font-size-min); color: var(--danger-text); white-space: nowrap; }
+/* 付款进度：写在账单状态下面一行，色调同状态标签的文字色 */
+.pay-t { margin-top: 2px; font-size: var(--font-size-min); color: var(--text-2); white-space: nowrap; }
+.pay-t--success { color: var(--success-text); }
+.pay-t--warning { color: var(--warning-text); }
+.pay-t--danger { color: var(--danger-text); }
 .acts { display: inline-flex; gap: var(--space-2); justify-content: flex-end; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
 .explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }

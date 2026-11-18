@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { IconInbox, IconCircleExclamationPoint } from '@shitu/ui-icons'
+import { IconInbox, IconCircleExclamationPoint, IconInfo } from '@shitu/ui-icons'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { errorMessage, opsApi, type BillDetail, type BillDispute } from '@shitu/api-client'
+import { errorMessage, opsApi, type BillDetail, type BillDispute, type BillPayment } from '@shitu/api-client'
+import FileThumbs from '@/components/FileThumbs.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { useCompanyNames } from '@/composables/useCompanyNames'
-import { confirmInBox, isBlocked } from '@/composables/boxSubmit'
-import { fmtDate, fmtDateTime, fmtMoney, fmtNum } from '@/utils/format'
+import { confirmInBox, isBlocked, remarkInBox } from '@/composables/boxSubmit'
+import { fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtOperator } from '@/utils/format'
+import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from './billPayment'
 
 const props = defineProps<{ billId: string | null }>()
 const emit = defineEmits<{ close: []; changed: [] }>()
@@ -46,7 +48,10 @@ watch(
 )
 
 const b = computed(() => loading.value || error.value ? undefined : detail.value?.bill)
-const canSettle = computed(() => b.value?.status === 'ISSUED' || b.value?.status === 'CONFIRMED')
+const payments = computed(() => detail.value?.payments ?? [])
+/** 有凭证待确认：应当确认到账或退回，不再给「直接登记结算」 */
+const hasPending = computed(() => payments.value.some((p) => p.status === 'PENDING'))
+const canSettle = computed(() => (b.value?.status === 'ISSUED' || b.value?.status === 'CONFIRMED') && !hasPending.value)
 const totals = computed(() => {
   const days = detail.value?.days ?? []
   return {
@@ -61,12 +66,44 @@ async function settle() {
   const bill = b.value
   acting.value = true
   try {
-    const ok = await confirmInBox({ title: '登记结算', action: '登记结算', danger: true,
-      text: `确认已收到 ${bill.companyId} ${bill.billMonth} 账单款项 ${fmtMoney(bill.payable)} 元？登记后账单状态变为「已结算」，不可撤销。`,
+    const ok = await confirmInBox({ title: '直接登记结算', action: '登记结算', danger: true,
+      text: `企业没有提交付款凭证时才用直接登记。确认已收到 ${companyName(bill.companyId) || bill.companyId} ${bill.billMonth} 账单款项 ${fmtMoney(bill.payable)} 元？登记后账单状态变为「已结算」，不可撤销。`,
       api: () => opsApi.settleBill(bill.billId),
     })
     if (!ok) return
     ElMessage.success('已登记结算')
+    emit('changed')
+    await load()
+  } finally { acting.value = false }
+}
+
+// ---------- 付款凭证：确认到账 / 退回
+async function confirmPayment(p: BillPayment) {
+  if (!b.value || acting.value) return
+  const bill = b.value
+  acting.value = true
+  try {
+    const ok = await remarkInBox({ title: '确认到账', action: '确认到账', placeholder: '备注（选填）',
+      text: `确认已收到 ${companyName(bill.companyId) || bill.companyId} ${bill.billMonth} 账单款项 ${fmtMoney(p.amount)} 元？确认后账单状态变为「已结算」，不可撤销。`,
+      api: (remark) => opsApi.confirmBillPayment(p.id, remark || undefined),
+    })
+    if (!ok) return
+    ElMessage.success('已确认到账，账单已结算')
+    emit('changed')
+    await load()
+  } finally { acting.value = false }
+}
+async function rejectPayment(p: BillPayment) {
+  if (!b.value || acting.value) return
+  const bill = b.value
+  acting.value = true
+  try {
+    const ok = await remarkInBox({ title: '退回付款凭证', action: '退回', required: true, danger: true, placeholder: '请填写退回原因（必填，将通知企业）',
+      text: `退回 ${companyName(bill.companyId) || bill.companyId} ${bill.billMonth} 账单的付款凭证（${fmtMoney(p.amount)} 元）。退回后账单保持未结清，企业可以重新提交。`,
+      api: (remark) => opsApi.rejectBillPayment(p.id, remark),
+    })
+    if (!ok) return
+    ElMessage.success('已退回付款凭证')
     emit('changed')
     await load()
   } finally { acting.value = false }
@@ -113,6 +150,8 @@ async function submitReply() {
       <el-empty v-if="!loading && error" :image-size="48" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>
       <template v-else-if="!loading && detail && b">
         <div v-if="b.status === 'DISPUTED'" class="notice notice--danger top-tip">企业对该账单提出了异议，请在下方「异议记录」中复核处理。</div>
+        <div v-else-if="hasPending" class="notice-bar notice-bar--warn top-tip"><IconInfo :size="16" class="notice-bar-i" />企业已提交付款凭证：请核对银行流水后，在下方「付款凭证」中确认到账或退回。</div>
+        <div v-else-if="b.overdueDays > 0" class="notice-bar notice-bar--danger top-tip"><IconInfo :size="16" class="notice-bar-i" />该账单已逾期 {{ b.overdueDays }} 天未结清。</div>
 
         <div class="grid g-2 sum">
           <div class="stat"><div class="stat-l">增长技术服务费</div><div class="stat-v sm money">{{ fmtMoney(b.serviceFee) }}</div></div>
@@ -129,6 +168,34 @@ async function submitReply() {
           <div><dt>结算截止</dt><dd class="tnum">{{ fmtDate(b.settleDeadline) }}</dd></div>
           <div><dt>结算时间</dt><dd class="tnum">{{ fmtDateTime(b.settledAt) }}</dd></div>
         </dl></section>
+
+        <section class="blk"><h3 class="blk-t">付款凭证 <small>{{ payments.length }} 笔</small></h3>
+        <p v-if="payments.length === 0" class="t-sm dim">企业还没有提交付款凭证。已通过其他方式确认收款的，可以用下方「直接登记结算」。</p>
+        <div v-for="p in payments" :key="p.id" class="pay">
+          <div class="pay-hd">
+            <span class="status-tag" :class="`status-tag--${PAYMENT_STATUS_TONE[p.status]}`">{{ PAYMENT_STATUS_LABEL[p.status] }}</span>
+            <span class="t-xs">{{ p.submittedBy }} 提交 · {{ fmtDateTime(p.createdAt) }}</span>
+          </div>
+          <div class="pay-bd">
+            <dl class="desc-list">
+              <div><dt>付款金额</dt><dd class="money">{{ fmtMoney(p.amount) }} 元<span v-if="Number(p.amount) !== Number(b.payable)" class="diff">与应付合计 {{ fmtMoney(b.payable) }} 不一致</span></dd></div>
+              <div><dt>付款日期</dt><dd class="tnum">{{ fmtDate(p.paidDate) }}</dd></div>
+              <div><dt>付款户名</dt><dd>{{ p.payerName }}</dd></div>
+              <div><dt>银行流水号</dt><dd class="mono">{{ p.bankRef || '—' }}</dd></div>
+              <div v-if="p.remark" class="full"><dt>企业备注</dt><dd class="pre">{{ p.remark }}</dd></div>
+              <div v-if="p.status !== 'PENDING'" class="full">
+                <dt>{{ p.status === 'REJECTED' ? '退回原因' : '确认备注' }}</dt>
+                <dd class="pre">{{ p.reviewRemark || '—' }}<span class="t-xs rv-by">{{ fmtOperator(p.reviewedBy, '—') }} · {{ fmtDateTime(p.reviewedAt) }}</span></dd>
+              </div>
+            </dl>
+            <FileThumbs :keys="[p.voucherKey]" label="付款凭证" />
+          </div>
+          <div v-if="p.status === 'PENDING'" class="d-acts">
+            <el-button size="small" type="danger" class="btn-reject" :disabled="acting" @click="rejectPayment(p)">退回</el-button>
+            <el-button size="small" type="primary" :disabled="acting" @click="confirmPayment(p)">确认到账</el-button>
+          </div>
+        </div>
+        </section>
 
         <section class="blk"><h3 class="blk-t">异议记录 <small>{{ detail.disputes.length }} 条</small></h3>
         <el-empty v-if="detail.disputes.length === 0" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>无异议</h3><p>这张账单暂无异议记录，可刷新查看最新情况。</p></template><el-button type="primary" @click="load">刷新</el-button></el-empty>
@@ -176,7 +243,7 @@ async function submitReply() {
     <template #footer>
       <div class="drawer-actions">
         <el-button @click="visible = false">关闭</el-button>
-        <el-button v-if="canSettle" type="primary" :loading="acting" @click="settle">登记结算</el-button>
+        <el-button v-if="canSettle" :loading="acting" @click="settle">直接登记结算</el-button>
       </div>
     </template>
 
@@ -205,6 +272,15 @@ async function submitReply() {
 .money { text-align: right; }
 .reply { margin-top: 6px; padding: 6px 10px; background: var(--bg-fill); border-radius: var(--radius-tag); }
 .d-acts { margin-top: 8px; display: flex; gap: 6px; }
+.d-acts .el-button + .el-button { margin-left: 0; }
+.pay { border: 1px solid var(--border); border-radius: var(--radius-card); padding: var(--space-3) var(--space-4); }
+.pay + .pay { margin-top: var(--space-2); }
+.pay-hd { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.pay-bd { display: flex; align-items: flex-start; gap: var(--space-4); }
+.pay-bd .desc-list { flex: 1; min-width: 0; }
+.pay-bd .money { text-align: left; }
+.diff { margin-left: var(--space-2); font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--danger-text); white-space: normal; }
+.rv-by { margin-left: var(--space-2); }
 .gap { margin-bottom: 12px; }
 .quote { padding: 8px 10px; border-left: 3px solid var(--border); background: var(--bg-fill); margin-bottom: 10px; color: var(--text-2); white-space: pre-wrap; }
 .err { margin-top: 10px; }

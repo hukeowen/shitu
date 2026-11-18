@@ -1,5 +1,6 @@
 package com.shitu.app.ops;
 
+import com.shitu.billing.service.BillPaymentService;
 import com.shitu.billing.service.DailyBillingService;
 import com.shitu.billing.service.MonthlyBillService;
 import com.shitu.common.api.ApiResponse;
@@ -36,14 +37,22 @@ public class OpsBillingController {
     public record ReplyRequest(@NotNull Boolean accept, @NotBlank(message = "请填写处理说明") String reply) {
     }
 
+    public record PaymentReviewRequest(String remark) {
+    }
+
     public record CloseRequest(@NotNull CompanyStatus status, @NotBlank(message = "请填写说明") String remark) {
     }
 
     private final MonthlyBillService bills;
     private final DailyBillingService daily;
     private final CompanyClosureFacade closure;
+    private final BillPaymentService payments;
+    private final BillCollectionService collection;
 
-    public OpsBillingController(MonthlyBillService bills, DailyBillingService daily, CompanyClosureFacade closure) {
+    public OpsBillingController(MonthlyBillService bills, DailyBillingService daily, CompanyClosureFacade closure,
+                                BillPaymentService payments, BillCollectionService collection) {
+        this.payments = payments;
+        this.collection = collection;
         this.bills = bills;
         this.daily = daily;
         this.closure = closure;
@@ -55,9 +64,10 @@ public class OpsBillingController {
     public ApiResponse<PageResult<MonthlyBillService.Bill>> list(@RequestParam(required = false) String companyId,
                                                                @RequestParam(required = false) String status,
                                                                @RequestParam(required = false) String month,
+                                                               @RequestParam(required = false) String flag,
                                                                @RequestParam(defaultValue = "1") int page,
                                                                @RequestParam(defaultValue = "20") int pageSize) {
-        return ApiResponse.ok(bills.list(companyId, status, month, page, pageSize));
+        return ApiResponse.ok(bills.list(companyId, status, month, flag, page, pageSize));
     }
 
     @Operation(summary = "账单详情 + 每日明细 + 异议")
@@ -66,11 +76,32 @@ public class OpsBillingController {
     public ApiResponse<TenantBillDetail> detail(@PathVariable String billId) {
         MonthlyBillService.Bill b = bills.get(billId, null);
         return ApiResponse.ok(new TenantBillDetail(b, bills.days(b.companyId(), YearMonth.parse(b.billMonth())),
-                bills.disputes(billId)));
+                bills.disputes(billId), payments.ofBill(billId)));
     }
 
     public record TenantBillDetail(MonthlyBillService.Bill bill, List<MonthlyBillService.DayLine> days,
-                                   List<MonthlyBillService.Dispute> disputes) {
+                                   List<MonthlyBillService.Dispute> disputes, List<BillPaymentService.Payment> payments) {
+    }
+
+    @Operation(summary = "收款待办：待确认的付款凭证数、逾期未结清的账单数与金额")
+    @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
+    @GetMapping("/bills-summary")
+    public ApiResponse<BillCollectionService.Summary> summary() {
+        return ApiResponse.ok(collection.summary());
+    }
+
+    @Operation(summary = "确认付款到账（账单置为已结算；因该账单被自动限流的公司恢复正常）")
+    @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
+    @PostMapping("/bill-payments/{id}/confirm")
+    public ApiResponse<BillPaymentService.Payment> confirmPayment(@PathVariable long id, @RequestBody(required = false) PaymentReviewRequest req) {
+        return ApiResponse.ok(collection.confirm(id, req == null ? null : req.remark(), CurrentUser.subjectId()));
+    }
+
+    @Operation(summary = "退回付款凭证（必须写原因，公司可重新提交）")
+    @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
+    @PostMapping("/bill-payments/{id}/reject")
+    public ApiResponse<BillPaymentService.Payment> rejectPayment(@PathVariable long id, @RequestBody PaymentReviewRequest req) {
+        return ApiResponse.ok(collection.reject(id, req == null ? null : req.remark(), CurrentUser.subjectId()));
     }
 
     @Operation(summary = "处理异议（接受 → 账单退回待修正；驳回 → 恢复已下发）")
@@ -85,7 +116,7 @@ public class OpsBillingController {
     @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
     @PostMapping("/bills/{billId}/settle")
     public ApiResponse<Void> settle(@PathVariable String billId) {
-        bills.markSettled(billId, CurrentUser.subjectId());
+        collection.settle(billId, CurrentUser.subjectId());
         return ApiResponse.ok(null);
     }
 

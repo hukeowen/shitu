@@ -33,7 +33,7 @@ import java.util.Set;
 @Component
 public class FileFacade {
 
-    public static final Set<String> CATEGORIES = Set.of("license", "contract");
+    public static final Set<String> CATEGORIES = Set.of("license", "contract", "payment");
     private static final Duration OWNER_TTL = Duration.ofHours(24);
 
     public record Uploaded(String key, String name, long size) {
@@ -43,6 +43,8 @@ public class FileFacade {
     private final KvStore kv;
     private final CompanyMapper companies;
     private final ClientContractMapper contracts;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public FileFacade(FileStorage storage, KvStore kv, CompanyMapper companies, ClientContractMapper contracts) {
         this.storage = storage;
@@ -121,8 +123,13 @@ public class FileFacade {
         if (c != null && c.getLicenseFiles() != null && c.getLicenseFiles().contains(key)) {
             return true;
         }
-        return contracts.selectCount(new LambdaQueryWrapper<ClientContract>()
-                .eq(ClientContract::getCompanyId, companyId).eq(ClientContract::getFileKey, key)) > 0;
+        if (contracts.selectCount(new LambdaQueryWrapper<ClientContract>()
+                .eq(ClientContract::getCompanyId, companyId).eq(ClientContract::getFileKey, key)) > 0) {
+            return true;
+        }
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM bill_payment WHERE company_id = ? AND voucher_key = ?",
+                Integer.class, companyId, key);
+        return n != null && n > 0;
     }
 
     private ResponseEntity<InputStreamResource> stream(String key) {

@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { computed, h, ref, watch, type VNode } from 'vue'
-import { errorMessage, tenantApi, type BillDayLine, type BillDetail } from '@shitu/api-client'
+import { errorMessage, tenantApi, type BillDayLine, type TenantBillDetail } from '@shitu/api-client'
 import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
-import { fmtDate, fmtDateTime, fmtSigned, toNum } from '@/utils/format'
+import FileLink from '@/components/FileLink.vue'
+import { fmtDate, fmtDateTime, fmtSigned, fmtYuan, toNum } from '@/utils/format'
+import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from './billPayment'
 
-/** 账单详情：每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 异议记录。blockedWhy：这张账单的异议被后端拒绝过的原因（置灰「提出异议」） */
-const props = defineProps<{ billId: string | null; canDispute: boolean; blockedWhy?: string }>()
+/**
+ * 账单详情：每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 付款记录 + 异议记录。
+ * blockedWhy：这张账单的异议被后端拒绝过的原因（置灰「提出异议」）；canPay / payLabel：能不能提交付款凭证、按钮文字（由列表页判断）
+ */
+const props = defineProps<{ billId: string | null; canDispute: boolean; blockedWhy?: string; canPay?: boolean; payLabel?: string }>()
 const visible = defineModel<boolean>({ required: true })
-const emit = defineEmits<{ dispute: [] }>()
+const emit = defineEmits<{ dispute: []; pay: [] }>()
 
-const detail = ref<BillDetail | null>(null)
+const detail = ref<TenantBillDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -67,6 +72,7 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
           <span class="code hint">{{ detail.bill.billId }}</span>
           <span class="spacer" />
           <el-button v-if="canDispute" :disabled="!!blockedWhy" @click="emit('dispute')">提出异议</el-button>
+          <el-button v-if="canPay" type="primary" @click="emit('pay')">{{ payLabel || '提交付款凭证' }}</el-button>
         </div>
         <p v-if="blockedWhy" class="blocked-why hd-why" role="status">{{ blockedWhy }}</p>
 
@@ -86,7 +92,7 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
           <dl class="desc-list">
             <div><dt>下发时间</dt><dd>{{ fmtDateTime(detail.bill.issuedAt) }}</dd></div>
             <div><dt>异议截止</dt><dd>{{ fmtDate(detail.bill.disputeDeadline) }}</dd></div>
-            <div><dt>结算截止</dt><dd>{{ fmtDate(detail.bill.settleDeadline) }}</dd></div>
+            <div><dt>结算截止</dt><dd>{{ fmtDate(detail.bill.settleDeadline) }}<span v-if="detail.bill.overdueDays > 0" class="overdue">已逾期 {{ detail.bill.overdueDays }} 天</span></dd></div>
             <div><dt>结算时间</dt><dd>{{ fmtDateTime(detail.bill.settledAt) }}</dd></div>
           </dl>
         </section>
@@ -117,6 +123,28 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
             <template #empty><span class="hint">暂无每日明细</span></template>
           </el-table>
           <p class="hint fine">增长技术服务费 = max(当日在岗人数 − 存量基数, 0) × 单价；免费期内不计费，存量基数在免费期满次日锁定。</p>
+        </section>
+
+        <section class="blk">
+          <h4 class="blk-t">付款记录<small v-if="detail.payments.length">{{ detail.payments.length }} 笔</small></h4>
+          <p v-if="!detail.payments.length" class="hint">暂无付款记录。对公转账后提交付款凭证，平台确认到账后账单结清</p>
+          <div v-for="p in detail.payments" :key="p.id" class="dispute">
+            <div class="dispute-hd">
+              <span class="status-tag" :class="`status-tag--${PAYMENT_STATUS_TONE[p.status]}`">{{ PAYMENT_STATUS_LABEL[p.status] }}</span>
+              <span class="hint">{{ fmtDateTime(p.createdAt) }} 提交</span>
+              <span class="spacer" />
+              <FileLink :file-key="p.voucherKey" label="查看凭证" />
+            </div>
+            <dl class="desc-list pay-desc">
+              <div><dt>付款金额</dt><dd class="money">{{ fmtYuan(toNum(p.amount)) }}</dd></div>
+              <div><dt>付款日期</dt><dd>{{ fmtDate(p.paidDate) }}</dd></div>
+              <div><dt>付款户名</dt><dd>{{ p.payerName }}</dd></div>
+              <div><dt>银行流水号</dt><dd class="code">{{ p.bankRef || '—' }}</dd></div>
+            </dl>
+            <p v-if="p.remark" class="hint pay-remark">备注：{{ p.remark }}</p>
+            <div v-if="p.status === 'REJECTED'" class="reply reply--bad"><b>退回原因：</b>{{ p.reviewRemark || '—' }}<span class="hint reply-at">{{ fmtDateTime(p.reviewedAt) }}</span></div>
+            <div v-else-if="p.status === 'CONFIRMED'" class="reply"><b>平台已确认到账</b>{{ p.reviewRemark ? `：${p.reviewRemark}` : '' }}<span class="hint reply-at">{{ fmtDateTime(p.reviewedAt) }}</span></div>
+          </div>
         </section>
 
         <section class="blk">
@@ -154,6 +182,11 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
 .reply { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-fill); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); }
 .reply b { font-weight: var(--font-weight-semibold); }
 .reply-at { margin-left: var(--space-2); }
+.reply--bad { background: var(--danger-soft); }
+.pay-desc { margin-top: var(--space-3); }
+.pay-desc dd { word-break: break-all; }
+.pay-remark { margin: var(--space-2) 0 0; line-height: 1.6; }
+.overdue { margin-left: var(--space-2); font-size: var(--font-size-aux); color: var(--danger-text); }
 </style>
 
 <style>

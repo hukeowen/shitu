@@ -71,6 +71,11 @@ import type {
   RosterBatch,
   MonthlyBill,
   BillDetail,
+  TenantBillDetail,
+  BillPayment,
+  BillPaymentRequest,
+  BillsSummary,
+  BillFlag,
   LedgerLine,
   DailyBillingResult,
   BillingRuleRow,
@@ -252,8 +257,8 @@ export const tenantApi = {
   company: () => get<CompanyView>('/tenant/company'),
   /** 审核中 / 被驳回时修改资料重新提交（老板） */
   resubmit: (req: ApplyCompanyRequest) => put<CompanyView>('/tenant/company/application', req),
-  /** category：license 营业执照 / 许可证；contract 合作合同 */
-  upload: (file: File, category: 'license' | 'contract') => upload<UploadedFile>('/tenant/files', file, { category }),
+  /** category：license 营业执照 / 许可证；contract 合作合同；payment 账单付款凭证 */
+  upload: (file: File, category: 'license' | 'contract' | 'payment') => upload<UploadedFile>('/tenant/files', file, { category }),
   /** 查看文件用 fetchFileUrl(tenantApi.filePath, key) */
   filePath: '/tenant/files',
 
@@ -376,7 +381,9 @@ export const tenantApi = {
 
   /** 费用账单 T-403 / 流转账本 T-404（老板） */
   bills: (page = 1, pageSize = 12) => get<PageResult<MonthlyBill>>('/tenant/bills', { page, pageSize }),
-  bill: (billId: string) => get<BillDetail>(`/tenant/bills/${billId}`),
+  bill: (billId: string) => get<TenantBillDetail>(`/tenant/bills/${billId}`),
+  /** 提交付款凭证（老板）：金额须等于应付合计，同一张账单同时只能有一笔待确认 */
+  submitBillPayment: (billId: string, req: BillPaymentRequest) => post<BillPayment>(`/tenant/bills/${billId}/payments`, req),
   disputeBill: (billId: string, content: string) => post<BillDispute>(`/tenant/bills/${billId}/disputes`, { content }),
   /** month：YYYY-MM */
   ledger: (month: string) => get<LedgerLine[]>('/tenant/ledger', { month }),
@@ -454,12 +461,18 @@ export const opsApi = {
   matchSnapshot: (sessionId: string) => get<MatchSnapshot>(`/ops/match-sessions/${sessionId}`),
 
   /** 对账 P-10（超管 / 财务） */
-  bills: (params?: { companyId?: string; status?: BillStatus; month?: string; page?: number; pageSize?: number }) =>
+  bills: (params?: { companyId?: string; status?: BillStatus; month?: string; flag?: BillFlag; page?: number; pageSize?: number }) =>
     get<PageResult<MonthlyBill>>('/ops/bills', params),
   bill: (billId: string) => get<BillDetail>(`/ops/bills/${billId}`),
   replyDispute: (disputeId: number, accept: boolean, reply: string) =>
     post<void>(`/ops/disputes/${disputeId}/reply`, { accept, reply }),
+  /** 没有付款凭证时直接登记结算 */
   settleBill: (billId: string) => post<void>(`/ops/bills/${billId}/settle`),
+  billsSummary: () => get<BillsSummary>('/ops/bills-summary'),
+  /** 确认到账：账单变为已结算 */
+  confirmBillPayment: (paymentId: number, remark?: string) => post<BillPayment>(`/ops/bill-payments/${paymentId}/confirm`, { remark }),
+  /** 退回凭证：原因必填，企业可重新提交 */
+  rejectBillPayment: (paymentId: number, remark: string) => post<BillPayment>(`/ops/bill-payments/${paymentId}/reject`, { remark }),
   /** 重算某天计费（date：yyyy-MM-dd） */
   rerunDaily: (date: string) => request<DailyBillingResult>({ method: 'POST', url: '/ops/billing/daily', params: { date } }),
   /** 生成并下发某月账单（仅超管） */

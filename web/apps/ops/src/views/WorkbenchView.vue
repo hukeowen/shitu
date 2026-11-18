@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useDict } from '@shitu/api-client'
-import { IconBriefcase, IconBuildingComplex, IconChevronRight, IconCircleCheck, IconFileText, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
-import { MENU, PENDING_ROLES } from '@/router/menu'
+import { computed, onMounted, ref } from 'vue'
+import { opsApi, useDict } from '@shitu/api-client'
+import { IconBriefcase, IconBuildingComplex, IconChevronRight, IconCircleCheck, IconFileText, IconInbox, IconReceipt, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { BILLING_ROLES, MENU, PENDING_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
 import { usePendingStore } from '@/stores/pending'
 import { fmtDateTime } from '@/utils/format'
@@ -15,15 +15,41 @@ const canPending = computed(() => auth.hasAnyRole(PENDING_ROLES))
 /** 数字只在这次拿到了数据时显示：加载中、失败都显示「—」（规范「Page States」） */
 const ready = computed(() => !!pending.counts && !pending.loading && !pending.error)
 
-const cards = computed(() => {
+/** 待确认付款（超管 / 财务）：数量来自对账汇总 /ops/bills-summary，不在待办接口里；拿不到时显示「—」 */
+const canBilling = computed(() => auth.hasAnyRole(BILLING_ROLES))
+const payPending = ref<number | null>(null)
+const payLoading = ref(false)
+async function loadPayPending() {
+  if (!canBilling.value || payLoading.value) return
+  payLoading.value = true
+  try {
+    payPending.value = (await opsApi.billsSummary()).paymentPending
+  } catch {
+    payPending.value = null
+  } finally {
+    payLoading.value = false
+  }
+}
+function refresh() {
+  void pending.refresh()
+  void loadPayPending()
+}
+
+const auditCards = computed(() => {
   const c = ready.value ? pending.counts : null
   return [
-    { key: 'companies', icon: IconBuildingComplex, title: '待审核入驻', desc: '劳务公司入驻申请，核验营业执照与派遣许可', n: c?.companies, to: { path: '/companies/list', query: { status: 'PENDING_AUDIT' } } },
-    { key: 'contracts', icon: IconFileText, title: '待备案合同', desc: '劳务公司与甲方的合作合同，备案后才能发岗', n: c?.contracts, to: { path: '/governance/job-audit', query: { tab: 'contracts' } } },
-    { key: 'jobs', icon: IconBriefcase, title: '待审核岗位', desc: '按提交时间排队，通过后进入匹配池', n: c?.jobs, to: { path: '/governance/job-audit', query: { tab: 'jobs' } } },
+    { key: 'companies', icon: IconBuildingComplex, title: '待审核入驻', desc: '劳务公司入驻申请，核验营业执照与派遣许可', n: c?.companies, unit: '项', to: { path: '/companies/list', query: { status: 'PENDING_AUDIT' } } },
+    { key: 'contracts', icon: IconFileText, title: '待备案合同', desc: '劳务公司与甲方的合作合同，备案后才能发岗', n: c?.contracts, unit: '项', to: { path: '/governance/job-audit', query: { tab: 'contracts' } } },
+    { key: 'jobs', icon: IconBriefcase, title: '待审核岗位', desc: '按提交时间排队，通过后进入匹配池', n: c?.jobs, unit: '项', to: { path: '/governance/job-audit', query: { tab: 'jobs' } } },
   ]
 })
-const allDone = computed(() => cards.value.every((c) => c.n === 0))
+const cards = computed(() => [
+  ...(canPending.value ? auditCards.value : []),
+  ...(canBilling.value
+    ? [{ key: 'payments', icon: IconReceipt, title: '待确认付款', desc: '企业提交的账单付款凭证，核对银行流水后确认到账', n: payLoading.value ? undefined : payPending.value ?? undefined, unit: '笔', to: { path: '/settlement/bills', query: { flag: 'PAYMENT_PENDING' } } }]
+    : []),
+])
+const allDone = computed(() => auditCards.value.every((c) => c.n === 0))
 
 const modules = computed(() =>
   MENU.flatMap((g) => g.items.filter((it) => it.ready && it.path !== '/workbench' && auth.hasAnyRole(it.roles)).map((it) => ({ ...it, group: g.title }))),
@@ -34,7 +60,7 @@ const greeting = computed(() => {
   return h < 6 ? '夜深了' : h < 12 ? '上午好' : h < 18 ? '下午好' : '晚上好'
 })
 
-onMounted(() => pending.refresh())
+onMounted(refresh)
 </script>
 
 <template>
@@ -48,16 +74,16 @@ onMounted(() => pending.refresh())
         </p>
       </div>
       <div class="spacer" />
-      <el-button v-if="canPending" :loading="pending.loading" @click="pending.refresh()">刷新</el-button>
+      <el-button v-if="canPending || canBilling" :loading="pending.loading || payLoading" @click="refresh">刷新</el-button>
     </div>
 
-    <template v-if="canPending">
-      <div v-loading="pending.loading" class="grid g-3 kpis">
+    <template v-if="canPending || canBilling">
+      <div v-loading="pending.loading" class="grid kpis" :class="cards.length > 3 ? 'g-4' : 'g-3'">
         <router-link v-for="c in cards" :key="c.key" :to="c.to" class="stat stat--icon stat--link">
           <div class="stat-l">{{ c.title }}</div>
           <component :is="c.icon" :size="20" class="stat-i" />
           <div class="stat-v">
-            <template v-if="c.n != null">{{ c.n }}<small>项</small></template>
+            <template v-if="c.n != null">{{ c.n }}<small>{{ c.unit }}</small></template>
             <template v-else>—</template>
           </div>
           <div class="stat-d">{{ c.desc }}</div>
@@ -69,7 +95,7 @@ onMounted(() => pending.refresh())
         <span class="pend-t">待办数量加载失败：{{ pending.offline ? '请检查网络后重新加载' : pending.error }}</span>
         <el-button size="small" @click="pending.refresh()">重新加载</el-button>
       </div>
-      <div v-else-if="ready && allDone" class="notice-bar notice-bar--ok pend-ok" role="status">
+      <div v-else-if="canPending && ready && allDone" class="notice-bar notice-bar--ok pend-ok" role="status">
         <IconCircleCheck :size="16" class="notice-bar-i" />
         <span>目前没有待处理的入驻审核、合同备案和岗位审核</span>
       </div>

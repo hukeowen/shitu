@@ -46,7 +46,7 @@ public class NotificationRoutes implements OutboxHandler {
             "JOB_STALE", "COMPANY_PENALIZED", "KB_QUESTION_PENDING", "KB_ANSWERED", "KYC_APPEAL_RESULT",
             "MONTHLY_BILL_ISSUED", "COMPANY_APPROVED", "COMPANY_REJECTED", "JOB_APPROVED", "JOB_REJECTED", "JOB_FORCE_OFFLINE",
             "REMATCH_LIMIT_REACHED", "FEEDBACK_REPLIED", "PAYSLIP_APPEAL_SUBMITTED", "PAYSLIP_APPEAL_HANDLED",
-            "INJURY_REPORTED", "CONTRACT_EXPIRING", "CONTRACT_EXPIRED", "INTERVIEW_PASSED", "INTERVIEW_FAILED");
+            "INJURY_REPORTED", "CONTRACT_EXPIRING", "CONTRACT_EXPIRED", "INTERVIEW_PASSED", "INTERVIEW_FAILED", "BILL_NOTICE");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -101,6 +101,9 @@ public class NotificationRoutes implements OutboxHandler {
                         companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)),
                         Map.of("month", text(p, "month"), "payable", text(p, "payable"), "disputeDeadline", text(p, "disputeDeadline")),
                         "/owner/bills");
+                case "BILL_NOTICE" -> notifications.send(outboxId, "BILL_NOTICE",
+                        companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)),
+                        Map.of("content", text(p, "content")), "/owner/bills");
                 case "COMPANY_APPROVED" -> notifications.send(outboxId, "COMPANY_AUDIT_RESULT",
                         companyMembers(aggregateId, EnumSet.of(ActorRole.OWNER)),
                         Map.of("result", "「" + text(p, "name") + "」入驻审核已通过，现在可以登录公司后台添加成员、发布岗位。"), "/settings/org");

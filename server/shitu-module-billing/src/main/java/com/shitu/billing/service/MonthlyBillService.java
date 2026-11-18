@@ -36,8 +36,15 @@ public class MonthlyBillService {
 
     public record Bill(String billId, String companyId, String billMonth, BigDecimal serviceFee, BigDecimal transferPayable,
                        BigDecimal transferReceivable, BigDecimal payable, String status, LocalDateTime issuedAt,
-                       LocalDate disputeDeadline, LocalDate settleDeadline, LocalDateTime settledAt) {
+                       LocalDate disputeDeadline, LocalDate settleDeadline, LocalDateTime settledAt,
+                       int overdueDays, String paymentStatus) {
     }
+
+    /** 带上最近一条付款凭证的状态（PENDING / CONFIRMED / REJECTED，没有则为 null） */
+    private static final String SELECT_BILL = "SELECT b.*, (SELECT p.status FROM bill_payment p WHERE p.bill_id = b.bill_id "
+            + "ORDER BY p.id DESC LIMIT 1) AS payment_status FROM monthly_bill b";
+    /** 还没结清、需要公司付款的状态 */
+    private static final String UNPAID = "b.status IN ('ISSUED','CONFIRMED')";
 
     public record DayLine(LocalDate bizDate, boolean inFreePeriod, int employedCount, int stockBase, int incrementCount,
                           BigDecimal serviceFee, BigDecimal transferPayable, BigDecimal transferReceivable) {
@@ -150,32 +157,43 @@ public class MonthlyBillService {
     // ------------------------------------------------------------------ 查询（公司后台 T-403 / 平台 P-10）
 
     public PageResult<Bill> list(String companyId, String status, String month, int page, int pageSize) {
+        return list(companyId, status, month, null, page, pageSize);
+    }
+
+    /** @param flag PAYMENT_PENDING 有待确认的付款凭证；OVERDUE 已过结算截止日仍未结清 */
+    public PageResult<Bill> list(String companyId, String status, String month, String flag, int page, int pageSize) {
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         List<Object> args = new java.util.ArrayList<>();
         if (companyId != null) {
-            where.append(" AND company_id = ?");
+            where.append(" AND b.company_id = ?");
             args.add(companyId);
         }
         if (status != null && !status.isBlank()) {
-            where.append(" AND status = ?");
+            where.append(" AND b.status = ?");
             args.add(status);
         }
         if (month != null && !month.isBlank()) {
-            where.append(" AND bill_month = ?");
+            where.append(" AND b.bill_month = ?");
             args.add(month);
         }
-        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM monthly_bill" + where, Long.class, args.toArray());
+        if ("PAYMENT_PENDING".equals(flag)) {
+            where.append(" AND EXISTS (SELECT 1 FROM bill_payment p WHERE p.bill_id = b.bill_id AND p.status = 'PENDING')");
+        } else if ("OVERDUE".equals(flag)) {
+            where.append(" AND ").append(UNPAID).append(" AND b.settle_deadline < ?");
+            args.add(Date.valueOf(LocalDate.now(clock.withZone(Constants.ZONE))));
+        }
+        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM monthly_bill b" + where, Long.class, args.toArray());
         int p = Math.max(1, page);
         int s = Math.min(100, Math.max(1, pageSize));
         args.add(s);
         args.add((p - 1) * s);
-        List<Bill> rows = jdbc.query("SELECT * FROM monthly_bill" + where + " ORDER BY bill_month DESC, company_id LIMIT ? OFFSET ?",
+        List<Bill> rows = jdbc.query(SELECT_BILL + where + " ORDER BY b.bill_month DESC, b.company_id LIMIT ? OFFSET ?",
                 (rs, i) -> bill(rs), args.toArray());
         return new PageResult<>(rows, total == null ? 0 : total, p, s);
     }
 
     public Bill get(String billId, String companyId) {
-        List<Bill> b = jdbc.query("SELECT * FROM monthly_bill WHERE bill_id = ?" + (companyId == null ? "" : " AND company_id = ?"),
+        List<Bill> b = jdbc.query(SELECT_BILL + " WHERE b.bill_id = ?" + (companyId == null ? "" : " AND b.company_id = ?"),
                 (rs, i) -> bill(rs), companyId == null ? new Object[]{billId} : new Object[]{billId, companyId});
         BizException.check(!b.isEmpty(), ErrorCode.SYS_NOT_FOUND);
         return b.get(0);
@@ -250,7 +268,8 @@ public class MonthlyBillService {
     @Transactional
     public void markSettled(String billId, String operatorId) {
         Bill b = get(billId, null);
-        BizException.check("ISSUED".equals(b.status()) || "CONFIRMED".equals(b.status()), ErrorCode.SYS_BAD_REQUEST, "当前状态不能登记结算");
+        BizException.check("ISSUED".equals(b.status()) || "CONFIRMED".equals(b.status()), ErrorCode.SYS_BAD_REQUEST,
+                "DISPUTED".equals(b.status()) ? "账单有未处理的异议，处理完再结算" : "当前状态不能登记结算");
         jdbc.update("UPDATE monthly_bill SET status = 'SETTLED', settled_at = ?, version = version + 1 WHERE bill_id = ?",
                 LocalDateTime.now(clock), billId);
         audit.log("BILL_SETTLE", "BILL", billId, null);
@@ -259,11 +278,17 @@ public class MonthlyBillService {
     private static Bill bill(java.sql.ResultSet rs) throws java.sql.SQLException {
         BigDecimal service = rs.getBigDecimal("service_fee");
         BigDecimal pay = rs.getBigDecimal("transfer_payable");
+        String status = rs.getString("status");
+        LocalDate settle = rs.getDate("settle_deadline") == null ? null : rs.getDate("settle_deadline").toLocalDate();
+        // 逾期天数：已下发未结清、且过了结算截止日；异议处理中的不算逾期
+        long overdue = settle != null && ("ISSUED".equals(status) || "CONFIRMED".equals(status))
+                ? java.time.temporal.ChronoUnit.DAYS.between(settle, LocalDate.now(Constants.ZONE)) : 0;
         return new Bill(rs.getString("bill_id"), rs.getString("company_id"), rs.getString("bill_month"), service, pay,
-                rs.getBigDecimal("transfer_receivable"), service.add(pay), rs.getString("status"),
+                rs.getBigDecimal("transfer_receivable"), service.add(pay), status,
                 rs.getTimestamp("issued_at") == null ? null : rs.getTimestamp("issued_at").toLocalDateTime(),
                 rs.getDate("dispute_deadline") == null ? null : rs.getDate("dispute_deadline").toLocalDate(),
                 rs.getDate("settle_deadline") == null ? null : rs.getDate("settle_deadline").toLocalDate(),
-                rs.getTimestamp("settled_at") == null ? null : rs.getTimestamp("settled_at").toLocalDateTime());
+                rs.getTimestamp("settled_at") == null ? null : rs.getTimestamp("settled_at").toLocalDateTime(),
+                (int) Math.max(0, overdue), rs.getString("payment_status"));
     }
 }

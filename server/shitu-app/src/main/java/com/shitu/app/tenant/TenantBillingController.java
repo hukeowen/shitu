@@ -1,5 +1,8 @@
 package com.shitu.app.tenant;
 
+import com.shitu.app.ops.BillCollectionService;
+import com.shitu.app.support.FileFacade;
+import com.shitu.billing.service.BillPaymentService;
 import com.shitu.billing.service.MonthlyBillService;
 import com.shitu.common.api.ApiResponse;
 import com.shitu.common.api.PageResult;
@@ -40,11 +43,25 @@ public class TenantBillingController {
     }
 
     public record BillDetail(MonthlyBillService.Bill bill, List<MonthlyBillService.DayLine> days,
-                             List<MonthlyBillService.Dispute> disputes) {
+                             List<MonthlyBillService.Dispute> disputes, List<BillPaymentService.Payment> payments,
+                             BillCollectionService.Payee payee) {
+    }
+
+    public record PaymentRequest(@NotNull(message = "请填写付款金额") java.math.BigDecimal amount,
+                                 @NotNull(message = "请选择付款日期") LocalDate paidDate,
+                                 @NotBlank(message = "请填写付款户名") String payerName, String bankRef,
+                                 @NotBlank(message = "请上传付款凭证") String voucherKey, String remark) {
     }
 
     private final MonthlyBillService bills;
     private final ResignService resign;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private BillPaymentService payments;
+    @org.springframework.beans.factory.annotation.Autowired
+    private BillCollectionService collection;
+    @org.springframework.beans.factory.annotation.Autowired
+    private FileFacade files;
 
     public TenantBillingController(MonthlyBillService bills, ResignService resign) {
         this.bills = bills;
@@ -65,7 +82,18 @@ public class TenantBillingController {
     public ApiResponse<BillDetail> bill(@PathVariable String billId) {
         String cid = CurrentUser.companyId();
         MonthlyBillService.Bill b = bills.get(billId, cid);
-        return ApiResponse.ok(new BillDetail(b, bills.days(cid, YearMonth.parse(b.billMonth())), bills.disputes(billId)));
+        return ApiResponse.ok(new BillDetail(b, bills.days(cid, YearMonth.parse(b.billMonth())), bills.disputes(billId),
+                payments.ofBill(billId), collection.payee()));
+    }
+
+    @Operation(summary = "提交付款凭证（一次付清，金额须等于应付；平台确认到账后账单结清）")
+    @PreAuthorize("hasRole('OWNER')")
+    @PostMapping("/bills/{billId}/payments")
+    public ApiResponse<BillPaymentService.Payment> submitPayment(@PathVariable String billId, @Valid @RequestBody PaymentRequest req) {
+        AuthPrincipal p = CurrentUser.get();
+        files.checkOwned(List.of(req.voucherKey()), p.companyId(), p.companyId());
+        return ApiResponse.ok(payments.submit(p.companyId(), billId, new BillPaymentService.SubmitCommand(req.amount(), req.paidDate(),
+                req.payerName(), req.bankRef(), req.voucherKey(), req.remark()), p.subjectId()));
     }
 
     @Operation(summary = "提出账单异议（下发后 5 个工作日内）")

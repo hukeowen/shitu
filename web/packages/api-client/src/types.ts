@@ -894,7 +894,61 @@ export interface MonthlyBill {
   disputeDeadline?: string
   settleDeadline?: string
   settledAt?: string
+  /** 逾期天数：未结清（已下发 / 已确认）且过了结算截止日才大于 0，其余为 0 */
+  overdueDays: number
+  /** 最近一笔付款凭证的状态；没提交过为 null */
+  paymentStatus: BillPaymentStatus | null
 }
+
+export type BillPaymentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
+
+/** 付款凭证：老板线下转账后提交，平台核对到账后确认（账单结清）或退回 */
+export interface BillPayment {
+  id: number
+  billId: string
+  companyId: string
+  amount: number
+  /** yyyy-MM-dd */
+  paidDate: string
+  payerName: string
+  bankRef?: string
+  /** 凭证文件 key，查看用 fetchFileUrl */
+  voucherKey: string
+  remark?: string
+  status: BillPaymentStatus
+  submittedBy: string
+  createdAt: string
+  reviewedBy?: string
+  reviewedAt?: string
+  /** 确认备注 / 退回原因 */
+  reviewRemark?: string
+}
+
+export interface BillPaymentRequest {
+  amount: number
+  paidDate: string
+  payerName: string
+  bankRef?: string
+  voucherKey: string
+  remark?: string
+}
+
+/** 平台收款账户（系统参数维护）；平台没填时各项是以「（请」开头的占位文字 */
+export interface BillPayee {
+  name: string
+  bank: string
+  account: string
+}
+
+/** 对账管理汇总条 */
+export interface BillsSummary {
+  paymentPending: number
+  overdueBills: number
+  overdueAmount: number
+}
+
+/** 账单列表筛选：有凭证待确认 / 逾期未结清 */
+export type BillFlag = 'PAYMENT_PENDING' | 'OVERDUE'
 
 export interface BillDayLine {
   bizDate: string
@@ -922,6 +976,13 @@ export interface BillDetail {
   bill: MonthlyBill
   days: BillDayLine[]
   disputes: BillDispute[]
+  /** 付款凭证，新的在前 */
+  payments: BillPayment[]
+}
+
+/** 企业端账单详情：多带平台收款账户 */
+export interface TenantBillDetail extends BillDetail {
+  payee: BillPayee
 }
 
 export interface LedgerLine {

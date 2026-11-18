@@ -17,5 +17,7 @@ SELECT 'members left', COUNT(*) FROM member WHERE name LIKE '验收%';
 SELECT 'companies left', COUNT(*) FROM company WHERE name LIKE '昆山验收%';
 SELECT 'companies total', COUNT(*) FROM company;
 
--- 账单结算流程（opsBillSettle）会把第三家演示公司的账单结算掉，恢复成「已下发」
+-- 账单：恢复演示状态（第一家已结算、第三家已下发待付款），清掉验收提交的付款凭证
+DELETE FROM bill_payment WHERE company_id IN ('C10001', 'C10003');
 UPDATE monthly_bill SET status = 'ISSUED', settled_at = NULL WHERE company_id = 'C10003' AND status = 'SETTLED';
+UPDATE monthly_bill SET status = 'SETTLED', settled_at = COALESCE(settled_at, issued_at) WHERE company_id = 'C10001' AND status = 'ISSUED';
