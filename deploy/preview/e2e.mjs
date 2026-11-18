@@ -126,7 +126,7 @@ async function registerAndApply(channel) {
   await ui.see(channel ? '专属服务' : '自由求职')
   await ui.click('开始 AI 问薪')
   await ui.see('本次匹配范围')
-  await ui.clickSel('.btn-cta')
+  await ui.clickSel('.bottom-bar .van-button--primary') // 开始回答
   for (const pick of ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线', '6,500 – 8,000 元', '两班倒可以', '必须包住', '没做过']) {
     await ui.click(pick, { wait: 2500 })
     await ui.sleep(500)
@@ -230,7 +230,7 @@ const FLOWS = {
     const phone = '135' + String(Date.now()).slice(-8)
     await loginConsole('13800000001')
     await ui.goto('/admin/settings/org')
-    await ui.click('+ 新增成员')
+    await ui.click('新增成员')
     await ui.sleep(600)
     const name = '验收驻场' + hanzi() + hanzi()
     await ui.fill('成员真实姓名', name)
@@ -305,7 +305,7 @@ const FLOWS = {
     await loginConsole('13800000022')
     await ui.goto('/admin/payroll/batches')
     await ui.upload(file)
-    await ui.see('已选择：')
+    await ui.see(ym + '工资表.xlsx')
     await ui.click('开始导入')
     await ui.see('不可撤销')
     await ui.click('开始导入') // 二次确认
@@ -435,7 +435,6 @@ const FLOWS = {
     await loginOps()
     await ui.goto('/ops/governance/complaints')
     await ui.click('核实处理', { within: st.cpText.slice(0, 11) })
-    await ui.click('不属实（驳回）')
     await ui.fill('核实过程与结论', '已电话回访并查看宿舍照片，实际为 6 人间，与岗位信息一致。')
     await ui.click('驳回投诉')
     await ui.see('已驳回投诉')

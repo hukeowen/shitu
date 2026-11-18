@@ -10,6 +10,9 @@ export function textBtnWidth(label: string): number {
   return w
 }
 
+/** 余量：实测值刚好卡边，换一套系统字体（如 Linux 下的回退字体）就会差一两个像素被截断 */
+const SLACK = 6
+
 /**
  * rows：每一行平铺的按钮文字，more 表示这一行还有「更多」。
  * boxed：按钮是带边框的小号按钮（审核页的「驳回 / 通过」），每个比文字按钮多出 18px 左右内边距（Element 小号按钮内边距 11px）
@@ -17,7 +20,7 @@ export function textBtnWidth(label: string): number {
 export function actionsColWidth(rows: { labels: string[]; more?: boolean }[], min = 96, boxed = false): number {
   const widths = rows.map((r) => {
     const n = r.labels.length + (r.more ? 1 : 0)
-    return 24 + r.labels.reduce((w, l) => w + textBtnWidth(l) + (boxed ? 18 : 0), 0) + (r.more ? 48 : 0) + Math.max(0, n - 1) * 8
+    return 24 + SLACK + r.labels.reduce((w, l) => w + textBtnWidth(l) + (boxed ? 18 : 0), 0) + (r.more ? 48 : 0) + Math.max(0, n - 1) * 8
   })
   return Math.max(min, ...widths)
 }
