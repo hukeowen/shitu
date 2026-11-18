@@ -116,7 +116,7 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
             </el-table-column>
             <template #empty><span class="hint">暂无每日明细</span></template>
           </el-table>
-          <p class="hint fine">增长服务费 = max(当日在岗人数 − 存量基数, 0) × 单价；免费期内不计费，存量基数在免费期满次日锁定。</p>
+          <p class="hint fine">增长技术服务费 = max(当日在岗人数 − 存量基数, 0) × 单价；免费期内不计费，存量基数在免费期满次日锁定。</p>
         </section>
 
         <section class="blk">

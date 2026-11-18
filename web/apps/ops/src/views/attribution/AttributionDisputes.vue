@@ -113,7 +113,7 @@ async function submitResolve() {
     <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="id">
       <el-table-column label="登记时间" width="150"><template #default="{ row }">{{ fmtDateTime(row.createdAt) }}</template></el-table-column>
       <el-table-column v-if="!userId" label="用户" width="170">
-        <template #default="{ row }"><el-button link type="primary" @click="emit('open', row.userId)">{{ row.userId }}</el-button></template>
+        <template #default="{ row }"><el-button link type="primary" class="mono" @click="emit('open', row.userId)">{{ row.userId }}</el-button></template>
       </el-table-column>
       <el-table-column label="提出异议的公司" min-width="160">
         <template #default="{ row }">{{ row.companyName ?? '—' }}<div v-if="row.companyId" class="t-xs">{{ row.companyId }}</div></template>

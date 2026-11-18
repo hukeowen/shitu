@@ -160,7 +160,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <el-table-column label="账单月份" width="96">
           <template #default="{ row }"><b class="code">{{ row.billMonth }}</b></template>
         </el-table-column>
-        <el-table-column label="增长服务费" min-width="110" align="right">
+        <el-table-column label="增长技术服务费" min-width="130" align="right">
           <template #default="{ row }"><span class="money">{{ fmtSigned(row.serviceFee, 'out') }}</span></template>
         </el-table-column>
         <el-table-column label="流转费应付" min-width="110" align="right">

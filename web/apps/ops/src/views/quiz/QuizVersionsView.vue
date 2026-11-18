@@ -280,13 +280,7 @@ async function publish(v: QuizView) {
       </div>
     </div>
 
-    <div class="grid g-2 below">
-      <div class="card">
-        <div class="card__hd"><h3>各题进入 / 放弃人数</h3><span class="status-tag">待埋点</span></div>
-        <div class="card__bd">
-          <p class="plain">需 C 端答题埋点，后续版本接入</p>
-        </div>
-      </div>
+    <div class="grid below">
       <div class="card">
         <div class="card__hd"><h3>硬性约束</h3></div>
         <div class="card__bd">

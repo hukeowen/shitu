@@ -74,7 +74,7 @@ const scopeText = (v: string) => label('MatchScope', v)
       <div class="query-row">
         <el-input v-model="input" clearable placeholder="匹配会话 ID" class="query-input" @keyup.enter="submit" @clear="submit" />
         <el-button type="primary" :loading="loading" @click="submit">查询</el-button>
-        <span class="t-xs">sessionId 来自 C 端匹配结果 / 审计日志</span>
+        <span class="t-xs">匹配会话 ID 来自求职者端的匹配结果或审计日志</span>
       </div>
     </div>
 

@@ -123,7 +123,7 @@ async function doLogout() {
 .tenant { margin: 0 var(--space-3) var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); }
 .tenant b { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tenant span { font-size: var(--font-size-min); color: var(--text-3); }
-.nav { flex: 1; overflow: auto; padding: 0 var(--space-3) var(--space-4); }
+.nav { flex: 1; overflow: auto; padding: 0 var(--space-3) var(--space-6); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); }
 .grp { padding: var(--space-4) var(--space-2) var(--space-1); font-size: var(--font-size-min); color: var(--text-3); }
 .item { display: flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-2); border-radius: var(--radius-control); font-size: var(--font-size-body); color: var(--text-2); text-decoration: none; }
 .item span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

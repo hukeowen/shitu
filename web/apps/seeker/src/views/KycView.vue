@@ -175,14 +175,14 @@ async function recoverOld() {
 const verified = computed(() => kyc.value?.kycStatus === 'VERIFIED' && kyc.value.canApply)
 const STEPS = [
   { t: '告知书', cls: 'done', s: '已完成' },
-  { t: '身份验证', cls: 'now', s: '进行中' },
+  { t: '实名认证', cls: 'now', s: '进行中' },
   { t: '生成报名', cls: 'todo', s: '未开始' },
 ]
 </script>
 
 <template>
   <div class="kyc">
-    <AppBar :title="block ? '合规拦截' : '身份验证'" :fallback="jobId ? `/jobs/${jobId}` : '/me'" />
+    <AppBar :title="block ? '合规拦截' : '实名认证'" :fallback="jobId ? `/jobs/${jobId}` : '/me'" />
 
     <div v-if="loading" class="page-state"><van-loading size="28" vertical>加载中…</van-loading></div>
     <div v-else-if="loadError" class="state-block">

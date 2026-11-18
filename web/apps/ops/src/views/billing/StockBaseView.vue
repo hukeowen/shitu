@@ -98,7 +98,7 @@ const n = (v: number) => (loaded.value ? String(v) : '—')
     </div>
 
     <div class="grid g-4 kpis">
-      <div class="stat stat--icon"><div class="stat-l">已入驻企业</div><IconBuildingComplex :size="20" class="stat-i" /><div class="stat-v">{{ n(counts.all) }}</div><div class="stat-d">有入驻日期的企业（最多 500 家）</div></div>
+      <div class="stat stat--icon"><div class="stat-l">已入驻企业（含停用）</div><IconBuildingComplex :size="20" class="stat-i" /><div class="stat-v">{{ n(counts.all) }}</div><div class="stat-d">有入驻日期的企业（最多 500 家）</div></div>
       <div class="stat stat--icon"><div class="stat-l">免费期内</div><IconClock :size="20" class="stat-i" /><div class="stat-v">{{ n(counts.free) }}</div><div class="stat-d">可继续导入花名册</div></div>
       <div class="stat stat--icon"><div class="stat-l">7 天内到期</div><IconCalendar :size="20" class="stat-i" /><div class="stat-v">{{ n(counts.soon) }}</div><div class="stat-d">提醒企业尽快完成导入</div></div>
       <div class="stat stat--icon"><div class="stat-l">已锁定存量</div><IconLock :size="20" class="stat-i" /><div class="stat-v">{{ n(counts.locked) }}</div><div class="stat-d">开始按增量计费</div></div>

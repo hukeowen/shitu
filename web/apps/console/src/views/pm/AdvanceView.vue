@@ -269,7 +269,7 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
         <el-table-column label="员工" min-width="96">
           <template #default="{ row }"><PersonCell :name="row.seekerName ?? '—'" /></template>
         </el-table-column>
-        <el-table-column label="项目" min-width="80">
+        <el-table-column label="项目" min-width="130">
           <template #default="{ row }">{{ projectName(row.projectId) }}</template>
         </el-table-column>
         <el-table-column label="金额 / 月份" width="100" align="right">

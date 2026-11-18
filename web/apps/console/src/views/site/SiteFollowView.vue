@@ -100,7 +100,7 @@ function barClass(a: SiteApplication) {
   <div>
     <div class="page-hd">
       <div>
-        <h2>24 小时响应监控</h2>
+        <h2>24h 响应监控</h2>
         <p>私域用户专属转化窗口 · 超时系统被动释放至公域</p>
       </div>
       <span class="spacer" />
@@ -204,7 +204,7 @@ function barClass(a: SiteApplication) {
         <div class="card__bd">
           <p class="para">劳务公司获客成本 <b>300–800 元/人</b>。蓝领求职者 1–2 天必须定去向，超 24 小时无人联系大概率流失。</p>
           <dl class="kv"><dt>适用范围</dt><dd>仅私域用户</dd></dl>
-          <dl class="kv"><dt>时间窗口</dt><dd>每阶段完成后 24 小时内</dd></dl>
+          <dl class="kv"><dt>时间窗口</dt><dd>每阶段完成后 24 小时内；已约面试的，顺延到面试时间之后 24 小时</dd></dl>
           <dl class="kv"><dt>匹配范围锁定</dt><dd>仅本公司岗位</dd></dl>
           <dl class="kv"><dt>推送对象</dt><dd>驻场 / 项目经理 / 老板</dd></dl>
           <dl class="kv"><dt>超时后果</dt><dd class="danger">系统被动释放为公域</dd></dl>

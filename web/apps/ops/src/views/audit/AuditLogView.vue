@@ -144,7 +144,7 @@ onMounted(() => list.load())
             <span v-else class="dim">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="IP" width="124" class-name="nowrap-col">
+        <el-table-column label="IP" width="148" class-name="nowrap-col">
           <template #default="{ row }"><span class="mono t-xs">{{ row.ip ?? '—' }}</span></template>
         </el-table-column>
         <el-table-column label="追踪号" width="100">

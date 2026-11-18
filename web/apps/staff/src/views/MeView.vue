@@ -81,7 +81,7 @@ async function onLogout() {
           <div class="kv"><dt>公司</dt><dd>{{ me.company.name }}</dd></div>
           <div v-if="me.company.shortName" class="kv"><dt>简称</dt><dd>{{ me.company.shortName }}</dd></div>
           <div class="kv"><dt>公司状态</dt><dd>{{ label('CompanyStatus', me.company.status) }}</dd></div>
-          <div class="kv"><dt>成员 ID</dt><dd>{{ me.memberId }}</dd></div>
+          <div class="kv"><dt>成员编号</dt><dd>{{ me.memberId }}</dd></div>
         </dl>
       </section>
 

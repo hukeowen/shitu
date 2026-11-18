@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type KycView, type MyApplication, type MyWork } from '@shitu/api-client'
-import { BrandMark, IconBell, IconCheck, IconChevronRight, IconClock, IconFilePenLine, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { BrandMark, IconBell, IconCheck, IconCircleCheck, IconChevronRight, IconClock, IconFilePenLine, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import QuadGrid from '@/components/QuadGrid.vue'
 import type { QuadItem } from '@/components/quad'
@@ -249,7 +249,7 @@ const progress = computed(() => {
         </div>
         <div v-else-if="status === 'PENDING_CONFIRM'" class="home-meta">
           <div>应聘公司<b>{{ appCompany }}</b></div>
-          <div>入职办理时限<b>{{ cd.active.value ? cd.text.value : '—' }}</b></div>
+          <div>入职办理剩余<b>{{ cd.active.value ? cd.text.value : '—' }}</b></div>
         </div>
         <div v-else-if="status === 'EMPLOYED'" class="home-meta">
           <div>所属公司<b>{{ work?.companyName || appCompany }}</b></div>
@@ -260,7 +260,7 @@ const progress = computed(() => {
         </div>
         <div v-else-if="isPrivate" class="home-meta">
           <div>服务公司<b>{{ company || '—' }}</b></div>
-          <div v-if="cd.active.value">顾问联系时限<b>{{ cd.text.value }}</b></div>
+          <div v-if="cd.active.value">顾问联系剩余<b>{{ cd.text.value }}</b></div>
         </div>
         <p v-else class="home-desc">当前无归属公司，可匹配平台全部劳务公司岗位</p>
       </header>
@@ -337,13 +337,13 @@ const progress = computed(() => {
         </button>
 
         <!-- 报名后锁定说明 -->
-        <div v-if="appliedLock" class="tipbar tipbar--warn">
-          <IconTriangleExclamationPoint :size="20" />
+        <div v-if="appliedLock" class="tipbar" :class="onboarding ? 'tipbar--ok' : 'tipbar--warn'">
+          <component :is="onboarding ? IconCircleCheck : IconTriangleExclamationPoint" :size="20" />
           <div class="flex1">
             <!-- 面试已通过、办理入职中：不再提「取消面试」，说明超时自动解除与找谁处理 -->
             <template v-if="onboarding">
               <div class="tipbar-t">面试已通过</div>
-              <div class="tipbar-d">{{ pendingSign ? '签署劳动合同后即正式入职在岗' : '等待驻场办理入职并发起电子签约' }}<template v-if="!pendingSign && app?.jobTitle"> · {{ app.jobTitle }}</template>。办理入职期间不能重新匹配，也不能报名其他岗位。</div>
+              <div class="tipbar-d">{{ pendingSign ? '签署劳动合同并由劳务公司盖章后，即正式入职在岗' : `等待驻场为你办理${app?.jobTitle ? `「${app.jobTitle}」的` : ''}入职并发起电子签约` }}。办理入职期间不能重新匹配，也不能报名其他岗位。</div>
               <div class="tipbar-d">若劳务公司 24 小时内未办完入职，本次报名会自动解除，之后你可以匹配全平台岗位。如不想入职或信息有误，请联系驻场老师处理。</div>
             </template>
             <template v-else>

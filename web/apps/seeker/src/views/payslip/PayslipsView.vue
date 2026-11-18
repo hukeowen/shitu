@@ -99,7 +99,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
 
         <section class="tipbar">
           <IconInfo :size="20" />
-          <div class="flex1"><div class="tipbar-d first">工资由所属劳务公司核算发放，平台仅展示工资条。对工资有疑问请联系驻场老师，或在「问题反馈」中提交。</div></div>
+          <div class="flex1"><div class="tipbar-d first">工资由所属劳务公司核算发放，平台仅展示工资条。对工资有疑问请联系驻场老师，或点开对应月份的工资条提出申诉。</div></div>
         </section>
         <p class="list-end">没有更多了</p>
         <div class="page-bottom-gap"></div>

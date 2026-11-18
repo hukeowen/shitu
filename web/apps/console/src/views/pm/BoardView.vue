@@ -51,7 +51,7 @@ interface Card {
 const KPIS: Card[] = [
   { key: 'pendingInterview', label: '待面试', desc: '已报名 · 待到厂 / 面试结果', to: { path: '/site/todo', query: { tab: 'interview' } }, icon: IconClipboardList },
   { key: 'pendingConfirm', label: '待确权', desc: '面试通过 · 待入职确权 / 签约', to: { path: '/site/onboard' }, icon: IconUserCheck },
-  { key: 'arrivedToday', label: '今日到厂', desc: '今天已确认到厂', to: { path: '/site/todo', query: { tab: 'arrived' } }, icon: IconFactory },
+  { key: 'arrivedToday', label: '今日到厂', desc: '今天到厂总数 · 含已录面试结果', to: { path: '/site/todo', query: { tab: 'arrived' } }, icon: IconFactory },
   { key: 'employed', label: '在岗人数', desc: '当前在岗', to: { path: '/pm/staff' }, icon: IconUsers },
   { key: 'recruitingJobs', label: '招聘中岗位', desc: '状态为招聘中', to: { path: '/pm/jobs' }, icon: IconBriefcase },
 ]

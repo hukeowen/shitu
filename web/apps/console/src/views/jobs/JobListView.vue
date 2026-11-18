@@ -279,7 +279,7 @@ function openDetail(j: JobView) {
         <el-table-column label="薪资（元/月）" width="108" align="right" class-name="salary-col">
           <template #default="{ row }"><span class="nowrap">{{ salaryRange(row.salaryMin, row.salaryMax) }}</span></template>
         </el-table-column>
-        <el-table-column label="名额 占用/总数" width="92" align="right">
+        <el-table-column label="占用 / 总数" width="100" align="right">
           <template #default="{ row }">
             <div class="nowrap">{{ row.quotaOccupied }} / {{ row.quotaTotal }}</div>
             <div class="sub">剩余 {{ row.quotaRemaining }}</div>

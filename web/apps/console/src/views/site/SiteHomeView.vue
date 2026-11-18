@@ -93,7 +93,7 @@ function used(a: SiteApplication): number {
   return Math.min(100, Math.max(2, Math.round((1 - ms / (24 * 3600_000)) * 100)))
 }
 function meta(a: SiteApplication) {
-  return [a.jobTitle ?? '—', a.interviewAt ? `面试 ${fmtDateTime(a.interviewAt).slice(5)}` : '', stageText(a)].filter(Boolean).join(' · ')
+  return [stageText(a), a.interviewAt ? `面试 ${fmtDateTime(a.interviewAt).slice(5)}` : '', a.jobTitle ?? '—'].filter(Boolean).join(' · ')
 }
 
 // ---------------------------------------------------------------- 右详情

@@ -261,7 +261,7 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
               </li>
               <li v-if="i.a.phone"><IconPhone :size="16" /><span>{{ fmtPhone(i.a.phone) }}</span></li>
             </ul>
-            <p class="item-meta"><span class="status-tag" :class="`status-tag--${KIND_TAG[i.kind].tone}`">{{ i.kind === 'confirm' && i.a.contract?.status === 'PENDING_SIGN' ? '合同待签署' : KIND_TAG[i.kind].text }}</span></p>
+            <p class="item-meta"><span class="status-tag" :class="`status-tag--${i.kind === 'confirm' && i.a.contract?.status === 'PENDING_SIGN' ? 'warning' : KIND_TAG[i.kind].tone}`">{{ i.kind === 'confirm' && i.a.contract?.status === 'PENDING_SIGN' ? '合同待签署' : KIND_TAG[i.kind].text }}</span></p>
             <div v-if="i.a.phone || mainAction(i.a)" class="acts">
               <van-button v-if="i.a.phone" class="act act--call" :url="`tel:${i.a.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
               <van-button

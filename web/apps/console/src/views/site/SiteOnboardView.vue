@@ -170,7 +170,7 @@ onMounted(load)
         </div>
       </div>
       <div class="card">
-        <div class="card__hd"><h3>最近入职</h3><span class="t-sm">已完成签约</span></div>
+        <div class="card__hd"><h3>最近入职</h3><span class="t-sm">已完成签约 · 按报名时间倒序</span></div>
         <el-table v-loading="recentLoading" :data="recent" row-key="applicationId" class="recent">
           <el-table-column label="员工" min-width="80"><template #default="{ row }"><span class="job-t">{{ row.seekerName }}</span></template></el-table-column>
           <el-table-column label="岗位" min-width="120"><template #default="{ row }"><span class="t-sm">{{ row.jobTitle }}</span></template></el-table-column>

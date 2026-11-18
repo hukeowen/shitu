@@ -79,7 +79,7 @@ async function approve(r: ResignRow) {
   const s = boxSubmit(
     future
       ? `${r.name} 的离职日是 ${r.resignDate}，还没到。确认后进入「待生效」：离职日之前仍在岗、照常计费，不能再申请预支；${r.resignDate} 当天自动结束任职、归属清空变公域、合同终止。生效前可以撤销。`
-      : `确认 ${r.name} 于 ${r.resignDate} 离职？确认后：归属清空变公域、增长服务费与流转费停止计费、劳动合同终止。此操作不可撤销。`,
+      : `确认 ${r.name} 于 ${r.resignDate} 离职？确认后：归属清空变公域、增长技术服务费与流转费停止计费、劳动合同终止。此操作不可撤销。`,
     '确认离职',
     () => tenantApi.decideResign(r.id, true),
     (why) => (blocked[r.id] = { name: r.name, act: 'approve', text: why }),

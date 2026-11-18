@@ -126,7 +126,7 @@ const opsWidth = computed(() =>
       </div>
       <div class="stat stat--icon">
         <IconArrowLeftRight :size="20" class="stat-i" />
-        <div class="stat-l">本页流转流入</div><div class="stat-v">{{ ready ? transferCount : '—' }}</div><div class="stat-d">来源为其他公司 · 产生流转费</div>
+        <div class="stat-l">流转流入（本页）</div><div class="stat-v">{{ ready ? transferCount : '—' }}</div><div class="stat-d">来源为其他公司 · 产生流转费</div>
       </div>
     </div>
 

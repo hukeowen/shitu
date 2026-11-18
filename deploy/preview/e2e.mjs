@@ -540,6 +540,15 @@ const FLOWS = {
   },
 }
 
+// ==================================================================== 追加的流程文件
+// 同目录下的 e2e-flows-*.mjs 各自 export default (h) => ({ 流程名: async () => {} })，h 是下面这组共用工具；h.ui 是当前浏览器驱动。
+const H = { get ui() { return ui }, sql, redis, expectDb, dec, st, save, out, xlsx, fs, hanzi, idCard, spaced, clearSmsLimits, solveCaptcha, captchaAnswer,
+  loginSeeker, loginStaff, loginConsole, loginOps, registerAndApply }
+for (const file of fs.readdirSync(new URL('.', import.meta.url)).filter((n) => /^e2e-flows-.*.mjs$/.test(n)).sort()) {
+  const extra = (await import(new URL(file, import.meta.url))).default(H)
+  for (const k of Object.keys(extra)) { if (FLOWS[k]) throw new Error('流程名重复：' + k + '（' + file + '）'); FLOWS[k] = extra[k] }
+}
+
 // ==================================================================== 运行
 const flows = Object.keys(FLOWS).filter((f) => !only.length || only.includes(f))
 const attach = await fetch('http://127.0.0.1:9335/json').then(() => true).catch(() => false)
