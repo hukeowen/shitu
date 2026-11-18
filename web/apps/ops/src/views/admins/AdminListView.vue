@@ -163,7 +163,7 @@ onMounted(() => list.load())
             <span v-if="isSelf(row)" class="status-tag status-tag--info ml">我</span>
           </template>
         </el-table-column>
-        <el-table-column label="姓名" prop="displayName" min-width="100" show-overflow-tooltip />
+        <el-table-column label="姓名" prop="displayName" min-width="140" show-overflow-tooltip />
         <el-table-column label="角色" min-width="180">
           <template #default="{ row }"><DictTags type="OpsRole" :values="row.roles" highlight="SUPER" /></template>
         </el-table-column>

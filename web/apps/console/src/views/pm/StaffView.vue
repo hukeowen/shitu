@@ -153,7 +153,7 @@ const opsWidth = computed(() =>
         <el-table-column label="姓名" min-width="120">
           <template #default="{ row }"><PersonCell :name="row.name" :sub="row.phone ? fmtPhone(row.phone) : undefined" :accent="row.source === 'OWN'" /></template>
         </el-table-column>
-        <el-table-column label="工号" width="90">
+        <el-table-column label="工号" width="116">
           <template #default="{ row }"><span class="tnum">{{ row.employeeNo || '—' }}</span></template>
         </el-table-column>
         <el-table-column label="岗位 / 项目" min-width="150">
