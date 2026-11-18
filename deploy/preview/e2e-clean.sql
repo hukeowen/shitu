@@ -16,3 +16,6 @@ SELECT 'jobs left', COUNT(*) FROM job WHERE title LIKE '验收岗位%';
 SELECT 'members left', COUNT(*) FROM member WHERE name LIKE '验收%';
 SELECT 'companies left', COUNT(*) FROM company WHERE name LIKE '昆山验收%';
 SELECT 'companies total', COUNT(*) FROM company;
+
+-- 账单结算流程（opsBillSettle）会把第三家演示公司的账单结算掉，恢复成「已下发」
+UPDATE monthly_bill SET status = 'ISSUED', settled_at = NULL WHERE company_id = 'C10003' AND status = 'SETTLED';

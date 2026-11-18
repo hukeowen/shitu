@@ -117,7 +117,7 @@ export async function remarkInBox(o: RemarkInBoxOptions): Promise<boolean> {
       inputPlaceholder: o.placeholder ?? (o.required ? '请填写原因（必填，将通知到对方）' : '备注（选填）'),
       inputValidator: (v: string) => {
         if (o.required && !v?.trim()) return '请填写原因'
-        if (v && v.length > 500) return '最多 500 字'
+        if (v && v.length > 255) return '最多 255 字'
         return true
       },
       confirmButtonText: o.confirmText ?? o.action,

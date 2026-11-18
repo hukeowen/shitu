@@ -279,7 +279,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         <div class="card meta">
           <div class="card__bd row">
             <label class="lbl" for="quiz-name">版本名称</label>
-            <el-input id="quiz-name" v-model="name" :disabled="readonly" maxlength="40" :show-word-limit="!readonly" class="name-in" :placeholder="readonly ? '—' : '如：v1.3 住宿题简化'" />
+            <el-input id="quiz-name" v-model="name" :disabled="readonly" maxlength="32" :show-word-limit="!readonly" class="name-in" :placeholder="readonly ? '—' : '如：v1.3 住宿题简化'" />
             <div class="spacer" />
             <span class="t-xs">{{ qs.length }} / {{ MAX_QUESTIONS }} 题 · 硬过滤题必须前置</span>
           </div>

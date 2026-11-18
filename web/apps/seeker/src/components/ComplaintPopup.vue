@@ -13,9 +13,9 @@ const props = defineProps<{ jobId: string; jobTitle?: string; subtitle?: string 
 const emit = defineEmits<{ submitted: [] }>()
 
 const OPTIONS: { v: ComplaintCategory; t: string }[] = [
-  { v: 'FULL_STILL_HIRING', t: '岗位已满仍在招' },
+  { v: 'FULL_STILL_HIRING', t: '招满了还在招' },
   { v: 'INFO_FALSE', t: '岗位信息不实' },
-  { v: 'MISMATCH_AFTER_INTERVIEW', t: '面试后岗位不符' },
+  { v: 'MISMATCH_AFTER_INTERVIEW', t: '面试后发现不符' },
 ]
 const MAX = 500
 const MAX_IMAGES = 3

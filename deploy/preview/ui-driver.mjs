@@ -110,7 +110,7 @@ export async function connect() {
   `
   /** 点击文字为 text 的元素（先精确后包含）；opt.nth 第几个，opt.within 限定在包含这段文字的行/卡片里，opt.any 不限弹层。 */
   ui.click = async (text, opt = {}) => {
-    const r = await ui.ev(`(() => { ${FIND}
+    const r = await ui.ev(`(async () => { ${FIND}
       const want = ${JSON.stringify(text)}, within = ${JSON.stringify(opt.within ?? null)}
       let root = ${opt.any ? 'document.body' : 'scope()'}
       if (within) {
@@ -132,7 +132,7 @@ export async function connect() {
       if (!e) return { err: '「' + want + '」只有 ' + hit.length + ' 个' }
       const btn = e.closest('button, a, [role=button], [role=tab], [role=menuitem], [role=option], label, .van-cell, .van-tabbar-item') || e
       if (btn.disabled || btn.classList.contains('is-disabled') || btn.classList.contains('van-button--disabled')) return { err: '「' + want + '」是禁用状态' }
-      btn.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' })
+      { const top0 = btn.getBoundingClientRect().top; btn.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); if (Math.abs(btn.getBoundingClientRect().top - top0) > 1 || btn.closest('.el-popper, .van-popup, .el-overlay')) await new Promise((res) => setTimeout(res, 250)) }
       const b = e.getBoundingClientRect()
       const x = b.left + b.width / 2, y = b.top + b.height / 2
       const at = document.elementFromPoint(x, y)
@@ -151,10 +151,10 @@ export async function connect() {
   }
   /** 按选择器点击（没有文字的控件：勾选框、图标按钮）；默认只在最上层弹层里找。 */
   ui.clickSel = async (sel, opt = {}) => {
-    const r = await ui.ev(`(() => { ${FIND}
+    const r = await ui.ev(`(async () => { ${FIND}
       const e = [...${opt.any ? 'document.body' : 'scope()'}.querySelectorAll(${JSON.stringify(sel)})].filter(vis)[${opt.nth ?? 0}]
       if (!e) return { err: 1 }
-      e.scrollIntoView({ block: 'center', behavior: 'instant' })
+      { const top0 = e.getBoundingClientRect().top; e.scrollIntoView({ block: 'center', behavior: 'instant' }); if (Math.abs(e.getBoundingClientRect().top - top0) > 1 || e.closest('.el-popper, .van-popup, .el-overlay')) await new Promise((res) => setTimeout(res, 250)) }
       const b = e.getBoundingClientRect()
       const x = b.left + b.width / 2, y = b.top + b.height / 2
       const at = document.elementFromPoint(x, y)
@@ -172,7 +172,7 @@ export async function connect() {
   ui.count = (sel) => ui.ev(`(() => { ${FIND} return [...scope().querySelectorAll(${JSON.stringify(sel)})].filter(vis).length })()`)
   /** 往输入框里填值：hint 匹配占位文字或所在表单项的标签；opt.nth 第几个。 */
   ui.fill = async (hint, value, opt = {}) => {
-    const r = await ui.ev(`(() => { ${FIND}
+    const r = await ui.ev(`(async () => { ${FIND}
       const want = ${JSON.stringify(hint)}
       const root = scope()
       const ins = [...root.querySelectorAll('input:not([type=file]):not([type=checkbox]):not([type=radio]), textarea')].filter(vis)
@@ -181,7 +181,7 @@ export async function connect() {
       if (!hit.length) hit = ins.filter((e) => lab(e).includes(want))
       const e = hit[${opt.nth ?? 0}]
       if (!e) return { err: '找不到输入框「' + want + '」', seen: ins.map((e) => (lab(e) + '/' + (e.placeholder || '')).slice(0, 30)) }
-      e.scrollIntoView({ block: 'center', behavior: 'instant' })
+      { const top0 = e.getBoundingClientRect().top; e.scrollIntoView({ block: 'center', behavior: 'instant' }); if (Math.abs(e.getBoundingClientRect().top - top0) > 1 || e.closest('.el-popper, .van-popup, .el-overlay')) await new Promise((res) => setTimeout(res, 250)) }
       e.focus(); if (e.select) e.select()
       const b = e.getBoundingClientRect()
       return { x: b.left + Math.min(b.width / 2, 40), y: b.top + b.height / 2, readonly: e.readOnly }

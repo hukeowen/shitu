@@ -180,7 +180,8 @@ public class OnboardingService {
                 ErrorCode.SYS_BAD_REQUEST, "入职日期须在近 3 天到未来 30 天之间");
         LocalDate termEnd = cmd.termEnd() == null ? start.plusYears(1).minusDays(1) : cmd.termEnd();
         BizException.check(termEnd.isAfter(start), ErrorCode.SYS_BAD_REQUEST, "合同截止日期须晚于入职日期");
-        voidPendingContracts(applicationId);
+        // 重发签约时没重新填工号：沿用被作废那份合同上的，否则入职后工号会丢
+        String previousEmployeeNo = voidPendingContracts(applicationId);
 
         SeekerUser u = TenantContext.runAsSystem(() -> users.selectById(a.getUserId()));
         BizException.check(u != null && u.getRealNameEnc() != null, ErrorCode.KYC_REQUIRED);
@@ -204,7 +205,7 @@ public class OnboardingService {
         c.setStatus(ContractStatus.PENDING_SIGN);
         c.setEsignFlowId(flow.flowId());
         c.setSignUrl(flow.signUrl());
-        c.setEmployeeNo(cmd.employeeNo() == null || cmd.employeeNo().isBlank() ? null : cmd.employeeNo().trim());
+        c.setEmployeeNo(cmd.employeeNo() == null || cmd.employeeNo().isBlank() ? previousEmployeeNo : cmd.employeeNo().trim());
         c.setCreatedAt(LocalDateTime.now(clock));
         contracts.insert(c);
         outbox.publish("CONTRACT_SIGN_REQUIRED", "CONTRACT", c.getContractId(), Map.of(
@@ -366,14 +367,18 @@ public class OnboardingService {
     // ------------------------------------------------------------------
 
 
-    private void voidPendingContracts(String applicationId) {
+    /** 作废该报名下所有待签合同，返回其中最近一份的工号（没有则为 null）。 */
+    private String voidPendingContracts(String applicationId) {
+        String employeeNo = null;
         List<LaborContract> pending = contracts.selectList(new LambdaQueryWrapper<LaborContract>()
                 .eq(LaborContract::getApplicationId, applicationId).eq(LaborContract::getStatus, ContractStatus.PENDING_SIGN));
         for (LaborContract c : pending) {
+            if (c.getEmployeeNo() != null && !c.getEmployeeNo().isBlank()) employeeNo = c.getEmployeeNo();
             esign.revoke(c.getEsignFlowId());
             contracts.update(null, new LambdaUpdateWrapper<LaborContract>().eq(LaborContract::getContractId, c.getContractId())
                     .set(LaborContract::getStatus, ContractStatus.VOIDED).set(LaborContract::getEndedAt, LocalDateTime.now(clock)));
         }
+        return employeeNo;
     }
 
     private Application activeApplication(AuthPrincipal p, String applicationId, ApplicationStatus expected) {

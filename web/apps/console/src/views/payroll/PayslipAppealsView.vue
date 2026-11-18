@@ -152,7 +152,7 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((r) => ({ labels:
           <div v-else-if="!loading" class="state-box">
             <IconMessageSquare :size="48" />
             <h4>{{ EMPTY_TEXT[tab] }}</h4>
-            <p>员工在求职者端的工资条上点「对工资有疑问」提交后，申诉会出现在这里</p>
+            <p>员工在求职者端的工资条上点「对这张工资条提出申诉」提交后，申诉会出现在这里</p>
           </div>
           <span v-else />
         </template>

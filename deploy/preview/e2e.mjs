@@ -1,6 +1,6 @@
 // 预览环境界面端到端验收：在服务器本机运行，用真实的点击和输入把主要业务从界面上走一遍。
 //   OPS_PASSWORD=xxx node e2e.mjs [输出目录] [只跑的流程名...]
-// 流程名见下面的 FLOWS（hire、reject、member、absence、broker、payroll、advance、job、feedback、complaint、resign、engine、onboard），说明见 docs/06-运维手册.md。
+// 流程名见下面的 FLOWS 和同目录的 e2e-flows-*.mjs，说明见 docs/06-运维手册.md。
 // 每步失败会截图到输出目录并继续下一个流程；结束时汇总通过 / 失败、被遮挡的按钮、意外的接口错误。
 // 会新增虚构的求职者、岗位等数据（名字以「验收」开头），不要在有真实数据的库上运行。
 import fs from 'node:fs'
@@ -156,7 +156,7 @@ async function registerAndApply(channel) {
 const FLOWS = {
   /** 主链路：扫渠道码注册 → 问薪 → 报名（告知书、实名）→ 驻场知悉、到厂、面试通过、确权 → 求职者签约 → 在岗。 */
   async hire() {
-    const channel = sql("SELECT code FROM channel_code WHERE company_id = (SELECT company_id FROM company ORDER BY company_id LIMIT 1) LIMIT 1")[0][0]
+    const channel = sql("SELECT code FROM channel_code WHERE company_id = (SELECT company_id FROM company ORDER BY company_id LIMIT 1) AND status = 'ACTIVE' LIMIT 1")[0][0]
     Object.assign(st, await registerAndApply(channel)); save()
 
     const tel = spaced(st.phone)
@@ -276,8 +276,9 @@ const FLOWS = {
     await ui.goto('/admin/broker/pool')
     await ui.click('推荐岗位')
     await ui.sleep(800)
-    await ui.fill('推荐岗位', null)
-    await ui.clickSel('.el-select-dropdown__item:not(.is-disabled)')
+    const recJob = sql("SELECT title FROM job WHERE company_id = 'C10001' AND job_status = 'RECRUITING' AND quota_remaining > 0 ORDER BY job_id LIMIT 1")[0][0]
+    await ui.select('推荐岗位', recJob)
+    await ui.see('元/月')
     await ui.fill('给求职者的说明', '这个岗位离你住的地方近，长白班不倒班，可以先来看看车间。')
     await ui.click('推送推荐给用户')
     await ui.see('推荐已推送给求职者')
@@ -556,7 +557,7 @@ if (!attach) startChrome()
 ui = await connect()
 const results = []
 // 流程里本来就会遇到的业务码：未同意告知书、未实名、要图形验证、未登录时的刷新
-const EXPECTED = /APP_4012|APP_4010|AUTH_4004|auth\/refresh/
+const EXPECTED = /APP_4012|APP_4010|APP_4008|APP_4007|AUTH_4004|auth\/refresh/
 for (const f of flows) {
   console.log(`\n== ${f}`)
   const t0 = Date.now()

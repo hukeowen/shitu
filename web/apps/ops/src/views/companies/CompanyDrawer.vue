@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { errorMessage, opsApi, useDict, type CompanyDetail, type CompanyStatus, type MemberView } from '@shitu/api-client'
 import { IconInfo, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import DictTags from '@/components/DictTags.vue'
@@ -90,7 +90,9 @@ async function reject() {
 }
 
 // ---------- 调整状态：弹窗里提交，被拒原因留在弹窗里 ----------
-const ADJUSTABLE: CompanyStatus[] = ['NORMAL', 'THROTTLED', 'BANNED']
+const ADJUSTABLE: CompanyStatus[] = ['NORMAL', 'THROTTLED', 'BANNED', 'DEREGISTERED', 'BANKRUPT']
+/** 注销 / 倒闭：不可逆，走单独的接口（批量解绑人员、下架岗位、停用成员账号） */
+const isClosing = (s: CompanyStatus): s is 'DEREGISTERED' | 'BANKRUPT' => s === 'DEREGISTERED' || s === 'BANKRUPT'
 const statusDlg = reactive({ visible: false, status: 'NORMAL' as CompanyStatus, remark: '', error: '', why: '', saving: false })
 function openStatus() {
   if (!c.value) return
@@ -108,11 +110,28 @@ async function submitStatus() {
     return
   }
   if (statusDlg.status !== 'NORMAL' && !statusDlg.remark.trim()) {
-    statusDlg.error = '限流 / 封禁必须填写原因'
+    statusDlg.error = isClosing(statusDlg.status) ? '注销 / 倒闭必须填写原因' : '限流 / 封禁必须填写原因'
     return
+  }
+  if (isClosing(statusDlg.status)) {
+    try {
+      await ElMessageBox.confirm(
+        `将把「${c.value?.name ?? id}」设为「${label('CompanyStatus', statusDlg.status)}」。该公司的在岗与私域人员全部解绑回到公域、岗位全部下架、成员账号全部停用，且不可恢复。`,
+        '此操作不可撤销',
+        { confirmButtonText: '确认执行', cancelButtonText: '取消', type: 'warning' },
+      )
+    } catch {
+      return
+    }
   }
   statusDlg.saving = true
   try {
+    if (isClosing(statusDlg.status)) {
+      const r = await opsApi.closeCompany(id, statusDlg.status, statusDlg.remark.trim())
+      statusDlg.visible = false
+      await done(`已设为「${label('CompanyStatus', statusDlg.status)}」：解绑 ${r.unboundUsers} 人，下架 ${r.offlineJobs} 个岗位，停用 ${r.disabledMembers} 个成员账号`)
+      return
+    }
     await opsApi.setCompanyStatus(id, statusDlg.status, statusDlg.remark.trim() || undefined)
     statusDlg.visible = false
     await done(`已调整为「${label('CompanyStatus', statusDlg.status)}」`)
@@ -131,6 +150,8 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
   NORMAL: '可发布岗位、接收匹配、正常计费',
   THROTTLED: '匹配权重降低，需填写原因',
   BANNED: '取消所有收费服务权限，需填写原因',
+  DEREGISTERED: '不可恢复：人员全部解绑回公域、岗位下架、成员账号停用，需填写原因',
+  BANKRUPT: '不可恢复：人员全部解绑回公域、岗位下架、成员账号停用，需填写原因',
 }
 </script>
 
@@ -249,7 +270,7 @@ const STATUS_HINT: Partial<Record<CompanyStatus, string>> = {
           <div class="t-xs hint">{{ STATUS_HINT[statusDlg.status] }}</div>
         </el-form-item>
         <el-form-item :label="statusDlg.status === 'NORMAL' ? '备注（选填）' : '原因（必填）'" :required="statusDlg.status !== 'NORMAL'">
-          <el-input v-model="statusDlg.remark" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="将记录到审计日志并通知该公司" @input="editStatus" />
+          <el-input v-model="statusDlg.remark" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="将记录到审计日志并通知该公司" @input="editStatus" />
         </el-form-item>
       </el-form>
       <p v-if="statusDlg.error" class="form-err" role="alert">{{ statusDlg.error }}</p>

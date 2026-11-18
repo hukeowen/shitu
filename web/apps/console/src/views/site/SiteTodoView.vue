@@ -205,7 +205,7 @@ function openInsight(row: SiteApplication) {
     <div class="rules">
       <section class="card card__bd">
         <h3>脱敏与权限</h3>
-        <p>姓名默认脱敏；<b>仅驻场角色可见完整手机号</b>。项目经理端自动隐藏手机号与证件号，「爽约」只能由驻场标记。</p>
+        <p>姓名默认脱敏；<b>仅驻场角色可见完整手机号</b>。项目经理端自动隐藏手机号与证件号，「爽约」由驻场或项目经理标记。</p>
       </section>
       <section class="card card__bd">
         <h3>取消权限</h3>
