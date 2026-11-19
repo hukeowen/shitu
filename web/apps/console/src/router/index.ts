@@ -68,7 +68,12 @@ const router = createRouter({
       path: '/',
       component: AppLayout,
       // 未知地址：在后台框架内显示「页面不存在」，不再悄悄跳回首页
-      children: [...children, { path: ':pathMatch(.*)*', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在', notFound: true } }],
+      children: [
+        ...children,
+        // 站内信 / 短信里的取消申请链接与驻场手机端共用 /cancel-requests：后台落到待办清单的「取消申请」页签
+        { path: 'cancel-requests', redirect: { path: '/site/todo', query: { tab: 'cancel' } } },
+        { path: ':pathMatch(.*)*', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在', notFound: true } },
+      ],
     },
   ],
 })

@@ -81,7 +81,7 @@ function start() {
       <IconLock :size="48" :stroke-width="1.5" />
       <div class="state-block-t">暂不能重新匹配</div>
       <div class="state-block-d">{{ lockText }}。</div>
-      <div v-if="appliedLock" class="state-block-d">如需更换岗位，请联系驻场老师<span class="nw">在后台取消报名</span> —— <span class="nw">你不能自行取消。</span></div>
+      <div v-if="appliedLock" class="state-block-d">如需更换岗位，可在「我的报备」里<span class="nw">申请取消报名，</span><span class="nw">驻场老师同意后即可重新匹配。</span></div>
       <template v-if="appliedLock">
         <van-button type="primary" @click="router.push('/reports')">查看我的报备</van-button>
         <button type="button" class="link home" @click="router.replace('/')">返回首页<IconChevronRight :size="16" /></button>

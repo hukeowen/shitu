@@ -166,7 +166,8 @@ const opsWidth = computed(() =>
         </el-table-column>
         <el-table-column label="发起" width="150">
           <template #default="{ row }">
-            <div>{{ memberName(row.requestedBy) }}</div>
+            <div v-if="row.source === 'SEEKER'"><span class="status-tag status-tag--info">本人申请</span></div>
+            <div v-else>{{ row.requestedByName || memberName(row.requestedBy) }}</div>
             <div class="sub tnum">{{ fmtDateTime(row.createdAt) }}</div>
           </template>
         </el-table-column>
@@ -197,7 +198,7 @@ const opsWidth = computed(() =>
           <div v-else-if="!loading" class="state-box">
             <IconUserMinus :size="48" />
             <h4>{{ EMPTY_TEXT[status] }}</h4>
-            <p>驻场或项目经理在「人员管理」对在岗员工发起离职后，申请会出现在这里</p>
+            <p>员工本人在手机端申请离职，或驻场 / 项目经理在「人员管理」对在岗员工发起离职后，申请会出现在这里</p>
           </div>
           <span v-else />
         </template>
@@ -237,7 +238,7 @@ const opsWidth = computed(() =>
         <div class="card__bd">
           <div class="notice-bar">
             <IconInfo :size="16" class="notice-bar-i" />
-            <span>在「人员管理」对在岗员工点击「离职」发起申请（驻场 / 项目经理均可）。在职不久即离职的员工，建议先流转至人才经纪人尝试内部调岗。</span>
+            <span>在「人员管理」对在岗员工点击「离职」发起申请（驻场 / 项目经理均可）；员工本人也可以在手机端申请离职，这类申请在「发起」列标「本人申请」。在职不久即离职的员工，建议先流转至人才经纪人尝试内部调岗。</span>
           </div>
         </div>
       </div>

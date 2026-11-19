@@ -3,8 +3,9 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, useDict } from '@shitu/api-client'
-import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconQrCode, IconShieldCheck, IconUsers, IconWallet } from '@shitu/ui-icons'
+import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconCircleX, IconQrCode, IconShieldCheck, IconUsers, IconWallet } from '@shitu/ui-icons'
 import { useAuthStore } from '@/stores/auth'
+import { useCancelRequestsStore } from '@/stores/cancelRequests'
 import { useInboxStore } from '@/stores/inbox'
 import { advanceWording } from '@/utils/advance'
 
@@ -15,7 +16,15 @@ const { label } = useDict()
 const me = computed(() => auth.me)
 const inbox = useInboxStore()
 const adv = computed(() => advanceWording(me.value?.roles))
-if (auth.operational) void inbox.refresh()
+/** 取消申请只对驻场 / 项目经理开放（接口同此限制） */
+const cancelReq = useCancelRequestsStore()
+const canCancelReq = computed(() => (me.value?.roles ?? []).some((r) => r === 'SITE' || r === 'PM'))
+function refreshBadges() {
+  if (!auth.operational) return
+  void inbox.refresh()
+  if (canCancelReq.value) void cancelReq.refresh()
+}
+refreshBadges()
 
 /** 成员信息在启动时拉取；没拉到时这里给重新加载 */
 const reloading = ref(false)
@@ -25,7 +34,7 @@ async function reload() {
   loadError.value = ''
   try {
     await auth.loadMe()
-    if (auth.operational) void inbox.refresh()
+    refreshBadges()
   } catch (e) {
     loadError.value = errorMessage(e, '加载失败')
   } finally {
@@ -100,6 +109,12 @@ async function onLogout() {
           <router-link to="/advance" class="lrow">
             <IconWallet :size="20" class="ic" />
             <div class="lt"><b>{{ adv.title }}</b><span>{{ adv.entryDesc }}</span></div>
+            <IconChevronRight :size="16" class="chev" />
+          </router-link>
+          <router-link v-if="canCancelReq" to="/cancel-requests" class="lrow">
+            <IconCircleX :size="20" class="ic" />
+            <div class="lt"><b>取消申请</b><span>求职者申请取消报名，由你同意或回复</span></div>
+            <i v-if="cancelReq.pending > 0" class="cnt">{{ cancelReq.pending > 99 ? '99+' : cancelReq.pending }}</i>
             <IconChevronRight :size="16" class="chev" />
           </router-link>
           <router-link to="/incidents" class="lrow">

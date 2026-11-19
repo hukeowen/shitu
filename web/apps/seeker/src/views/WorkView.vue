@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication, type MyWork } from '@shitu/api-client'
+import { showConfirmDialog, showToast } from 'vant'
+import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication, type MyResign, type MyWork } from '@shitu/api-client'
 import { IconCheck, IconChevronRight, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
+import ResignRequestPopup from '@/components/ResignRequestPopup.vue'
 import { useJourney } from '@/composables/useJourney'
 import { useAuthStore } from '@/stores/auth'
 import { amapLink } from '@/utils/map'
@@ -14,6 +16,7 @@ import { formatServerTime, parseServerTime } from '@/utils/time'
 /**
  * S-30 / S-31 我的工作（C-505）：唯一展示所属劳务公司的入口。按状态四种形态：
  *   在岗（S-30）/ 待面试·待确权（形态 A）/ 公域求职·私域待匹配（形态 B）/ 已离职（形态 C，最近一段任职）。
+ * 在岗时可「申请离职」（项目经理审核），并展示申请状态；「申请进展」通知跳到本页。
  */
 const router = useRouter()
 const auth = useAuthStore()
@@ -27,6 +30,8 @@ const app = ref<MyApplication | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const refreshing = ref(false)
+/** 当前这份工作最近一条离职申请（本人申请或驻场代办） */
+const resign = ref<MyResign | null>(null)
 
 const APPLIED: ApplicationStatus[] = ['PENDING_INTERVIEW', 'PENDING_CONFIRM']
 
@@ -35,13 +40,16 @@ async function load() {
   try {
     const p = await auth.loadProfile()
     const applied = p.status === 'PENDING_INTERVIEW' || p.status === 'PENDING_CONFIRM'
-    const [w, apps] = await Promise.all([
+    const [w, apps, rs] = await Promise.all([
       seekerApi.work(),
       applied ? seekerApi.myApplications() : Promise.resolve([] as MyApplication[]),
+      // 查不到申请状态不影响页面；重复提交由后端拦截并提示
+      p.status === 'EMPLOYED' ? seekerApi.resignRequest().catch(() => null) : Promise.resolve(null),
       p.status === 'PENDING_CONFIRM' ? journey.loadPending().catch(() => null) : Promise.resolve(null),
       p.domainTag === 'PRIVATE' && !applied ? journey.loadRecs().catch(() => []) : Promise.resolve([]),
     ])
     work.value = w ?? null
+    resign.value = rs ?? null
     app.value = apps.find((a) => a.status === p.status) ?? apps.find((a) => APPLIED.includes(a.status)) ?? null
   } catch (e) {
     loadError.value = errorMessage(e, '加载失败，请稍后重试')
@@ -92,6 +100,47 @@ const formBSteps = computed(() => {
     cls: i < idx ? ('done' as const) : i === idx ? ('now' as const) : ('todo' as const),
   }))
 })
+
+/** 离职申请的展示形态：没有 / 未通过（含已撤回）→ 可申请；审核中；已通过待生效 */
+const resignState = computed<'none' | 'pending' | 'passed' | 'refused' | 'withdrawn'>(() => {
+  const s = resign.value?.status
+  if (s === 'PENDING') return 'pending'
+  if (s === 'SCHEDULED' || s === 'APPROVED') return 'passed'
+  return s === 'REJECTED' ? 'refused' : s === 'WITHDRAWN' ? 'withdrawn' : 'none'
+})
+const byStaff = computed(() => resign.value?.source === 'STAFF')
+/** yyyy-MM-dd → X 月 X 日 */
+function monthDay(s: string | undefined) {
+  const m = /^d{4}-(d{2})-(d{2})/.exec(s ?? '')
+  return m ? `${Number(m[1])} 月 ${Number(m[2])} 日` : '—'
+}
+const resignOpen = ref(false)
+function onResignSubmitted(r: MyResign) {
+  resign.value = r
+}
+async function reloadResign() {
+  resign.value = (await seekerApi.resignRequest().catch(() => resign.value)) ?? null
+}
+const withdrawing = ref(false)
+async function withdrawResign() {
+  if (withdrawing.value) return
+  try {
+    await showConfirmDialog({ title: '撤回离职申请', message: '撤回后这次申请作废，你继续在岗。确定撤回吗？', confirmButtonText: '撤回', cancelButtonText: '再想想' })
+  } catch {
+    return
+  }
+  withdrawing.value = true
+  try {
+    await seekerApi.withdrawResignRequest()
+    showToast({ type: 'success', message: '已撤回离职申请' })
+  } catch (e) {
+    // 已被审核等：后端 message 直接展示，下面刷新为最新状态
+    showToast(errorMessage(e, '撤回失败，请稍后重试'))
+  } finally {
+    await reloadResign()
+    withdrawing.value = false
+  }
+}
 
 /** 页面底部通栏的主动作：待签约时去签合同；还没报名时去问薪 */
 const cta = computed(() => {
@@ -175,12 +224,36 @@ const cta = computed(() => {
             <p class="para">请假或旷工由驻场老师登记，会扣减预支所需的在岗日。</p>
           </section>
 
-          <section class="tipbar tipbar--warn">
-            <IconTriangleExclamationPoint :size="20" />
-            <div class="flex1">
-              <div class="tipbar-t">如需离职，请联系驻场老师办理。</div>
-              <div class="tipbar-d">离职确认后：当前归属清空 → 变为「{{ label('DomainTag', 'PUBLIC') }}」→ 匹配范围恢复全平台。</div>
+          <!-- 离职：申请入口与申请状态 -->
+          <section class="acard">
+            <div class="acard-hd">
+              <h4>离职</h4>
+              <span v-if="resignState === 'pending'" class="status-tag status-tag--warning">审核中</span>
+              <span v-else-if="resignState === 'passed'" class="status-tag status-tag--success">已通过</span>
+              <span v-else-if="resignState === 'refused'" class="status-tag status-tag--danger">未通过</span>
+              <span v-else-if="resignState === 'withdrawn'" class="status-tag">已撤回</span>
             </div>
+
+            <template v-if="resign && (resignState === 'pending' || resignState === 'passed')">
+              <p v-if="byStaff" class="rs-t">驻场已为你办理离职，离职日期 {{ monthDay(resign.resignDate) }}</p>
+              <p v-else-if="resignState === 'passed'" class="rs-t">已通过，{{ monthDay(resign.resignDate) }}离职生效</p>
+              <p v-else class="rs-t">离职申请已提交，等待项目经理审核</p>
+              <dl class="facts rs-facts">
+                <div class="kv"><dt>离职日期</dt><dd>{{ resign.resignDate }}</dd></div>
+                <div v-if="resign.reason" class="kv kv-stack"><dt>离职原因</dt><dd>{{ resign.reason }}</dd></div>
+                <div class="kv"><dt>{{ byStaff ? '办理时间' : '提交时间' }}</dt><dd>{{ formatServerTime(resign.createdAt) }}</dd></div>
+              </dl>
+              <p v-if="resignState === 'pending'" class="rs-tip">{{ byStaff ? '项目经理审核通过后按离职日期生效，在这之前请照常上班。如有疑问请联系驻场老师。' : '审核结果会通过消息通知你。审核通过前、离职日期之前请照常上班。' }}</p>
+              <p v-else class="rs-tip">离职日期之前请照常上班。未结清的薪资预支会从最后一笔工资中扣除；离职生效后你会变为「{{ label('DomainTag', 'PUBLIC') }}」，可匹配全平台岗位。</p>
+              <van-button v-if="resignState === 'pending' && !byStaff" block class="mt" :loading="withdrawing" loading-text="撤回中…" @click="withdrawResign">撤回申请</van-button>
+            </template>
+
+            <template v-else>
+              <p v-if="resign && resignState === 'refused'" class="rs-t">离职日期为 {{ monthDay(resign.resignDate) }} 的离职申请未通过，你仍然在岗</p>
+              <p v-else-if="resign && resignState === 'withdrawn'" class="rs-t">你已撤回离职日期为 {{ monthDay(resign.resignDate) }} 的离职申请，继续在岗</p>
+              <p class="para">{{ resignState === 'refused' || resignState === 'withdrawn' ? '如仍需离职，可以重新申请。' : '打算离职的话，在这里提交申请，由项目经理审核。' }}离职生效后你会变为「{{ label('DomainTag', 'PUBLIC') }}」，可匹配全平台岗位。</p>
+              <van-button block class="mt" @click="resignOpen = true">{{ resignState === 'refused' || resignState === 'withdrawn' ? '重新申请离职' : '申请离职' }}</van-button>
+            </template>
           </section>
           <div class="page-bottom-gap"></div>
         </div>
@@ -256,6 +329,15 @@ const cta = computed(() => {
         </div>
       </van-pull-refresh>
 
+      <ResignRequestPopup
+        v-if="employed && work"
+        v-model:show="resignOpen"
+        :subtitle="[work.companyName, work.projectName].filter(Boolean).join(' · ')"
+        :start-date="work.startDate"
+        @submitted="onResignSubmitted"
+        @conflict="reloadResign"
+      />
+
       <!-- 通栏放在下拉刷新外面：下拉时内容整体位移，固定定位的元素不能跟着动 -->
       <div v-if="cta" class="bottom-bar">
         <van-button type="primary" size="large" block @click="router.push(cta.path)">{{ cta.text }}</van-button>
@@ -280,6 +362,10 @@ const cta = computed(() => {
 .list { padding: 0; overflow: hidden; }
 .list .lrow { text-decoration: none; color: inherit; }
 .mt { margin-top: var(--space-3); }
+.rs-t { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }
+.rs-t + .para { margin-top: var(--space-1); }
+.rs-facts { margin-top: var(--space-2); }
+.rs-tip { margin-top: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .wsteps { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: var(--space-4); }
 .wsteps li { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
 .wsteps li + li::before { content: ""; position: absolute; top: 12px; right: calc(50% + 16px); width: calc(100% - 32px); height: 1px; background: var(--border); }

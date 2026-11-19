@@ -6,6 +6,7 @@ import { IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
 import AppActionButtons, { appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
 import ApplicantInsightDrawer from '@/components/site/ApplicantInsightDrawer.vue'
+import CancelRequestsTable from '@/components/site/CancelRequestsTable.vue'
 import RemainTag from '@/components/site/RemainTag.vue'
 import DictTag from '@/components/DictTag.vue'
 import PersonCell from '@/components/PersonCell.vue'
@@ -16,8 +17,10 @@ import { fmtDateTime, fmtPhone } from '@/utils/format'
 import { remainMs } from '@/utils/time'
 
 /** A-02 待办清单（T-101）：待知悉 / 待面试 / 今日到厂 / 待确权。行操作严格按 allowedActions */
-type Tab = 'ack' | 'interview' | 'arrived' | 'confirm'
-const TABS: { key: Tab; label: string; status: ApplicationStatus; unack?: boolean; arrivedToday?: boolean; count: keyof SiteWorkbench }[] = [
+type AppTab = 'ack' | 'interview' | 'arrived' | 'confirm'
+/** cancel = 求职者的取消报名申请（另一张表，只对驻场 / 项目经理显示；站内信链接 /cancel-requests 跳到这里） */
+type Tab = AppTab | 'cancel'
+const TABS: { key: AppTab; label: string; status: ApplicationStatus; unack?: boolean; arrivedToday?: boolean; count: keyof SiteWorkbench }[] = [
   { key: 'ack', label: '待知悉', status: 'PENDING_INTERVIEW', unack: true, count: 'pendingAck' },
   { key: 'interview', label: '待面试', status: 'PENDING_INTERVIEW', count: 'pendingInterview' },
   { key: 'arrived', label: '今日到厂', status: 'PENDING_INTERVIEW', arrivedToday: true, count: 'arrivedToday' },
@@ -30,8 +33,14 @@ const meStore = useMeStore()
 const now = useNow()
 const { projects } = useProjects()
 const isSite = computed(() => meStore.hasRole('SITE'))
+/** 取消申请接口只对驻场 / 项目经理开放；老板在本页只读，不显示这个页签 */
+const canCancelReq = computed(() => meStore.hasRole('SITE', 'PM'))
 
-const tab = ref<Tab>(TABS.some((t) => t.key === route.query.tab) ? (route.query.tab as Tab) : 'ack')
+function tabOf(q: unknown): Tab {
+  if (q === 'cancel') return canCancelReq.value ? 'cancel' : 'ack'
+  return TABS.some((t) => t.key === q) ? (q as Tab) : 'ack'
+}
+const tab = ref<Tab>(tabOf(route.query.tab))
 const projectId = ref<string>(typeof route.query.projectId === 'string' ? route.query.projectId : '')
 const page = reactive({ page: 1, pageSize: 20, total: 0 })
 const list = ref<SiteApplication[]>([])
@@ -41,6 +50,9 @@ const loadError = ref('')
 const ready = ref(false)
 const wb = ref<SiteWorkbench | null>(null)
 const dialogs = ref<InstanceType<typeof AppActionDialogs> | null>(null)
+const cancelTable = ref<InstanceType<typeof CancelRequestsTable> | null>(null)
+/** 待处理的取消申请数（没拿到时页签不显示计数） */
+const cancelCount = ref<number | null>(null)
 
 /** 只读角色（老板）对列表里的报名都没有可用操作时，不显示操作列 */
 const hasOps = computed(() => list.value.some((a) => a.allowedActions.length > 0))
@@ -48,6 +60,8 @@ const current = computed(() => TABS.find((t) => t.key === tab.value) ?? TABS[0])
 const opsWidth = computed(() => appActionsColWidth(list.value))
 
 async function load() {
+  // 取消申请页签有自己的表格和加载
+  if (tab.value === 'cancel') return
   loading.value = true
   loadError.value = ''
   try {
@@ -80,9 +94,19 @@ async function loadCounts() {
     wb.value = null
   }
 }
+async function loadCancelCount() {
+  if (!canCancelReq.value) return
+  try {
+    cancelCount.value = await tenantApi.cancelRequestPendingCount()
+  } catch {
+    cancelCount.value = null
+  }
+}
 function refresh() {
-  load()
+  if (tab.value === 'cancel') cancelTable.value?.load()
+  else load()
   loadCounts()
+  loadCancelCount()
 }
 function setTab(t: Tab) {
   tab.value = t
@@ -93,6 +117,13 @@ watch([tab, projectId], () => {
   router.replace({ query: { ...route.query, tab: tab.value, projectId: projectId.value || undefined } })
   load()
 })
+// 已经在本页时点消息里的链接（/cancel-requests → ?tab=cancel）：跟着地址切页签
+watch(
+  () => route.query.tab,
+  (q) => {
+    if (typeof q === 'string' && tabOf(q) === q && q !== tab.value) tab.value = q as Tab
+  },
+)
 onMounted(refresh)
 
 function rowClass({ row }: { row: SiteApplication }) {
@@ -122,7 +153,10 @@ function openInsight(row: SiteApplication) {
       <div class="toolbar">
         <div class="filter-tabs" role="tablist">
           <button v-for="t in TABS" :key="t.key" type="button" role="tab" :aria-selected="tab === t.key" :class="{ on: tab === t.key }" @click="setTab(t.key)">
-            {{ t.label }}<span class="n">{{ wb && ready ? wb[t.count] : '' }}</span>
+            {{ t.label }}<span class="n">{{ wb && (ready || tab === 'cancel') ? wb[t.count] : '' }}</span>
+          </button>
+          <button v-if="canCancelReq" type="button" role="tab" :aria-selected="tab === 'cancel'" :class="{ on: tab === 'cancel' }" @click="setTab('cancel')">
+            取消申请<span class="n">{{ cancelCount ?? '' }}</span>
           </button>
         </div>
         <span class="spacer" />
@@ -130,7 +164,8 @@ function openInsight(row: SiteApplication) {
           <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
         </el-select>
       </div>
-      <el-table v-loading="loading" :data="loadError ? [] : list" row-key="applicationId" :row-class-name="rowClass">
+      <CancelRequestsTable v-if="tab === 'cancel'" ref="cancelTable" :project-id="projectId || undefined" @changed="loadCancelCount" />
+      <el-table v-else v-loading="loading" :data="loadError ? [] : list" row-key="applicationId" :row-class-name="rowClass">
         <el-table-column label="求职者 / 来源" min-width="136">
           <template #default="{ row }">
             <button type="button" class="person-btn" title="查看画像、匹配记录与历史报名" @click="openInsight(row)">
@@ -187,7 +222,7 @@ function openInsight(row: SiteApplication) {
         </template>
       </el-table>
       <ApplicantInsightDrawer v-model="insight.open" :app="insight.app" />
-      <div v-if="page.total > 0" class="pager">
+      <div v-if="tab !== 'cancel' && page.total > 0" class="pager">
         <el-pagination
           v-model:current-page="page.page"
           v-model:page-size="page.pageSize"
@@ -209,7 +244,7 @@ function openInsight(row: SiteApplication) {
       </section>
       <section class="card card__bd">
         <h3>取消权限</h3>
-        <p>用户<b>无法自行取消报名</b>。误操作或需更换岗位时由驻场 / 项目经理在后台取消（必填原因），取消后用户可重新进入 AI 问薪。</p>
+        <p>用户<b>无法自行取消报名</b>。误操作或需更换岗位时由驻场 / 项目经理在后台取消（必填原因），取消后用户可重新进入 AI 问薪。求职者可在手机端提交取消申请，由驻场 / 项目经理在「取消申请」页签处理。</p>
       </section>
       <section class="card card__bd">
         <h3>面试未通过</h3>

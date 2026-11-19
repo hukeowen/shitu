@@ -67,6 +67,11 @@ function more() {
 function routeOf(link?: string): string | null {
   if (!link) return null
   let p = link
+  // 取消申请：待办清单的「取消申请」页签（只有驻场 / 项目经理会收到这类消息）
+  if (p === '/cancel-requests') {
+    const todo = MENU.flatMap((g) => g.items).find((it) => it.path === '/site/todo')
+    return todo && canAccess(meStore.me, todo.access) ? '/site/todo?tab=cancel' : null
+  }
   if (p.startsWith('/applications') || p === '/todo') p = '/site/todo'
   else if (p.startsWith('/advance')) p = '/pm/advance'
   else if (p === '/reminders') p = '/site/follow'

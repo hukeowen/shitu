@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type MyApplication } from '@shitu/api-client'
 import { IconCheck, IconCircleExclamationPoint, IconClock, IconExternalLink, IconMapPin, IconPhone, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
+import CancelRequestBlock from '@/components/CancelRequestBlock.vue'
 import { telHref } from '@/utils/format'
 import { amapLink } from '@/utils/map'
 import { APPLICATION_TONE } from '@/utils/status'
@@ -13,6 +14,7 @@ import { formatServerTime, formatShort, untilText } from '@/utils/time'
  * S-24 面试确认信息（C-408）：驻场「知悉」后推送的时间、地点、路线、证件清单。
  * 只有「待面试」展示面试须知（倒计时、证件清点、取消提示）；面试已通过 / 已入职 / 已结束的报名
  * 展示与状态相符的摘要，面试时间只作为过去的事实。
+ * 进行中的报名（待面试 / 待签约入职）带「申请取消报名」的入口与申请状态；「申请进展」通知也跳到这里。
  */
 const route = useRoute()
 const router = useRouter()
@@ -122,17 +124,25 @@ const summary = computed(() => {
         </dl>
       </section>
 
+      <CancelRequestBlock v-if="app.status === 'PENDING_CONFIRM'" card :application-id="app.applicationId" :job-title="app.jobTitle" :subtitle="where" />
+
       <van-button v-if="app.status === 'PENDING_CONFIRM' && hasPendingSign" type="primary" block class="btn-cta" @click="router.push('/contracts/sign')">去签署合同</van-button>
       <van-button v-else-if="app.status === 'EMPLOYED'" type="primary" block class="btn-cta" @click="router.push('/work')">查看我的工作</van-button>
       <van-button block class="btn-cta" @click="router.replace('/reports')">返回我的报备</van-button>
       <div class="page-bottom-gap"></div>
     </div>
 
-    <div v-else-if="!n" class="state-block">
-      <IconClock :size="48" :stroke-width="1.5" />
-      <div class="state-block-t">驻场老师还没有推送面试信息</div>
-      <div class="state-block-d">请留意站内消息和短信</div>
-      <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
+    <div v-else-if="!n">
+      <div class="state-block">
+        <IconClock :size="48" :stroke-width="1.5" />
+        <div class="state-block-t">驻场老师还没有推送面试信息</div>
+        <div class="state-block-d">请留意站内消息和短信</div>
+        <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
+      </div>
+      <div class="pad">
+        <CancelRequestBlock card :application-id="app.applicationId" :job-title="app.jobTitle" :subtitle="where" />
+      </div>
+      <div class="page-bottom-gap"></div>
     </div>
 
     <div v-else class="pad stack">
@@ -190,13 +200,7 @@ const summary = computed(() => {
         </div>
       </section>
 
-      <section class="tipbar tipbar--warn">
-        <IconTriangleExclamationPoint :size="20" />
-        <div class="flex1">
-          <div class="tipbar-t">如需取消面试，请直接联系驻场老师。</div>
-          <div class="tipbar-d">你不能自行取消报名。</div>
-        </div>
-      </section>
+      <CancelRequestBlock card :application-id="app.applicationId" :job-title="app.jobTitle" :subtitle="where" />
       <div class="page-bottom-gap"></div>
     </div>
   </div>

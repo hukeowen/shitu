@@ -782,6 +782,32 @@ export interface MyWork {
   employeeNo?: string
 }
 
+// ---- 求职者自助申请（C 端）：申请取消报名 / 申请离职
+
+/** 我的取消报名申请：驻场同意后报名才取消；报名因其他原因先结束时变为 CLOSED */
+export interface CancelRequestMine {
+  id: number
+  applicationId: string
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CLOSED'
+  /** 驻场不同意时的说明 */
+  reply?: string
+  createdAt: string
+  handledAt?: string
+}
+
+/** 我的离职申请（当前这份工作最近一条）。SCHEDULED = 已通过、到 resignDate 生效；WITHDRAWN = 本人撤回 */
+export interface MyResign {
+  id: number
+  resignDate: string
+  reason: string
+  status: 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN'
+  /** SEEKER = 本人申请；STAFF = 驻场代为发起 */
+  source: 'SEEKER' | 'STAFF'
+  createdAt: string
+  decidedAt?: string
+}
+
 // ------------------------------------------------------------------ Sprint 4：流转、离职、花名册、计费
 
 export interface BrokerCaseRow {
@@ -834,8 +860,8 @@ export interface ResignRow {
   projectId: string
   resignDate: string
   reason?: string
-  /** SCHEDULED = 已审核通过、离职日未到，到期自动生效（D-59） */
-  status: 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED'
+  /** SCHEDULED = 已审核通过、离职日未到，到期自动生效（D-59）；WITHDRAWN = 员工本人撤回 */
+  status: 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN'
   requestedBy: string
   approvedBy?: string
   createdAt: string
@@ -844,6 +870,29 @@ export interface ResignRow {
   employeeNo?: string
   requestedByName?: string
   approvedByName?: string
+  /** 谁发起的：SEEKER = 员工本人在求职者端申请（requestedByName 为空，显示「本人申请」），STAFF = 驻场 / 项目经理发起 */
+  source?: 'SEEKER' | 'STAFF'
+}
+
+/** 求职者提交的「申请取消报名」（驻场 / 项目经理处理）：PENDING 待处理、APPROVED 已同意并取消、REJECTED 未同意、CLOSED 报名已因其他原因结束 */
+export type CancelRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CLOSED'
+
+export interface CancelRequestRow {
+  id: number
+  applicationId: string
+  userId: string
+  /** 已脱敏 */
+  seekerName: string
+  jobTitle?: string
+  projectId: string
+  projectName?: string
+  applicationStatus: ApplicationStatus
+  reason: string
+  status: CancelRequestStatus
+  reply?: string
+  handledByName?: string
+  createdAt: string
+  handledAt?: string
 }
 
 export interface RosterRowResult {

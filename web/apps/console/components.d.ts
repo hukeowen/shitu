@@ -10,6 +10,7 @@ declare module 'vue' {
     AppActionButtons: typeof import('./src/components/site/AppActionButtons.vue')['default']
     AppActionDialogs: typeof import('./src/components/site/AppActionDialogs.vue')['default']
     ApplicantInsightDrawer: typeof import('./src/components/site/ApplicantInsightDrawer.vue')['default']
+    CancelRequestsTable: typeof import('./src/components/site/CancelRequestsTable.vue')['default']
     ClientSelect: typeof import('./src/components/ClientSelect.vue')['default']
     CompanyForm: typeof import('./src/components/CompanyForm.vue')['default']
     DictTag: typeof import('./src/components/DictTag.vue')['default']

@@ -191,9 +191,9 @@ const quad = computed<QuadItem[]>(() => {
 async function startMatch() {
   if (matchLocked.value) {
     const msg = onboarding.value
-      ? '你已通过面试，办理入职期间不能重新匹配，也不能报名其他岗位。如不想入职或信息有误，请联系驻场老师处理。'
+      ? '你已通过面试，办理入职期间不能重新匹配，也不能报名其他岗位。如不想入职，可在「我的报备」里申请取消报名，由驻场老师处理。'
       : appliedLock.value
-        ? '面试结果出来前不能重新匹配，也不能报名其他岗位。如需更换岗位，请联系驻场老师在后台取消报名。'
+        ? '面试结果出来前不能重新匹配，也不能报名其他岗位。如需更换岗位，可在「我的报备」里申请取消报名，驻场老师同意后即可重新匹配。'
         : status.value === 'EMPLOYED'
         ? '你已入职在岗，当前不能发起匹配。'
         : '当前状态暂不能发起匹配。'
@@ -344,11 +344,13 @@ const progress = computed(() => {
             <template v-if="onboarding">
               <div class="tipbar-t">面试已通过</div>
               <div class="tipbar-d">{{ pendingSign ? '签署劳动合同并由劳务公司盖章后，即正式入职在岗' : `等待驻场为你办理${app?.jobTitle ? `「${app.jobTitle}」的` : ''}入职并发起电子签约` }}。办理入职期间不能重新匹配，也不能报名其他岗位。</div>
-              <div class="tipbar-d">若劳务公司 24 小时内未办完入职，本次报名会自动解除，之后你可以匹配全平台岗位。如不想入职或信息有误，请联系驻场老师处理。</div>
+              <div class="tipbar-d">若劳务公司 24 小时内未办完入职，本次报名会自动解除，之后你可以匹配全平台岗位。信息有误请联系驻场老师；如不想入职，可以申请取消报名。</div>
+              <button type="button" class="link lock-link" @click="router.push(app ? `/reports/${app.applicationId}` : '/reports')">申请取消报名<IconChevronRight :size="16" /></button>
             </template>
             <template v-else>
               <div class="tipbar-t">报名后不可再匹配、不可再报名。</div>
-              <div class="tipbar-d">如需更换岗位或取消面试，请联系驻场老师在后台操作取消 —— 你无法自行取消报名。</div>
+              <div class="tipbar-d">你不能直接取消报名。如需更换岗位或不去面试了，可以提交取消申请，驻场老师同意后报名就会取消。</div>
+              <button type="button" class="link lock-link" @click="router.push(app ? `/reports/${app.applicationId}` : '/reports')">申请取消报名<IconChevronRight :size="16" /></button>
             </template>
           </div>
         </div>
@@ -447,6 +449,8 @@ button.acard { display: block; width: 100%; border: 0; text-align: left; font: i
 .recb .avatar { background: var(--bg-card); }
 .recb .chev { margin-top: 0; }
 .last { margin: var(--space-3) auto 0; display: flex; min-height: 44px; }
+/* 锁定说明里的「申请取消报名」：次要入口，点击区撑够 44 */
+.lock-link { min-height: 44px; margin-bottom: calc(var(--space-3) * -1); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); }
 .lead .last { margin-bottom: calc(var(--space-3) * -1); }
 .list { padding: 0; overflow: hidden; }
 .list .lrow { text-decoration: none; color: inherit; }

@@ -74,7 +74,7 @@ const CHECKS = ['同一时段无重复有效报名', '岗位剩余名额充足',
         <IconTriangleExclamationPoint :size="20" />
         <div class="flex1">
           <div class="tipbar-t">无法自行取消报名。</div>
-          <div class="tipbar-d">如误操作或需更换岗位，请联系驻场老师在后台操作取消，取消后可重新进入 AI 问薪。</div>
+          <div class="tipbar-d">如误操作或需更换岗位，可在「我的报备」里申请取消报名，驻场老师同意后即可重新进入 AI 问薪。</div>
         </div>
       </section>
 

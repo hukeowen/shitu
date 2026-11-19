@@ -74,7 +74,7 @@ function patchRead(ids: number[] | 'all') {
 }
 
 /** 站内信 link 为驻场端内路径（如 /applications/xxx）；其他端的链接不跳转 */
-const INTERNAL = /^\/(applications\/[\w-]+|todo|my-code|me|messages|advance(\/[\w-]+)?|reminders|private-pending|employees|incidents)?(\?.*)?$/
+const INTERNAL = /^\/(applications\/[\w-]+|todo|cancel-requests|my-code|me|messages|advance(\/[\w-]+)?|reminders|private-pending|employees|incidents)?(\?.*)?$/
 
 async function open(m: InboxItem) {
   if (!m.read) {

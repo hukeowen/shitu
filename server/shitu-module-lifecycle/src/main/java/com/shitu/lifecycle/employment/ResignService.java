@@ -48,7 +48,13 @@ public class ResignService {
 
     public record ResignRow(long id, String employmentId, String userId, String name, String projectId, LocalDate resignDate,
                             String reason, String status, String requestedBy, String approvedBy, LocalDateTime createdAt,
-                            String projectName, String jobTitle, String employeeNo, String requestedByName, String approvedByName) {
+                            String projectName, String jobTitle, String employeeNo, String requestedByName, String approvedByName,
+                            String source) {
+    }
+
+    /** 员工本人看到的离职申请 */
+    public record MyResign(long id, LocalDate resignDate, String reason, String status, String source, LocalDateTime createdAt,
+                           LocalDateTime decidedAt) {
     }
 
     private final LifecycleService lifecycle;
@@ -107,7 +113,7 @@ public class ResignService {
     @Transactional
     public void decide(AuthPrincipal p, long requestId, boolean approve, String remark) {
         BizException.check(p.hasRole(ActorRole.PM.name()), ErrorCode.LC_ACTOR_NOT_ALLOWED, "离职审核由项目经理处理");
-        List<Map<String, Object>> rows = jdbc.queryForList("SELECT employment_id, resign_date, reason, status FROM resign_request "
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT employment_id, resign_date, reason, status, source, user_id FROM resign_request "
                 + "WHERE id = ? AND company_id = ? FOR UPDATE", requestId, p.companyId());
         BizException.check(!rows.isEmpty(), ErrorCode.SYS_NOT_FOUND);
         String current = (String) rows.get(0).get("status");
@@ -123,6 +129,7 @@ public class ResignService {
             jdbc.update("UPDATE resign_request SET status = 'SCHEDULED', approved_by = ?, approved_at = ? WHERE id = ?",
                     p.subjectId(), LocalDateTime.now(clock), requestId);
             audit.log("RESIGN_SCHEDULE", "EMPLOYMENT", employmentId, Map.of("resignDate", rows.get(0).get("resign_date").toString()));
+            notifySeeker(rows.get(0), "你的离职申请已通过，离职日期 " + rows.get(0).get("resign_date") + "，到期自动生效，在此之前照常上班。");
             return;
         }
         if (approve) {
@@ -139,6 +146,68 @@ public class ResignService {
                 approve ? "APPROVED" : "REJECTED", p.subjectId(), LocalDateTime.now(clock), requestId);
         audit.log(approve ? "RESIGN_APPROVE" : "SCHEDULED".equals(current) ? "RESIGN_CANCEL" : "RESIGN_REJECT", "EMPLOYMENT", employmentId,
                 remark == null ? null : Map.of("remark", remark));
+        String why = remark == null || remark.isBlank() ? "" : "：" + remark.trim();
+        notifySeeker(rows.get(0), approve ? "你的离职申请已通过，离职已生效。"
+                : "SCHEDULED".equals(current) ? "你的离职安排已撤销" + why + "。" : "你的离职申请未通过" + why + "。如有疑问请联系驻场老师。");
+    }
+
+    /** 只有员工本人申请的才通知本人（驻场代办的，本人未必知情，由驻场当面沟通）。 */
+    private void notifySeeker(Map<String, Object> row, String content) {
+        if ("SEEKER".equals(row.get("source"))) {
+            outbox.publish("SEEKER_NOTICE", "USER", (String) row.get("user_id"), Map.of("userId", row.get("user_id"), "content", content, "link", "/work"));
+        }
+    }
+
+    // ------------------------------------------------------------------ 员工本人申请
+
+    /** 员工本人申请离职：离职日期只能选今天到 30 天内；进入项目经理的离职审核，同一段任职只能有一条在办的申请。 */
+    @Transactional
+    public long requestBySeeker(String userId, LocalDate resignDate, String reason) {
+        List<Map<String, Object>> emp = jdbc.queryForList("SELECT employment_id, company_id, project_id, start_date FROM employment "
+                + "WHERE user_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1", userId);
+        BizException.check(!emp.isEmpty(), ErrorCode.SYS_BAD_REQUEST, "你当前没有在岗的工作");
+        String employmentId = (String) emp.get(0).get("employment_id");
+        LocalDate today = LocalDate.now(clock.withZone(Constants.ZONE));
+        BizException.check(resignDate != null && !resignDate.isBefore(today) && !resignDate.isAfter(today.plusDays(30)),
+                ErrorCode.SYS_BAD_REQUEST, "离职日期请选今天到 30 天内");
+        BizException.check(resignDate.isAfter(((java.sql.Date) emp.get(0).get("start_date")).toLocalDate()),
+                ErrorCode.SYS_BAD_REQUEST, "离职日期须晚于入职日期");
+        BizException.check(reason != null && !reason.isBlank() && reason.trim().length() <= 255, ErrorCode.SYS_BAD_REQUEST, "请填写离职原因（255 字以内）");
+        Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM resign_request WHERE employment_id = ? AND status IN ('PENDING', 'SCHEDULED')",
+                Long.class, employmentId);
+        BizException.check(pending == null || pending == 0, ErrorCode.SYS_CONFLICT, "已有一条离职申请在办理中");
+        jdbc.update("INSERT INTO resign_request (employment_id, user_id, company_id, resign_date, reason, requested_by, source) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, 'SEEKER')", employmentId, userId, emp.get(0).get("company_id"), Date.valueOf(resignDate),
+                reason.trim(), userId);
+        Long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+        audit.logForCompany((String) emp.get(0).get("company_id"), "RESIGN_REQUEST_SEEKER", "EMPLOYMENT", employmentId,
+                Map.of("resignDate", resignDate.toString()));
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("companyId", emp.get(0).get("company_id"));
+        payload.put("projectId", emp.get(0).get("project_id"));
+        payload.put("userId", userId);
+        payload.put("to", "PM");
+        payload.put("content", "{name} 申请于 " + resignDate + " 离职：" + reason.trim() + "。请到「离职审核」处理。");
+        payload.put("link", "/pm/resign");
+        outbox.publish("STAFF_NOTICE", "EMPLOYMENT", employmentId, payload);
+        return id == null ? 0 : id;
+    }
+
+    /** 当前这段任职最近的一条离职申请（没有在岗工作或没申请过返回空）。 */
+    public java.util.Optional<MyResign> mine(String userId) {
+        List<MyResign> rows = jdbc.query("SELECT r.id, r.resign_date, r.reason, r.status, r.source, r.created_at, r.approved_at FROM resign_request r "
+                        + "JOIN employment e ON e.employment_id = r.employment_id WHERE r.user_id = ? AND e.end_date IS NULL ORDER BY r.id DESC LIMIT 1",
+                (rs, i) -> new MyResign(rs.getLong(1), rs.getDate(2).toLocalDate(), rs.getString(3), rs.getString(4), rs.getString(5),
+                        rs.getTimestamp(6).toLocalDateTime(), rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toLocalDateTime()), userId);
+        return rows.stream().findFirst();
+    }
+
+    /** 本人撤回还没审核的申请。 */
+    @Transactional
+    public void withdrawBySeeker(String userId) {
+        int n = jdbc.update("UPDATE resign_request SET status = 'WITHDRAWN', approved_at = ? WHERE user_id = ? AND source = 'SEEKER' AND status = 'PENDING'",
+                LocalDateTime.now(clock), userId);
+        BizException.check(n > 0, ErrorCode.SYS_CONFLICT, "没有可撤回的离职申请（已审核的请联系驻场老师）");
     }
 
     /**
@@ -198,7 +267,7 @@ public class ResignService {
     public List<ResignRow> list(AuthPrincipal p, String status) {
         DataScope.Scope s = scope.of(p);
         List<ResignRow> rows = jdbc.query("SELECT r.id, r.employment_id, r.user_id, e.project_id, r.resign_date, r.reason, r.status, "
-                        + "r.requested_by, r.approved_by, r.created_at, p.name, j.title, e.employee_no, mr.name, ma.name "
+                        + "r.requested_by, r.approved_by, r.created_at, p.name, j.title, e.employee_no, mr.name, ma.name, r.source "
                         + "FROM resign_request r JOIN employment e ON e.employment_id = r.employment_id "
                         + "LEFT JOIN project p ON p.project_id = e.project_id LEFT JOIN job j ON j.job_id = e.job_id "
                         + "LEFT JOIN member mr ON mr.member_id = r.requested_by LEFT JOIN member ma ON ma.member_id = r.approved_by "
@@ -206,14 +275,14 @@ public class ResignService {
                 (rs, i) -> new ResignRow(rs.getLong(1), rs.getString(2), rs.getString(3), null, rs.getString(4),
                         rs.getDate(5).toLocalDate(), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9),
                         rs.getTimestamp(10).toLocalDateTime(), rs.getString(11), rs.getString(12), rs.getString(13), rs.getString(14),
-                        rs.getString(15)),
+                        rs.getString(15), rs.getString(16)),
                 status == null ? new Object[]{p.companyId()} : new Object[]{p.companyId(), status});
         return rows.stream().filter(r -> s.covers(r.projectId())).map(r -> {
             SeekerUser u = TenantContext.runAsSystem(() -> users.selectById(r.userId()));
             String name = u == null || u.getRealNameEnc() == null ? "未实名" : Masks.name(cipher.decrypt(u.getRealNameEnc()));
             return new ResignRow(r.id(), r.employmentId(), r.userId(), name, r.projectId(), r.resignDate(), r.reason(), r.status(),
                     r.requestedBy(), r.approvedBy(), r.createdAt(), r.projectName(), r.jobTitle(), r.employeeNo(), r.requestedByName(),
-                    r.approvedByName());
+                    r.approvedByName(), r.source());
         }).toList();
     }
 

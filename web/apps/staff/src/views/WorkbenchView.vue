@@ -9,6 +9,7 @@ import {
   IconCalendar,
   IconChevronRight,
   IconCircleExclamationPoint,
+  IconCircleX,
   IconClipboardList,
   IconMapPin,
   IconQrCode,
@@ -19,6 +20,7 @@ import AppActions from '@/components/AppActions.vue'
 import ApplicationCard from '@/components/ApplicationCard.vue'
 import { useNow } from '@/composables/useNow'
 import { useAuthStore } from '@/stores/auth'
+import { useCancelRequestsStore } from '@/stores/cancelRequests'
 import { useInboxStore } from '@/stores/inbox'
 import { advanceWording, canReview } from '@/utils/advance'
 import { fetchInterviewBuckets, type InterviewBuckets } from '@/utils/status'
@@ -30,6 +32,8 @@ import { fmtDuration, parseLocal } from '@/utils/time'
  */
 const auth = useAuthStore()
 const inbox = useInboxStore()
+/** 求职者的取消报名申请：有待处理的才在工作台出提示条（平时从「我的 → 取消申请」进） */
+const cancelReq = useCancelRequestsStore()
 const router = useRouter()
 const now = useNow(30_000)
 const { label } = useDict()
@@ -106,6 +110,7 @@ async function loadData() {
       .catch(() => undefined),
   ]
   if (canApps.value) {
+    void cancelReq.refresh()
     todayError.value = ''
     // 重试期间先回到加载中，不闪一下空状态
     if (!todayList.value.length) todayLoaded.value = false
@@ -269,6 +274,13 @@ async function onPull() {
           </div>
         </section>
 
+        <router-link v-if="canApps && cancelReq.pending > 0" to="/cancel-requests" class="acard lrow cancel-req">
+          <IconCircleX :size="22" class="entry-ic" />
+          <div class="lt"><b>取消申请</b><span>{{ cancelReq.pending }} 位求职者申请取消报名，等你处理</span></div>
+          <i class="cnt cnt--inline">{{ cancelReq.pending > 99 ? '99+' : cancelReq.pending }}</i>
+          <IconChevronRight :size="16" class="chev" />
+        </router-link>
+
         <section v-if="canApps" class="todo-sec">
           <div class="sec-hd">
             <h2>待知悉报名</h2>
@@ -348,6 +360,9 @@ async function onPull() {
 .entry span { font-size: var(--font-size-min); line-height: 18px; color: var(--text-3); }
 /* 主色底白字 4.52，够 12px 正文 */
 .cnt { position: absolute; top: var(--space-2); right: var(--space-2); min-width: 18px; height: 18px; padding: 0 var(--space-1); border-radius: 9px; background: var(--primary); color: var(--text-on-primary); font-size: var(--font-size-min); font-style: normal; font-weight: var(--font-weight-medium); line-height: 18px; text-align: center; }
+/* 取消申请提示行：整行可点，角标跟在文字后面（不用右上角绝对定位） */
+.cancel-req { border-bottom: 0; border-radius: var(--radius-card); text-decoration: none; color: inherit; }
+.cnt--inline { position: static; flex: none; box-sizing: border-box; }
 .mycode { margin-top: var(--space-3); padding: var(--space-3) 0 0; border-top: 1px solid var(--divider); text-decoration: none; color: inherit; }
 .page-err { padding-top: calc(80px + env(safe-area-inset-top)); }
 </style>

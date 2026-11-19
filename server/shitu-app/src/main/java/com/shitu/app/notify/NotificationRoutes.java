@@ -46,7 +46,7 @@ public class NotificationRoutes implements OutboxHandler {
             "JOB_STALE", "COMPANY_PENALIZED", "KB_QUESTION_PENDING", "KB_ANSWERED", "KYC_APPEAL_RESULT",
             "MONTHLY_BILL_ISSUED", "COMPANY_APPROVED", "COMPANY_REJECTED", "JOB_APPROVED", "JOB_REJECTED", "JOB_FORCE_OFFLINE",
             "REMATCH_LIMIT_REACHED", "FEEDBACK_REPLIED", "PAYSLIP_APPEAL_SUBMITTED", "PAYSLIP_APPEAL_HANDLED",
-            "INJURY_REPORTED", "CONTRACT_EXPIRING", "CONTRACT_EXPIRED", "INTERVIEW_PASSED", "INTERVIEW_FAILED", "BILL_NOTICE", "STAFF_DIGEST");
+            "INJURY_REPORTED", "CONTRACT_EXPIRING", "CONTRACT_EXPIRED", "INTERVIEW_PASSED", "INTERVIEW_FAILED", "BILL_NOTICE", "STAFF_DIGEST", "STAFF_NOTICE", "SEEKER_NOTICE");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationService notifications;
@@ -101,6 +101,15 @@ public class NotificationRoutes implements OutboxHandler {
                         companyMembers(text(p, "companyId"), EnumSet.of(ActorRole.OWNER)),
                         Map.of("month", text(p, "month"), "payable", text(p, "payable"), "disputeDeadline", text(p, "disputeDeadline")),
                         "/owner/bills");
+                case "STAFF_NOTICE" -> {
+                    // to = PM：该项目的项目经理（没有则老板）；否则该项目的驻场和项目经理。正文里的 {name} 换成脱敏姓名
+                    List<Recipient> to = "PM".equals(text(p, "to")) ? contractManagers(text(p, "companyId"), text(p, "projectId"))
+                            : projectStaff(text(p, "companyId"), text(p, "projectId"));
+                    notifications.send(outboxId, "STAFF_NOTICE", to,
+                            Map.of("content", text(p, "content").replace("{name}", seekerName(text(p, "userId")))), text(p, "link"));
+                }
+                case "SEEKER_NOTICE" -> notifications.send(outboxId, "SEEKER_NOTICE", List.of(Recipient.seeker(text(p, "userId"))),
+                        Map.of("content", text(p, "content")), text(p, "link"));
                 case "STAFF_DIGEST" -> notifications.send(outboxId, "STAFF_DIGEST",
                         List.of(Recipient.member(text(p, "memberId"))), Map.of("content", text(p, "content")), "/todo");
                 case "BILL_NOTICE" -> notifications.send(outboxId, "BILL_NOTICE",

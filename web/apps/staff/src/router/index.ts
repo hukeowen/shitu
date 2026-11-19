@@ -15,6 +15,9 @@ const router = createRouter({
     { path: '/todo/arrived', redirect: { path: '/todo', query: { tab: 'arrived' } } },
     { path: '/todo', component: () => import('@/views/TodoView.vue'), meta: { tabbar: true, title: '待办清单', proto: 'M-02' } },
     { path: '/applications/:id', component: () => import('@/views/ApplicationDetailView.vue'), meta: { title: '报名详情', proto: 'M-04' } },
+    { path: '/cancel-requests', component: () => import('@/views/CancelRequestsView.vue'), meta: { title: '取消申请' } },
+    // 员工本人申请离职的站内信 / 短信链接（后台是离职审核页）；驻场手机端没有离职审核，落到消息页看通知全文
+    { path: '/pm/resign', redirect: '/messages' },
     { path: '/messages', component: () => import('@/views/MessagesView.vue'), meta: { title: '消息通知' } },
     { path: '/reminders', component: () => import('@/views/RemindersView.vue'), meta: { tabbar: true, title: '24h 提醒', proto: 'M-12' } },
     { path: '/private-pending', redirect: { path: '/reminders', query: { f: 'private' } } },

@@ -1,4 +1,6 @@
 import { request } from './http'
+import type { CancelRequestMine, MyResign } from './types'
+import type { CancelRequestRow, CancelRequestStatus } from './types'
 import type {
   FeedbackCategory,
   FeedbackRow,
@@ -238,6 +240,13 @@ export const seekerApi = {
     post<number>('/seeker/complaints', { jobId, category, content, images }),
   /** 投诉凭证图片：JPG / PNG，5MB 以内 */
   uploadComplaintImage: (file: File) => upload<UploadedFile>('/seeker/complaints/images', file),
+  /** 求职者自助申请：申请取消报名（驻场同意后才取消）、申请离职（项目经理审核） */
+  cancelRequest: (applicationId: string) => get<CancelRequestMine | null>(`/seeker/applications/${applicationId}/cancel-request`),
+  submitCancelRequest: (applicationId: string, reason: string) =>
+    post<CancelRequestMine>(`/seeker/applications/${applicationId}/cancel-request`, { reason }),
+  resignRequest: () => get<MyResign | null>('/seeker/resign-request'),
+  submitResignRequest: (body: { resignDate: string; reason: string }) => post<MyResign>('/seeker/resign-request', body),
+  withdrawResignRequest: () => post<void>('/seeker/resign-request/withdraw'),
 }
 
 // ------------------------------------------------------------------ 公司后台 / 驻场端
@@ -372,6 +381,12 @@ export const tenantApi = {
   resignRequests: (status?: 'PENDING' | 'SCHEDULED' | 'APPROVED' | 'REJECTED') => get<ResignRow[]>('/tenant/resign-requests', { status }),
   decideResign: (id: number, approve: boolean, remark?: string) =>
     post<void>(`/tenant/resign-requests/${id}/decide`, { approve, remark }),
+  /** 求职者的取消报名申请（仅驻场 / 项目经理，限本人项目）：不传 status 返回最近 200 条，待处理在前 */
+  cancelRequests: (status?: CancelRequestStatus) => get<CancelRequestRow[]>('/tenant/cancel-requests', { status }),
+  cancelRequestPendingCount: () => get<number>('/tenant/cancel-requests/pending-count'),
+  /** 同意 = 立即取消报名；不同意必须填 reply（≤255，求职者可见） */
+  decideCancelRequest: (id: number, approve: boolean, reply?: string) =>
+    post<void>(`/tenant/cancel-requests/${id}/decide`, { approve, reply }),
 
   /** 花名册（T-503，项目经理）。模板 / 失败行用 fetchFileUrl 风格的 blob 下载：http.get(path, { responseType: 'blob' }) */
   rosterTemplatePath: '/tenant/roster/template',

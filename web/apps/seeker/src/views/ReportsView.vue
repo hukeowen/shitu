@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication } from '@shitu/api-client'
 import { IconChevronRight, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import CancelRequestBlock from '@/components/CancelRequestBlock.vue'
 import ComplaintPopup from '@/components/ComplaintPopup.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import { APPLICATION_TONE } from '@/utils/status'
@@ -10,7 +11,7 @@ import { formatServerTime, formatShort } from '@/utils/time'
 
 /**
  * S-25 我的报备（C-501）：全部 / 待面试 / 待签约入职（内部口径「待确权」）/ 已入职 / 已取消 / 已超时（D-09）。
- * 「已取消」含取消、面试未通过、爽约（单条卡片标签仍显示精确状态）。全部只读，取消需联系驻场（R-04）。
+ * 「已取消」含取消、面试未通过、爽约（单条卡片标签仍显示精确状态）。求职者不能自行取消（R-04），进行中的报名可「申请取消报名」，由驻场处理。
  */
 const router = useRouter()
 const { label } = useDict()
@@ -134,8 +135,13 @@ function openComplain(a: MyApplication) {
 
           <van-button v-else-if="PASSED.includes(a.status)" block class="more" @click="router.push(`/reports/${a.applicationId}`)">查看报名详情</van-button>
 
-          <p v-if="a.status === 'PENDING_INTERVIEW'" class="ro">仅可查看 · 如需更换岗位，请联系驻场</p>
-          <p v-else-if="a.status === 'PENDING_CONFIRM'" class="ro">入职办理中 · 如有变动请联系驻场老师</p>
+          <!-- 进行中的报名：申请取消报名的入口与申请状态 -->
+          <CancelRequestBlock
+            v-if="a.status === 'PENDING_INTERVIEW' || a.status === 'PENDING_CONFIRM'"
+            :application-id="a.applicationId"
+            :job-title="a.jobTitle"
+            :subtitle="where(a)"
+          />
           <template v-else-if="a.status === 'EMPLOYED'"></template>
           <p v-else-if="a.status !== 'TIMEOUT'" class="note ended">报名已结束，可重新进入 AI 问薪匹配。</p>
           <button type="button" class="cmp-link" @click="openComplain(a)">岗位与描述不符？投诉该岗位<IconChevronRight :size="16" /></button>
@@ -168,7 +174,6 @@ function openComplain(a: MyApplication) {
 .code { font-family: var(--font-mono); }
 .sub-t { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); line-height: 22px; color: var(--text-1); }
 .more { margin-top: var(--space-3); }
-.ro { margin-top: var(--space-3); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
 .ended { margin-top: var(--space-3); }
 .cmp-link { display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; min-height: 44px; margin-bottom: calc(var(--space-3) * -1); padding: 0; border: 0; background: none; font-size: var(--font-size-aux); color: var(--text-3); }
 </style>
