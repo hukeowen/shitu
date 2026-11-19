@@ -1,4 +1,4 @@
-import { showSuccessToast, showToast } from 'vant'
+import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { errorMessage, isApiError, tenantApi, type AdvanceApprovalStep, type AdvanceRow, type AdvanceStatus, type DebtLogEntry, type TenantRole } from '@shitu/api-client'
 import type ReasonDialog from '@/components/ReasonDialog.vue'
 
@@ -28,6 +28,10 @@ export function reviewStep(a: AdvanceRow): ReviewStep | null {
 export const canReview = (a: AdvanceRow) => reviewStep(a) !== null
 export const canApprove = (a: AdvanceRow) => a.allowedActions.includes('SITE_APPROVE') || a.allowedActions.includes('PM_APPROVE')
 export const canReject = (a: AdvanceRow) => a.allowedActions.includes('SITE_REJECT') || a.allowedActions.includes('PM_REJECT')
+/** 登记拨款（终审通过后，公司线下转账完再登记）：后端只给项目经理 / 老板，驻场拿不到这个操作 */
+export const canPayout = (a: AdvanceRow) => a.allowedActions.includes('PAYOUT')
+/** 当前登录人对这一笔有事要办：审核或登记拨款 */
+export const canAct = (a: AdvanceRow) => canReview(a) || canPayout(a)
 /** 通过按钮文案：初审通过 / 终审通过 */
 export const approveText = (a: AdvanceRow) => (reviewStep(a) === 'PM' ? '终审通过' : '初审通过')
 
@@ -53,7 +57,11 @@ export function advanceWording(roles: readonly TenantRole[] | undefined): Advanc
     return { title: '预支初审', todoTab: '待初审', tileDesc: '待你初审', entryDesc: '求职者薪资预支的驻场初审', empty: '暂无待你初审的预支申请', step: 'SITE' }
   }
   if (pm && !site) {
-    return { title: '预支终审', todoTab: '待终审', tileDesc: '待你终审', entryDesc: '驻场初审通过后的项目经理终审', empty: '暂无待你终审的预支申请', step: 'PM' }
+    // 项目经理除了终审，还要在线下转账后登记拨款，待办里两种都有
+    return { title: '预支终审', todoTab: '待我处理', tileDesc: '待你终审、登记拨款', entryDesc: '项目经理终审，转账后登记拨款', empty: '暂无待你终审或登记拨款的预支申请', step: 'PM' }
+  }
+  if (pm) {
+    return { title: '预支审批', todoTab: '待我处理', tileDesc: '待你审批、登记拨款', entryDesc: '求职者薪资预支的审批与登记拨款', empty: '暂无待你处理的预支申请', step: null }
   }
   return { title: '预支审批', todoTab: '待我审批', tileDesc: '待你审批', entryDesc: '求职者薪资预支的审批记录', empty: '暂无待你审批的预支申请', step: null }
 }
@@ -107,4 +115,40 @@ export async function reviewAdvance(dialog: Dialog | null, a: AdvanceRow, approv
         },
   )
   return r !== null
+}
+
+/**
+ * 登记拨款（项目经理）：线下转账完成后登记，计入员工欠款，发薪导入工资表时自动抵扣；不用填内容，只做二次确认。
+ * 在确认框里提交：网络失败时框不关、可重试；后端业务拒绝时关框并回调 onRejected，原因留在页面上。返回是否已登记
+ */
+export async function payoutAdvance(a: AdvanceRow, amountText: string, onRejected?: OnReviewRejected): Promise<boolean> {
+  if (!canPayout(a)) return false
+  const who = `${a.seekerName ?? '员工'}${a.projectName ? `（${a.projectName}）` : ''}${amountText}`
+  let done = false
+  try {
+    await showConfirmDialog({
+      title: '登记拨款',
+      message: `确认已线下向 ${who} 完成转账？登记后计入员工欠款，次月发薪时工资表导入自动抵扣，此操作不可撤销。`,
+      confirmButtonText: '已转账，登记拨款',
+      beforeClose: async (action) => {
+        if (action !== 'confirm') return true
+        try {
+          await tenantApi.payoutAdvance(a.advanceId)
+          done = true
+          return true
+        } catch (e) {
+          showToast(errorMessage(e, '登记失败，请稍后重试'))
+          if (isApiError(e) && e.code !== 'NETWORK') {
+            onRejected?.(errorMessage(e))
+            return true
+          }
+          return false
+        }
+      },
+    })
+  } catch {
+    return false
+  }
+  if (done) showSuccessToast('已登记拨款')
+  return done
 }

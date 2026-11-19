@@ -148,7 +148,9 @@ const appealOpen = ref(false)
 const appealType = ref<'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL'>('ID_OCCUPIED_APPEAL')
 /** 本次已提交 / 已有处理中的申诉 */
 const appealDone = ref(false)
-function openAppeal(t: 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL') {
+const appealFraud = ref(false)
+function openAppeal(t: 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL', fraud = false) {
+  appealFraud.value = fraud
   appealType.value = t
   appealOpen.value = true
 }
@@ -226,7 +228,7 @@ const STEPS = [
           </li>
           <li>
             <div class="flex1"><b>不是我本人操作</b><span>举报身份冒用</span></div>
-            <van-button type="danger" plain @click="openAppeal('ID_OCCUPIED_APPEAL')">举报冒用</van-button>
+            <van-button type="danger" plain @click="openAppeal('ID_OCCUPIED_APPEAL', true)">举报冒用</van-button>
           </li>
         </ul>
         <van-button block class="mt" @click="block = null">返回修改</van-button>
@@ -375,7 +377,7 @@ const STEPS = [
     </template>
 
     <DisclaimerPopup v-model:show="flow.disclaimerOpen.value" @agreed="flow.retry" />
-    <AppealPopup v-model:show="appealOpen" :type="appealType" @submitted="appealDone = true" @pending="appealDone = true" />
+    <AppealPopup v-model:show="appealOpen" :type="appealType" :fraud="appealFraud" @submitted="appealDone = true" @pending="appealDone = true" />
   </div>
 </template>
 

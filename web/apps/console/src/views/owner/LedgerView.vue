@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type LedgerLine } from '@shitu/api-client'
 import { IconArrowLeftRight, IconBanknote, IconCircleExclamationPoint, IconInfo, IconUsers, IconWallet } from '@shitu/ui-icons'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtSigned, toNum } from '@/utils/format'
 import { ym } from '@/utils/time'
 
@@ -86,6 +87,17 @@ const sides = computed(() => [
   { key: 'RECEIVABLE' as const, title: '① 流出应收 · 我是来源方', sub: '我的人在别家在岗 · 按规则不显示去向公司', data: receivable.value, dir: 'in' as const, unit: '8 元', total: '应收合计' },
   { key: 'PAYABLE' as const, title: '② 流入应付 · 我是接收方', sub: '别人的人在我司在岗 · 付给来源归属公司', data: payable.value, dir: 'out' as const, unit: '10 元', total: '应付合计' },
 ])
+/** 导出：两个方向的「按人」明细合成一个文件，用「方向」列区分（流出在前，同页面顺序）；流出一侧没有来源归属公司 */
+const EXPORT_COLUMNS: CsvColumn<LedgerLine>[] = [
+  { header: '方向', value: (l) => (l.direction === 'PAYABLE' ? '流入应付' : '流出应收') },
+  { header: '用户编号', value: (l) => l.userId, kind: 'text' },
+  { header: '来源归属公司', value: (l) => (l.direction === 'PAYABLE' ? sourceName(l) : '') },
+  { header: '计费天数', value: (l) => l.days },
+  { header: '金额', value: (l) => l.amount, kind: 'money' },
+]
+function doExport() {
+  exportList({ name: `流转账本-${month.value}`, columns: EXPORT_COLUMNS, rows: [...receivable.value.rows, ...payable.value.rows] })
+}
 const disabledMonth = (d: Date) => d.getTime() > shNowMs()
 </script>
 
@@ -98,6 +110,7 @@ const disabledMonth = (d: Date) => d.getTime() > shNowMs()
       </div>
       <span class="spacer" />
       <el-date-picker v-model="month" type="month" value-format="YYYY-MM" :clearable="false" :disabled-date="disabledMonth" style="width: 140px" />
+      <el-button :disabled="loading || !lines.length" @click="doExport">导出</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
 

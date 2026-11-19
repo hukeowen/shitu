@@ -16,7 +16,7 @@ watchEffect(() => document.documentElement.classList.toggle('has-tabbar', showTa
 // 登录且公司可用时轮询未读数；退出登录即停
 const auth = useAuthStore()
 const inbox = useInboxStore()
-watchEffect(() => (auth.isLoggedIn && auth.operational ? inbox.start() : inbox.stop()))
+watchEffect(() => (auth.isLoggedIn && auth.me?.operational === true ? inbox.start() : inbox.stop()))
 
 /** 未读数显示在标签标题最前面：「(3) 待办 · …」。路由切换会重写标题，所以两边都要监听 */
 function applyTitleBadge(n: number) {

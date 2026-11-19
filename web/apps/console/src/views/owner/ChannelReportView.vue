@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { errorMessage, tenantApi, type ChannelFunnelRow, type MemberView } from '@shitu/api-client'
 import { IconCircleExclamationPoint, IconEye, IconFilePenLine, IconInfo, IconQrCode, IconUserCheck, IconUsers } from '@shitu/ui-icons'
 import { useProjects } from '@/composables/useProjects'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 
 /**
  * A-15 渠道转化报表（T-402，老板 / 项目经理）：按渠道码统计 访问 → 注册 → 报名 → 入职 及各段转化率（累计口径）。
@@ -70,6 +71,26 @@ onMounted(async () => {
   members.value = await tenantApi.members().catch(() => [])
 })
 
+/** 导出：表格当前显示的渠道（按搜索词筛过、按所选排序）；转化率同表格里的小字，没有基数时留空 */
+const rate = (a: number, b: number) => (b ? pct(a, b) : '')
+const EXPORT_COLUMNS: CsvColumn<ChannelFunnelRow>[] = [
+  { header: '渠道', value: (r) => r.name },
+  { header: '渠道码', value: (r) => r.code, kind: 'text' },
+  { header: '归属人', value: (r) => memberName(r.memberId) || '公司' },
+  { header: '归属项目', value: (r) => projectName(r.projectId) || '不限项目' },
+  { header: '访问', value: (r) => r.visits },
+  { header: '注册', value: (r) => r.registrations },
+  { header: '访问→注册', value: (r) => rate(r.registrations, r.visits) },
+  { header: '报名', value: (r) => r.applied },
+  { header: '注册→报名', value: (r) => rate(r.applied, r.registrations) },
+  { header: '入职', value: (r) => r.hired },
+  { header: '报名→入职', value: (r) => rate(r.hired, r.applied) },
+  { header: '注册→入职', value: (r) => rate(r.hired, r.registrations) },
+]
+function doExport() {
+  exportList({ name: '渠道转化报表', columns: EXPORT_COLUMNS, rows: shown.value })
+}
+
 /** 四个阶段用图表分类色（规范 Color Roles）：入职是主色，其余按青、橙、紫 */
 const STAGES = [
   { key: 'visits', label: '访问', color: 'var(--chart-2)' },
@@ -87,6 +108,7 @@ const STAGES = [
         <p>各渠道码带来的访问、注册、报名、入职人数与转化率（累计口径）</p>
       </div>
       <span class="spacer" />
+      <el-button :disabled="!shown.length" @click="doExport">导出</el-button>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 

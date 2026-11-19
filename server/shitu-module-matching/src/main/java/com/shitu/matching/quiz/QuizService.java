@@ -155,6 +155,17 @@ public class QuizService {
         return get(versionId);
     }
 
+    /** 删除草稿（建错了、不想要了）：只能删草稿，生效和归档版本都要留着给匹配快照回放。 */
+    @Transactional
+    public void deleteDraft(int versionId) {
+        QuizVersion v = versions.selectById(versionId);
+        BizException.check(v != null, ErrorCode.SYS_NOT_FOUND);
+        BizException.check("DRAFT".equals(v.getStatus()), ErrorCode.SYS_BAD_REQUEST, "只能删除草稿版本");
+        questions.delete(new LambdaQueryWrapper<QuizQuestion>().eq(QuizQuestion::getVersionId, versionId));
+        versions.deleteById(versionId);
+        audit.log("QUIZ_DRAFT_DELETE", "QUIZ_VERSION", String.valueOf(versionId), Map.of("name", v.getName()));
+    }
+
     /** 发布草稿或回滚到归档版本：原生效版本归档。 */
     @Transactional
     public QuizView publish(int versionId, String operatorId) {

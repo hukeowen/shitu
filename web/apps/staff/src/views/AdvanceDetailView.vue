@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceDetail } from '@shitu/api-client'
 import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import ReasonDialog from '@/components/ReasonDialog.vue'
-import { ADVANCE_TONE, DECISION_TEXT, LEDGER_TEXT, STEP_TEXT, approveText, canApprove, canReject, canReview, reviewAdvance } from '@/utils/advance'
+import { ADVANCE_TONE, DECISION_TEXT, LEDGER_TEXT, STEP_TEXT, approveText, canAct, canApprove, canPayout, canReject, payoutAdvance, reviewAdvance } from '@/utils/advance'
 import { fmtFull, fmtYuan, parseLocal } from '@/utils/time'
 
 /** M-11 预支单笔详情：申请信息、逐级审批记录（节点 / 结论 / 意见 / 时间）、拨款与抵扣流水，可在此初审（驻场）/ 终审（项目经理） */
@@ -58,7 +58,7 @@ const pendingSteps = computed(() => {
   const done = new Set(detail.value?.approvals.map((s) => s.step))
   return (['SITE', 'PM', 'PAYOUT'] as const).filter((s) => !done.has(s))
 })
-const hasBar = computed(() => !!adv.value && canReview(adv.value))
+const hasBar = computed(() => !!adv.value && canAct(adv.value))
 
 const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(approve: boolean) {
@@ -66,6 +66,12 @@ async function review(approve: boolean) {
   if (!a) return
   const onRejected = (reason: string) => (blocked.value = `暂时不能${approve ? approveText(a) : '驳回'}：${reason}`)
   if (await reviewAdvance(dialog.value, a, approve, fmtYuan(a.amount), onRejected)) void load(true)
+}
+/** 登记拨款（项目经理）：终审通过、线下转账完成后登记 */
+async function payout() {
+  const a = adv.value
+  if (!a) return
+  if (await payoutAdvance(a, fmtYuan(a.amount), (reason) => (blocked.value = `暂时不能登记拨款：${reason}`))) void load(true)
 }
 
 function back() {
@@ -161,6 +167,7 @@ function back() {
       <div class="bar-acts">
         <van-button v-if="canReject(adv)" size="large" plain type="danger" :disabled="!!blocked" @click="review(false)">驳回</van-button>
         <van-button v-if="canApprove(adv)" size="large" type="primary" :disabled="!!blocked" @click="review(true)">{{ approveText(adv) }}</van-button>
+        <van-button v-if="canPayout(adv)" size="large" type="primary" :disabled="!!blocked" @click="payout">登记拨款</van-button>
       </div>
     </div>
     <ReasonDialog ref="dialog" />

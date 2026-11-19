@@ -22,7 +22,7 @@ import { useNow } from '@/composables/useNow'
 import { useAuthStore } from '@/stores/auth'
 import { useCancelRequestsStore } from '@/stores/cancelRequests'
 import { useInboxStore } from '@/stores/inbox'
-import { advanceWording, canReview } from '@/utils/advance'
+import { advanceWording, canAct } from '@/utils/advance'
 import { fetchInterviewBuckets, type InterviewBuckets } from '@/utils/status'
 import { fmtDuration, parseLocal } from '@/utils/time'
 
@@ -91,7 +91,7 @@ async function loadData() {
   void inbox.refresh()
   void tenantApi
     .advances()
-    .then((r) => (advTodo.value = r.filter(canReview).length))
+    .then((r) => (advTodo.value = r.filter(canAct).length))
     .catch(() => (advTodo.value = null))
   const found: (number | null)[] = []
   const tasks: Promise<unknown>[] = [

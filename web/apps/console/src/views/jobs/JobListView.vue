@@ -18,6 +18,7 @@ import DictTag from '@/components/DictTag.vue'
 import { boxSubmit, isBlocked } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTime, salaryRange } from '@/utils/format'
 import JobDetailDrawer from './JobDetailDrawer.vue'
 
@@ -196,6 +197,31 @@ async function saveQuota() {
   }
 }
 
+// ---------------------------------------------------------------- 导出
+/** 按当前状态、项目、关键词把所有页取完；字段同表格 */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<JobView>[] = [
+  { header: '岗位名称', value: (j) => j.title },
+  { header: '岗位类型', value: (j) => label('JobType', j.jobType) },
+  { header: '班次', value: (j) => label('ShiftType', j.shiftType) },
+  { header: '包吃', value: (j) => j.mealProvided },
+  { header: '包住', value: (j) => j.dormProvided },
+  { header: '所属项目', value: (j) => j.projectName },
+  { header: '甲方', value: (j) => j.clientName },
+  { header: '薪资下限（元/月）', value: (j) => j.salaryMin, kind: 'money' },
+  { header: '薪资上限（元/月）', value: (j) => j.salaryMax, kind: 'money' },
+  { header: '占用名额', value: (j) => j.quotaOccupied },
+  { header: '总名额', value: (j) => j.quotaTotal },
+  { header: '剩余名额', value: (j) => j.quotaRemaining },
+  { header: '状态', value: (j) => label('JobStatus', j.status) },
+  { header: '驳回 / 下架说明', value: (j) => (rejected(j) ? j.auditRemark : '') },
+  { header: '上架时间', value: (j) => j.postedAt, kind: 'datetime' },
+]
+function doExport() {
+  const q = { status: filter.status || undefined, projectId: filter.projectId || undefined, keyword: filter.keyword.trim() || undefined }
+  return exportList({ name: '岗位列表', columns: EXPORT_COLUMNS, rows: (p, pageSize) => tenantApi.jobs({ ...q, page: p, pageSize }), loading: exporting })
+}
+
 // ---------------------------------------------------------------- 详情
 const detail = reactive({ visible: false, jobId: null as string | null })
 function openDetail(j: JobView) {
@@ -212,6 +238,7 @@ function openDetail(j: JobView) {
         <p>创建 / 编辑 / 下架 / 暂停招聘 · 发布与编辑均需平台审核，暂停的岗位数据保留可随时恢复</p>
       </div>
       <span class="spacer" />
+      <el-button :loading="exporting" :disabled="!page.total" @click="doExport">导出</el-button>
       <el-button v-if="canManage" type="primary" @click="router.push('/pm/jobs/edit')"><IconPlus :size="16" class="btn-i" />创建岗位</el-button>
     </div>
 

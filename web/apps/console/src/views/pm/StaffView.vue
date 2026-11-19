@@ -7,7 +7,9 @@ import PersonCell from '@/components/PersonCell.vue'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtPhone } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 import AbsenceDialog from './staff/AbsenceDialog.vue'
 import ResignDialog from './staff/ResignDialog.vue'
 import TransferDialog from './staff/TransferDialog.vue'
@@ -87,6 +89,32 @@ function refresh() {
 }
 onMounted(refresh)
 
+/** 导出：按当前页签、项目、关键词把所有页取完；字段同表格，手机号只有驻场拿得到（其他角色接口不返回，这一列为空） */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<StaffRow>[] = [
+  { header: '姓名', value: (r) => r.name },
+  { header: '手机号', value: (r) => r.phone, kind: 'text' },
+  { header: '工号', value: (r) => r.employeeNo, kind: 'text' },
+  { header: '岗位', value: (r) => r.jobTitle },
+  { header: '项目', value: (r) => r.projectName },
+  { header: '状态', value: (r) => (r.endDate ? '已离职' : '在岗') },
+  { header: '来源归属', value: (r) => enumLabel('StaffSource', r.source) },
+  { header: '流转来源公司', value: (r) => (r.source === 'TRANSFER' ? (r.sourceCompanyName ?? '其他公司') : '') },
+  { header: '入职日期', value: (r) => r.startDate, kind: 'date' },
+  { header: '离职日期', value: (r) => r.endDate, kind: 'date' },
+  { header: '在岗天数', value: (r) => r.dutyDays },
+  { header: '本月缺勤', value: (r) => r.absenceDaysThisMonth },
+]
+function doExport() {
+  const q = { active: filter.tab === 'all' ? undefined : filter.tab === 'active', projectId: filter.projectId || undefined, keyword: filter.keyword.trim() || undefined }
+  return exportList({
+    name: filter.tab === 'active' ? '在岗人员' : filter.tab === 'left' ? '离职人员' : '人员名单',
+    columns: EXPORT_COLUMNS,
+    rows: (page, pageSize) => tenantApi.employments({ ...q, page, pageSize }),
+    loading: exporting,
+  })
+}
+
 const transfer = reactive({ visible: false, row: null as StaffRow | null })
 const absence = reactive({ visible: false, row: null as StaffRow | null })
 const resign = reactive({ visible: false, row: null as StaffRow | null })
@@ -112,6 +140,7 @@ const opsWidth = computed(() =>
         <p>姓名、岗位、在岗状态、来源归属、入职时间 · {{ isSite ? '驻场可见完整手机号' : '项目经理端自动隐藏手机号与证件号' }}</p>
       </div>
       <span class="spacer" />
+      <el-button :loading="exporting" :disabled="!page.total" @click="doExport">导出</el-button>
       <el-button @click="refresh">刷新</el-button>
     </div>
 

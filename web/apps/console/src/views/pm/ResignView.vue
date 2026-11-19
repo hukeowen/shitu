@@ -8,7 +8,9 @@ import { boxSubmit } from '@/composables/boxSubmit'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTime } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 import { shNow, ymd } from '@/utils/time'
 
 /**
@@ -61,6 +63,21 @@ onMounted(async () => {
   // 成员列表只有老板 / 项目经理可查，用于显示发起人姓名
   if (meStore.hasRole('PM', 'OWNER')) members.value = await tenantApi.members().catch(() => [])
 })
+/** 导出：当前页签下的全部申请（接口一次返回，不只是表格这一页） */
+const EXPORT_COLUMNS: CsvColumn<ResignRow>[] = [
+  { header: '员工', value: (r) => r.name },
+  { header: '工号', value: (r) => r.employeeNo, kind: 'text' },
+  { header: '项目', value: (r) => projectName(r.projectId) },
+  { header: '最后工作日', value: (r) => r.resignDate, kind: 'date' },
+  { header: '离职原因', value: (r) => r.reason },
+  { header: '发起人', value: (r) => (r.source === 'SEEKER' ? '本人申请' : r.requestedByName || memberName(r.requestedBy)) },
+  { header: '发起时间', value: (r) => r.createdAt, kind: 'datetime' },
+  { header: '状态', value: (r) => enumLabel('ResignStatus', r.status) },
+  { header: '审核人', value: (r) => (r.approvedBy ? memberName(r.approvedBy) : '') },
+]
+function doExport() {
+  exportList({ name: `离职申请-${TABS.find((t) => t.key === status.value)?.label ?? ''}`, columns: EXPORT_COLUMNS, rows: list.value })
+}
 const showOps = computed(() => isPm.value && (status.value === 'PENDING' || status.value === 'SCHEDULED'))
 const EMPTY_TEXT: Record<Status, string> = {
   PENDING: '没有待审核的离职申请',
@@ -134,6 +151,7 @@ const opsWidth = computed(() =>
         <p>确认离职 → 归属清空 → 变更公域 → 计费停止 → 合同终止 · 离职日未到的先进入待生效，到期自动执行</p>
       </div>
       <span class="spacer" />
+      <el-button :disabled="loading || !list.length" @click="doExport">导出</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
 

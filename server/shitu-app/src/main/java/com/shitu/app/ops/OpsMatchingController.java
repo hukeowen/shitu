@@ -67,6 +67,14 @@ public class OpsMatchingController {
         return ApiResponse.ok(quiz.saveDraft(versionId, req.name(), req.questions()));
     }
 
+    @Operation(summary = "删除草稿（只能删草稿）")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR')")
+    @org.springframework.web.bind.annotation.DeleteMapping("/quiz/versions/{versionId}")
+    public ApiResponse<Void> deleteDraft(@PathVariable int versionId) {
+        quiz.deleteDraft(versionId);
+        return ApiResponse.ok(null);
+    }
+
     @Operation(summary = "发布草稿 / 回滚到归档版本（原生效版本归档）")
     @PreAuthorize("hasRole('SUPER')")
     @PostMapping("/quiz/versions/{versionId}/publish")

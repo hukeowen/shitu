@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { errorMessage, tenantApi, type AdvanceRecon } from '@shitu/api-client'
 import { IconBanknote, IconCircleCheck, IconCircleExclamationPoint, IconReceipt, IconUserMinus, IconWallet } from '@shitu/ui-icons'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDate, fmtDateTime, fmtYuan } from '@/utils/format'
 
 /** 预支抵扣对账（T-505，只读）：某个工资月份抵扣了谁、抵扣后还欠多少；截至现在谁还有欠款 */
@@ -17,6 +18,35 @@ const pg = reactive({ deduct: 1, owe: 1 })
 const shown = computed(() => (loading.value ? null : data.value))
 const deductRows = computed(() => (shown.value?.deductions ?? []).slice((pg.deduct - 1) * PAGE, pg.deduct * PAGE))
 const oweRows = computed(() => (shown.value?.outstanding ?? []).slice((pg.owe - 1) * PAGE, pg.owe * PAGE))
+
+/** 导出：两张表各导一个文件，都是接口一次返回的整份数据（不只是表格这一页） */
+const followUp = (endDate?: string) => (endDate ? '工资已无法抵扣，需线下追收；系统已标记平台失信' : '下次导入工资表时自动抵扣')
+const DEDUCT_COLUMNS: CsvColumn<AdvanceRecon['deductions'][number]>[] = [
+  { header: '员工', value: (r) => r.seekerName },
+  { header: '工号', value: (r) => r.employeeNo, kind: 'text' },
+  { header: '项目', value: (r) => r.projectName },
+  { header: '应发', value: (r) => r.grossPay, kind: 'money' },
+  { header: '预支抵扣', value: (r) => r.advanceDeduct, kind: 'money' },
+  { header: '实发', value: (r) => r.netPay, kind: 'money' },
+  { header: '抵扣后欠款', value: (r) => r.debtAfter, kind: 'money' },
+  { header: '工资条', value: (r) => r.payslipId, kind: 'text' },
+]
+const OWE_COLUMNS: CsvColumn<AdvanceRecon['outstanding'][number]>[] = [
+  { header: '员工', value: (r) => r.seekerName },
+  { header: '工号', value: (r) => r.employeeNo, kind: 'text' },
+  { header: '项目', value: (r) => r.projectName },
+  { header: '在职情况', value: (r) => (r.endDate ? '已离职' : '在职') },
+  { header: '离职日期', value: (r) => r.endDate, kind: 'date' },
+  { header: '未还欠款', value: (r) => r.debt, kind: 'money' },
+  { header: '最近变动', value: (r) => r.lastChangeAt, kind: 'datetime' },
+  { header: '后续处理', value: (r) => followUp(r.endDate) },
+]
+function exportDeductions() {
+  if (shown.value) exportList({ name: `预支抵扣明细-${shown.value.month}`, columns: DEDUCT_COLUMNS, rows: shown.value.deductions })
+}
+function exportOutstanding() {
+  if (shown.value) exportList({ name: '预支未还欠款', columns: OWE_COLUMNS, rows: shown.value.outstanding })
+}
 
 async function load() {
   loading.value = true
@@ -94,7 +124,7 @@ onMounted(load)
 
       <template v-else>
         <div class="card tbl-card">
-          <div class="card__hd"><h3>{{ shown ? `${shown.month} 工资抵扣明细` : '工资抵扣明细' }}</h3><span class="hint">按抵扣金额从高到低</span></div>
+          <div class="card__hd"><h3>{{ shown ? `${shown.month} 工资抵扣明细` : '工资抵扣明细' }}</h3><span class="hint hd-hint">按抵扣金额从高到低</span><el-button size="small" :disabled="!shown?.deductions.length" @click="exportDeductions">导出抵扣明细</el-button></div>
           <el-table :data="deductRows" row-key="payslipId">
             <el-table-column label="员工" min-width="170">
               <template #default="{ row }">
@@ -128,7 +158,7 @@ onMounted(load)
         </div>
 
         <div class="card tbl-card">
-          <div class="card__hd"><h3>当前仍有欠款的人员</h3><span class="hint">截至现在，不随月份切换 · 已离职的排在前面</span></div>
+          <div class="card__hd"><h3>当前仍有欠款的人员</h3><span class="hint hd-hint">截至现在，不随月份切换 · 已离职的排在前面</span><el-button size="small" :disabled="!shown?.outstanding.length" @click="exportOutstanding">导出欠款人员</el-button></div>
           <el-table :data="oweRows" row-key="userId">
             <el-table-column label="员工" min-width="170">
               <template #default="{ row }">
@@ -145,7 +175,7 @@ onMounted(load)
             <el-table-column label="未还欠款" width="130" align="right"><template #default="{ row }"><span class="money">{{ fmtYuan(row.debt) }}</span></template></el-table-column>
             <el-table-column label="最近变动" width="150"><template #default="{ row }"><span class="tnum">{{ fmtDateTime(row.lastChangeAt) }}</span></template></el-table-column>
             <el-table-column label="后续处理" min-width="240">
-              <template #default="{ row }"><span :class="row.endDate ? 'why-t' : 'sub'">{{ row.endDate ? '工资已无法抵扣，需线下追收；系统已标记平台失信' : '下次导入工资表时自动抵扣' }}</span></template>
+              <template #default="{ row }"><span :class="row.endDate ? 'why-t' : 'sub'">{{ followUp(row.endDate) }}</span></template>
             </el-table-column>
             <template #empty>
               <div v-if="!loading" class="state-box">
@@ -170,6 +200,8 @@ onMounted(load)
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-gap); }
 .tbl-card { margin-top: var(--space-gap); }
 .hint { font-size: var(--font-size-min); color: var(--text-3); }
+/* 表头说明靠右，导出按钮排在最右 */
+.hd-hint { flex: 1; text-align: right; }
 .strong-t { color: var(--text-1); font-weight: var(--font-weight-semibold); }
 .sub { font-size: var(--font-size-min); color: var(--text-3); }
 .tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }

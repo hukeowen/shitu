@@ -6,12 +6,13 @@ import { errorMessage, isApiError, tenantApi, useDict, type AdvanceRow } from '@
 import { IconChevronRight, IconCircleExclamationPoint, IconLock, IconWallet } from '@shitu/ui-icons'
 import ReasonDialog from '@/components/ReasonDialog.vue'
 import { useAuthStore } from '@/stores/auth'
-import { ADVANCE_TONE, advanceWording, approveText, canApprove, canReject, canReview, reviewAdvance } from '@/utils/advance'
+import { ADVANCE_TONE, advanceWording, approveText, canAct, canApprove, canPayout, canReject, payoutAdvance, reviewAdvance } from '@/utils/advance'
 import { fmtTime, fmtYuan } from '@/utils/time'
 
 /**
  * M-11 薪酬预支审批：本人发起 → 驻场初审 → 项目经理终审 → 拨款（驳回退回机会）。
- * 驻场看到待初审（SUBMITTED），项目经理看到待终审（SITE_APPROVED）；能否处理完全按后端 allowedActions，文案随角色。
+ * 驻场看到待初审（SUBMITTED），项目经理看到待终审（SITE_APPROVED）和待登记拨款（PM_APPROVED，线下转账后登记）；
+ * 能否处理完全按后端 allowedActions，文案随角色。
  */
 type TabKey = 'todo' | 'all'
 const route = useRoute()
@@ -56,7 +57,7 @@ async function onRefresh() {
   }
 }
 
-const todo = computed(() => rows.value.filter(canReview))
+const todo = computed(() => rows.value.filter(canAct))
 const shown = computed(() => (tab.value === 'todo' ? todo.value : rows.value))
 const nowDate = shNow()
 
@@ -64,6 +65,10 @@ const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(a: AdvanceRow, approve: boolean) {
   const onRejected = (reason: string) => (blocked.value = { ...blocked.value, [a.advanceId]: `暂时不能${approve ? approveText(a) : '驳回'}：${reason}` })
   if (await reviewAdvance(dialog.value, a, approve, fmtYuan(a.amount), onRejected)) void load()
+}
+async function payout(a: AdvanceRow) {
+  const onRejected = (reason: string) => (blocked.value = { ...blocked.value, [a.advanceId]: `暂时不能登记拨款：${reason}` })
+  if (await payoutAdvance(a, fmtYuan(a.amount), onRejected)) void load()
 }
 
 function back() {
@@ -96,7 +101,7 @@ function back() {
       <div v-else class="pad stack">
         <p v-if="tab === 'todo' && todo.length" class="note">
           流程：本人发起 → <component :is="wording.step === 'SITE' ? 'b' : 'span'">驻场初审</component> →
-          <component :is="wording.step === 'PM' ? 'b' : 'span'">项目经理终审</component> → 拨款。驳回后本次机会退回给求职者。
+          <component :is="wording.step === 'PM' ? 'b' : 'span'">项目经理终审</component> → 拨款。驳回后本次机会退回给求职者。<template v-if="todo.some(canPayout)">终审通过的，线下转账后在这里登记拨款。</template>
         </p>
         <article v-for="a in shown" :key="a.advanceId" class="acard adv-card">
           <router-link :to="`/advance/${a.advanceId}`" class="head">
@@ -114,9 +119,10 @@ function back() {
             <div class="kv"><dt>所属月份</dt><dd>{{ a.bizMonth }}</dd></div>
             <div class="kv"><dt>申请单号</dt><dd class="code">{{ a.advanceId }}</dd></div>
           </dl>
-          <div v-if="canReview(a)" class="acts">
+          <div v-if="canAct(a)" class="acts">
             <van-button v-if="canReject(a)" plain type="danger" class="act" :disabled="!!blocked[a.advanceId]" @click="review(a, false)">驳回</van-button>
             <van-button v-if="canApprove(a)" type="primary" class="act" :disabled="!!blocked[a.advanceId]" @click="review(a, true)">{{ approveText(a) }}</van-button>
+            <van-button v-if="canPayout(a)" type="primary" class="act" :disabled="!!blocked[a.advanceId]" @click="payout(a)">登记拨款</van-button>
           </div>
           <p v-if="blocked[a.advanceId]" class="why" role="status">{{ blocked[a.advanceId] }}</p>
         </article>

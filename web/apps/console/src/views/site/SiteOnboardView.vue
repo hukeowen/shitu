@@ -11,7 +11,9 @@ import QrImage from '@/components/QrImage.vue'
 import PersonCell from '@/components/PersonCell.vue'
 import { useNow } from '@/composables/useNow'
 import { useProjects } from '@/composables/useProjects'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { copyText, fmtDateTime, fmtPhone } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 
 /**
  * A-04 入职确权与线上电子签约（T-103）：待确权列表 → 确权签约（入职日期 / 工号 / 合同截止）→ 返回签署链接；
@@ -40,6 +42,23 @@ const opsWidth = computed(() => appActionsColWidth(list.value))
 async function copySign(url: string) {
   if (await copyText(url)) ElMessage.success('签署链接已复制')
   else ElMessage.error('复制失败，请手动复制')
+}
+
+/** 导出待确权：按当前项目把所有页取完（表格只显示前 100 条）；手机号只有驻场拿得到，签署链接不导出 */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<SiteApplication>[] = [
+  { header: '求职者', value: (a) => a.seekerName },
+  { header: '手机号', value: (a) => a.phone, kind: 'text' },
+  { header: '入职岗位', value: (a) => a.jobTitle },
+  { header: '项目', value: (a) => a.projectName },
+  { header: '来源', value: (a) => (a.fromPublic ? '公域' : '私域') },
+  { header: '签约进度', value: (a) => (a.contract ? enumLabel('ContractStatus', a.contract.status) : signing(a) ? '待乙方签名' : '未发起') },
+  { header: '签约发起时间', value: (a) => a.contract?.createdAt, kind: 'datetime' },
+  { header: '响应截止', value: (a) => a.responseDeadline, kind: 'datetime' },
+]
+function doExport() {
+  const q = { status: 'PENDING_CONFIRM' as const, projectId: projectId.value || undefined }
+  return exportList({ name: '待确权人员', columns: EXPORT_COLUMNS, rows: (p, pageSize) => tenantApi.applications({ ...q, page: p, pageSize }), loading: exporting })
 }
 
 async function load() {
@@ -87,6 +106,7 @@ onMounted(load)
       <el-select v-model="projectId" placeholder="全部项目" clearable filterable style="width: 200px">
         <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
       </el-select>
+      <el-button :loading="exporting" :disabled="!total" @click="doExport">导出待确权</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
 

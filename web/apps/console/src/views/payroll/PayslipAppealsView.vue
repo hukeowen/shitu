@@ -6,6 +6,7 @@ import { IconCircleExclamationPoint, IconInfo, IconMessageSquare } from '@shitu/
 import DictTag from '@/components/DictTag.vue'
 import { isBlocked } from '@/composables/boxSubmit'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTime, fmtSigned, fmtYuan, toNum } from '@/utils/format'
 
 /** 工资申诉（C-702 / D-28）：员工对某张工资条提出疑问，项目经理 / 老板核对后回复，结果通知本人 */
@@ -52,6 +53,25 @@ async function load() {
 onMounted(load)
 watch(tab, load)
 
+/** 导出：当前页签下的全部申诉（接口一次返回，不只是表格这一页） */
+const EXPORT_COLUMNS: CsvColumn<PayslipAppealRow>[] = [
+  { header: '提交时间', value: (r) => r.createdAt, kind: 'datetime' },
+  { header: '员工', value: (r) => r.seekerName },
+  { header: '工号', value: (r) => r.employeeNo, kind: 'text' },
+  { header: '项目', value: (r) => r.projectName },
+  { header: '工资月份', value: (r) => r.payMonth, kind: 'text' },
+  { header: '实发', value: (r) => r.netPay, kind: 'money' },
+  { header: '申诉项', value: (r) => (r.itemCode ? label('PayslipAppealItem', r.itemCode) : '') },
+  { header: '申诉内容', value: (r) => r.content },
+  { header: '状态', value: (r) => label('PayslipAppealStatus', r.status) },
+  { header: '处理说明', value: (r) => r.reply },
+  { header: '处理人', value: (r) => (r.reply ? r.handledByName : '') },
+  { header: '处理时间', value: (r) => (r.reply ? r.handledAt : ''), kind: 'datetime' },
+]
+function doExport() {
+  exportList({ name: `工资申诉-${TABS.find((t) => t.key === tab.value)?.label ?? '全部'}`, columns: EXPORT_COLUMNS, rows: rows.value })
+}
+
 const dlg = reactive({ open: false, row: null as PayslipAppealRow | null, reply: '', saving: '' as Act | '' })
 /** 扣款合计 = 社保 + 个税 + 其他扣款 + 预支抵扣（同求职者端工资条的「扣款合计」） */
 const deductTotal = computed(() => {
@@ -97,6 +117,7 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((r) => ({ labels:
         <p>员工对工资条提出的疑问 · 核对后回复，结果会通知员工本人</p>
       </div>
       <span class="spacer" />
+      <el-button :disabled="loading || !rows.length" @click="doExport">导出</el-button>
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
 

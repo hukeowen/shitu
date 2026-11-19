@@ -6,9 +6,11 @@ import { IconCircleExclamationPoint, IconPlus, IconTriangleExclamationPoint } fr
 import DictTag from '@/components/DictTag.vue'
 import { isBlocked } from '@/composables/boxSubmit'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { fmtDateTime } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 
 /** 工伤上报（T-405）：驻场 / 项目经理上报后，老板和项目经理立刻收到站内信与短信；处理完登记结论结案 */
 const { options } = useDict()
@@ -46,6 +48,24 @@ async function load() {
 }
 onMounted(load)
 watch(tab, load)
+
+/** 导出：当前页签下的全部记录（接口一次返回，不只是表格这一页） */
+const EXPORT_COLUMNS: CsvColumn<IncidentRow>[] = [
+  { header: '发生时间', value: (r) => r.occurredAt, kind: 'datetime' },
+  { header: '人员', value: (r) => r.personName },
+  { header: '伤情', value: (r) => enumLabel('IncidentSeverity', r.severity) },
+  { header: '项目', value: (r) => r.projectName },
+  { header: '事发经过', value: (r) => r.detail },
+  { header: '上报人', value: (r) => r.reportedByName },
+  { header: '上报时间', value: (r) => r.createdAt, kind: 'datetime' },
+  { header: '状态', value: (r) => enumLabel('IncidentStatus', r.status) },
+  { header: '处理结论', value: (r) => r.handleNote },
+  { header: '结案人', value: (r) => (r.handleNote ? r.closedByName : '') },
+  { header: '结案时间', value: (r) => (r.handleNote ? r.closedAt : ''), kind: 'datetime' },
+]
+function doExport() {
+  exportList({ name: `工伤记录-${TABS.find((t) => t.key === tab.value)?.label ?? '全部'}`, columns: EXPORT_COLUMNS, rows: rows.value })
+}
 
 const form = reactive({
   open: false, projectId: '', personName: '', severity: 'SERIOUS' as IncidentSeverity, occurredAt: undefined as Date | undefined, detail: '', saving: false, error: '', why: '',
@@ -116,6 +136,7 @@ const opsWidth = computed(() => actionsColWidth([{ labels: ['结案'] }]))
         <p>现场发生工伤第一时间上报 · 老板和项目经理立刻收到站内信与短信</p>
       </div>
       <span class="spacer" />
+      <el-button :disabled="loading || !rows.length" @click="doExport">导出</el-button>
       <el-button :loading="loading" @click="load">刷新</el-button>
       <el-button v-if="canReport" type="primary" @click="openReport"><IconPlus :size="16" class="btn-i" />上报工伤</el-button>
     </div>

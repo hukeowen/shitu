@@ -513,10 +513,12 @@ export default (h) => {
       expectDb(`SELECT CONCAT(status, '/', severity, '/', person_name) ${row}`, `OPEN/MINOR/${name}`)
       await ui.see(name)
 
-      await h.loginConsole(DEMO[company].pm)
-      await ui.goto('/admin/pm/incidents')
+      // 项目经理在驻场手机端结案（驻场只能上报和查看）
+      await h.loginStaff(DEMO[company].pm)
+      await ui.goto('/staff/incidents')
       await ui.click('结案', { within: name })
-      await ui.fill('救治情况', note)
+      await ui.see('登记处理结论')
+      await ui.fill('救治情况、是否已申报工伤认定、费用如何处理等', note)
       await ui.click('结案')
       await ui.see('已结案')
       expectDb(`SELECT CONCAT(status, '/', handle_note) ${row}`, 'CLOSED/' + note)
@@ -595,7 +597,7 @@ export default (h) => {
     },
 
     /**
-     * 预支通过：员工申请 → 驻场在列表初审通过 → 项目经理在驻场端终审通过 → 项目经理在公司后台登记拨款（驻场端没有拨款入口）
+     * 预支通过：员工申请 → 驻场在列表初审通过 → 项目经理在驻场端终审通过 → 项目经理在驻场端登记拨款
      * → 员工在预支记录、欠款流水、审批进度里看到到账。和 e2e.mjs 的 advance 一样，每跑一次给这名演示员工记一笔 500 元欠款。
      * 接口：POST /seeker/advance、POST /tenant/advances/{id}/site-review（通过）、POST /tenant/advances/{id}/pm-review（通过）、POST /tenant/advances/{id}/payout
      */
@@ -625,9 +627,11 @@ export default (h) => {
         await ui.see(id)
       }
       if (advStatus(id) === 'PM_APPROVED') {
-        await h.loginConsole(pm)
-        await ui.goto('/admin/pm/advance')
+        // 项目经理在驻场手机端登记拨款
+        await h.loginStaff(pm)
+        await ui.goto('/staff/advance')
         await ui.click('登记拨款', { within: id })
+        await ui.see('此操作不可撤销')
         await ui.click('已转账，登记拨款')
         await ui.see('已登记拨款')
       }

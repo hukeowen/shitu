@@ -468,6 +468,8 @@ export const opsApi = {
   quizVersion: (versionId: number) => get<QuizView>(`/ops/quiz/versions/${versionId}`),
   /** 从生效版本复制草稿（已有草稿时返回该草稿） */
   createQuizDraft: (name?: string) => post<QuizView>('/ops/quiz/drafts', { name }),
+  /** 删除题库草稿（只能删草稿） */
+  deleteQuizDraft: (versionId: number) => del<void>(`/ops/quiz/versions/${versionId}`),
   /** 整体替换草稿题目（≤7 题、硬过滤题在前、必须含 accept_factory 与 locked_region） */
   saveQuizDraft: (versionId: number, name: string | undefined, questions: QuizQuestion[]) =>
     put<QuizView>(`/ops/quiz/versions/${versionId}`, { name, questions }),
@@ -494,6 +496,8 @@ export const opsApi = {
   issueMonthly: (month: string) => request<number>({ method: 'POST', url: '/ops/billing/monthly', params: { month } }),
   /** 计费规则 P-09 */
   billingRules: () => get<BillingRuleRow[]>('/ops/billing/rules'),
+  /** 删除还没生效的计费规则版本（仅超管） */
+  deleteBillingRule: (version: number) => del<void>(`/ops/billing/rules/${version}`),
   addBillingRule: (req: { effectiveFrom: string; serviceUnitPrice: number; transferUnitPrice: number; supplyShare: number; freeMonths: number }) =>
     post<number>('/ops/billing/rules', req),
   /** 存量基数与免费期 P-03 */

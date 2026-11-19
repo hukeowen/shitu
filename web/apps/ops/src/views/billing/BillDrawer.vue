@@ -2,11 +2,12 @@
 import { IconInbox, IconCircleExclamationPoint, IconInfo } from '@shitu/ui-icons'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { errorMessage, opsApi, type BillDetail, type BillDispute, type BillPayment } from '@shitu/api-client'
+import { errorMessage, opsApi, type BillDayLine, type BillDetail, type BillDispute, type BillPayment } from '@shitu/api-client'
 import FileThumbs from '@/components/FileThumbs.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmInBox, isBlocked, remarkInBox } from '@/composables/boxSubmit'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtOperator } from '@/utils/format'
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from './billPayment'
 
@@ -60,6 +61,22 @@ const totals = computed(() => {
     freeDays: days.filter((d) => d.inFreePeriod).length,
   }
 })
+
+/** 导出每日明细（抽屉里已经拿到的整月数据）；免费期单独一列，服务费按接口返回的数字写 */
+const DAY_COLUMNS: CsvColumn<BillDayLine>[] = [
+  { header: '日期', value: (d) => d.bizDate, kind: 'date' },
+  { header: '在岗', value: (d) => d.employedCount },
+  { header: '存量基数', value: (d) => d.stockBase },
+  { header: '增量', value: (d) => d.incrementCount },
+  { header: '免费期', value: (d) => (d.inFreePeriod ? '是' : '') },
+  { header: '服务费', value: (d) => d.serviceFee, kind: 'money' },
+  { header: '应付流转', value: (d) => d.transferPayable, kind: 'money' },
+  { header: '应收流转', value: (d) => d.transferReceivable, kind: 'money' },
+]
+function exportDays() {
+  if (!b.value || !detail.value) return
+  void exportList({ name: `账单每日明细-${b.value.billMonth}-${companyName(b.value.companyId) || b.value.companyId}`, columns: DAY_COLUMNS, rows: detail.value.days })
+}
 
 async function settle() {
   if (!b.value || acting.value) return
@@ -243,6 +260,7 @@ async function submitReply() {
     <template #footer>
       <div class="drawer-actions">
         <el-button @click="visible = false">关闭</el-button>
+        <el-button v-if="b" :disabled="!detail?.days.length" @click="exportDays">导出明细</el-button>
         <el-button v-if="canSettle" :loading="acting" @click="settle">直接登记结算</el-button>
       </div>
     </template>

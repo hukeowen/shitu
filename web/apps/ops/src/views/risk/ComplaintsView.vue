@@ -9,6 +9,7 @@ import { isBlocked, isNetwork } from '@/composables/boxSubmit'
 import { useCompanyNames } from '@/composables/useCompanyNames'
 import { useFileUrls } from '@/composables/useFileUrls'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTime } from '@/utils/format'
 
 /**
@@ -69,6 +70,27 @@ const page = ref(1)
 const pageSize = ref(20)
 const paged = computed(() => rows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 const opsWidth = computed(() => actionsColWidth(paged.value.map((r) => ({ labels: r.status === 'PENDING' ? ['核实处理'] : [] })), 72))
+
+/** 导出：当前页签下接口返回的全部投诉（最近 200 条，不只是表格这一页）；图片只写张数 */
+const EXPORT_COLUMNS: CsvColumn<ComplaintRow>[] = [
+  { header: '编号', value: (r) => r.id },
+  { header: '岗位', value: (r) => r.title },
+  { header: '岗位 ID', value: (r) => r.jobId, kind: 'text' },
+  { header: '公司', value: (r) => companyName(r.companyId) },
+  { header: '公司 ID', value: (r) => r.companyId, kind: 'text' },
+  { header: '类别', value: (r) => label('ComplaintCategory', r.category) },
+  { header: '投诉内容', value: (r) => r.content },
+  { header: '图片张数', value: (r) => r.images?.length ?? 0 },
+  { header: '投诉人', value: (r) => r.userId, kind: 'text' },
+  { header: '投诉时间', value: (r) => r.createdAt, kind: 'datetime' },
+  { header: '本岗属实次数', value: (r) => r.complaintVerified },
+  { header: '状态', value: (r) => label('ComplaintStatus', r.status) },
+  { header: '处理说明', value: (r) => (r.status !== 'PENDING' ? r.handleRemark : '') },
+  { header: '处理时间', value: (r) => (r.status !== 'PENDING' ? r.handledAt : ''), kind: 'datetime' },
+]
+function doExport() {
+  void exportList({ name: `岗位投诉-${tabs.value.find((t) => t.value === status.value)?.label ?? '全部'}`, columns: EXPORT_COLUMNS, rows: rows.value })
+}
 
 /**
  * 核实弹窗：「驳回投诉」在左、「确认属实」在右（同其他审核页）。被后端拒绝时原因留在弹窗里，只置灰被拒的那个按钮，
@@ -131,6 +153,7 @@ function toCredit(companyId: string) {
         </div>
         <div class="spacer" />
         <span class="t-xs">最近 200 条</span>
+        <el-button :disabled="loading || !rows.length" @click="doExport">导出</el-button>
         <el-button :loading="loading" @click="load">刷新</el-button>
       </div>
       <el-table v-loading="loading" :data="paged" class="ops-table tbl-48" row-key="id">

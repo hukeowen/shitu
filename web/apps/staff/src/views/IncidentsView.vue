@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { showSuccessToast, showToast } from 'vant'
 import { errorMessage, isApiError, tenantApi, useDict, type IncidentRow, type IncidentSeverity, type ProjectView } from '@shitu/api-client'
 import { IconCheck, IconCircleExclamationPoint, IconShieldCheck, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
+import { useAuthStore } from '@/stores/auth'
 import { fmtFull, parseLocal } from '@/utils/time'
 
-/** 工伤上报（T-405）：现场第一时间上报，老板和项目经理立刻收到站内信与短信 */
+/** 工伤上报（T-405）：现场第一时间上报，老板和项目经理立刻收到站内信与短信；处理完由项目经理登记结论结案 */
 const router = useRouter()
+const auth = useAuthStore()
+/** 结案只对项目经理 / 老板开放（后端同样限制），驻场只能上报和查看 */
+const canClose = computed(() => (auth.me?.roles ?? []).some((r) => r === 'PM' || r === 'OWNER'))
 const { label, options } = useDict()
 const SEV_TONE: Record<IncidentSeverity, string> = { MINOR: 'status-tag--info', SERIOUS: 'status-tag--warning', CRITICAL: 'status-tag--danger' }
 
@@ -84,6 +88,47 @@ async function submit() {
   }
 }
 
+/** 结案：登记处理结论（必填，至少 2 个字）。被后端业务拒绝时按钮置灰、原因留在按钮上方，改了结论后可再提交 */
+const closing = reactive({ open: false, row: null as IncidentRow | null, note: '', saving: false })
+const noteError = ref('')
+const closeError = ref('')
+const closeRejected = ref(false)
+watch(() => closing.note, () => {
+  noteError.value = ''
+  closeError.value = ''
+  closeRejected.value = false
+})
+function openClose(row: IncidentRow) {
+  Object.assign(closing, { open: true, row, note: '' })
+  noteError.value = ''
+  closeError.value = ''
+  closeRejected.value = false
+}
+async function submitClose() {
+  const row = closing.row
+  if (!row || closing.saving) return
+  const note = closing.note.trim()
+  if (note.length < 2) {
+    noteError.value = '请填写处理结论'
+    showToast('请填写处理结论')
+    return
+  }
+  closing.saving = true
+  closeError.value = ''
+  try {
+    await tenantApi.closeIncident(row.id, note)
+    showSuccessToast('已结案')
+    closing.open = false
+    await load()
+  } catch (e) {
+    showToast(errorMessage(e, '操作失败'))
+    closeError.value = errorMessage(e, '操作失败')
+    closeRejected.value = isApiError(e) && e.code !== 'NETWORK'
+  } finally {
+    closing.saving = false
+  }
+}
+
 const full = (v?: string) => {
   const d = parseLocal(v)
   return d ? fmtFull(d) : '—'
@@ -127,7 +172,11 @@ function back() {
         <p class="item-meta">{{ r.projectName }} · {{ full(r.occurredAt) }}</p>
         <p class="content">{{ r.detail }}</p>
         <p class="item-meta">{{ r.reportedByName || '—' }} 上报</p>
-        <div v-if="r.handleNote" class="reply"><b>处理结论</b>{{ r.handleNote }}</div>
+        <!-- .reply 保留换行（pre-wrap），结论和结案人写在同一行模板里，避免多出空行 -->
+        <div v-if="r.handleNote" class="reply"><b>处理结论</b>{{ r.handleNote }}<p v-if="r.closedByName || r.closedAt" class="reply-by">{{ r.closedByName || '—' }} 结案<template v-if="r.closedAt"> · {{ full(r.closedAt) }}</template></p></div>
+        <div v-if="canClose && r.status === 'OPEN'" class="acts">
+          <van-button plain type="primary" class="act" @click="openClose(r)">结案</van-button>
+        </div>
       </article>
       <div class="bottom-bar-gap" />
     </div>
@@ -191,6 +240,38 @@ function back() {
         <van-button block type="primary" size="large" :loading="form.saving" loading-text="上报中…" :disabled="rejected" @click="submit">立即上报</van-button>
       </div>
     </van-popup>
+
+    <van-popup v-model:show="closing.open" position="bottom" round safe-area-inset-bottom :close-on-click-overlay="false" class="sheet">
+      <div class="sheet-hd">
+        <h3>登记处理结论</h3>
+        <button type="button" class="x" aria-label="关闭" @click="closing.open = false"><IconX :size="20" /></button>
+      </div>
+      <div v-if="closing.row" class="sheet-bd">
+        <div class="close-sum">
+          <p class="close-who"><b>{{ closing.row.personName }}</b> · {{ closing.row.projectName }} · {{ full(closing.row.occurredAt) }}</p>
+          <p class="content box">{{ closing.row.detail }}</p>
+        </div>
+        <van-cell-group inset class="grp">
+          <van-field
+            v-model="closing.note"
+            label="处理结论"
+            required
+            type="textarea"
+            rows="4"
+            maxlength="500"
+            show-word-limit
+            label-align="top"
+            placeholder="救治情况、是否已申报工伤认定、费用如何处理等"
+            :error-message="noteError"
+          />
+        </van-cell-group>
+        <p class="close-hint">这里只做内部留痕。工伤认定须在事故发生之日起 30 日内向社保部门申请。</p>
+      </div>
+      <div class="foot">
+        <p v-if="closeError" class="bar-why err" role="status">暂时不能结案：{{ closeError }}</p>
+        <van-button block type="primary" size="large" :loading="closing.saving" loading-text="提交中…" :disabled="closeRejected" @click="submitClose">结案</van-button>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -202,6 +283,14 @@ function back() {
 .content { margin: var(--space-2) 0 var(--space-1); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); white-space: pre-wrap; overflow-wrap: anywhere; }
 .reply { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--success-soft); font-size: var(--font-size-body); line-height: 22px; color: var(--text-1); white-space: pre-wrap; overflow-wrap: anywhere; }
 .reply b { margin-right: var(--space-2); font-weight: var(--font-weight-semibold); color: var(--success-text); }
+.reply-by { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
+.acts { display: flex; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); }
+.act { flex: 1; min-width: 0; font-weight: var(--font-weight-medium); }
+.close-sum { padding: 0 var(--space-4) var(--space-3); }
+.close-who { font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); overflow-wrap: anywhere; }
+.close-who b { font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.box { max-height: 132px; overflow-y: auto; margin-bottom: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-card); }
+.close-hint { padding: var(--space-3) var(--space-4) 0; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .sheet { display: flex; flex-direction: column; max-height: 90vh; background: var(--bg-page); }
 .sheet-hd { display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-4) 0; }
 .sheet-hd h3 { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }

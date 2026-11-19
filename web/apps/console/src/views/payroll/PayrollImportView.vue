@@ -7,6 +7,7 @@ import { IconCircleCheck, IconCircleExclamationPoint, IconDownload, IconFileText
 import { boxSubmit } from '@/composables/boxSubmit'
 import { useMeStore } from '@/stores/me'
 import { downloadAuthed } from '@/utils/download'
+import { downloadCsv } from '@/utils/exportCsv'
 import { fmtDateTime, fmtYuan, toNum } from '@/utils/format'
 
 /**
@@ -72,16 +73,16 @@ const failed = computed(() => result.value?.rows.filter((r) => !r.success) ?? []
 function downloadFailed() {
   const r = result.value
   if (!r || !failed.value.length) return
-  const esc = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"'
-  const lines = [['原表行号', '手机号（脱敏）', '工号', '失败原因'].map(esc).join(',')]
-  for (const x of failed.value) lines.push([x.rowNo, x.phoneMasked, x.employeeNo, x.error].map(esc).join(','))
-  // 带 BOM，Excel 打开不乱码
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `工资表失败行-${r.payMonth}.csv`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  downloadCsv(
+    `工资表失败行-${r.payMonth}`,
+    [
+      { header: '原表行号', value: (x) => x.rowNo },
+      { header: '手机号（脱敏）', value: (x) => x.phoneMasked, kind: 'text' },
+      { header: '工号', value: (x) => x.employeeNo, kind: 'text' },
+      { header: '失败原因', value: (x) => x.error },
+    ],
+    failed.value,
+  )
 }
 const shownRows = computed(() => {
   const rs = result.value?.rows ?? []

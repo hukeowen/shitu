@@ -10,11 +10,13 @@ import { IconInfo, IconTriangleExclamationPoint, IconX } from '@shitu/ui-icons'
  */
 type AppealType = 'ID_OCCUPIED_APPEAL' | 'BLACKLIST_APPEAL'
 const show = defineModel<boolean>('show', { required: true })
-const props = defineProps<{ type: AppealType }>()
+/** fraud：身份证被占用时走「举报冒用」——不是我本人注册的，请平台核查冒用（与换号申诉区分开） */
+const props = defineProps<{ type: AppealType; fraud?: boolean }>()
+const FRAUD_TAG = '【举报身份冒用】'
 const emit = defineEmits<{ submitted: []; pending: [] }>()
 const { label } = useDict()
 
-const MAX = 500
+const MAX = 480
 const remark = ref('')
 const submitting = ref(false)
 /** 提交被拒的原因：轻提示两秒就没了，这里留在按钮上方，改了理由再清掉 */
@@ -28,12 +30,16 @@ watch(show, (v) => {
 })
 
 const tips = computed(() =>
-  props.type === 'ID_OCCUPIED_APPEAL'
-    ? ['旧手机号已停用、无法登录找回', '说明旧号码（如记得）与停用原因', '如非本人注册，请说明情况，平台将核查身份冒用']
+  props.fraud
+    ? ['你的身份证被别人用来注册了账号', '说明你是否认识对方、何时发现、有没有把身份证交给过别人或中介', '平台会核查那个账号，属实的解除占用并处理冒用方']
+    : props.type === 'ID_OCCUPIED_APPEAL'
+    ? ['旧手机号已停用、无法登录找回', '说明旧号码（如记得）与停用原因', '如非本人注册，请返回选择「举报冒用」']
     : ['说明你认为标记有误的原因', '可写明涉及的公司、时间等事实', '平台复核期间账号仍受限'],
 )
 const placeholder = computed(() =>
-  props.type === 'ID_OCCUPIED_APPEAL'
+  props.fraud
+    ? '例如：我从没注册过仕兔，这是第一次用。上个月把身份证复印件给过一个中介，怀疑被拿去注册了。'
+    : props.type === 'ID_OCCUPIED_APPEAL'
     ? '例如：这是我本人身份证，旧手机号 138****1234 已停用，无法登录原账号，申请换绑到当前手机号。'
     : '例如：我从未在 XX 公司入职，失信标记与事实不符，请核查。',
 )
@@ -41,14 +47,14 @@ const placeholder = computed(() =>
 async function submit() {
   if (submitting.value) return
   const text = remark.value.trim()
-  if (!text) return void showToast('请写明申诉理由')
+  if (!text) return void showToast(props.fraud ? '请写明冒用情况' : '请写明申诉理由')
   if (text.length > MAX) return void showToast(`申诉理由不超过 ${MAX} 字`)
   submitting.value = true
   rejected.value = ''
   try {
-    await seekerApi.appeal(props.type, text)
+    await seekerApi.appeal(props.type, props.fraud ? FRAUD_TAG + text : text)
     show.value = false
-    showToast({ type: 'success', message: '申诉已提交，平台将在 5 个工作日内复核', duration: 2500 })
+    showToast({ type: 'success', message: props.fraud ? '举报已提交，平台将在 5 个工作日内核查' : '申诉已提交，平台将在 5 个工作日内复核', duration: 2500 })
     emit('submitted')
   } catch (e) {
     if (isApiError(e, 'SYS_4090')) {
@@ -70,8 +76,8 @@ async function submit() {
   <van-popup v-model:show="show" position="bottom" round teleport="body" safe-area-inset-bottom :close-on-popstate="true" class="apl">
     <div class="sheet-head">
       <div class="flex1">
-        <h3>提交申诉</h3>
-        <p class="sheet-sub">{{ label('KycReviewType', type) }}</p>
+        <h3>{{ fraud ? '举报身份冒用' : '提交申诉' }}</h3>
+        <p class="sheet-sub">{{ fraud ? '不是我本人注册的账号占用了我的身份证' : label('KycReviewType', type) }}</p>
       </div>
       <button type="button" class="sheet-x" aria-label="关闭" @click="show = false"><IconX :size="20" /></button>
     </div>
@@ -85,7 +91,7 @@ async function submit() {
         v-model="remark"
         class="ffield"
         type="textarea"
-        label="申诉理由（必填）"
+        :label="fraud ? '冒用情况（必填）' : '申诉理由（必填）'"
         label-align="top"
         rows="5"
         :maxlength="MAX"

@@ -10,6 +10,7 @@ import { confirmInBox } from '@/composables/boxSubmit'
 import { usePagedList } from '@/composables/usePagedList'
 import { BILLING_SUPER_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDate, fmtMoney, todayStr } from '@/utils/format'
 import BillDrawer from './BillDrawer.vue'
 import { payState } from './billPayment'
@@ -19,7 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const canIssue = computed(() => auth.hasAnyRole(BILLING_SUPER_ROLES))
-const { options } = useDict()
+const { label, options } = useDict()
 const { companyName } = useCompanyNames()
 
 const status = ref<BillStatus | ''>('')
@@ -68,6 +69,28 @@ const pageTotals = computed(() => ({
   payable: list.rows.value.reduce((sum, row) => sum + Number(row.payable), 0),
   transferReceivable: list.rows.value.reduce((sum, row) => sum + Number(row.transferReceivable), 0),
 }))
+/** 导出：按当前状态、月份、公司、汇总条筛选把所有页取完；字段同表格 */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<MonthlyBill>[] = [
+  { header: '账单号', value: (b) => b.billId, kind: 'text' },
+  { header: '账单月份', value: (b) => b.billMonth, kind: 'text' },
+  { header: '公司', value: (b) => companyName(b.companyId) },
+  { header: '公司 ID', value: (b) => b.companyId, kind: 'text' },
+  { header: '服务费', value: (b) => b.serviceFee, kind: 'money' },
+  { header: '应付流转费', value: (b) => b.transferPayable, kind: 'money' },
+  { header: '应付合计', value: (b) => b.payable, kind: 'money' },
+  { header: '应收流转费', value: (b) => b.transferReceivable, kind: 'money' },
+  { header: '状态', value: (b) => label('BillStatus', b.status) },
+  { header: '付款进度', value: (b) => payState(b)?.label },
+  { header: '异议截止', value: (b) => b.disputeDeadline, kind: 'date' },
+  { header: '结算截止', value: (b) => b.settleDeadline, kind: 'date' },
+  { header: '逾期天数', value: (b) => b.overdueDays },
+]
+function doExport() {
+  const q = { status: status.value || undefined, month: month.value || undefined, companyId: companyId.value.trim() || undefined, flag: flag.value || undefined }
+  return exportList({ name: month.value ? `月账单-${month.value}` : '月账单', columns: EXPORT_COLUMNS, rows: (page, pageSize) => opsApi.bills({ ...q, page, pageSize }), loading: exporting })
+}
+
 const drawerId = ref<string | null>(null)
 function rowClass({ row }: { row: MonthlyBill }) {
   return row.status === 'DISPUTED' ? 'is-hl' : ''
@@ -151,6 +174,7 @@ function reset() {
         <p>月账单 = 增长技术服务费 + 应付流转费（应收流转费不与应付轧差）· 下发 → 异议复核 → 企业提交付款凭证 → 确认到账结算</p>
       </div>
       <div class="spacer" />
+      <el-button :loading="exporting" :disabled="!list.total.value" @click="doExport">导出</el-button>
       <el-button @click="openRerun">重算日计费</el-button>
       <el-button v-if="canIssue" type="primary" @click="openIssue">生成并下发月账单</el-button>
     </div>

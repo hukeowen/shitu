@@ -13,7 +13,9 @@ import PersonCell from '@/components/PersonCell.vue'
 import { useNow } from '@/composables/useNow'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTime, fmtPhone } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 import { remainMs } from '@/utils/time'
 
 /** A-02 待办清单（T-101）：待知悉 / 待面试 / 今日到厂 / 待确权。行操作严格按 allowedActions */
@@ -131,6 +133,35 @@ function rowClass({ row }: { row: SiteApplication }) {
   return ms != null && ms < 3600_000 ? 'row-danger' : ''
 }
 
+/** 状态下面的小字：没到厂时报名走到哪一步 */
+function progressText(a: SiteApplication): string {
+  if (a.status === 'PENDING_INTERVIEW') return a.acknowledgedAt ? '已推送面试信息' : '未知悉'
+  if (a.contract?.status === 'PENDING_SIGN' || a.allowedActions.includes('RESEND_CONTRACT')) return '待求职者签署'
+  return a.status === 'PENDING_CONFIRM' ? '待发起签约' : ''
+}
+
+/** 导出：按当前页签、项目把所有页取完；姓名、手机号按接口返回（姓名脱敏，手机号只有驻场拿得到，其他角色这一列为空） */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<SiteApplication>[] = [
+  { header: '求职者', value: (a) => a.seekerName },
+  { header: '来源', value: (a) => (a.fromPublic ? '公域' : '私域') },
+  { header: '手机号', value: (a) => a.phone, kind: 'text' },
+  { header: '报名编号', value: (a) => a.applicationId, kind: 'text' },
+  { header: '应聘岗位', value: (a) => a.jobTitle },
+  { header: '项目', value: (a) => a.projectName },
+  { header: '报名时间', value: (a) => a.createdAt, kind: 'datetime' },
+  { header: '面试时间', value: (a) => a.interviewAt, kind: 'datetime' },
+  { header: '状态', value: (a) => enumLabel('ApplicationStatus', a.status) },
+  { header: '进度', value: (a) => (a.arrivedAt ? '已到厂' : progressText(a)) },
+  { header: '到厂时间', value: (a) => a.arrivedAt, kind: 'datetime' },
+  { header: '响应截止', value: (a) => a.responseDeadline, kind: 'datetime' },
+]
+function doExport() {
+  const t = current.value
+  const q = { status: t.status, unacknowledged: t.unack || undefined, arrivedToday: t.arrivedToday || undefined, projectId: projectId.value || undefined, sort: 'DEADLINE' as const }
+  return exportList({ name: `待办清单-${t.label}`, columns: EXPORT_COLUMNS, rows: (p, pageSize) => tenantApi.applications({ ...q, page: p, pageSize }), loading: exporting })
+}
+
 const insight = reactive({ open: false, app: null as SiteApplication | null })
 function openInsight(row: SiteApplication) {
   insight.app = row
@@ -146,6 +177,7 @@ function openInsight(row: SiteApplication) {
         <p>待知悉 / 待面试 / 待确权 · 电脑端与驻场手机端同步</p>
       </div>
       <span class="spacer" />
+      <el-button v-if="tab !== 'cancel'" :loading="exporting" :disabled="!page.total" @click="doExport">导出</el-button>
       <el-button @click="refresh">刷新</el-button>
     </div>
 
@@ -198,7 +230,7 @@ function openInsight(row: SiteApplication) {
           <template #default="{ row }">
             <DictTag type="ApplicationStatus" :value="row.status" />
             <div v-if="row.arrivedAt" class="t-xs ok">已到厂 {{ fmtDateTime(row.arrivedAt).slice(5) }}</div>
-            <div v-else class="t-xs">{{ row.status === 'PENDING_INTERVIEW' ? (row.acknowledgedAt ? '已推送面试信息' : '未知悉') : row.contract?.status === 'PENDING_SIGN' || row.allowedActions.includes('RESEND_CONTRACT') ? '待求职者签署' : row.status === 'PENDING_CONFIRM' ? '待发起签约' : '' }}</div>
+            <div v-else class="t-xs">{{ progressText(row) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="响应剩余" width="112">

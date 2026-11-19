@@ -8,7 +8,9 @@ import { IconArrowLeftRight, IconBanknote, IconCircleExclamationPoint, IconInfo,
 import DictTag from '@/components/DictTag.vue'
 import { boxSubmit } from '@/composables/boxSubmit'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDate, fmtSigned } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 import { parseLocal } from '@/utils/time'
 import BillDetailDrawer from './BillDetailDrawer.vue'
 import BillPayDialog from './BillPayDialog.vue'
@@ -81,6 +83,24 @@ async function dispute(b: MonthlyBill) {
   ElMessage.success('异议已提交，平台将在 5 个工作日内复核')
   load()
   drawerRef.value?.reload()
+}
+
+/** 导出：账单列表没有筛选，把所有页取完；金额写正数，应付 / 应收看列名 */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<MonthlyBill>[] = [
+  { header: '账单月份', value: (b) => b.billMonth, kind: 'text' },
+  { header: '增长技术服务费', value: (b) => b.serviceFee, kind: 'money' },
+  { header: '流转费应付', value: (b) => b.transferPayable, kind: 'money' },
+  { header: '流转费应收', value: (b) => b.transferReceivable, kind: 'money' },
+  { header: '应付合计', value: (b) => b.payable, kind: 'money' },
+  { header: '状态', value: (b) => enumLabel('BillStatus', b.status) },
+  { header: '付款进度', value: (b) => payState(b)?.label },
+  { header: '异议截止', value: (b) => b.disputeDeadline, kind: 'date' },
+  { header: '结算截止', value: (b) => b.settleDeadline, kind: 'date' },
+  { header: '逾期天数', value: (b) => b.overdueDays },
+]
+function doExport() {
+  return exportList({ name: '费用账单', columns: EXPORT_COLUMNS, rows: (p, pageSize) => tenantApi.bills(p, pageSize), loading: exporting })
 }
 
 const drawer = reactive({ visible: false, billId: null as string | null })
@@ -166,7 +186,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
     </template>
 
     <div class="card tbl-card">
-      <div class="card__hd"><h3>月度账单</h3><span class="hint">每月最后一天自动生成，平台下发后进入 5 个工作日异议期；对公转账后提交付款凭证，平台确认到账即结清</span></div>
+      <div class="card__hd"><h3>月度账单</h3><span class="hint hd-hint">每月最后一天自动生成，平台下发后进入 5 个工作日异议期；对公转账后提交付款凭证，平台确认到账即结清</span><el-button size="small" :loading="exporting" :disabled="!page.total" @click="doExport">导出</el-button></div>
       <p v-for="(why, id) in blocked" :key="id" class="blocked-why tbl-tip" role="status">{{ list.find((b) => b.billId === id)?.billMonth ?? id }} 账单{{ why }}。刷新后重新判断</p>
       <el-table v-loading="loading" :data="list" row-key="billId" :row-class-name="rowClass" @row-click="(r: MonthlyBill) => (selectedId = r.billId)">
         <el-table-column label="账单月份" width="96">
@@ -273,6 +293,8 @@ function rowClass({ row }: { row: MonthlyBill }) {
 .tbl-card { margin-top: var(--space-gap); }
 .tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .hint { font-size: var(--font-size-aux); color: var(--text-3); }
+/* 表头说明靠右，「导出」排在最右 */
+.hd-hint { flex: 1; text-align: right; }
 .code { font-family: var(--font-mono); font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); color: var(--text-1); white-space: nowrap; }
 b.code { font-weight: var(--font-weight-semibold); }
 .due { color: var(--warning-text); }

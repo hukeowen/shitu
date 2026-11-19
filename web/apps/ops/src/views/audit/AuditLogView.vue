@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { IconChevronDown, IconChevronUp } from '@shitu/ui-icons'
 import { opsApi, useDict, type AuditLogEntry } from '@shitu/api-client'
 import { usePagedList } from '@/composables/usePagedList'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTimeSec, prettyJson } from '@/utils/format'
 import { AUDIT_ACTION_GROUPS, AUDIT_TARGET_OPTIONS, auditActionLabel, auditTargetLabel } from './auditMeta'
 
@@ -51,6 +52,37 @@ const list = usePagedList<AuditLogEntry>((p) => {
   })
 }, 50)
 
+/** 导出：按当前筛选逐页取，最多 5000 条（超过会提示缩小范围）；时间保留到秒，操作详情写原始 JSON */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<AuditLogEntry>[] = [
+  { header: '时间', value: (r) => fmtDateTimeSec(r.createdAt) },
+  { header: '操作方', value: (r) => domainLabel(r.actorDomain) },
+  { header: '操作人 ID', value: (r) => r.actorId, kind: 'text' },
+  { header: '公司 ID', value: (r) => r.companyId, kind: 'text' },
+  { header: '动作', value: (r) => auditActionLabel(r.action) },
+  { header: '动作编码', value: (r) => r.action },
+  { header: '对象', value: (r) => auditTargetLabel(r.targetType) ?? r.targetType },
+  { header: '对象 ID', value: (r) => r.targetId, kind: 'text' },
+  { header: 'IP', value: (r) => r.ip },
+  { header: '追踪号', value: (r) => r.traceId, kind: 'text' },
+  { header: '日志编号', value: (r) => r.id },
+  { header: '操作详情', value: (r) => r.detail },
+]
+function doExport() {
+  const t = (s: string) => s.trim() || undefined
+  const q = {
+    actorDomain: filters.actorDomain || undefined,
+    actorId: t(filters.actorId),
+    companyId: t(filters.companyId),
+    action: t(filters.action),
+    targetType: t(filters.targetType),
+    targetId: t(filters.targetId),
+    from: range.value?.[0],
+    to: range.value?.[1],
+  }
+  return exportList({ name: '审计日志', columns: EXPORT_COLUMNS, rows: (page, pageSize) => opsApi.auditLogs({ ...q, page, pageSize }), loading: exporting })
+}
+
 function reset() {
   Object.assign(filters, { actorDomain: '', actorId: '', companyId: '', action: '', targetType: '', targetId: '' })
   range.value = undefined
@@ -96,6 +128,7 @@ onMounted(() => list.load())
         <el-form-item label=" " class="btns">
           <el-button :loading="list.loading.value" native-type="submit">查询</el-button>
           <el-button @click="reset">重置</el-button>
+          <el-button :loading="exporting" :disabled="!list.total.value" @click="doExport">导出</el-button>
           <el-button link type="primary" :aria-expanded="expanded" @click="expanded = !expanded">{{ expanded ? '收起筛选' : '展开筛选' }}<component :is="expanded ? IconChevronUp : IconChevronDown" :size="16" /></el-button>
         </el-form-item>
       </el-form>

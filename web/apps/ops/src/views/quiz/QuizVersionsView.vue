@@ -105,7 +105,7 @@ const draft = computed(() => rows.value.find((v) => v.status === 'DRAFT') ?? nul
 const hardCount = (v: QuizView) => v.questions.filter((q) => q.matchRole === 'HARD_FILTER').length
 const judgeCount = (v: QuizView) => v.questions.filter((q) => q.questionType === 'JUDGE').length
 
-const actLabels = (v: QuizView) => [v.status === 'DRAFT' ? '编辑' : '查看', ...(canPublish.value && v.status === 'DRAFT' ? ['发布'] : []), ...(canPublish.value && v.status === 'ARCHIVED' ? ['回滚至此版本'] : [])]
+const actLabels = (v: QuizView) => [v.status === 'DRAFT' ? '编辑' : '查看', ...(v.status === 'DRAFT' ? ['删除'] : []), ...(canPublish.value && v.status === 'DRAFT' ? ['发布'] : []), ...(canPublish.value && v.status === 'ARCHIVED' ? ['回滚至此版本'] : [])]
 const opsWidth = computed(() => actionsColWidth(rows.value.map((v) => ({ labels: actLabels(v) })), 80))
 
 function open(v: QuizView) {
@@ -130,6 +130,21 @@ async function createDraft() {
 }
 
 /** 发布 / 回滚：确认框里提交，确认按钮危险色描边（立即对全平台生效） */
+/** 草稿建错了或不要了可以删掉；生效和归档版本要留给匹配快照回放，不能删 */
+async function removeDraft(v: QuizView) {
+  const ok = await confirmInBox({
+    title: '删除草稿',
+    text: `确定删除草稿「${v.name}」？题目修改会一并丢弃，删除后不可恢复。`,
+    action: '删除',
+    danger: true,
+    api: () => opsApi.deleteQuizDraft(v.versionId),
+    onBlocked: (why) => (blocked.value = { ...blocked.value, [v.versionId]: why }),
+  })
+  if (!ok) return
+  ElMessage.success('草稿已删除')
+  await load()
+}
+
 async function publish(v: QuizView) {
   const rollback = v.status === 'ARCHIVED'
   const cur = active.value ? `当前生效版本「${active.value.name}」将被归档。` : ''
@@ -255,6 +270,7 @@ async function publish(v: QuizView) {
         <el-table-column label="操作" :width="opsWidth" class-name="ops-col">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="open(row)">{{ row.status === 'DRAFT' ? '编辑' : '查看' }}</el-button>
+            <el-button v-if="row.status === 'DRAFT'" link type="danger" size="small" @click="removeDraft(row)">删除</el-button>
             <el-button v-if="row.status === 'DRAFT' && canPublish" link type="primary" size="small" :disabled="!!blocked[row.versionId]" @click="publish(row)">发布</el-button>
             <el-button v-if="row.status === 'ARCHIVED' && canPublish" link type="primary" size="small" :disabled="!!blocked[row.versionId]" @click="publish(row)">回滚至此版本</el-button>
           </template>

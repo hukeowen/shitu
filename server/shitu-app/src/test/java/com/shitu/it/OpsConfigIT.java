@@ -275,4 +275,37 @@ class OpsConfigIT extends FlowItSupport {
         assertThat(mine.get(0).get("companyName").isNull()).isFalse();
         assertThat(jdbc.queryForObject("SELECT source_company_id FROM `user` WHERE user_id = ?", String.class, uid)).as("归属不变").isEqualTo(source);
     }
+
+    @Test
+    void quizDraftAndFutureRuleCanBeDeleted() throws Exception {
+        // ---------------------------------------------------------------- 题库草稿：只能删草稿
+        JsonNode versions = data(call(get("/api/v1/ops/quiz/versions"), ops, null));
+        int activeId = 0;
+        for (JsonNode v : versions) {
+            if ("DRAFT".equals(v.get("status").asText())) {
+                data(call(delete("/api/v1/ops/quiz/versions/" + v.get("versionId").asInt()), ops, null));
+            } else if ("ACTIVE".equals(v.get("status").asText())) {
+                activeId = v.get("versionId").asInt();
+            }
+        }
+        int draftId = data(call(post("/api/v1/ops/quiz/drafts"), ops, null)).get("versionId").asInt();
+        assertThat(code(call(delete("/api/v1/ops/quiz/versions/" + activeId), ops, null))).as("生效版本不能删").isEqualTo("SYS_4000");
+        assertThat(status(delete("/api/v1/ops/quiz/versions/" + draftId), company().owner(), null)).as("公司后台不能删").isEqualTo(403);
+        data(call(delete("/api/v1/ops/quiz/versions/" + draftId), ops, null));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM quiz_version WHERE version_id = ?", Integer.class, draftId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM quiz_question WHERE version_id = ?", Integer.class, draftId)).as("题目一并删除").isZero();
+        assertThat(code(call(delete("/api/v1/ops/quiz/versions/" + draftId), ops, null))).as("重复删除").isEqualTo("SYS_4040");
+        assertThat(jdbc.queryForObject("SELECT status FROM quiz_version WHERE version_id = ?", String.class, activeId)).isEqualTo("ACTIVE");
+
+        // ---------------------------------------------------------------- 计费规则：只能删还没生效的
+        Integer effective = jdbc.queryForObject("SELECT version FROM billing_rule WHERE effective_from <= CURDATE() ORDER BY effective_from DESC LIMIT 1", Integer.class);
+        assertThat(code(call(delete("/api/v1/ops/billing/rules/" + effective), ops, null))).as("已生效的不能删").isEqualTo("SYS_4000");
+        java.time.LocalDate far = java.time.LocalDate.of(2090, 1, 1).plusDays(new java.security.SecureRandom().nextInt(3000));
+        jdbc.update("DELETE FROM billing_rule WHERE effective_from = ?", java.sql.Date.valueOf(far));
+        int v = data(call(post("/api/v1/ops/billing/rules"), ops, Map.of("effectiveFrom", far.toString(), "serviceUnitPrice", 0.5,
+                "transferUnitPrice", 10, "supplyShare", 0.8, "freeMonths", 3))).asInt();
+        data(call(delete("/api/v1/ops/billing/rules/" + v), ops, null));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billing_rule WHERE version = ?", Integer.class, v)).isZero();
+        assertThat(code(call(delete("/api/v1/ops/billing/rules/" + v), ops, null))).isEqualTo("SYS_4040");
+    }
 }

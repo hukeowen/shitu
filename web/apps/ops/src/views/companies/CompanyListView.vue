@@ -7,13 +7,14 @@ import StatusTag from '@/components/StatusTag.vue'
 import { usePagedList } from '@/composables/usePagedList'
 import { usePendingStore } from '@/stores/pending'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { daysUntil, fmtDate, fmtDateTime } from '@/utils/format'
 import CompanyDrawer from './CompanyDrawer.vue'
 
 /** 劳务公司管理（第 8 类审核处理：页签 + 表格 → 抽屉里看材料 → 底部驳回 / 通过） */
 const route = useRoute()
 const router = useRouter()
-const { options } = useDict()
+const { label, options } = useDict()
 const pending = usePendingStore()
 
 const ALL = ''
@@ -34,6 +35,25 @@ watch(status, () => list.search())
 function reset() {
   keyword.value = ''
   list.search()
+}
+
+/** 导出：按当前页签、关键词把所有页取完；字段同表格（联系电话按接口返回） */
+const exporting = ref(false)
+const EXPORT_COLUMNS: CsvColumn<CompanyView>[] = [
+  { header: '公司', value: (c) => c.name },
+  { header: '公司 ID', value: (c) => c.companyId, kind: 'text' },
+  { header: '简称', value: (c) => c.shortName },
+  { header: '统一社会信用代码', value: (c) => c.unifiedCreditCode, kind: 'text' },
+  { header: '联系人', value: (c) => c.contactName },
+  { header: '联系电话', value: (c) => c.contactPhone, kind: 'text' },
+  { header: '状态', value: (c) => label('CompanyStatus', c.status) },
+  { header: '提交时间', value: (c) => c.submittedAt, kind: 'datetime' },
+  { header: '入驻日', value: (c) => c.onboardDate, kind: 'date' },
+  { header: '免费期至', value: (c) => (c.onboardDate ? c.freePeriodEnd : ''), kind: 'date' },
+]
+function doExport() {
+  const q = { status: status.value || undefined, keyword: keyword.value.trim() || undefined }
+  return exportList({ name: '劳务公司', columns: EXPORT_COLUMNS, rows: (page, pageSize) => opsApi.companies({ ...q, page, pageSize }), loading: exporting })
 }
 
 const drawerId = ref<string | null>(null)
@@ -75,6 +95,7 @@ onMounted(() => list.load())
         <el-input v-model="keyword" clearable placeholder="公司名称 / 公司 ID / 统一社会信用代码" style="width: 280px" @keyup.enter="list.search()" @clear="list.search()" />
         <el-button @click="list.search()">查询</el-button>
         <el-button @click="reset">重置</el-button>
+        <el-button :loading="exporting" :disabled="!list.total.value" @click="doExport">导出</el-button>
       </div>
 
       <el-table v-loading="list.loading.value" :data="list.rows.value" class="ops-table tbl-48" row-key="companyId" @row-dblclick="open">

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, tenantApi, type CirculationPerson } from '@shitu/api-client'
 import { IconArrowLeftRight, IconCircleExclamationPoint, IconInfo, IconUserMinus, IconUsers } from '@shitu/ui-icons'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtSigned, toNum } from '@/utils/format'
 
 /**
@@ -80,20 +81,22 @@ function pickTab(t: Tab) {
   counterpart.value = ''
 }
 
+const EXPORT_COLUMNS: CsvColumn<CirculationPerson>[] = [
+  { header: '方向', value: (r) => (r.direction === 'PAYABLE' ? '流入（我付）' : '流出（我收）') },
+  { header: '用户编号', value: (r) => r.userId, kind: 'text' },
+  { header: '姓名', value: (r) => r.name },
+  { header: '对方公司', value: (r) => r.counterpartCompanyName },
+  { header: '岗位', value: (r) => r.jobTitle },
+  { header: '计费起始日', value: (r) => r.firstDate, kind: 'date' },
+  { header: '最近计费日', value: (r) => r.lastDate, kind: 'date' },
+  { header: '计费天数', value: (r) => r.days },
+  { header: '日金额', value: (r) => r.dailyAmount, kind: 'money' },
+  { header: '本月金额', value: (r) => r.monthAmount, kind: 'money' },
+  { header: '累计金额', value: (r) => r.totalAmount, kind: 'money' },
+  { header: '状态', value: (r) => (r.active ? '计费中' : '已停止计费') },
+]
 function exportCsv() {
-  const head = ['方向', '用户编号', '姓名', '对方公司', '岗位', '计费起始日', '最近计费日', '计费天数', '日金额', '本月金额', '累计金额', '状态']
-  const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const lines = list.value.map((r) =>
-    [r.direction === 'PAYABLE' ? '流入（我付）' : '流出（我收）', r.userId, r.name, r.counterpartCompanyName, r.jobTitle, r.firstDate, r.lastDate, r.days, r.dailyAmount, r.monthAmount, r.totalAmount, r.active ? '计费中' : '已停止计费']
-      .map(cell)
-      .join(','),
-  )
-  const blob = new Blob(['﻿' + [head.map(cell).join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `流转人员台账-${tab.value === 'out' ? '流出' : tab.value === 'in' ? '流入' : '已停止计费'}.csv`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  exportList({ name: `流转人员台账-${tab.value === 'out' ? '流出' : tab.value === 'in' ? '流入' : '已停止计费'}`, columns: EXPORT_COLUMNS, rows: list.value })
 }
 </script>
 

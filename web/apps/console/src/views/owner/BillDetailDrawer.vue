@@ -4,6 +4,7 @@ import { errorMessage, tenantApi, type BillDayLine, type TenantBillDetail } from
 import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import FileLink from '@/components/FileLink.vue'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDate, fmtDateTime, fmtSigned, fmtYuan, toNum } from '@/utils/format'
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from './billPayment'
 
@@ -43,6 +44,21 @@ defineExpose({ reload: () => props.billId && load(props.billId) })
 const days = computed(() => [...(detail.value?.days ?? [])].sort((a, b) => a.bizDate.localeCompare(b.bizDate)))
 const freeDays = computed(() => days.value.filter((d) => d.inFreePeriod).length)
 
+/** 导出每日计费明细（抽屉里已经拿到的整月数据）；金额写正数，应付 / 应收看列名 */
+const DAY_COLUMNS: CsvColumn<BillDayLine>[] = [
+  { header: '日期', value: (d) => d.bizDate, kind: 'date' },
+  { header: '免费期', value: (d) => (d.inFreePeriod ? '是' : '') },
+  { header: '在岗', value: (d) => d.employedCount },
+  { header: '存量', value: (d) => d.stockBase },
+  { header: '增量', value: (d) => d.incrementCount },
+  { header: '服务费', value: (d) => d.serviceFee, kind: 'money' },
+  { header: '流转应付', value: (d) => d.transferPayable, kind: 'money' },
+  { header: '流转应收', value: (d) => d.transferReceivable, kind: 'money' },
+]
+function exportDays() {
+  if (detail.value) exportList({ name: `账单每日明细-${detail.value.bill.billMonth}`, columns: DAY_COLUMNS, rows: days.value })
+}
+
 type SummaryParam = { columns: { property?: string }[]; data: BillDayLine[] }
 /** 合计行：应付的两列带「−」，应收带「+」，和明细行一致 */
 const MONEY: Record<string, 'in' | 'out'> = { serviceFee: 'out', transferPayable: 'out', transferReceivable: 'in' }
@@ -71,6 +87,7 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
           <DictTag type="BillStatus" :value="detail.bill.status" />
           <span class="code hint">{{ detail.bill.billId }}</span>
           <span class="spacer" />
+          <el-button :disabled="!days.length" @click="exportDays">导出明细</el-button>
           <el-button v-if="canDispute" :disabled="!!blockedWhy" @click="emit('dispute')">提出异议</el-button>
           <el-button v-if="canPay" type="primary" @click="emit('pay')">{{ payLabel || '提交付款凭证' }}</el-button>
         </div>

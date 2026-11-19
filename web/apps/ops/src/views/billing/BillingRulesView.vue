@@ -12,6 +12,20 @@ import { fmtDate, fmtDateTime, fmtMoney, fmtOperator, fmtPct, todayStr } from '@
 const auth = useAuthStore()
 const canAdd = computed(() => auth.hasAnyRole(BILLING_SUPER_ROLES))
 
+/** 还没生效的规则录错了可以删；已生效的参与过计费，只能新增一版覆盖 */
+async function removeRule(r: BillingRuleRow) {
+  const ok = await confirmInBox({
+    title: '删除待生效规则',
+    text: `确定删除 v${r.version}（${fmtDate(r.effectiveFrom)} 起生效）？这版规则还没有生效，删除不影响任何已产生的计费。`,
+    action: '删除',
+    danger: true,
+    api: () => opsApi.deleteBillingRule(r.version),
+  })
+  if (!ok) return
+  ElMessage.success(`已删除 v${r.version}`)
+  await load()
+}
+
 const rows = shallowRef<BillingRuleRow[]>([])
 const loading = ref(false)
 const error = ref('')
@@ -164,6 +178,9 @@ async function submit() {
         <el-table-column label="免费期" width="90" align="right"><template #default="{ row }"><span class="tnum">{{ row.freeMonths }} 个月</span></template></el-table-column>
         <el-table-column label="创建" min-width="160">
           <template #default="{ row }"><span class="tnum t-sm">{{ fmtDateTime(row.createdAt) }}</span><div class="t-xs">{{ fmtOperator(row.createdBy) }}</div></template>
+        </el-table-column>
+        <el-table-column v-if="canAdd && rows.some((r) => fmtDate(r.effectiveFrom) > today)" label="操作" width="80" align="right">
+          <template #default="{ row }"><el-button v-if="fmtDate(row.effectiveFrom) > today" link type="danger" size="small" @click="removeRule(row)">删除</el-button></template>
         </el-table-column>
         <template #empty>
           <el-empty v-if="!loading && error" :image-size="48" :description="error"><template #image><IconCircleExclamationPoint :size="48" /></template><el-button size="small" @click="load">重新加载</el-button></el-empty>

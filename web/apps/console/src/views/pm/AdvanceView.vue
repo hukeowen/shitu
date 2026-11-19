@@ -11,7 +11,9 @@ import { boxSubmit } from '@/composables/boxSubmit'
 import { useProjects } from '@/composables/useProjects'
 import { useMeStore } from '@/stores/me'
 import { actionsColWidth } from '@/utils/actionsWidth'
+import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDateTime, fmtYuan, toNum } from '@/utils/format'
+import { enumLabel } from '@/utils/labels'
 
 /**
  * A-17 薪酬预支审批（T-309 / M-11，D-25 双级）：员工发起 → 驻场初审 → 项目经理终审 → 登记拨款（线下转账后登记，记入欠款）。
@@ -77,6 +79,22 @@ const stats = computed(() => {
 })
 
 const projectName = (id: string) => projects.value.find((p) => p.projectId === id)?.name ?? id
+
+/** 导出：当前页签、当前项目下的全部申请（接口一次返回，不只是表格这一页） */
+const EXPORT_COLUMNS: CsvColumn<AdvanceRow>[] = [
+  { header: '申请单号', value: (a) => a.advanceId, kind: 'text' },
+  { header: '申请时间', value: (a) => a.createdAt, kind: 'datetime' },
+  { header: '员工', value: (a) => a.seekerName },
+  { header: '项目', value: (a) => projectName(a.projectId) },
+  { header: '金额', value: (a) => a.amount, kind: 'money' },
+  { header: '预支月份', value: (a) => a.bizMonth, kind: 'text' },
+  { header: '已还金额', value: (a) => (a.paidAt ? a.repaidAmount : ''), kind: 'money' },
+  { header: '拨款时间', value: (a) => a.paidAt, kind: 'datetime' },
+  { header: '状态', value: (a) => enumLabel('AdvanceStatus', a.status) },
+]
+function doExport() {
+  exportList({ name: `薪酬预支-${TABS.find((t) => t.key === tab.value)?.label ?? '全部'}`, columns: EXPORT_COLUMNS, rows: rows.value })
+}
 
 async function load() {
   loading.value = true
@@ -210,6 +228,7 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
         <p>员工本人发起 → 驻场初审 → 项目经理终审 → 登记拨款（<b>双级审核</b>）<template v-if="roleHint"> · {{ roleHint }}</template></p>
       </div>
       <span class="spacer" />
+      <el-button :disabled="loading || !rows.length" @click="doExport">导出</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
 

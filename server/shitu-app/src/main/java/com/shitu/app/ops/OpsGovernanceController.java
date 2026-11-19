@@ -85,6 +85,21 @@ public class OpsGovernanceController {
         return ApiResponse.ok(v);
     }
 
+    @Operation(summary = "删除还没生效的计费规则版本（录错了可以删；已生效的规则参与过计费，不能删）")
+    @PreAuthorize("hasRole('SUPER')")
+    @org.springframework.web.bind.annotation.DeleteMapping("/billing/rules/{version}")
+    @Transactional
+    public ApiResponse<Void> deleteRule(@org.springframework.web.bind.annotation.PathVariable int version) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT effective_from FROM billing_rule WHERE version = ? FOR UPDATE", version);
+        BizException.check(!rows.isEmpty(), ErrorCode.SYS_NOT_FOUND);
+        LocalDate from = ((Date) rows.get(0).get("effective_from")).toLocalDate();
+        BizException.check(from.isAfter(LocalDate.now(clock.withZone(Constants.ZONE))), ErrorCode.SYS_BAD_REQUEST,
+                "这版规则已经生效，不能删除；需要调整请新增一版");
+        jdbc.update("DELETE FROM billing_rule WHERE version = ?", version);
+        audit.log("BILLING_RULE_DELETE", "BILLING_RULE", String.valueOf(version), Map.of("effectiveFrom", from.toString()));
+        return ApiResponse.ok(null);
+    }
+
     @Operation(summary = "存量基数与免费期（P-03）：免费期倒计时、锁定记录、在岗人数")
     @PreAuthorize("hasAnyRole('SUPER','FINANCE','OPERATOR')")
     @GetMapping("/stock-bases")

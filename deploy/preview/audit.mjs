@@ -165,7 +165,7 @@ try {
         await shot(base + '__bottom.png', false)
       }
       if (s.click) {
-        const labels = await ev(`[...new Set([...document.querySelectorAll('.content button, .content a.lnk, .content .el-link')].filter((b) => b.offsetParent && !b.disabled).map((b) => b.innerText.trim()).filter((t) => /^(详情|查看|明细|查看明细|新增|新建|添加|编辑|修改|处理|审核|回复|导入|登记|调整|配置|记录|日志|预览|.*详情|新增.*|新建.*|添加.*|导入.*|查看.*)$/.test(t)))].slice(0, 5)`) ?? []
+        const labels = await ev(`[...new Set([...document.querySelectorAll('.content button, .content a.lnk, .content .el-link')].filter((b) => b.offsetParent && !b.disabled).map((b) => b.innerText.trim()).filter((t) => /^(详情|查看|明细|查看明细|新增|新建|添加|编辑|修改|处理|审核|回复|导入|登记|调整|配置|记录|日志|预览|.*详情|新增.*|新建.*|添加.*|导入.*|查看.*)$/.test(t) && !/草稿/.test(t)))].slice(0, 5)`) ?? []
         for (const lb of labels) {
           const before = await ev('location.pathname + location.search')
           await ev(`(() => { const b = [...document.querySelectorAll('.content button, .content a.lnk, .content .el-link')].find((b) => b.offsetParent && b.innerText.trim() === ${JSON.stringify(lb)}); b && b.click() })()`)
