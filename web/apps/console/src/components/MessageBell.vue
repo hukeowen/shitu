@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { errorMessage, isApiError, tenantApi, type InboxItem } from '@shitu/api-client'
 import { IconBell, IconChevronRight, IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
@@ -27,6 +27,14 @@ const readAllError = ref('')
 const readAllBlocked = ref(false)
 
 onMounted(() => inbox.start())
+
+/** 未读数显示在标签标题最前面：「(3) 待办 · …」。路由切换会重写标题，所以两边都要监听 */
+function applyTitleBadge(n: number) {
+  const base = document.title.replace(/^\(\d+\+?\)\s*/, '')
+  document.title = n > 0 ? `(${n > 99 ? '99+' : n}) ${base}` : base
+}
+const titleRoute = useRoute()
+watch([() => inbox.unread, () => titleRoute.fullPath], () => void nextTick(() => applyTitleBadge(inbox.unread)))
 onBeforeUnmount(() => inbox.stop())
 
 async function load(reset = true) {

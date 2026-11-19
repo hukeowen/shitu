@@ -103,6 +103,10 @@ public class NotificationService {
                 if (t.hasChannel("SMS")) {
                     LocalDateTime quietUntil = Boolean.TRUE.equals(t.getRespectQuietHours()) ? quietUntil(LocalDateTime.now(clock),
                             params.getString("sms.quiet_start", "22:00"), params.getString("sms.quiet_end", "08:00")) : null;
+                    if (quietUntil != null && "FOLLOW_UP_REMINDER".equals(templateCode)) {
+                        // 「剩余 N 小时」这类短信顺延到早上就过时了：免打扰时段内不发，由晚间 / 早间待办汇总覆盖
+                        continue;
+                    }
                     if (quietUntil != null) {
                         // P-16：免打扰时段内只发站内信，短信延迟到时段结束
                         jdbc.update("INSERT INTO sms_deferred (recipient_type, recipient_id, template_code, content, send_after) VALUES (?, ?, ?, ?, ?)",
