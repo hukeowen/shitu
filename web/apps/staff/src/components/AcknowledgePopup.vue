@@ -2,7 +2,7 @@
 import { shNowMs, shNow } from '@/utils/time'
 import { computed, reactive, ref, watch } from 'vue'
 import { showSuccessToast, showToast, type PickerOption } from 'vant'
-import { errorMessage, isApiError, tenantApi, type SiteApplication } from '@shitu/api-client'
+import { errorMessage, isApiError, tenantApi, type ApplicationBatchResult, type SiteApplication } from '@shitu/api-client'
 import { IconCheck } from '@shitu/ui-icons'
 import { useAuthStore } from '@/stores/auth'
 import { fmtFull, nextWorkday9, parseLocal, toLocalIso } from '@/utils/time'
@@ -10,10 +10,19 @@ import { fmtFull, nextWorkday9, parseLocal, toLocalIso } from '@/utils/time'
 /**
  * M-02「知悉并推送面试信息」：全屏表单。首次知悉（ACKNOWLEDGE）与修改面试信息（REPUSH）共用，
  * 提交后后端通过短信 + 站内信推送给求职者（C-408），可重复推送，以最后一次为准。
+ *
+ * 批量知悉：传 batch（多个报名）时同一份面试信息推送给名单里的每个人，表单和校验与单人一样；
+ * 后端逐个执行，结果（成功几人、谁没成功和原因）通过 batchDone 交给页面。
  */
-const props = defineProps<{ application: SiteApplication | null }>()
+const props = defineProps<{ application: SiteApplication | null; batch?: SiteApplication[] }>()
 const show = defineModel<boolean>('show', { required: true })
-const emit = defineEmits<{ done: [app: SiteApplication]; rejected: [e: unknown] }>()
+const emit = defineEmits<{ done: [app: SiteApplication]; batchDone: [result: ApplicationBatchResult]; rejected: [e: unknown] }>()
+/** 批量名单；空 = 单人 */
+const multi = computed(() => props.batch ?? [])
+/** 表单默认值取自哪个报名：批量时取名单第一个 */
+const lead = computed(() => multi.value[0] ?? props.application)
+/** 前 3 个人的姓名（接口返回的已是脱敏姓名），多于 3 人时后面接「等」 */
+const multiNames = computed(() => multi.value.slice(0, 3).map((a) => a.seekerName).join('、') + (multi.value.length > 3 ? ' 等' : ''))
 /** 提交被拒的原因：留在提交按钮上方，轻提示消失后还看得到 */
 const submitError = ref('')
 /** 后端业务拒绝后提交按钮置灰；改了表单内容可以再提交 */
@@ -38,18 +47,19 @@ const submitting = ref(false)
 const addressHint = ref('')
 const timeHint = ref('')
 
-const isRepush = computed(() => props.application?.allowedActions.includes('REPUSH') ?? false)
-const title = computed(() => (isRepush.value ? '修改面试信息' : '知悉并推送面试信息'))
+const isRepush = computed(() => (multi.value.length ? false : (props.application?.allowedActions.includes('REPUSH') ?? false)))
+const title = computed(() => (multi.value.length ? '批量知悉并推送面试信息' : isRepush.value ? '修改面试信息' : '知悉并推送面试信息'))
 const allDocs = computed(() => [...PRESET_DOCS, ...customDocs.value])
 
 watch(show, (v) => {
   if (v) submitError.value = ''
-  if (v && props.application) void prefill(props.application)
+  if (v && lead.value) void prefill(lead.value)
 })
 watch([form, customDocs], () => (rejected.value = false), { deep: true })
 
 async function prefill(app: SiteApplication) {
-  const existing = parseLocal(app.interviewAt)
+  const batch = multi.value
+  const existing = batch.length ? null : parseLocal(app.interviewAt)
   form.interviewAt = existing && existing.getTime() > shNowMs() ? existing : nextWorkday9()
   form.address = ''
   form.routeTips = ''
@@ -61,7 +71,7 @@ async function prefill(app: SiteApplication) {
   addressHint.value = ''
   timeHint.value = ''
   // 重新推送：带出上次推送的面试信息，只需改动变化的部分
-  const n = app.notice
+  const n = batch.length ? undefined : app.notice
   if (n) {
     form.address = n.address ?? ''
     form.routeTips = n.routeTips ?? ''
@@ -73,11 +83,16 @@ async function prefill(app: SiteApplication) {
     if (pushed) addressHint.value = `已带出 ${fmtFull(pushed)} 推送的面试信息`
     return
   }
+  // 批量且应聘的岗位不一样：不带出某一个岗位的地址，由驻场填写
+  if (batch.some((a) => a.jobId !== app.jobId)) {
+    addressHint.value = '所选求职者应聘的岗位不同，请确认面试时间和地点对所有人都适用'
+    return
+  }
   prefilling.value = true
   try {
     // 面试地点 / 所需材料默认取岗位信息，岗位取不到时退回项目地址
     const job = await tenantApi.job(app.jobId)
-    if (props.application?.applicationId !== app.applicationId) return
+    if (lead.value?.applicationId !== app.applicationId) return
     form.address = job.interviewAddress ?? ''
     if (job.interviewTimeDesc) timeHint.value = `岗位面试时间：${job.interviewTimeDesc}`
     if (job.requiredDocuments?.length) {
@@ -88,7 +103,7 @@ async function prefill(app: SiteApplication) {
   } catch {
     try {
       const project = await tenantApi.project(app.projectId)
-      if (props.application?.applicationId !== app.applicationId) return
+      if (lead.value?.applicationId !== app.applicationId) return
       form.address = [project.city, project.district, project.address].filter(Boolean).join('')
       if (form.address) addressHint.value = '已带出项目地址，可修改'
     } catch {
@@ -160,7 +175,7 @@ function addCustomDoc() {
 const PHONE_RE = /^(1\d{10}|0\d{2,3}-?\d{7,8}(-\d{1,6})?|400-?\d{3}-?\d{4})$/
 
 async function submit() {
-  const app = props.application
+  const app = lead.value
   if (!app || submitting.value) return
   if (form.interviewAt.getTime() <= shNowMs()) {
     showToast('面试时间需晚于当前时间')
@@ -178,14 +193,22 @@ async function submit() {
   submitting.value = true
   submitError.value = ''
   try {
-    const updated = await tenantApi.acknowledge(app.applicationId, {
+    const req = {
       interviewAt: toLocalIso(form.interviewAt),
       address: form.address.trim(),
       routeTips: form.routeTips.trim() || undefined,
       documents: form.documents.length ? [...form.documents] : undefined,
       contactName: form.contactName.trim() || undefined,
       contactPhone: phone || undefined,
-    })
+    }
+    if (multi.value.length) {
+      // 结果提示（成功几人、谁没成功）由页面统一给
+      const result = await tenantApi.batchAcknowledge({ applicationIds: multi.value.map((a) => a.applicationId), ...req })
+      show.value = false
+      emit('batchDone', result)
+      return
+    }
+    const updated = await tenantApi.acknowledge(app.applicationId, req)
     showSuccessToast('已推送给求职者（短信 + 站内信）')
     show.value = false
     emit('done', updated)
@@ -205,12 +228,18 @@ async function submit() {
   <van-popup v-model:show="show" position="right" class="ack-pop" :style="{ width: '100%', height: '100%' }" :close-on-popstate="true" teleport="body">
     <div class="ack">
       <van-nav-bar :title="title" left-arrow safe-area-inset-top @click-left="show = false" />
-      <div v-if="application" class="body">
-        <section class="who">
-          <div class="avatar">{{ application.seekerName.slice(0, 1) }}</div>
+      <div v-if="lead" class="body">
+        <section v-if="multi.length" class="who who--batch">
           <div class="flex1">
-            <b>{{ application.seekerName }}</b>
-            <span>{{ application.jobTitle ?? '—' }}<template v-if="application.projectName"> · {{ application.projectName }}</template></span>
+            <b>将为 {{ multi.length }} 人推送同一份面试信息</b>
+            <span>{{ multiNames }}</span>
+          </div>
+        </section>
+        <section v-else class="who">
+          <div class="avatar">{{ lead.seekerName.slice(0, 1) }}</div>
+          <div class="flex1">
+            <b>{{ lead.seekerName }}</b>
+            <span>{{ lead.jobTitle ?? '—' }}<template v-if="lead.projectName"> · {{ lead.projectName }}</template></span>
           </div>
         </section>
 
@@ -272,8 +301,8 @@ async function submit() {
 
       <div class="foot">
         <p v-if="submitError" class="bar-why err" role="status">没有提交成功：{{ submitError }}</p>
-        <van-button block type="primary" class="btn-cta" size="large" :loading="submitting" loading-text="推送中…" :disabled="!application || rejected" @click="submit">
-          {{ isRepush ? '保存并重新推送' : '确认知悉并推送' }}
+        <van-button block type="primary" class="btn-cta" size="large" :loading="submitting" loading-text="推送中…" :disabled="!lead || rejected" @click="submit">
+          {{ multi.length ? `确认知悉并推送（${multi.length} 人）` : isRepush ? '保存并重新推送' : '确认知悉并推送' }}
         </van-button>
       </div>
     </div>

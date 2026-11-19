@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { showToast } from 'vant'
 import {
   errorMessage,
   isApiError,
   tenantApi,
+  type ApplicationBatchResult,
   type ProjectView,
   type SiteApplication,
   type SiteApplicationAction,
@@ -14,6 +16,7 @@ import { IconCircleExclamationPoint, IconClipboardList, IconLock } from '@shitu/
 import AppActions from '@/components/AppActions.vue'
 import ApplicationCard from '@/components/ApplicationCard.vue'
 import { useNow } from '@/composables/useNow'
+import { has } from '@/utils/actions'
 import { STAGE_TEXT, fetchInterviewBuckets, type InterviewBuckets, type InterviewStage } from '@/utils/status'
 
 /**
@@ -168,6 +171,7 @@ async function onRefresh() {
 }
 
 watch([tab, projectId], ([, p], [, prev]) => {
+  exitBatch()
   void router.replace({ query: { ...route.query, tab: tab.value, projectId: projectId.value || undefined } })
   if (p !== prev) {
     // 换项目后角标按新项目重算
@@ -197,6 +201,77 @@ function onDone() {
   reset()
 }
 
+// ---------- 批量知悉 / 批量到厂确认 ----------
+/** 一次最多处理的人数（后端同口径） */
+const BATCH_MAX = 50
+type BatchAction = 'ACKNOWLEDGE' | 'ARRIVE'
+const BATCH: Partial<Record<TabKey, { action: BatchAction; label: string }>> = {
+  ack: { action: 'ACKNOWLEDGE', label: '批量知悉' },
+  interview: { action: 'ARRIVE', label: '批量到厂确认' },
+}
+const batch = computed(() => BATCH[tab.value] ?? null)
+/** 选择模式：卡片出勾选框，点卡片是勾选而不是进详情 */
+const selecting = ref(false)
+const picked = ref<string[]>([])
+
+/** 这张卡片能不能勾选：严格按后端 allowedActions；到厂确认还要没到过厂；后端刚拒绝过的不算 */
+function eligible(a: SiteApplication): boolean {
+  const b = batch.value
+  if (!b || !has(a, b.action) || blocked.value[a.applicationId]) return false
+  return b.action !== 'ARRIVE' || !a.arrivedAt
+}
+const eligibleRows = computed(() => rows.value.filter(eligible))
+function exitBatch() {
+  selecting.value = false
+  picked.value = []
+}
+function toggleBatch() {
+  if (selecting.value) exitBatch()
+  else selecting.value = true
+}
+function onToggle(a: SiteApplication) {
+  const b = batch.value
+  if (!b) return
+  const id = a.applicationId
+  if (picked.value.includes(id)) picked.value = picked.value.filter((x) => x !== id)
+  else if (!eligible(a)) showToast(`${a.seekerName} 当前不能${b.action === 'ARRIVE' ? '到厂确认' : '知悉推送'}`)
+  else if (picked.value.length >= BATCH_MAX) showToast(`一次最多选择 ${BATCH_MAX} 人`)
+  else picked.value = [...picked.value, id]
+}
+/** 全选已加载的可选卡片（最多 50 人）；已经全选时再点一次清空 */
+function pickAll() {
+  const all = eligibleRows.value.slice(0, BATCH_MAX).map((a) => a.applicationId)
+  if (all.length && all.length === picked.value.length && all.every((id) => picked.value.includes(id))) {
+    picked.value = []
+    return
+  }
+  picked.value = all
+  if (eligibleRows.value.length > BATCH_MAX) showToast(`一次最多选择 ${BATCH_MAX} 人，已选前 ${BATCH_MAX} 人`)
+}
+function runBatch() {
+  const b = batch.value
+  if (!b) return
+  const apps = eligibleRows.value.filter((a) => picked.value.includes(a.applicationId))
+  if (!apps.length) {
+    showToast('请先选择求职者')
+    return
+  }
+  void actions.value?.runBatch(b.action, apps)
+}
+function onBatchDone(_action: BatchAction, r: ApplicationBatchResult) {
+  const bad = r.items.filter((i) => !i.ok).map((i) => i.applicationId)
+  // 全部成功就退出选择模式；有没成功的保持选中
+  if (bad.length) picked.value = bad
+  else exitBatch()
+  onDone()
+}
+// 列表重新加载完：选中的只留还在列表里、还能选的；没有可选的了就退出选择模式
+watch(loading, (v) => {
+  if (v || !selecting.value) return
+  if (!eligibleRows.value.length) exitBatch()
+  else picked.value = picked.value.filter((id) => eligibleRows.value.some((a) => a.applicationId === id))
+})
+
 function back() {
   if (window.history.state?.back) router.back()
   else void router.replace('/')
@@ -206,7 +281,11 @@ const showBack = computed(() => route.meta.tabbar !== true)
 
 <template>
   <div class="todo">
-    <van-nav-bar title="待办清单" :left-arrow="showBack" safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
+    <van-nav-bar title="待办清单" :left-arrow="showBack" safe-area-inset-top fixed placeholder z-index="30" @click-left="back">
+      <template v-if="batch && (selecting || eligibleRows.length)" #right>
+        <button type="button" class="batch-toggle" :aria-pressed="selecting" @click.stop="toggleBatch">{{ selecting ? '退出批量' : '批量' }}</button>
+      </template>
+    </van-nav-bar>
     <van-tabs v-model:active="tab" sticky offset-top="44" shrink class="seg-tabs">
       <van-tab v-for="t in TABS" :key="t.key" :name="t.key">
         <template #title>{{ t.title }}<span v-if="tabCount(t.key) != null" class="n">{{ tabCount(t.key) }}</span></template>
@@ -238,6 +317,7 @@ const showBack = computed(() => route.meta.tabbar !== true)
         :error-text="`${errorText || '加载失败'}，点击重试`"
         :finished-text="rows.length ? '没有更多了' : ''"
         class="pad stack list"
+        :class="{ 'list--batch': selecting }"
         @load="loadMore"
       >
         <p v-if="tab === 'ack' && rows.length" class="note">
@@ -254,6 +334,10 @@ const showBack = computed(() => route.meta.tabbar !== true)
           :now="now"
           :blocked="blocked[a.applicationId]"
           detail-link
+          :selecting="selecting"
+          :checked="picked.includes(a.applicationId)"
+          :select-disabled="selecting && !eligible(a)"
+          @toggle="onToggle"
           @action="onAction"
           @more="(a) => actions?.more(a)"
         />
@@ -265,7 +349,16 @@ const showBack = computed(() => route.meta.tabbar !== true)
       </van-list>
     </van-pull-refresh>
 
-    <AppActions ref="actions" @done="onDone" @rejected="onRejected" />
+    <!-- 放在下拉刷新外面：下拉容器带 transform，里面的 fixed 会跟着它定位 -->
+    <div v-if="selecting && batch" class="bottom-bar batch-bar" role="region" aria-label="批量操作">
+      <span class="batch-n">已选 {{ picked.length }} 人</span>
+      <button type="button" class="batch-all" @click="pickAll">全选</button>
+      <span class="flex1" />
+      <van-button class="batch-cancel" @click="exitBatch">取消</van-button>
+      <van-button type="primary" class="batch-go" :disabled="!picked.length" @click="runBatch">{{ batch.label }}</van-button>
+    </div>
+
+    <AppActions ref="actions" @done="onDone" @batch-done="onBatchDone" @rejected="onRejected" />
   </div>
 </template>
 
@@ -277,4 +370,13 @@ const showBack = computed(() => route.meta.tabbar !== true)
 /* 有标签栏时底部安全区已由标签栏留出 */
 .list { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 :root.has-tabbar .list { padding-bottom: 16px; }
+/* 批量选择：底部通栏贴在标签栏上面（没有标签栏时贴底并留安全区），列表底部多留出通栏的高度 */
+.batch-toggle { min-height: 44px; padding: 0 var(--space-1); border: 0; background: none; font: inherit; font-size: var(--font-size-body); color: var(--primary-text); white-space: nowrap; }
+.batch-bar { bottom: var(--tabbar-h, 0px); display: flex; align-items: center; gap: var(--space-2); }
+:root.has-tabbar .batch-bar { padding-bottom: var(--space-2); }
+.batch-n { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--text-1); white-space: nowrap; }
+.batch-all { flex: none; min-height: 44px; padding: 0 var(--space-2); border: 0; background: none; font: inherit; font-size: var(--font-size-body); color: var(--primary-text); white-space: nowrap; }
+.batch-cancel, .batch-go { flex: none; padding: 0 var(--space-3); white-space: nowrap; }
+.list.list--batch { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+:root.has-tabbar .list.list--batch { padding-bottom: 76px; }
 </style>

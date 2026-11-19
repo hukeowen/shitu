@@ -103,6 +103,24 @@ class ReportIT extends FlowItSupport {
         assertThat(funnel.get("submitted").asLong()).isGreaterThanOrEqualTo(funnel.get("matched").asLong());
         assertThat(funnel.get("matched").asLong()).isGreaterThanOrEqualTo(funnel.get("applied").asLong());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM quiz_open WHERE user_id = ?", Long.class, userId(fresh))).as("每人每天记一次").isEqualTo(1);
+        // 每题进入 / 放弃：一个新用户（只登录、没提交过答案）做到第 3 题就走了；已提交过答案的 fresh 不算放弃
+        JsonNode before = funnel.get("steps");
+        assertThat(before.size()).as("按生效题库的题目逐题列出").isGreaterThanOrEqualTo(2);
+        long e1 = before.get(0).get("entered").asLong();
+        long e3 = before.get(2).get("entered").asLong();
+        long l3 = before.get(2).get("left").asLong();
+        String quitter = seekerLogin(phone(), null);
+        for (int seq : new int[]{1, 2, 3, 3}) {
+            data(call(post("/api/v1/seeker/quiz/step"), quitter, Map.of("seq", seq)));
+        }
+        data(call(post("/api/v1/seeker/quiz/step"), fresh, Map.of("seq", 1)));
+        assertThat(code(call(post("/api/v1/seeker/quiz/step"), quitter, Map.of("seq", 0)))).as("题号从 1 开始").isNotEqualTo("0");
+        JsonNode steps = data(call(get("/api/v1/ops/reports/quiz-funnel?days=7"), ops, null)).get("steps");
+        assertThat(steps.get(0).get("stem").asText()).isNotBlank();
+        assertThat(steps.get(0).get("entered").asLong()).as("两个人进过第 1 题").isEqualTo(e1 + 2);
+        assertThat(steps.get(2).get("entered").asLong()).as("重复上报只算一次").isEqualTo(e3 + 1);
+        assertThat(steps.get(2).get("left").asLong()).as("停在第 3 题且没提交 = 在第 3 题放弃").isEqualTo(l3 + 1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM quiz_step WHERE user_id = ?", Long.class, userId(quitter))).isEqualTo(3);
         assertThat(status(get("/api/v1/ops/reports/quiz-funnel"), c.owner(), null)).isEqualTo(403);
         String minor = seekerLogin(phone(), null);
         String kid = idCard(15);

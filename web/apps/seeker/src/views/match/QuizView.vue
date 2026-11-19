@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showDialog, showToast } from 'vant'
-import { errorMessage, isApiError, useDict, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
+import { errorMessage, isApiError, seekerApi, useDict, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
 import { IconCheck, IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useMatchSession } from '@/composables/useMatchSession'
@@ -36,6 +36,8 @@ const total = computed(() => questions.value.length)
 const step = computed(() => Math.min(match.step, Math.max(0, total.value - 1)))
 const q = computed<QuizQuestion | undefined>(() => questions.value[step.value])
 const picked = computed(() => (q.value ? match.answers[q.value.seq] : undefined))
+// 进到哪道题就上报一次（平台用来看哪道题流失最多）；上报失败不影响答题
+watch(() => q.value?.seq, (seq) => { if (seq) seekerApi.quizStep(seq).catch(() => {}) }, { immediate: true })
 const isLast = computed(() => step.value >= total.value - 1)
 const allAnswered = computed(() => questions.value.every((x) => !!match.answers[x.seq]))
 /** 题型提示用求职者能看懂的话（不说「判断题 / 切割方向」；JUDGE 题也可能有 3 个选项） */

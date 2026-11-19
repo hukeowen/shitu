@@ -678,6 +678,25 @@ export interface AcknowledgeRequest {
   contactPhone?: string
 }
 
+/** 批量知悉：同一份面试信息推送给多名求职者（1–50 个报名） */
+export interface BatchAcknowledgeRequest extends AcknowledgeRequest {
+  applicationIds: string[]
+}
+
+/** 批量操作里一个报名的结果：失败时 message 是原因 */
+export interface ApplicationBatchItem {
+  applicationId: string
+  ok: boolean
+  message?: string
+}
+
+/** 批量知悉 / 批量到厂确认的结果：逐个报名执行，单个失败不影响其他 */
+export interface ApplicationBatchResult {
+  succeeded: number
+  failed: number
+  items: ApplicationBatchItem[]
+}
+
 export interface MatchSnapshot {
   session: {
     sessionId: string
@@ -1382,6 +1401,8 @@ export interface QuizFunnel {
   submitted: number
   matched: number
   applied: number
+  /** 按生效题库逐题：entered 进到过这道题的人数；left 最远只做到这道题、之后也没提交答案的人数 */
+  steps?: { seq: number; stem: string; entered: number; left: number }[]
 }
 
 /** 实名拦截记录（P-14） */

@@ -168,6 +168,52 @@ class SeekerRequestIT extends FlowItSupport {
         assertThat(code(call(post(base + "/withdraw"), seeker2, null))).as("驻场发起的本人不能撤回").isEqualTo("SYS_4090");
     }
 
+    @Test
+    void batchAcknowledgeAndArrive() throws Exception {
+        Company c = company();
+        String job = job(c, c.projectId(), "批量操作验收岗位", 10);
+        String a1 = apply(readySeeker(null), job);
+        String a2 = apply(readySeeker(null), job);
+        String a3 = apply(readySeeker(null), job);
+        // 另一家公司的报名：批量里混进来只会让它自己失败
+        Company other = company();
+        String otherJob = job(other, other.projectId(), "别家岗位", 5);
+        String foreign = apply(readySeeker(null), otherJob);
+        data(call(post("/api/v1/tenant/applications/" + a3 + "/cancel"), c.site(), Map.of("reason", "已招满")));
+
+        String at = java.time.LocalDateTime.now().plusDays(1).withNano(0).toString();
+        JsonNode ack = data(call(post("/api/v1/tenant/applications/batch/acknowledge"), c.site(), Map.of(
+                "applicationIds", java.util.List.of(a1, a2, a3, foreign, a1), "interviewAt", at, "address", "一号门招聘中心",
+                "documents", new String[]{"身份证"})));
+        assertThat(ack.get("succeeded").asInt()).as("两条有效（重复的 id 只处理一次）").isEqualTo(2);
+        assertThat(ack.get("failed").asInt()).as("已取消的、别家公司的各失败一条").isEqualTo(2);
+        assertThat(ack.get("items").size()).isEqualTo(4);
+        for (JsonNode it : ack.get("items")) {
+            boolean expectOk = it.get("applicationId").asText().equals(a1) || it.get("applicationId").asText().equals(a2);
+            assertThat(it.get("ok").asBoolean()).as(it.toString()).isEqualTo(expectOk);
+            if (!expectOk) {
+                assertThat(it.get("message").asText()).isNotBlank();
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM application WHERE application_id IN (?, ?) AND acknowledged_at IS NOT NULL "
+                + "AND interview_address = '一号门招聘中心'", Integer.class, a1, a2)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT acknowledged_at IS NULL FROM application WHERE application_id = ?", Integer.class, foreign))
+                .as("别家公司的报名没被动到").isEqualTo(1);
+
+        JsonNode arr = data(call(post("/api/v1/tenant/applications/batch/arrive"), c.site(), Map.of("applicationIds", java.util.List.of(a1, a2, a3))));
+        assertThat(arr.get("succeeded").asInt()).isEqualTo(2);
+        assertThat(arr.get("failed").asInt()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM application WHERE application_id IN (?, ?) AND arrived_at IS NOT NULL",
+                Integer.class, a1, a2)).isEqualTo(2);
+
+        // 校验：空列表、超过 50 条、老板无权限
+        assertThat(code(call(post("/api/v1/tenant/applications/batch/arrive"), c.site(), Map.of("applicationIds", java.util.List.of()))))
+                .isNotEqualTo("0");
+        assertThat(code(call(post("/api/v1/tenant/applications/batch/arrive"), c.site(),
+                Map.of("applicationIds", java.util.Collections.nCopies(51, a1))))).isNotEqualTo("0");
+        assertThat(status(post("/api/v1/tenant/applications/batch/arrive"), c.owner(), Map.of("applicationIds", java.util.List.of(a1)))).isEqualTo(403);
+    }
+
     /** 报名 → 通过 → 确权 → 模拟签约回调 → 在岗。 */
     private void employ(Company c, String seeker, String job) throws Exception {
         String app = apply(seeker, job);

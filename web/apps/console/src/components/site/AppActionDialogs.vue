@@ -6,6 +6,7 @@ import {
   errorMessage,
   isApiError,
   tenantApi,
+  type ApplicationBatchResult,
   type LaborContractView,
   type SiteApplication,
   type SiteApplicationAction,
@@ -23,20 +24,53 @@ import { addDays, nextWorkday9, parseLocal, toLocalIso, ymd } from '@/utils/time
  * 知悉推送 / 修改面试信息、到厂确认、面试通过 / 未通过、爽约、取消、确权签约 / 重发签约。
  * 提交中按钮转圈、不能重复点；后端业务拒绝（不是断网、超时）时原因留在弹窗里、提交按钮置灰，
  * 下层入口保持可用，重新打开清掉原因；网络失败只提示、可以直接重试。
+ *
+ * 批量（待办清单）：runBatch('ACKNOWLEDGE' | 'ARRIVE', apps)。批量知悉用同一个知悉表单，一份面试信息推送给多人；
+ * 批量到厂是一个确认框。后端逐个执行，结果里失败的人和原因列在结果弹窗里，页面收到 batchDone 后刷新、保留失败的选中。
  */
+type BatchAction = 'ACKNOWLEDGE' | 'ARRIVE'
 const emit = defineEmits<{
   done: [action: SiteApplicationAction, app: SiteApplication]
+  batchDone: [action: BatchAction, result: ApplicationBatchResult]
 }>()
 const meStore = useMeStore()
 
 const PRESET_DOCS = ['身份证', '一寸照片', '银行卡', '健康证', '学历证明']
 
 /** 提交失败：轻提示写原因；后端业务拒绝才算「被拒」（断网、超时也包成 ApiError，code 为 NETWORK） */
-function failed(action: SiteApplicationAction, e: unknown): { text: string; blocked: boolean } {
+function failed(action: SiteApplicationAction, e: unknown, label: string = ACTION_LABEL[action]): { text: string; blocked: boolean } {
   const reason = errorMessage(e)
   ElMessage.error(reason)
   const blocked = isApiError(e) && e.code !== 'NETWORK'
-  return { text: `暂时不能${ACTION_LABEL[action]}：${reason}`, blocked }
+  return { text: `暂时不能${label}：${reason}`, blocked }
+}
+
+// ---------------------------------------------------------------- 批量：名单与结果
+const BATCH_LABEL: Record<BatchAction, string> = { ACKNOWLEDGE: '批量知悉', ARRIVE: '批量到厂确认' }
+/** 前 3 个人的姓名（接口返回的已是脱敏姓名），多于 3 人时后面接「等」 */
+function batchNames(apps: SiteApplication[]): string {
+  return apps.slice(0, 3).map((a) => a.seekerName).join('、') + (apps.length > 3 ? ' 等' : '')
+}
+const batchFail = reactive({
+  visible: false,
+  action: 'ACKNOWLEDGE' as BatchAction,
+  succeeded: 0,
+  rows: [] as { applicationId: string; name: string; job: string; reason: string }[],
+})
+/** 批量接口返回后：成功的轻提示，失败的逐个列出原因，通知页面刷新 */
+function finishBatch(action: BatchAction, apps: SiteApplication[], r: ApplicationBatchResult) {
+  if (r.succeeded > 0) ElMessage.success(action === 'ACKNOWLEDGE' ? `已为 ${r.succeeded} 人推送面试信息` : `已确认 ${r.succeeded} 人到厂`)
+  const bad = r.items.filter((i) => !i.ok)
+  if (bad.length) {
+    batchFail.action = action
+    batchFail.succeeded = r.succeeded
+    batchFail.rows = bad.map((i) => {
+      const a = apps.find((x) => x.applicationId === i.applicationId)
+      return { applicationId: i.applicationId, name: a?.seekerName ?? i.applicationId, job: a?.jobTitle ?? '', reason: i.message || '未处理成功' }
+    })
+    batchFail.visible = true
+  }
+  emit('batchDone', action, r)
 }
 
 // ---------------------------------------------------------------- 知悉并推送面试信息
@@ -45,6 +79,8 @@ const ack = reactive({
   saving: false,
   prefilling: false,
   app: null as SiteApplication | null,
+  /** 批量知悉的名单；空 = 单人 */
+  batch: [] as SiteApplication[],
   repush: false,
   hint: '',
   /** 提交失败的原因（留在弹窗里）；blocked = 后端拒绝，提交按钮置灰到下次打开 */
@@ -54,13 +90,14 @@ const ack = reactive({
 })
 const docOptions = computed(() => Array.from(new Set([...PRESET_DOCS, ...ack.form.documents])))
 
-async function openAck(app: SiteApplication, repush: boolean) {
+async function openAck(app: SiteApplication, repush: boolean, batch: SiteApplication[] = []) {
   ack.app = app
+  ack.batch = batch
   ack.repush = repush
   ack.hint = ''
   ack.error = ''
   ack.blocked = false
-  const existing = parseLocal(app.interviewAt)
+  const existing = batch.length ? null : parseLocal(app.interviewAt)
   ack.form.interviewAt = toLocalIso(existing && existing.getTime() > shNowMs() ? existing : nextWorkday9())
   ack.form.address = ''
   ack.form.routeTips = ''
@@ -69,7 +106,7 @@ async function openAck(app: SiteApplication, repush: boolean) {
   ack.form.contactPhone = ''
   ack.visible = true
   // 重新推送：预填上次推送的面试信息（地址 / 路线 / 材料 / 联系人），只需改动变化的部分
-  const n = app.notice
+  const n = batch.length ? undefined : app.notice
   if (n) {
     const at = parseLocal(n.interviewAt)
     if (at && at.getTime() > shNowMs()) ack.form.interviewAt = toLocalIso(at)
@@ -81,11 +118,17 @@ async function openAck(app: SiteApplication, repush: boolean) {
     ack.hint = `已带出 ${fmtDateTime(n.pushedAt)} 推送的面试信息`
     return
   }
+  // 批量且应聘的岗位不一样：不带出某一个岗位的地址，由驻场填写
+  if (batch.some((a) => a.jobId !== app.jobId)) {
+    ack.hint = '所选求职者应聘的岗位不同，请确认面试时间和地点对所有人都适用'
+    return
+  }
+  const opened = ack.batch
   ack.prefilling = true
   try {
     // 面试地点 / 所需材料默认取岗位信息
     const job = await tenantApi.job(app.jobId)
-    if (ack.app?.applicationId !== app.applicationId) return
+    if (ack.app?.applicationId !== app.applicationId || ack.batch !== opened) return
     ack.form.address = job.interviewAddress ?? ''
     if (job.requiredDocuments?.length) ack.form.documents = [...job.requiredDocuments]
     ack.hint = [job.interviewAddress ? '已带出岗位面试地址' : '', job.interviewTimeDesc ? `岗位面试时间：${job.interviewTimeDesc}` : '']
@@ -114,21 +157,30 @@ async function submitAck() {
   if (ack.saving || ack.blocked) return
   ack.saving = true
   ack.error = ''
+  const batch = ack.batch
+  const label = batch.length ? BATCH_LABEL.ACKNOWLEDGE : undefined
   try {
-    const r = await tenantApi.acknowledge(app.applicationId, {
+    const req = {
       interviewAt: f.interviewAt,
       address: f.address.trim(),
       routeTips: f.routeTips.trim() || undefined,
       documents: f.documents.length ? f.documents : undefined,
       contactName: f.contactName.trim() || undefined,
       contactPhone: f.contactPhone.trim() || undefined,
-    })
+    }
+    if (batch.length) {
+      const res = await tenantApi.batchAcknowledge({ applicationIds: batch.map((a) => a.applicationId), ...req })
+      ack.visible = false
+      finishBatch('ACKNOWLEDGE', batch, res)
+      return
+    }
+    const r = await tenantApi.acknowledge(app.applicationId, req)
     ElMessage.success(ack.repush ? '面试信息已更新并重新推送' : '已知悉，面试信息已推送给求职者')
     ack.visible = false
     emit('done', ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', r)
   } catch (e) {
     ack.saving = false
-    const r = failed(ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', e)
+    const r = failed(ack.repush ? 'REPUSH' : 'ACKNOWLEDGE', e, label)
     // 断网、超时只弹轻提示，不留原因、不置灰
     ack.error = r.blocked ? r.text : ''
     ack.blocked = r.blocked
@@ -229,7 +281,7 @@ function who(app: SiteApplication) {
  * 后端业务拒绝：框不关，原因用提醒色写在提示文字下面，确认按钮置灰；断网、超时只弹轻提示，可以直接再点确认。
  * 提示文字、按钮和原因输入与原来一致。
  */
-function boxSubmit(action: SiteApplicationAction, text: string, api: (input: string) => Promise<unknown>) {
+function boxSubmit(action: SiteApplicationAction, text: string, api: (input: string) => Promise<unknown>, label?: string) {
   const why = ref('')
   const message = () => h('div', [h('p', text), why.value ? h('p', { class: 'msgbox-why', role: 'alert' }, why.value) : null])
   const beforeClose = async (act: Action, box: MessageBoxState, done: () => void) => {
@@ -243,7 +295,7 @@ function boxSubmit(action: SiteApplicationAction, text: string, api: (input: str
       done()
     } catch (e) {
       box.confirmButtonLoading = false
-      const r = failed(action, e)
+      const r = failed(action, e, label)
       if (r.blocked) {
         why.value = r.text
         box.confirmButtonDisabled = true
@@ -318,20 +370,57 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
   }
 }
 
+/** 批量到厂确认：确认框里提交，成功后按结果提示 */
+async function batchArrive(apps: SiteApplication[]) {
+  const out: { result?: ApplicationBatchResult } = {}
+  const s = boxSubmit(
+    'ARRIVE',
+    // 「张*、李*、王* 等 30 人」 / 「张*、李* 共 2 人」
+    `确认 ${batchNames(apps)}${apps.length > 3 ? '' : ' 共'} ${apps.length} 人已到厂？`,
+    async () => {
+      out.result = await tenantApi.batchArrive(apps.map((a) => a.applicationId))
+    },
+    BATCH_LABEL.ARRIVE,
+  )
+  try {
+    await ElMessageBox.confirm(s.message, '批量到厂确认', { confirmButtonText: '确认到厂', cancelButtonText: '取消', beforeClose: s.beforeClose })
+  } catch {
+    // 取消 / 关闭框；提交失败已在框里处理
+    return
+  }
+  if (out.result) finishBatch('ARRIVE', apps, out.result)
+}
+
+/** 批量操作入口：apps 是页面上勾选的报名（1–50 个，都允许这个操作） */
+function runBatch(action: BatchAction, apps: SiteApplication[]) {
+  if (!apps.length) return
+  if (action === 'ACKNOWLEDGE') openAck(apps[0], false, [...apps])
+  else batchArrive([...apps])
+}
+
 function run(action: SiteApplicationAction, app: SiteApplication) {
   if (action === 'ACKNOWLEDGE' || action === 'REPUSH') openAck(app, action === 'REPUSH')
   else if (action === 'CONFIRM' || action === 'RESEND_CONTRACT') openConfirm(app, action === 'RESEND_CONTRACT')
   else simple(action, app)
 }
 
-defineExpose({ run })
+defineExpose({ run, runBatch })
 </script>
 
 <template>
   <!-- 知悉并推送面试信息 -->
-  <el-dialog v-model="ack.visible" :title="ack.repush ? '修改面试信息并重新推送' : '知悉并推送面试信息'" width="560px" :close-on-click-modal="false">
+  <el-dialog
+    v-model="ack.visible"
+    :title="ack.batch.length ? '批量知悉并推送面试信息' : ack.repush ? '修改面试信息并重新推送' : '知悉并推送面试信息'"
+    width="560px"
+    :close-on-click-modal="false"
+  >
     <template v-if="ack.app">
-      <div class="ctx">
+      <div v-if="ack.batch.length" class="ctx ctx--batch">
+        <b>将为 {{ ack.batch.length }} 人推送同一份面试信息</b>
+        <span class="ctx-m">{{ batchNames(ack.batch) }}</span>
+      </div>
+      <div v-else class="ctx">
         <b>{{ ack.app.seekerName }}</b>
         <span class="ctx-m">{{ fmtPhone(ack.app.phone) }}</span>
         <span class="ctx-m">{{ ack.app.jobTitle }} · {{ ack.app.projectName }}</span>
@@ -374,7 +463,23 @@ defineExpose({ run })
     <template #footer>
       <p v-if="ack.error" class="blocked-why dlg-err" role="alert">{{ ack.error }}</p>
       <el-button @click="ack.visible = false">取消</el-button>
-      <el-button type="primary" :loading="ack.saving" :disabled="ack.blocked" @click="submitAck">{{ ack.repush ? '重新推送' : '知悉并推送' }}</el-button>
+      <el-button type="primary" :loading="ack.saving" :disabled="ack.blocked" @click="submitAck">
+        {{ ack.batch.length ? `知悉并推送（${ack.batch.length} 人）` : ack.repush ? '重新推送' : '知悉并推送' }}
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 批量操作结果：没处理成功的人和原因 -->
+  <el-dialog v-model="batchFail.visible" :title="`${BATCH_LABEL[batchFail.action]}：${batchFail.rows.length} 人未成功`" width="520px" class="batch-fail-dialog" append-to-body>
+    <p class="bf-sum">成功 {{ batchFail.succeeded }} 人，未成功 {{ batchFail.rows.length }} 人。未成功的仍保持选中，可按原因处理后重试。</p>
+    <ul class="bf-list">
+      <li v-for="r in batchFail.rows" :key="r.applicationId" class="batch-fail-item">
+        <b>{{ r.name }}</b><span v-if="r.job" class="ctx-m">{{ r.job }}</span>
+        <p class="blocked-why">{{ r.reason }}</p>
+      </li>
+    </ul>
+    <template #footer>
+      <el-button type="primary" @click="batchFail.visible = false">知道了</el-button>
     </template>
   </el-dialog>
 
@@ -457,6 +562,11 @@ defineExpose({ run })
 .ctx b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .ctx-m { font-size: var(--font-size-aux); color: var(--text-2); }
 .dlg-tip { margin-bottom: var(--space-4); }
+.bf-sum { margin: 0 0 var(--space-3); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-2); }
+.bf-list { margin: 0; padding: 0; list-style: none; max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-card); }
+.batch-fail-item { padding: var(--space-2) var(--space-3); }
+.batch-fail-item + .batch-fail-item { border-top: 1px solid var(--divider); }
+.batch-fail-item b { margin-right: var(--space-2); font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .hint { font-size: var(--font-size-min); line-height: 1.6; color: var(--text-3); }
 .code { font-family: var(--font-mono); }
 .sign { display: flex; gap: var(--space-4); margin-top: var(--space-4); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-hover); }

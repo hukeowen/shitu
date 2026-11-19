@@ -57,6 +57,8 @@ import type {
   IncidentStatus,
   SiteWorkbench,
   AcknowledgeRequest,
+  BatchAcknowledgeRequest,
+  ApplicationBatchResult,
   MatchSnapshot,
   BillDispute,
   AdvanceStatus,
@@ -178,6 +180,8 @@ export const seekerApi = {
 
   /** 当前生效题库（C-302） */
   quiz: () => get<QuizView>('/seeker/quiz'),
+  /** 答题进度埋点：进到第 seq 题（只用于统计各题流失；失败不用管） */
+  quizStep: (seq: number) => post<void>('/seeker/quiz/step', { seq }),
   /** 提交答案匹配；报名锁定期抛 LC_4003（C-301） */
   match: (answers: QuizAnswer[], location?: { lng: number; lat: number }) =>
     post<MatchOutcome>('/seeker/match', { answers, lng: location?.lng, lat: location?.lat }),
@@ -337,6 +341,8 @@ export const tenantApi = {
   /** 知悉并推送面试信息（可重复推送） */
   acknowledge: (applicationId: string, req: AcknowledgeRequest) =>
     post<SiteApplication>(`/tenant/applications/${applicationId}/acknowledge`, req),
+  /** 批量知悉并推送同一份面试信息（1–50 个报名；逐个执行，单个失败不影响其他） */
+  batchAcknowledge: (req: BatchAcknowledgeRequest) => post<ApplicationBatchResult>('/tenant/applications/batch/acknowledge', req),
   messages: (params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) =>
     get<PageResult<InboxItem>>('/tenant/messages', params),
   unreadCount: () => get<number>('/tenant/messages/unread-count'),
@@ -344,6 +350,8 @@ export const tenantApi = {
 
   /** 到厂确认 */
   arrive: (applicationId: string) => post<SiteApplication>(`/tenant/applications/${applicationId}/arrive`),
+  /** 批量到厂确认（1–50 个报名；逐个执行，单个失败不影响其他） */
+  batchArrive: (applicationIds: string[]) => post<ApplicationBatchResult>('/tenant/applications/batch/arrive', { applicationIds }),
   /** 面试结果：未通过必须填 remark（LC_4004） */
   interviewResult: (applicationId: string, pass: boolean, remark?: string) =>
     post<void>(`/tenant/applications/${applicationId}/result`, { pass, remark }),

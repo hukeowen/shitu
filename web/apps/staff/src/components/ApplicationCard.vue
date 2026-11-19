@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useDict, type SiteApplication, type SiteApplicationAction } from '@shitu/api-client'
-import { IconBriefcase, IconChevronRight, IconClock, IconPhone } from '@shitu/ui-icons'
+import { IconBriefcase, IconCheck, IconChevronRight, IconClock, IconPhone } from '@shitu/ui-icons'
 import { ACTION_TEXT, CONTRACT_TONE, DOMAIN_TONE, splitActions, tagTone } from '@/utils/actions'
 import { APPLICATION_TAG, STAGE_TAG, STAGE_TEXT, URGENT_MS, appStage } from '@/utils/status'
 import { fmtDuration, fmtPhone, fmtTime, parseLocal } from '@/utils/time'
@@ -11,6 +11,9 @@ import { fmtDuration, fmtPhone, fmtTime, parseLocal } from '@/utils/time'
  * M-02 / M-03 待办卡片，从上到下：姓名、归属标签、剩余时间（没有倒计时就显示阶段：待知悉 / 待面试 / 已到厂 / 待确权，互斥，只显示一个）→ 岗位和面试时间 → 手机号（仅驻场可见完整号码）→ 「拨打」和当前阶段的主按钮。
  * 操作按钮完全由后端 allowedActions 决定（主按钮 + 「更多」）；blocked 是后端拒绝过的那个操作和原因：报名状态已经变了，
  * 除「拨打」外的操作都置灰、原因留在卡片上，刷新后重新判断。按钮放不下一行时主按钮单独占一行，文案不截断。
+ *
+ * 批量选择（待办清单）：selecting 时姓名前出勾选框，点整张卡片抛出 toggle（不跳详情），操作按钮收起；
+ * selectDisabled = 这条不能做当前的批量操作，卡片变淡、勾选框置灰。
  */
 const props = defineProps<{
   app: SiteApplication
@@ -19,8 +22,12 @@ const props = defineProps<{
   /** 详情页顶部：不放操作按钮（操作在底部通栏） */
   noActions?: boolean
   blocked?: { action: SiteApplicationAction; reason: string } | null
+  selecting?: boolean
+  checked?: boolean
+  selectDisabled?: boolean
 }>()
-const emit = defineEmits<{ action: [app: SiteApplication, action: SiteApplicationAction]; more: [app: SiteApplication] }>()
+const emit = defineEmits<{ action: [app: SiteApplication, action: SiteApplicationAction]; more: [app: SiteApplication]; toggle: [app: SiteApplication] }>()
+const linked = computed(() => props.detailLink && !props.selecting)
 const { label } = useDict()
 
 const domain = computed(() => (props.app.fromPublic ? 'PUBLIC' : 'PRIVATE'))
@@ -63,12 +70,27 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
 </script>
 
 <template>
-  <article class="acard app">
+  <article
+    class="acard app"
+    :class="{ 'app--selecting': selecting, 'app--checked': selecting && checked, 'app--disabled': selecting && selectDisabled }"
+    @click="selecting && emit('toggle', app)"
+  >
     <div class="item-hd">
       <div class="who">
-        <component :is="detailLink ? RouterLink : 'div'" :to="detailLink ? `/applications/${app.applicationId}` : undefined" class="name-link">
+        <span
+          v-if="selecting"
+          class="card-check"
+          :class="{ on: checked, off: selectDisabled }"
+          role="checkbox"
+          :aria-checked="checked ? 'true' : 'false'"
+          :aria-disabled="selectDisabled ? 'true' : undefined"
+          :aria-label="`选择 ${app.seekerName}`"
+        >
+          <IconCheck v-if="checked" :size="14" />
+        </span>
+        <component :is="linked ? RouterLink : 'div'" :to="linked ? `/applications/${app.applicationId}` : undefined" class="name-link">
           <h3>{{ app.seekerName }}</h3>
-          <IconChevronRight v-if="detailLink" :size="16" class="chev" />
+          <IconChevronRight v-if="linked" :size="16" class="chev" />
         </component>
         <span class="status-tag" :class="`status-tag--${DOMAIN_TONE[domain]}`">{{ label('DomainTag', domain) }}</span>
       </div>
@@ -91,7 +113,7 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
       <span v-if="contract && app.status === 'PENDING_CONFIRM'" class="status-tag" :class="`status-tag--${CONTRACT_TONE[contract.status] ?? 'neutral'}`">合同{{ label('ContractStatus', contract.status) }}</span>
     </p>
 
-    <div v-if="!noActions && (app.phone || acts.main.length || acts.more.length)" class="acts">
+    <div v-if="!noActions && !selecting && (app.phone || acts.main.length || acts.more.length)" class="acts">
       <van-button v-if="app.phone" class="act act--call" :url="`tel:${app.phone}`"><template #icon><IconPhone :size="18" /></template>拨打</van-button>
       <van-button v-if="acts.more.length" class="act" :disabled="!!blocked" @click="emit('more', app)">更多</van-button>
       <van-button
@@ -105,7 +127,7 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
         {{ b.text }}
       </van-button>
     </div>
-    <p v-if="!noActions && blocked" class="why" role="status">{{ blockedText }}</p>
+    <p v-if="!noActions && !selecting && blocked" class="why" role="status">{{ blockedText }}</p>
   </article>
 </template>
 
@@ -113,6 +135,13 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
 .who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex-wrap: wrap; }
 .name-link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: calc(var(--space-3) * -1) 0; color: inherit; text-decoration: none; min-width: 0; }
 .name-link .chev { flex: none; color: var(--text-3); }
+/* 批量选择：整张卡片可点；选中描主色边，不能选的变淡 */
+.app--selecting { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.app--checked { box-shadow: 0 0 0 1.5px var(--primary), var(--shadow-card); }
+.app--disabled { opacity: 0.5; cursor: not-allowed; }
+.card-check { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--text-3); border-radius: 50%; background: var(--bg-card); color: #fff; }
+.card-check.on { border-color: var(--primary); background: var(--primary); }
+.card-check.off { border-color: var(--border); background: var(--bg-page); }
 .left { flex: none; text-align: right; line-height: 1.2; }
 .left small { display: block; font-size: var(--font-size-min); color: var(--text-3); }
 .left b { display: block; margin-top: 2px; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); }

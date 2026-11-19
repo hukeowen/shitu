@@ -86,6 +86,16 @@ public class SeekerJourneyController {
         this.companies = companies;
     }
 
+    public record StepRequest(@jakarta.validation.constraints.Min(1) int seq) {
+    }
+
+    @Operation(summary = "答题进度埋点：进到第 seq 题（只用于统计各题流失，不影响答题）")
+    @PostMapping("/quiz/step")
+    public ApiResponse<Void> quizStep(@Valid @RequestBody StepRequest req) {
+        reports.quizStep(CurrentUser.subjectId(), req.seq());
+        return ApiResponse.ok(null);
+    }
+
     @Operation(summary = "当前生效题库（C-302）")
     @GetMapping("/quiz")
     public ApiResponse<QuizService.QuizView> quiz() {

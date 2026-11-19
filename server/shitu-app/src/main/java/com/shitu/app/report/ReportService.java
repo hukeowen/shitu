@@ -158,7 +158,45 @@ public class ReportService {
         m.put("matched", count("SELECT COUNT(DISTINCT user_id) FROM match_session WHERE started_at >= ? AND status = 'MATCHED'", Date.valueOf(from)));
         m.put("applied", count("SELECT COUNT(DISTINCT a.user_id) FROM application a JOIN match_session s ON s.session_id = a.match_session_id "
                 + "WHERE s.started_at >= ?", Date.valueOf(from)));
+        m.put("steps", quizSteps(from));
         return m;
+    }
+
+    /**
+     * 各题进入 / 放弃人数（按当前生效题库的题目列出）：进入 = 这段时间进到过这道题的人数；
+     * 放弃 = 最远只做到这道题、之后也没有提交答案的人数。
+     */
+    private List<Map<String, Object>> quizSteps(LocalDate from) {
+        Map<Integer, Long> entered = new java.util.HashMap<>();
+        jdbc.query("SELECT seq, COUNT(DISTINCT user_id) FROM quiz_step WHERE biz_date >= ? GROUP BY seq",
+                rs -> { entered.put(rs.getInt(1), rs.getLong(2)); }, Date.valueOf(from));
+        Map<Integer, Long> left = new java.util.HashMap<>();
+        jdbc.query("SELECT m.max_seq, COUNT(*) FROM (SELECT user_id, MAX(seq) AS max_seq FROM quiz_step WHERE biz_date >= ? GROUP BY user_id) m "
+                        + "WHERE NOT EXISTS (SELECT 1 FROM match_session s WHERE s.user_id = m.user_id AND s.started_at >= ?) GROUP BY m.max_seq",
+                rs -> { left.put(rs.getInt(1), rs.getLong(2)); }, Date.valueOf(from), Date.valueOf(from));
+        List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        jdbc.query("SELECT q.seq, q.stem FROM quiz_question q JOIN quiz_version v ON v.version_id = q.version_id "
+                + "WHERE v.status = 'ACTIVE' ORDER BY q.seq", rs -> {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("seq", rs.getInt(1));
+            r.put("stem", rs.getString(2));
+            r.put("entered", entered.getOrDefault(rs.getInt(1), 0L));
+            r.put("left", left.getOrDefault(rs.getInt(1), 0L));
+            rows.add(r);
+        });
+        return rows;
+    }
+
+    /** 记录「进到第 seq 题」；失败不影响答题。 */
+    public void quizStep(String userId, int seq) {
+        if (seq < 1 || seq > 50) {
+            return;
+        }
+        try {
+            jdbc.update("INSERT IGNORE INTO quiz_step (user_id, biz_date, seq) VALUES (?, ?, ?)", userId, Date.valueOf(today()), seq);
+        } catch (RuntimeException e) {
+            org.slf4j.LoggerFactory.getLogger(ReportService.class).warn("quiz_step record failed: {}", e.getMessage());
+        }
     }
 
     /** 记录「打开答题页」；失败不影响答题。 */

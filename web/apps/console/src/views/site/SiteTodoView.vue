@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage, tenantApi, type ApplicationStatus, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
+import { ElMessage, type TableInstance } from 'element-plus'
+import { errorMessage, tenantApi, type ApplicationBatchResult, type ApplicationStatus, type SiteApplication, type SiteWorkbench } from '@shitu/api-client'
 import { IconCircleExclamationPoint, IconInbox } from '@shitu/ui-icons'
 import AppActionButtons, { appActionsColWidth } from '@/components/site/AppActionButtons.vue'
 import AppActionDialogs from '@/components/site/AppActionDialogs.vue'
@@ -80,6 +81,7 @@ async function load() {
     list.value = r.records
     page.total = r.total
     ready.value = true
+    await restoreSelection()
   } catch (e) {
     loadError.value = errorMessage(e, '待办加载失败')
     ready.value = false
@@ -115,6 +117,7 @@ function setTab(t: Tab) {
   page.page = 1
 }
 watch([tab, projectId], () => {
+  clearSelection()
   page.page = 1
   router.replace({ query: { ...route.query, tab: tab.value, projectId: projectId.value || undefined } })
   load()
@@ -127,6 +130,79 @@ watch(
   },
 )
 onMounted(refresh)
+
+// ---------- 批量知悉 / 批量到厂确认 ----------
+/** 一次最多处理的人数（后端同口径） */
+const BATCH_MAX = 50
+type BatchAction = 'ACKNOWLEDGE' | 'ARRIVE'
+const BATCH: Partial<Record<Tab, { action: BatchAction; label: string }>> = {
+  ack: { action: 'ACKNOWLEDGE', label: '批量知悉' },
+  interview: { action: 'ARRIVE', label: '批量到厂确认' },
+}
+const batch = computed(() => BATCH[tab.value] ?? null)
+const table = ref<TableInstance | null>(null)
+const selected = ref<SiteApplication[]>([])
+/** 批量操作后没成功的报名：列表刷新后重新勾上 */
+let keepIds: string[] = []
+
+/** 这一行能不能勾选：严格按后端 allowedActions；到厂确认还要没到过厂 */
+function selectable(row: SiteApplication): boolean {
+  const b = batch.value
+  if (!b || !row.allowedActions.includes(b.action)) return false
+  return b.action !== 'ARRIVE' || !row.arrivedAt
+}
+/** 这一页有能勾选的行才显示勾选列（只读角色看不到） */
+const showSelect = computed(() => !!batch.value && !loadError.value && list.value.some(selectable))
+
+let trimming = false
+function onSelectionChange(rows: SiteApplication[]) {
+  // 下面取消勾选时表格会逐行再触发本函数
+  if (trimming) return
+  if (rows.length > BATCH_MAX) {
+    const keep = rows.slice(0, BATCH_MAX)
+    trimming = true
+    try {
+      for (const r of rows.slice(BATCH_MAX)) table.value?.toggleRowSelection(r, false)
+    } finally {
+      trimming = false
+    }
+    selected.value = keep
+    ElMessage.warning(`一次最多选择 ${BATCH_MAX} 人，已保留前 ${BATCH_MAX} 人`)
+    return
+  }
+  selected.value = rows
+}
+function clearSelection() {
+  keepIds = []
+  selected.value = []
+  table.value?.clearSelection()
+}
+/** 换页 / 改每页条数：选择不跨页 */
+function onPage() {
+  clearSelection()
+  load()
+}
+/** 列表换了数据后表格会清空勾选；批量操作后没成功的要保持选中 */
+async function restoreSelection() {
+  const ids = keepIds
+  keepIds = []
+  selected.value = []
+  if (!ids.length) return
+  await nextTick()
+  for (const row of list.value) if (ids.includes(row.applicationId) && selectable(row)) table.value?.toggleRowSelection(row, true)
+}
+function runBatch() {
+  const b = batch.value
+  const rows = selected.value.filter(selectable)
+  if (!b || !rows.length) return
+  dialogs.value?.runBatch(b.action, rows)
+}
+function onBatchDone(_action: BatchAction, r: ApplicationBatchResult) {
+  keepIds = r.items.filter((i) => !i.ok).map((i) => i.applicationId)
+  load()
+  loadCounts()
+  loadCancelCount()
+}
 
 function rowClass({ row }: { row: SiteApplication }) {
   const ms = remainMs(row.responseDeadline, now.value)
@@ -196,8 +272,15 @@ function openInsight(row: SiteApplication) {
           <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
         </el-select>
       </div>
+      <div v-if="batch && selected.length" class="batch-bar" role="region" aria-label="批量操作">
+        <span class="batch-n">已选 {{ selected.length }} 人</span>
+        <el-button type="primary" size="small" class="batch-go" @click="runBatch">{{ batch.label }}</el-button>
+        <el-button size="small" class="batch-clear" @click="clearSelection">取消选择</el-button>
+        <span class="t-xs">一次最多 {{ BATCH_MAX }} 人，只能勾选当前页可{{ batch.action === 'ARRIVE' ? '到厂确认' : '知悉' }}的求职者</span>
+      </div>
       <CancelRequestsTable v-if="tab === 'cancel'" ref="cancelTable" :project-id="projectId || undefined" @changed="loadCancelCount" />
-      <el-table v-else v-loading="loading" :data="loadError ? [] : list" row-key="applicationId" :row-class-name="rowClass">
+      <el-table v-else ref="table" v-loading="loading" :data="loadError ? [] : list" row-key="applicationId" :row-class-name="rowClass" @selection-change="onSelectionChange">
+        <el-table-column v-if="showSelect" key="sel" type="selection" width="44" :selectable="selectable" class-name="sel-col" />
         <el-table-column label="求职者 / 来源" min-width="136">
           <template #default="{ row }">
             <button type="button" class="person-btn" title="查看画像、匹配记录与历史报名" @click="openInsight(row)">
@@ -263,8 +346,8 @@ function openInsight(row: SiteApplication) {
           layout="total, sizes, prev, pager, next"
           background
           size="small"
-          @current-change="load"
-          @size-change="load"
+          @current-change="onPage"
+          @size-change="onPage"
         />
       </div>
     </div>
@@ -284,11 +367,14 @@ function openInsight(row: SiteApplication) {
       </section>
     </div>
 
-    <AppActionDialogs ref="dialogs" @done="refresh" />
+    <AppActionDialogs ref="dialogs" @done="refresh" @batch-done="onBatchDone" />
   </div>
 </template>
 
 <style scoped>
+.batch-bar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) 14px; border-bottom: 1px solid var(--divider); background: var(--primary-bg); }
+.batch-bar .el-button + .el-button { margin-left: 0; }
+.batch-n { margin-right: var(--space-2); font-size: var(--font-size-aux); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .person-btn { all: unset; cursor: pointer; display: block; border-radius: var(--radius-tag); }
 .person-btn:hover { opacity: 0.8; }
 .person-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

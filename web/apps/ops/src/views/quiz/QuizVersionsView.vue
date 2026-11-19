@@ -296,6 +296,20 @@ async function publish(v: QuizView) {
       </div>
     </div>
 
+    <div v-if="funnel?.steps?.length" class="card steps">
+      <div class="card__hd"><h3>各题进入 / 放弃人数</h3><span class="t-xs">近 {{ funnel.days }} 天 · 按当前生效题库 · 放弃 = 最远只做到这道题、之后也没提交答案</span></div>
+      <el-table :data="funnel.steps" size="small">
+        <el-table-column label="题号" width="70"><template #default="{ row }"><span class="tnum">第 {{ row.seq }} 题</span></template></el-table-column>
+        <el-table-column label="题目" min-width="260" show-overflow-tooltip><template #default="{ row }">{{ row.stem }}</template></el-table-column>
+        <el-table-column label="进入人数" width="110" align="right"><template #default="{ row }"><span class="tnum">{{ row.entered }}</span></template></el-table-column>
+        <el-table-column label="在此放弃" width="110" align="right"><template #default="{ row }"><span class="tnum">{{ row.left }}</span></template></el-table-column>
+        <el-table-column label="放弃率" width="110" align="right">
+          <template #default="{ row }"><span class="tnum" :class="{ 'step-hot': row.entered >= 10 && row.left / row.entered >= 0.2 }">{{ row.entered ? `${Math.round((row.left / row.entered) * 100)}%` : '—' }}</span></template>
+        </el-table-column>
+      </el-table>
+      <p v-if="funnel.steps.every((s) => s.entered === 0)" class="t-xs steps-note">这段时间还没有答题数据。数据从求职者端升级后开始记录，之前的答题不在统计里。</p>
+    </div>
+
     <div class="grid below">
       <div class="card">
         <div class="card__hd"><h3>硬性约束</h3></div>
@@ -324,6 +338,9 @@ async function publish(v: QuizView) {
 .vb-sep { color: var(--text-3); margin: 0 var(--space-2); }
 .kpis { gap: var(--space-gap); margin-bottom: var(--space-gap); }
 .funnel { margin-bottom: var(--space-gap); }
+.steps { margin-top: var(--space-gap); }
+.steps-note { padding: var(--space-3) var(--space-4); color: var(--text-3); }
+.step-hot { color: var(--danger-text); font-weight: var(--font-weight-semibold); }
 .fn-wait { height: 160px; }
 .fn-legend { margin-bottom: var(--space-2); }
 .fn-swatch { background: var(--chart-1); }
