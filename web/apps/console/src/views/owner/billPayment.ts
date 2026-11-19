@@ -15,6 +15,13 @@ export function payState(b: MonthlyBill): { label: string; tone: Tone } | null {
   return null
 }
 
+/** 应收这一边（流转分成，平台付给本公司）的进度：平台待付款 / 已到账 · 日期；账单没有应收流转费返回 null。和上面应付的付款进度互不相干 */
+export function receivableState(b: MonthlyBill): { label: string; tone: Tone } | null {
+  if (toNum(b.transferReceivable) <= 0) return null
+  if (b.receivablePaidDate) return { label: `已到账 · ${b.receivablePaidDate.slice(0, 10)}`, tone: 'success' }
+  return { label: '平台待付款', tone: 'neutral' }
+}
+
 /** 可以提交付款凭证：已下发 / 已确认、应付大于 0、没有待确认的凭证（同后端规则） */
 export function canPay(b: MonthlyBill | null): b is MonthlyBill {
   return !!b && (b.status === 'ISSUED' || b.status === 'CONFIRMED') && toNum(b.payable) > 0 && b.paymentStatus !== 'PENDING'

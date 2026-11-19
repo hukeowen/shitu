@@ -33,7 +33,7 @@ import java.util.Set;
 @Component
 public class FileFacade {
 
-    public static final Set<String> CATEGORIES = Set.of("license", "contract", "payment");
+    public static final Set<String> CATEGORIES = Set.of("license", "contract", "payment", "payout");
     private static final Duration OWNER_TTL = Duration.ofHours(24);
 
     public record Uploaded(String key, String name, long size) {
@@ -127,8 +127,9 @@ public class FileFacade {
                 .eq(ClientContract::getCompanyId, companyId).eq(ClientContract::getFileKey, key)) > 0) {
             return true;
         }
-        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM bill_payment WHERE company_id = ? AND voucher_key = ?",
-                Integer.class, companyId, key);
+        Integer n = jdbc.queryForObject("SELECT (SELECT COUNT(*) FROM bill_payment WHERE company_id = ? AND voucher_key = ?) "
+                        + "+ (SELECT COUNT(*) FROM bill_receivable_payout WHERE company_id = ? AND voucher_key = ?)",
+                Integer.class, companyId, key, companyId, key);
         return n != null && n > 0;
     }
 

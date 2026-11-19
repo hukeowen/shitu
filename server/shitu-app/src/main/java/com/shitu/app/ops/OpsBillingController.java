@@ -40,6 +40,10 @@ public class OpsBillingController {
     public record PaymentReviewRequest(String remark) {
     }
 
+    public record ReceivablePayoutRequest(@NotNull(message = "请选择付款日期") LocalDate paidDate, String bankRef, String voucherKey,
+                                          String remark) {
+    }
+
     public record CloseRequest(@NotNull CompanyStatus status, @NotBlank(message = "请填写说明") String remark) {
     }
 
@@ -48,6 +52,10 @@ public class OpsBillingController {
     private final CompanyClosureFacade closure;
     private final BillPaymentService payments;
     private final BillCollectionService collection;
+    @org.springframework.beans.factory.annotation.Autowired
+    private ReceivablePayoutService receivables;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.shitu.app.support.FileFacade files;
 
     public OpsBillingController(MonthlyBillService bills, DailyBillingService daily, CompanyClosureFacade closure,
                                 BillPaymentService payments, BillCollectionService collection) {
@@ -76,11 +84,39 @@ public class OpsBillingController {
     public ApiResponse<TenantBillDetail> detail(@PathVariable String billId) {
         MonthlyBillService.Bill b = bills.get(billId, null);
         return ApiResponse.ok(new TenantBillDetail(b, bills.days(b.companyId(), YearMonth.parse(b.billMonth())),
-                bills.disputes(billId), payments.ofBill(billId)));
+                bills.disputes(billId), payments.ofBill(billId), receivables.ofBill(billId).orElse(null),
+                receivables.payee(b.companyId()).orElse(null)));
     }
 
     public record TenantBillDetail(MonthlyBillService.Bill bill, List<MonthlyBillService.DayLine> days,
-                                   List<MonthlyBillService.Dispute> disputes, List<BillPaymentService.Payment> payments) {
+                                   List<MonthlyBillService.Dispute> disputes, List<BillPaymentService.Payment> payments,
+                                   ReceivablePayoutService.Payout receivablePayout, ReceivablePayoutService.Payee companyPayee) {
+    }
+
+    @Operation(summary = "待付款的流转分成：账单数、金额、其中还没登记收款账户的公司数")
+    @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
+    @GetMapping("/receivables-summary")
+    public ApiResponse<ReceivablePayoutService.Summary> receivablesSummary() {
+        return ApiResponse.ok(receivables.summary());
+    }
+
+    @Operation(summary = "登记流转分成已付款（平台 → 来源公司；一张账单一次付清）")
+    @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
+    @PostMapping("/bills/{billId}/receivable-payout")
+    public ApiResponse<ReceivablePayoutService.Payout> receivablePayout(@PathVariable String billId, @Valid @RequestBody ReceivablePayoutRequest req) {
+        String me = CurrentUser.subjectId();
+        if (req.voucherKey() != null && !req.voucherKey().isBlank()) {
+            files.checkOwned(List.of(req.voucherKey()), "ops:" + me, null);
+        }
+        return ApiResponse.ok(receivables.register(billId, new ReceivablePayoutService.PayoutCommand(req.paidDate(), req.bankRef(),
+                req.voucherKey(), req.remark()), me));
+    }
+
+    @Operation(summary = "上传付款回单（JPG / PNG / PDF，10MB 以内）")
+    @PreAuthorize("hasAnyRole('SUPER','FINANCE')")
+    @PostMapping("/files")
+    public ApiResponse<com.shitu.app.support.FileFacade.Uploaded> upload(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ApiResponse.ok(files.upload(file, "payout", "ops:" + CurrentUser.subjectId()));
     }
 
     @Operation(summary = "收款待办：待确认的付款凭证数、逾期未结清的账单数与金额")

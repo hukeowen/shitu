@@ -47,6 +47,8 @@ class BillCollectionIT {
     CompanyService companies;
     @Autowired
     FieldCipher cipher;
+    @Autowired
+    com.shitu.app.ops.ReceivablePayoutService receivables;
 
     final String tag = String.valueOf(100000 + RND.nextInt(899999));
 
@@ -152,6 +154,56 @@ class BillCollectionIT {
         assertThatThrownBy(() -> payments.submit(co3, zero, cmd("0.00"), "M-TEST")).as("应付为 0 无需付款").isInstanceOf(BizException.class);
         assertThatThrownBy(() -> payments.submit(co4, disputed, cmd("80.00"), "M-TEST")).as("异议中不能付款").isInstanceOf(BizException.class);
         assertThatThrownBy(() -> payments.submit(co3, disputed, cmd("80.00"), "M-TEST")).as("不能给别家公司的账单付款").isInstanceOf(BizException.class);
+    }
+
+    @Test
+    void receivablePayout() {
+        // 应收 240、应付 20 的账单：平台把 240 付给这家公司，和它自己的 20 付没付无关
+        String co = company("CR" + tag);
+        String bill = bill(co, "2031-03", "20.00", "0.00");
+        jdbc.update("UPDATE monthly_bill SET transfer_receivable = 240.00 WHERE bill_id = ?", bill);
+        com.shitu.app.ops.ReceivablePayoutService.PayoutCommand cmd = new com.shitu.app.ops.ReceivablePayoutService.PayoutCommand(
+                LocalDate.now(), "PAY" + tag, null, "11 月批量付款");
+
+        assertThat(bills.get(bill, co).receivablePaidDate()).isNull();
+        assertThat(bills.list(null, null, null, "RECEIVABLE_UNPAID", 1, 100).records()).extracting(MonthlyBillService.Bill::billId).contains(bill);
+        long unpaidBefore = receivables.summary().unpaidBills();
+        assertThatThrownBy(() -> receivables.register(bill, cmd, "A1001")).as("公司没登记收款账户不能付")
+                .isInstanceOf(BizException.class).hasMessageContaining("还没有登记收款账户");
+
+        // 公司登记收款账户：校验、加密存储、可修改
+        assertThatThrownBy(() -> receivables.savePayee(co, "收款测试公司", "招商银行昆山支行", "12ab", "M-OWNER")).isInstanceOf(BizException.class);
+        assertThatThrownBy(() -> receivables.savePayee(co, " ", "招商银行昆山支行", "6222000011112222", "M-OWNER")).isInstanceOf(BizException.class);
+        receivables.savePayee(co, "收款测试公司", "招商银行昆山支行", "6222 0000 1111 2222", "M-OWNER");
+        receivables.savePayee(co, "收款测试公司", "招商银行昆山支行", "6222-0000-1111-3456", "M-OWNER");
+        com.shitu.app.ops.ReceivablePayoutService.Payee payee = receivables.payee(co).orElseThrow();
+        assertThat(payee.accountNo()).as("去掉空格和横线").isEqualTo("6222000011113456");
+        assertThat(payee.accountTail()).isEqualTo("3456");
+        assertThat(jdbc.queryForObject("SELECT account_no_enc FROM company_payee WHERE company_id = ?", String.class, co))
+                .as("账号加密存储").doesNotContain("6222000011113456");
+
+        // 登记付款：金额取账单应收，快照收款账户，通知老板
+        assertThatThrownBy(() -> receivables.register(bill, new com.shitu.app.ops.ReceivablePayoutService.PayoutCommand(
+                LocalDate.now().plusDays(1), null, null, null), "A1001")).as("付款日期不能晚于今天").isInstanceOf(BizException.class);
+        int events = events(bill);
+        com.shitu.app.ops.ReceivablePayoutService.Payout p = receivables.register(bill, cmd, "A1001");
+        assertThat(p.amount()).isEqualByComparingTo("240.00");
+        assertThat(p.accountTail()).isEqualTo("3456");
+        assertThat(events(bill)).isEqualTo(events + 1);
+        assertThat(bills.get(bill, co).receivablePaidDate()).isEqualTo(LocalDate.now());
+        assertThat(bills.get(bill, co).status()).as("应收付款不影响账单的应付状态").isEqualTo("ISSUED");
+        assertThat(receivables.summary().unpaidBills()).isEqualTo(unpaidBefore - 1);
+        assertThatThrownBy(() -> receivables.register(bill, cmd, "A1001")).as("不能重复付款").isInstanceOf(BizException.class);
+        // 之后公司改了账户，付款记录里的快照不变
+        receivables.savePayee(co, "收款测试公司", "工商银行昆山支行", "9558000011119999", "M-OWNER");
+        assertThat(receivables.ofBill(bill).orElseThrow().accountTail()).isEqualTo("3456");
+
+        // 没有应收的账单、异议处理中的账单不能付
+        String noReceivable = bill(co, "2031-04", "20.00", "0.00");
+        assertThatThrownBy(() -> receivables.register(noReceivable, cmd, "A1001")).isInstanceOf(BizException.class).hasMessageContaining("没有流转应收");
+        String disputed = bill(co, "2031-05", "20.00", "0.00");
+        jdbc.update("UPDATE monthly_bill SET transfer_receivable = 80.00, status = 'DISPUTED' WHERE bill_id = ?", disputed);
+        assertThatThrownBy(() -> receivables.register(disputed, cmd, "A1001")).isInstanceOf(BizException.class).hasMessageContaining("异议");
     }
 
     // ==================================================================== fixtures

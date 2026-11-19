@@ -16,7 +16,7 @@ public final class TenantTables {
             "employment", "employment_change_log", "duty_absence", "contract", "resign_request",
             "roster_batch", "roster_row",
             "broker_case", "ai_report", "broker_recommendation", "kb_entry", "kb_query_log",
-            "stock_base", "billing_daily", "company_fee_daily", "monthly_bill", "bill_dispute", "bill_payment", "application_cancel_request",
+            "stock_base", "billing_daily", "company_fee_daily", "monthly_bill", "bill_dispute", "bill_payment", "application_cancel_request", "company_payee", "bill_receivable_payout",
             "advance_request", "advance_approval", "advance_debt_log", "advance_repayment", "payroll_batch", "payslip", "payslip_appeal",
             "incident");
 

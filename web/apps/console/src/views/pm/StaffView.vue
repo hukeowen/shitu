@@ -174,7 +174,7 @@ const opsWidth = computed(() =>
         <el-select v-model="filter.projectId" placeholder="全部项目" clearable filterable style="width: 190px" @change="onProject">
           <el-option v-for="p in projects" :key="p.projectId" :label="p.name" :value="p.projectId" />
         </el-select>
-        <el-input v-model="filter.keyword" placeholder="工号或完整手机号" clearable style="width: 180px" @keyup.enter="search" @clear="search" />
+        <el-input v-model="filter.keyword" :placeholder="isSite ? '工号 / 手机号后四位 / 完整手机号' : '工号或完整手机号'" clearable style="width: 240px" @keyup.enter="search" @clear="search" />
         <el-button @click="search">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>

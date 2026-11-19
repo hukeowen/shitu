@@ -3,7 +3,7 @@ import { IconInbox, IconCircleExclamationPoint } from '@shitu/ui-icons'
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { opsApi, useDict, type BillFlag, type BillsSummary, type BillStatus, type DailyBillingResult, type MonthlyBill } from '@shitu/api-client'
+import { opsApi, useDict, type BillFlag, type BillsSummary, type BillStatus, type DailyBillingResult, type MonthlyBill, type ReceivablesSummary } from '@shitu/api-client'
 import StatusTag from '@/components/StatusTag.vue'
 import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmInBox } from '@/composables/boxSubmit'
@@ -13,9 +13,9 @@ import { useAuthStore } from '@/stores/auth'
 import { exportList, type CsvColumn } from '@/utils/exportCsv'
 import { fmtDate, fmtMoney, todayStr } from '@/utils/format'
 import BillDrawer from './BillDrawer.vue'
-import { payState } from './billPayment'
+import { payState, receivableState } from './billPayment'
 
-/** P-10 对账管理：月账单列表、详情（每日明细 / 付款凭证确认 / 异议复核 / 直接登记结算）、重算日计费、生成并下发月账单 */
+/** P-10 对账管理：月账单列表、详情（每日明细 / 付款凭证确认 / 流转分成付款登记 / 异议复核 / 直接登记结算）、重算日计费、生成并下发月账单 */
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -26,8 +26,8 @@ const { companyName } = useCompanyNames()
 const status = ref<BillStatus | ''>('')
 const month = ref('')
 const companyId = ref('')
-/** 汇总条的筛选：有凭证待确认 / 逾期未结清；工作台「待确认付款」带 ?flag=PAYMENT_PENDING 进来 */
-const FLAGS: BillFlag[] = ['PAYMENT_PENDING', 'OVERDUE']
+/** 汇总条的筛选：有凭证待确认 / 逾期未结清 / 流转分成待付；工作台「待确认付款」「待付流转分成」带 ?flag= 进来 */
+const FLAGS: BillFlag[] = ['PAYMENT_PENDING', 'OVERDUE', 'RECEIVABLE_UNPAID']
 const flag = ref<BillFlag | ''>(FLAGS.includes(route.query.flag as BillFlag) ? (route.query.flag as BillFlag) : '')
 const list = usePagedList<MonthlyBill>((p) =>
   opsApi.bills({ ...p, status: status.value || undefined, month: month.value || undefined, companyId: companyId.value.trim() || undefined, flag: flag.value || undefined }),
@@ -44,6 +44,16 @@ async function loadSummary() {
   }
 }
 void loadSummary()
+/** 汇总条第三格：待付流转分成（平台该付给企业的应收流转费），单独一个接口；拿不到时显示「—」 */
+const receivables = ref<ReceivablesSummary | null>(null)
+async function loadReceivables() {
+  try {
+    receivables.value = await opsApi.receivablesSummary()
+  } catch {
+    receivables.value = null
+  }
+}
+void loadReceivables()
 /** 点汇总条筛选，再点一次取消 */
 function setFlag(v: BillFlag | '') {
   flag.value = flag.value === v ? '' : v
@@ -55,6 +65,7 @@ function setFlag(v: BillFlag | '') {
 function onChanged() {
   void list.load()
   void loadSummary()
+  void loadReceivables()
 }
 
 const tabs = computed(() => [{ value: '', label: '全部' }, ...options('BillStatus')])
@@ -85,6 +96,7 @@ const EXPORT_COLUMNS: CsvColumn<MonthlyBill>[] = [
   { header: '异议截止', value: (b) => b.disputeDeadline, kind: 'date' },
   { header: '结算截止', value: (b) => b.settleDeadline, kind: 'date' },
   { header: '逾期天数', value: (b) => b.overdueDays },
+  { header: '分成付款日期', value: (b) => b.receivablePaidDate, kind: 'date' },
 ]
 function doExport() {
   const q = { status: status.value || undefined, month: month.value || undefined, companyId: companyId.value.trim() || undefined, flag: flag.value || undefined }
@@ -171,7 +183,7 @@ function reset() {
     <div class="page-hd">
       <div>
         <h2>对账管理</h2>
-        <p>月账单 = 增长技术服务费 + 应付流转费（应收流转费不与应付轧差）· 下发 → 异议复核 → 企业提交付款凭证 → 确认到账结算</p>
+        <p>月账单 = 增长技术服务费 + 应付流转费（应收流转费不与应付轧差）· 下发 → 异议复核 → 企业提交付款凭证 → 确认到账结算；应收流转费（流转分成）由平台付给企业后登记</p>
       </div>
       <div class="spacer" />
       <el-button :loading="exporting" :disabled="!list.total.value" @click="doExport">导出</el-button>
@@ -179,7 +191,7 @@ function reset() {
       <el-button v-if="canIssue" type="primary" @click="openIssue">生成并下发月账单</el-button>
     </div>
 
-    <div class="grid g-2 flag-strip">
+    <div class="grid g-3 flag-strip">
       <button type="button" class="stat stat--link flag-stat" :class="{ on: flag === 'PAYMENT_PENDING' }" :aria-pressed="flag === 'PAYMENT_PENDING'" @click="setFlag('PAYMENT_PENDING')">
         <div class="stat-l">待确认付款</div>
         <div class="stat-v"><template v-if="summary">{{ summary.paymentPending }}<small>笔</small></template><template v-else>—</template></div>
@@ -189,6 +201,11 @@ function reset() {
         <div class="stat-l">逾期未结清</div>
         <div class="stat-v"><template v-if="summary">{{ summary.overdueBills }}<small>张 · 金额 {{ fmtMoney(summary.overdueAmount) }} 元</small></template><template v-else>—</template></div>
         <div class="stat-d">{{ flag === 'OVERDUE' ? '已筛选，再点一次取消' : '过了结算截止日还没结清，点击只看这些账单' }}</div>
+      </button>
+      <button type="button" class="stat stat--link flag-stat" :class="{ on: flag === 'RECEIVABLE_UNPAID' }" :aria-pressed="flag === 'RECEIVABLE_UNPAID'" @click="setFlag('RECEIVABLE_UNPAID')">
+        <div class="stat-l">待付流转分成</div>
+        <div class="stat-v"><template v-if="receivables">{{ receivables.unpaidBills }}<small>张 · 金额 {{ fmtMoney(receivables.unpaidAmount) }} 元</small></template><template v-else>—</template></div>
+        <div class="stat-d">{{ flag === 'RECEIVABLE_UNPAID' ? '已筛选，再点一次取消' : '平台该付给企业的应收流转费，点击只看这些账单' }}<span v-if="receivables && receivables.withoutPayee > 0" class="no-payee"> · 其中 {{ receivables.withoutPayee }} 家未登记收款账户</span></div>
       </button>
     </div>
     <div class="grid g-4 bill-summary">
@@ -227,7 +244,12 @@ function reset() {
         <el-table-column label="服务费" min-width="110" align="right"><template #default="{ row }"><span class="money">{{ fmtMoney(row.serviceFee) }}</span></template></el-table-column>
         <el-table-column label="应付流转费" min-width="110" align="right"><template #default="{ row }"><span class="money">{{ fmtMoney(row.transferPayable) }}</span></template></el-table-column>
         <el-table-column label="应付合计" min-width="120" align="right"><template #default="{ row }"><span class="money">{{ fmtMoney(row.payable) }}</span></template></el-table-column>
-        <el-table-column label="应收流转费" min-width="110" align="right"><template #default="{ row }"><span class="money">{{ fmtMoney(row.transferReceivable) }}</span></template></el-table-column>
+        <el-table-column label="应收流转费" min-width="140" align="right">
+          <template #default="{ row }">
+            <span class="money">{{ fmtMoney(row.transferReceivable) }}</span>
+            <div v-if="receivableState(row)" class="t-xs pay-t" :class="`pay-t--${receivableState(row)?.tone}`">{{ receivableState(row)?.label }}</div>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <StatusTag type="BillStatus" :value="row.status" />
@@ -244,7 +266,7 @@ function reset() {
         <el-table-column class-name="ops-col" label="操作" width="90" align="right" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="drawerId = row.billId">
-              {{ row.status === 'DISPUTED' ? '复核' : row.paymentStatus === 'PENDING' && row.status !== 'SETTLED' ? '确认付款' : '详情' }}
+              {{ row.status === 'DISPUTED' ? '复核' : row.paymentStatus === 'PENDING' && row.status !== 'SETTLED' ? '确认付款' : flag === 'RECEIVABLE_UNPAID' ? '登记付款' : '详情' }}
             </el-button>
           </template>
         </el-table-column>
@@ -319,6 +341,7 @@ function reset() {
 .pay-t--success { color: var(--success-text); }
 .pay-t--warning { color: var(--warning-text); }
 .pay-t--danger, .overdue { color: var(--danger-text); }
+.no-payee { color: var(--warning-text); }
 .bill-summary .money { text-align: right; font-size: var(--font-size-title); }
 .gap { margin-bottom: 14px; }
 </style>

@@ -1,4 +1,4 @@
-import type { BillPaymentStatus, MonthlyBill } from '@shitu/api-client'
+import type { BillPaymentStatus, BillStatus, MonthlyBill } from '@shitu/api-client'
 
 type Tone = 'success' | 'warning' | 'danger' | 'neutral'
 
@@ -13,4 +13,14 @@ export function payState(b: MonthlyBill): { label: string; tone: Tone } | null {
   if (b.paymentStatus === 'REJECTED') return { label: '凭证已退回', tone: 'danger' }
   if ((b.status === 'ISSUED' || b.status === 'CONFIRMED') && Number(b.payable) > 0) return { label: '待付款', tone: 'neutral' }
   return null
+}
+
+/** 流转分成（应收流转费）能登记付款的账单状态：已下发 / 已确认 / 已结算（同后端规则；已生成、异议中不行） */
+export const PAYOUT_STATUSES: readonly BillStatus[] = ['ISSUED', 'CONFIRMED', 'SETTLED']
+
+/** 应收这一边（平台付给企业的流转分成）的进度：待付分成 / 分成已付 · 日期；没有应收、账单还没下发返回 null。和上面应付的付款进度互不相干 */
+export function receivableState(b: MonthlyBill): { label: string; tone: Tone } | null {
+  if (Number(b.transferReceivable) <= 0) return null
+  if (b.receivablePaidDate) return { label: `分成已付 · ${b.receivablePaidDate.slice(0, 10)}`, tone: 'success' }
+  return b.status === 'GENERATED' ? null : { label: '待付分成', tone: 'warning' }
 }

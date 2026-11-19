@@ -259,7 +259,7 @@ const FLOWS = {
     const no = 'E2E' + st.phone.slice(-5)
     await loginStaff('13800000003')
     await ui.goto('/staff/employees')
-    await ui.fill('输入工号', no)
+    await ui.fill('工号', no)
     await ui.key('Enter', 'Enter', 13)
     await ui.idle()
     await ui.click(no)
@@ -449,7 +449,7 @@ const FLOWS = {
     if (pending() === '0') {
       await loginConsole('13800000003')
       await ui.goto('/admin/pm/staff')
-      await ui.fill('工号或完整手机号', no)
+      await ui.fill('工号', no)
       await ui.click('查询')
       await ui.click('离职', { within: no })
       await ui.see('发起离职')

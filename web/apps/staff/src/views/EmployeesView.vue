@@ -6,7 +6,7 @@ import { IconChevronRight, IconCircleExclamationPoint, IconLock, IconPhone, Icon
 import AbsencePopup from '@/components/AbsencePopup.vue'
 import { fmtPhone } from '@/utils/time'
 
-/** 在岗人员（M-15 入口）：按工号 / 完整手机号搜索，点选员工标记请假 / 旷工 */
+/** 在岗人员（M-15 入口）：按工号 / 手机号后四位（驻场）/ 完整手机号搜索，点选员工标记请假 / 旷工 */
 const router = useRouter()
 const { label } = useDict()
 const PAGE_SIZE = 20
@@ -94,7 +94,7 @@ function back() {
   <div class="emp">
     <van-nav-bar title="在岗人员" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
     <div class="sticky">
-      <van-search v-model="keyword" :placeholder="rows.length && !rows.some((r) => r.phone) ? '输入工号' : '输入工号或完整手机号'" shape="round" @search="onSearch" @clear="onClear" />
+      <van-search v-model="keyword" :placeholder="rows.length && !rows.some((r) => r.phone) ? '输入工号' : '工号 / 手机号后四位 / 完整手机号'" shape="round" @search="onSearch" @clear="onClear" />
     </div>
     <van-pull-refresh v-model="refreshing" class="pr" @refresh="onRefresh">
       <div v-if="forbidden" class="state-block">

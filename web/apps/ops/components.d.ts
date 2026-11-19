@@ -43,6 +43,7 @@ declare module 'vue' {
     ElTimeSelect: typeof import('element-plus/es')['ElTimeSelect']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     FileThumbs: typeof import('./src/components/FileThumbs.vue')['default']
+    FileUploader: typeof import('./src/components/FileUploader.vue')['default']
     FileViewButton: typeof import('./src/components/FileViewButton.vue')['default']
     OneTimePasswordDialog: typeof import('./src/components/OneTimePasswordDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

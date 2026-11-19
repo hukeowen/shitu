@@ -2,14 +2,15 @@
 import { IconInbox, IconCircleExclamationPoint, IconInfo } from '@shitu/ui-icons'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { errorMessage, opsApi, type BillDayLine, type BillDetail, type BillDispute, type BillPayment } from '@shitu/api-client'
+import { errorMessage, opsApi, type BillDayLine, type BillDispute, type BillPayment, type OpsBillDetail } from '@shitu/api-client'
 import FileThumbs from '@/components/FileThumbs.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmInBox, isBlocked, remarkInBox } from '@/composables/boxSubmit'
 import { exportList, type CsvColumn } from '@/utils/exportCsv'
-import { fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtOperator } from '@/utils/format'
-import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from './billPayment'
+import { copyText, fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtOperator } from '@/utils/format'
+import ReceivablePayoutDialog from './ReceivablePayoutDialog.vue'
+import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, PAYOUT_STATUSES } from './billPayment'
 
 const props = defineProps<{ billId: string | null }>()
 const emit = defineEmits<{ close: []; changed: [] }>()
@@ -22,7 +23,7 @@ const visible = computed({
   },
 })
 
-const detail = ref<BillDetail | null>(null)
+const detail = ref<OpsBillDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
 const acting = ref(false)
@@ -126,6 +127,33 @@ async function rejectPayment(p: BillPayment) {
   } finally { acting.value = false }
 }
 
+// ---------- 流转分成付款：平台把应收流转费付给企业（和企业付平台的应付互不相干），线下转账后在这里登记
+const hasReceivable = computed(() => Number(b.value?.transferReceivable) > 0)
+const payout = computed(() => detail.value?.receivablePayout ?? null)
+const companyPayee = computed(() => detail.value?.companyPayee ?? null)
+const payeeRows = computed(() => {
+  const p = companyPayee.value
+  return p ? [{ label: '户名', value: p.accountName }, { label: '开户行', value: p.bankName }, { label: '账号', value: p.accountNo }] : []
+})
+/** 现在不能登记付款的原因（同后端规则）；空串 = 可以登记 */
+const payoutBlocked = computed(() => {
+  if (!b.value) return ''
+  if (b.value.status === 'GENERATED') return '账单还没有下发，下发后才能登记付款'
+  if (b.value.status === 'DISPUTED') return '账单在异议中，异议处理完后才能登记付款'
+  if (!PAYOUT_STATUSES.includes(b.value.status)) return '账单当前状态不能登记付款'
+  if (!companyPayee.value) return '企业登记收款账户后才能登记付款'
+  return ''
+})
+const payoutDlg = ref(false)
+async function copy(label: string, value: string) {
+  if (await copyText(value)) ElMessage.success(`${label}已复制`)
+  else ElMessage.error('复制失败，请手动复制')
+}
+async function onPayoutDone() {
+  emit('changed')
+  await load()
+}
+
 // ---------- 异议复核
 const reply = reactive({ visible: false, dispute: null as BillDispute | null, accept: false, text: '', error: '', blocked: false, loading: false })
 function openReply(d: BillDispute, accept: boolean) {
@@ -214,7 +242,43 @@ async function submitReply() {
         </div>
         </section>
 
-        <section class="blk"><h3 class="blk-t">异议记录 <small>{{ detail.disputes.length }} 条</small></h3>
+        <section v-if="hasReceivable" class="blk"><h3 class="blk-t">
+          流转分成付款
+          <span class="status-tag" :class="payout ? 'status-tag--success' : 'status-tag--warning'">{{ payout ? `分成已付 · ${fmtDate(payout.paidDate)}` : '待付分成' }}</span>
+        </h3>
+        <div v-if="payout" class="pay">
+          <div class="pay-bd">
+            <dl class="desc-list">
+              <div><dt>付款金额</dt><dd class="money">{{ fmtMoney(payout.amount) }} 元</dd></div>
+              <div><dt>付款日期</dt><dd class="tnum">{{ fmtDate(payout.paidDate) }}</dd></div>
+              <div class="full"><dt>收款账户</dt><dd>{{ payout.accountName }} · {{ payout.bankName }} · 尾号 <span class="mono">{{ payout.accountTail }}</span></dd></div>
+              <div><dt>银行流水号</dt><dd class="mono">{{ payout.bankRef || '—' }}</dd></div>
+              <div><dt>登记人</dt><dd>{{ fmtOperator(payout.paidBy, '—') }}<span class="t-xs rv-by">{{ fmtDateTime(payout.createdAt) }}</span></dd></div>
+              <div v-if="payout.remark" class="full"><dt>备注</dt><dd class="pre">{{ payout.remark }}</dd></div>
+            </dl>
+            <FileThumbs v-if="payout.voucherKey" :keys="[payout.voucherKey]" label="付款回单" />
+          </div>
+        </div>
+        <template v-else>
+          <p class="t-sm due">应付给 {{ companyName(b.companyId) || b.companyId }} 的流转分成：<b class="money">{{ fmtMoney(b.transferReceivable) }} 元</b><span class="dim">（一次付清，和企业的应付合计互不抵扣）</span></p>
+          <div v-if="companyPayee" class="pay">
+            <dl class="kv-grid one payee">
+              <div v-for="it in payeeRows" :key="it.label" class="kv">
+                <dt>{{ it.label }}</dt>
+                <dd><span :class="{ mono: it.label === '账号' }">{{ it.value }}</span><el-button link type="primary" size="small" class="cp" :aria-label="`复制${it.label}`" @click="copy(it.label, it.value)">复制</el-button></dd>
+              </div>
+            </dl>
+            <p class="t-xs payee-at">企业登记的收款账户 · {{ fmtDateTime(companyPayee.updatedAt) }} 更新</p>
+          </div>
+          <div v-else class="notice-bar notice-bar--warn" role="status"><IconInfo :size="16" class="notice-bar-i" />这家公司还没有登记收款账户，暂时无法付款。请联系对方在公司后台「费用账单」页登记收款账户。</div>
+          <div class="d-acts payout-acts">
+            <el-button size="small" type="primary" :disabled="!!payoutBlocked" @click="payoutDlg = true">登记已付款</el-button>
+            <span v-if="payoutBlocked" class="t-xs">{{ payoutBlocked }}</span>
+          </div>
+        </template>
+        </section>
+
+        <section class="blk"><h3 class="blk-t">异议记录<small>{{ detail.disputes.length }} 条</small></h3>
         <el-empty v-if="detail.disputes.length === 0" :image-size="48"><template #image><IconInbox :size="48" /></template><template #description><h3>无异议</h3><p>这张账单暂无异议记录，可刷新查看最新情况。</p></template><el-button type="primary" @click="load">刷新</el-button></el-empty>
         <ul v-else class="tl">
           <li v-for="d in detail.disputes" :key="d.id" :class="d.status === 'OPEN' ? 'now' : d.status === 'ACCEPTED' ? 'done' : 'fail'">
@@ -277,6 +341,8 @@ async function submitReply() {
         <el-button :type="reply.accept ? 'primary' : 'danger'" :class="{ 'btn-reject': !reply.accept }" :loading="reply.loading" :disabled="reply.blocked" @click="submitReply">{{ reply.accept ? '采纳' : '驳回' }}</el-button>
       </template>
     </el-dialog>
+
+    <ReceivablePayoutDialog v-model="payoutDlg" :bill="b ?? null" :company-name="b ? companyName(b.companyId) : ''" :payee="companyPayee" @done="onPayoutDone" />
   </el-drawer>
 </template>
 
@@ -299,6 +365,14 @@ async function submitReply() {
 .pay-bd .money { text-align: left; }
 .diff { margin-left: var(--space-2); font-size: var(--font-size-min); font-weight: var(--font-weight-regular); color: var(--danger-text); white-space: normal; }
 .rv-by { margin-left: var(--space-2); }
+.due { margin: 0 0 var(--space-3); color: var(--text-1); }
+.due .money { text-align: left; }
+.due .dim { margin-left: var(--space-2); }
+.payee .kv:last-child { border-bottom: 0; }
+.payee dd { display: inline-flex; align-items: center; gap: var(--space-2); }
+.cp { flex: none; }
+.payee-at { margin: var(--space-2) 0 0; }
+.payout-acts { align-items: center; margin-top: var(--space-3); }
 .gap { margin-bottom: 12px; }
 .quote { padding: 8px 10px; border-left: 3px solid var(--border); background: var(--bg-fill); margin-bottom: 10px; color: var(--text-2); white-space: pre-wrap; }
 .err { margin-top: 10px; }

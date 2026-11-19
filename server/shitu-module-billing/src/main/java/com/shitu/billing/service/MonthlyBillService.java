@@ -37,12 +37,13 @@ public class MonthlyBillService {
     public record Bill(String billId, String companyId, String billMonth, BigDecimal serviceFee, BigDecimal transferPayable,
                        BigDecimal transferReceivable, BigDecimal payable, String status, LocalDateTime issuedAt,
                        LocalDate disputeDeadline, LocalDate settleDeadline, LocalDateTime settledAt,
-                       int overdueDays, String paymentStatus) {
+                       int overdueDays, String paymentStatus, LocalDate receivablePaidDate) {
     }
 
     /** 带上最近一条付款凭证的状态（PENDING / CONFIRMED / REJECTED，没有则为 null） */
     private static final String SELECT_BILL = "SELECT b.*, (SELECT p.status FROM bill_payment p WHERE p.bill_id = b.bill_id "
-            + "ORDER BY p.id DESC LIMIT 1) AS payment_status FROM monthly_bill b";
+            + "ORDER BY p.id DESC LIMIT 1) AS payment_status, (SELECT r.paid_date FROM bill_receivable_payout r WHERE r.bill_id = b.bill_id) "
+            + "AS receivable_paid_date FROM monthly_bill b";
     /** 还没结清、需要公司付款的状态 */
     private static final String UNPAID = "b.status IN ('ISSUED','CONFIRMED')";
 
@@ -160,7 +161,7 @@ public class MonthlyBillService {
         return list(companyId, status, month, null, page, pageSize);
     }
 
-    /** @param flag PAYMENT_PENDING 有待确认的付款凭证；OVERDUE 已过结算截止日仍未结清 */
+    /** @param flag PAYMENT_PENDING 有待确认的付款凭证；OVERDUE 已过结算截止日仍未结清；RECEIVABLE_UNPAID 流转分成还没付给这家公司 */
     public PageResult<Bill> list(String companyId, String status, String month, String flag, int page, int pageSize) {
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         List<Object> args = new java.util.ArrayList<>();
@@ -181,6 +182,9 @@ public class MonthlyBillService {
         } else if ("OVERDUE".equals(flag)) {
             where.append(" AND ").append(UNPAID).append(" AND b.settle_deadline < ?");
             args.add(Date.valueOf(LocalDate.now(clock.withZone(Constants.ZONE))));
+        } else if ("RECEIVABLE_UNPAID".equals(flag)) {
+            where.append(" AND b.status IN ('ISSUED','CONFIRMED','SETTLED') AND b.transfer_receivable > 0 "
+                    + "AND NOT EXISTS (SELECT 1 FROM bill_receivable_payout r WHERE r.bill_id = b.bill_id)");
         }
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM monthly_bill b" + where, Long.class, args.toArray());
         int p = Math.max(1, page);
@@ -289,6 +293,7 @@ public class MonthlyBillService {
                 rs.getDate("dispute_deadline") == null ? null : rs.getDate("dispute_deadline").toLocalDate(),
                 rs.getDate("settle_deadline") == null ? null : rs.getDate("settle_deadline").toLocalDate(),
                 rs.getTimestamp("settled_at") == null ? null : rs.getTimestamp("settled_at").toLocalDateTime(),
-                (int) Math.max(0, overdue), rs.getString("payment_status"));
+                (int) Math.max(0, overdue), rs.getString("payment_status"),
+                rs.getDate("receivable_paid_date") == null ? null : rs.getDate("receivable_paid_date").toLocalDate());
     }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { opsApi, useDict } from '@shitu/api-client'
-import { IconBriefcase, IconBuildingComplex, IconChevronRight, IconCircleCheck, IconFileText, IconInbox, IconReceipt, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import { IconBanknote, IconBriefcase, IconBuildingComplex, IconChevronRight, IconCircleCheck, IconFileText, IconInbox, IconReceipt, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { BILLING_ROLES, MENU, PENDING_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
 import { usePendingStore } from '@/stores/pending'
@@ -18,14 +18,16 @@ const ready = computed(() => !!pending.counts && !pending.loading && !pending.er
 /** 待确认付款（超管 / 财务）：数量来自对账汇总 /ops/bills-summary，不在待办接口里；拿不到时显示「—」 */
 const canBilling = computed(() => auth.hasAnyRole(BILLING_ROLES))
 const payPending = ref<number | null>(null)
+/** 待付流转分成（平台该付给企业的应收流转费）：数量来自 /ops/receivables-summary，两个数各拿各的，一个失败不影响另一个 */
+const payoutUnpaid = ref<number | null>(null)
 const payLoading = ref(false)
 async function loadPayPending() {
   if (!canBilling.value || payLoading.value) return
   payLoading.value = true
   try {
-    payPending.value = (await opsApi.billsSummary()).paymentPending
-  } catch {
-    payPending.value = null
+    const [bills, receivables] = await Promise.allSettled([opsApi.billsSummary(), opsApi.receivablesSummary()])
+    payPending.value = bills.status === 'fulfilled' ? bills.value.paymentPending : null
+    payoutUnpaid.value = receivables.status === 'fulfilled' ? receivables.value.unpaidBills : null
   } finally {
     payLoading.value = false
   }
@@ -46,7 +48,8 @@ const auditCards = computed(() => {
 const cards = computed(() => [
   ...(canPending.value ? auditCards.value : []),
   ...(canBilling.value
-    ? [{ key: 'payments', icon: IconReceipt, title: '待确认付款', desc: '企业提交的账单付款凭证，核对银行流水后确认到账', n: payLoading.value ? undefined : payPending.value ?? undefined, unit: '笔', to: { path: '/settlement/bills', query: { flag: 'PAYMENT_PENDING' } } }]
+    ? [{ key: 'payments', icon: IconReceipt, title: '待确认付款', desc: '企业提交的账单付款凭证，核对银行流水后确认到账', n: payLoading.value ? undefined : payPending.value ?? undefined, unit: '笔', to: { path: '/settlement/bills', query: { flag: 'PAYMENT_PENDING' } } },
+      { key: 'payouts', icon: IconBanknote, title: '待付流转分成', desc: '该付给企业的应收流转费，转账后在账单上登记付款', n: payLoading.value ? undefined : payoutUnpaid.value ?? undefined, unit: '张', to: { path: '/settlement/bills', query: { flag: 'RECEIVABLE_UNPAID' } } }]
     : []),
 ])
 const allDone = computed(() => auditCards.value.every((c) => c.n === 0))

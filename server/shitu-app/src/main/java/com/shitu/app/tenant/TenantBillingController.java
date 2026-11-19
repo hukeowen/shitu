@@ -44,7 +44,11 @@ public class TenantBillingController {
 
     public record BillDetail(MonthlyBillService.Bill bill, List<MonthlyBillService.DayLine> days,
                              List<MonthlyBillService.Dispute> disputes, List<BillPaymentService.Payment> payments,
-                             BillCollectionService.Payee payee) {
+                             BillCollectionService.Payee payee, com.shitu.app.ops.ReceivablePayoutService.Payout receivablePayout) {
+    }
+
+    public record PayeeRequest(@NotBlank(message = "请填写收款户名") String accountName, @NotBlank(message = "请填写开户行") String bankName,
+                               @NotBlank(message = "请填写收款账号") String accountNo) {
     }
 
     public record PaymentRequest(@NotNull(message = "请填写付款金额") java.math.BigDecimal amount,
@@ -62,6 +66,8 @@ public class TenantBillingController {
     private BillCollectionService collection;
     @org.springframework.beans.factory.annotation.Autowired
     private FileFacade files;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.shitu.app.ops.ReceivablePayoutService receivables;
 
     public TenantBillingController(MonthlyBillService bills, ResignService resign) {
         this.bills = bills;
@@ -83,7 +89,22 @@ public class TenantBillingController {
         String cid = CurrentUser.companyId();
         MonthlyBillService.Bill b = bills.get(billId, cid);
         return ApiResponse.ok(new BillDetail(b, bills.days(cid, YearMonth.parse(b.billMonth())), bills.disputes(billId),
-                payments.ofBill(billId), collection.payee()));
+                payments.ofBill(billId), collection.payee(), receivables.ofBill(billId).orElse(null)));
+    }
+
+    @Operation(summary = "本公司收款账户（平台付流转分成时使用；没登记返回空）")
+    @PreAuthorize("hasRole('OWNER')")
+    @GetMapping("/payee")
+    public ApiResponse<com.shitu.app.ops.ReceivablePayoutService.Payee> companyPayee() {
+        return ApiResponse.ok(receivables.payee(CurrentUser.companyId()).orElse(null));
+    }
+
+    @Operation(summary = "登记 / 修改本公司收款账户")
+    @PreAuthorize("hasRole('OWNER')")
+    @org.springframework.web.bind.annotation.PutMapping("/payee")
+    public ApiResponse<com.shitu.app.ops.ReceivablePayoutService.Payee> savePayee(@Valid @RequestBody PayeeRequest req) {
+        AuthPrincipal p = CurrentUser.get();
+        return ApiResponse.ok(receivables.savePayee(p.companyId(), req.accountName(), req.bankName(), req.accountNo(), p.subjectId()));
     }
 
     @Operation(summary = "提交付款凭证（一次付清，金额须等于应付；平台确认到账后账单结清）")

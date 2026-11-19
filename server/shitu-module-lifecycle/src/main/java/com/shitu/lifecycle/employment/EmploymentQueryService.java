@@ -83,7 +83,7 @@ public class EmploymentQueryService {
         if (!s.all() && s.projectIds().isEmpty()) {
             return new PageResult<>(List.of(), 0, 1, 20);
         }
-        Set<String> keywordUsers = keyword == null || keyword.isBlank() ? null : usersByEmployeeNoOrName(keyword.trim());
+        Set<String> keywordUsers = keyword == null || keyword.isBlank() ? null : usersByEmployeeNoOrName(keyword.trim(), p, s);
         Page<Employment> pg = employments.selectPage(Pages.of(page, pageSize), new LambdaQueryWrapper<Employment>()
                 .in(!s.all(), Employment::getProjectId, s.projectIds())
                 .isNull(Boolean.TRUE.equals(active), Employment::getEndDate)
@@ -149,12 +149,28 @@ public class EmploymentQueryService {
                 .ge(DutyAbsence::getAbsenceDate, from).le(DutyAbsence::getAbsenceDate, to).orderByAsc(DutyAbsence::getAbsenceDate));
     }
 
-    private Set<String> usersByEmployeeNoOrName(String keyword) {
+    /** 按手机号后四位找人时最多在这么多名员工里比对（手机号加密存储，只能逐个解密比对） */
+    private static final int TAIL_SCAN_LIMIT = 5000;
+
+    private Set<String> usersByEmployeeNoOrName(String keyword, AuthPrincipal p, DataScope.Scope s) {
         // 姓名加密存储无法模糊查；关键字按工号精确匹配，或按完整手机号盲索引查人
         if (com.shitu.common.util.Masks.isMobile(keyword)) {
             String hash = cipher.blindIndex(keyword);
             return TenantContext.runAsSystem(() -> users.selectList(new LambdaQueryWrapper<SeekerUser>()
                     .eq(SeekerUser::getPhoneHash, hash))).stream().map(SeekerUser::getUserId).collect(Collectors.toSet());
+        }
+        // 手机号后四位：只对驻场开放（驻场本来就能看到完整手机号）。在本公司、自己负责项目的员工里逐个解密比对
+        if (keyword.matches("\\d{4}") && p.hasRole(ActorRole.SITE.name())) {
+            Set<String> candidates = employments.selectList(new LambdaQueryWrapper<Employment>()
+                            .select(Employment::getUserId).in(!s.all(), Employment::getProjectId, s.projectIds())
+                            .orderByDesc(Employment::getStartDate).last("LIMIT " + TAIL_SCAN_LIMIT))
+                    .stream().map(Employment::getUserId).collect(Collectors.toSet());
+            if (candidates.isEmpty()) {
+                return Set.of();
+            }
+            return TenantContext.runAsSystem(() -> users.selectBatchIds(candidates)).stream()
+                    .filter(u -> u.getPhoneEnc() != null && cipher.decrypt(u.getPhoneEnc()).endsWith(keyword))
+                    .map(SeekerUser::getUserId).collect(Collectors.toSet());
         }
         return Set.of();
     }

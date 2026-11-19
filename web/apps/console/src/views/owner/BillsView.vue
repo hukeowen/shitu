@@ -3,23 +3,25 @@ import { shNowMs } from '@/utils/time'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { errorMessage, tenantApi, type MonthlyBill } from '@shitu/api-client'
-import { IconArrowLeftRight, IconBanknote, IconCircleExclamationPoint, IconInfo, IconReceipt, IconWallet } from '@shitu/ui-icons'
+import { errorMessage, tenantApi, type CompanyPayee, type MonthlyBill } from '@shitu/api-client'
+import { IconArrowLeftRight, IconBanknote, IconCircleExclamationPoint, IconInfo, IconReceipt, IconTriangleExclamationPoint, IconWallet } from '@shitu/ui-icons'
 import DictTag from '@/components/DictTag.vue'
 import { boxSubmit } from '@/composables/boxSubmit'
 import { actionsColWidth } from '@/utils/actionsWidth'
 import { exportList, type CsvColumn } from '@/utils/exportCsv'
-import { fmtDate, fmtSigned } from '@/utils/format'
+import { fmtDate, fmtSigned, toNum } from '@/utils/format'
 import { enumLabel } from '@/utils/labels'
 import { parseLocal } from '@/utils/time'
 import BillDetailDrawer from './BillDetailDrawer.vue'
 import BillPayDialog from './BillPayDialog.vue'
-import { canPay, payLabel, payState } from './billPayment'
+import PayeeDialog from './PayeeDialog.vue'
+import { canPay, payLabel, payState, receivableState } from './billPayment'
 
 /**
  * A-16 费用账单（T-403，老板）：增长技术服务费 + 人才流转费应付 / 应收分开展示（不轧差）。
  * 账单下发后 5 个工作日内可提出异议（D-23，按节假日日历，截止日以后端 disputeDeadline 为准）。
  * 付款：老板线下对公转账后在账单上提交付款凭证，平台核对到账后账单结清；逾期天数以后端 overdueDays 为准。
+ * 收款：应收流转费（流转分成）由平台对公转账到本公司登记的收款账户，平台登记付款后账单上显示「已到账」。
  */
 const router = useRouter()
 const page = reactive({ page: 1, pageSize: 12, total: 0 })
@@ -49,6 +51,34 @@ async function load() {
   }
 }
 onMounted(load)
+
+// ---------- 收款账户：平台把流转分成付到这里；没登记时平台付不了
+const payee = ref<CompanyPayee | null>(null)
+const payeeLoading = ref(false)
+/** 拿到过一次结果才判断「没登记」，加载中、失败都不出提醒 */
+const payeeReady = ref(false)
+const payeeError = ref('')
+const payeeDlg = ref(false)
+async function loadPayee() {
+  payeeLoading.value = true
+  payeeError.value = ''
+  try {
+    payee.value = (await tenantApi.payee()) ?? null
+    payeeReady.value = true
+  } catch (e) {
+    payeeError.value = errorMessage(e, '收款账户加载失败')
+  } finally {
+    payeeLoading.value = false
+  }
+}
+onMounted(loadPayee)
+function onPayeeSaved(p: CompanyPayee) {
+  payee.value = p
+  payeeReady.value = true
+}
+/** 这一页账单里有平台还没付的流转分成 */
+const hasUnpaidReceivable = computed(() => list.value.some((b) => toNum(b.transferReceivable) > 0 && !b.receivablePaidDate))
+const payeeMissing = computed(() => payeeReady.value && !payee.value)
 
 /** 已下发且未过异议截止日（截止日当天仍可提） */
 function canDispute(b: MonthlyBill | null): boolean {
@@ -98,6 +128,7 @@ const EXPORT_COLUMNS: CsvColumn<MonthlyBill>[] = [
   { header: '异议截止', value: (b) => b.disputeDeadline, kind: 'date' },
   { header: '结算截止', value: (b) => b.settleDeadline, kind: 'date' },
   { header: '逾期天数', value: (b) => b.overdueDays },
+  { header: '分成付款日期', value: (b) => b.receivablePaidDate, kind: 'date' },
 ]
 function doExport() {
   return exportList({ name: '费用账单', columns: EXPORT_COLUMNS, rows: (p, pageSize) => tenantApi.bills(p, pageSize), loading: exporting })
@@ -167,7 +198,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
           <IconArrowLeftRight :size="20" class="stat-i" />
           <div class="stat-l">人才流转费（应收）</div>
           <div class="stat-v money">{{ fmtSigned(selected.transferReceivable, 'in') }}</div>
-          <div class="stat-d">流出人员 · 8 元/人/天</div>
+          <div class="stat-d">8 元/人/天<template v-if="receivableState(selected)"> · {{ receivableState(selected)?.label }}</template></div>
         </div>
         <div class="stat stat--icon stat--signal">
           <IconBanknote :size="20" class="stat-i" />
@@ -179,11 +210,34 @@ function rowClass({ row }: { row: MonthlyBill }) {
       <div class="notice-bar netting">
         <IconInfo :size="16" class="notice-bar-i" />
         <span>
-          <b>应收与应付不轧差：</b>本月应付合计 = 服务费 + 应付流转费；作为来源方的应收流转费由平台另行结算到账，不抵扣本月应付。
+          <b>应收与应付不轧差：</b>本月应付合计 = 服务费 + 应付流转费；作为来源方的应收流转费（流转分成）由平台对公转账到本公司登记的收款账户，不抵扣本月应付。
           <el-button link type="primary" class="to-ledger" @click="router.push({ path: '/circulation/ledger', query: { month: selected.billMonth } })">查看流转账本 →</el-button>
         </span>
       </div>
     </template>
+
+    <div v-if="payeeError" class="notice-bar payee-bar" role="status">
+      <IconInfo :size="16" class="notice-bar-i" />
+      <span class="payee-t"><b>收款账户</b>{{ payeeError }}</span>
+      <el-button size="small" :loading="payeeLoading" @click="loadPayee">重新加载</el-button>
+    </div>
+    <div v-else-if="payeeMissing && hasUnpaidReceivable" class="notice-bar notice-bar--warn payee-bar" role="status">
+      <IconTriangleExclamationPoint :size="16" class="notice-bar-i" />
+      <span class="payee-t"><b>还没有登记收款账户：</b>本公司有流转费应收，平台要在登记收款账户之后才能付款。</span>
+      <el-button size="small" type="primary" @click="payeeDlg = true">登记收款账户</el-button>
+    </div>
+    <div v-else-if="payeeReady" class="payee-line payee-bar">
+      <IconWallet :size="16" class="payee-i" />
+      <b class="payee-l">收款账户</b>
+      <template v-if="payee">
+        <span class="payee-t">{{ payee.accountName }} · {{ payee.bankName }} · 尾号 {{ payee.accountTail }}<span class="hint payee-hint">平台把流转分成付到这个账户</span></span>
+        <el-button link type="primary" @click="payeeDlg = true">修改</el-button>
+      </template>
+      <template v-else>
+        <span class="payee-t hint">尚未登记。有流转费应收时，平台把流转分成付到登记的收款账户</span>
+        <el-button link type="primary" @click="payeeDlg = true">登记收款账户</el-button>
+      </template>
+    </div>
 
     <div class="card tbl-card">
       <div class="card__hd"><h3>月度账单</h3><span class="hint hd-hint">每月最后一天自动生成，平台下发后进入 5 个工作日异议期；对公转账后提交付款凭证，平台确认到账即结清</span><el-button size="small" :loading="exporting" :disabled="!page.total" @click="doExport">导出</el-button></div>
@@ -198,8 +252,11 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <el-table-column label="流转费应付" min-width="110" align="right">
           <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferPayable, 'out') }}</span></template>
         </el-table-column>
-        <el-table-column label="流转费应收" min-width="110" align="right">
-          <template #default="{ row }"><span class="money">{{ fmtSigned(row.transferReceivable, 'in') }}</span></template>
+        <el-table-column label="流转费应收" min-width="136" align="right">
+          <template #default="{ row }">
+            <span class="money">{{ fmtSigned(row.transferReceivable, 'in') }}</span>
+            <div v-if="receivableState(row)" class="pay-t" :class="`pay-t--${receivableState(row)?.tone}`">{{ receivableState(row)?.label }}</div>
+          </template>
         </el-table-column>
         <el-table-column label="应付合计" min-width="110" align="right">
           <template #default="{ row }"><span class="money">{{ fmtSigned(row.payable, 'out') }}</span></template>
@@ -264,8 +321,10 @@ function rowClass({ row }: { row: MonthlyBill }) {
           <dl class="kv"><dt>结算截止</dt><dd>次月 15 日前</dd></dl>
           <dl class="kv"><dt>异议期</dt><dd>下发后 5 个工作日内（节假日顺延）</dd></dl>
           <dl class="kv"><dt>付款方式</dt><dd>对公转账后提交付款凭证</dd></dl>
+          <dl class="kv"><dt>流转分成收款</dt><dd>平台对公转账到登记的收款账户</dd></dl>
           <p class="para">按账单上的平台收款账户<b>一次付清应付合计</b>，转账后点「提交付款凭证」填写付款信息并上传回单；平台核对到账后账单变为「已结算」，凭证被退回的可以核对后重新提交。</p>
           <p class="para">过了结算截止日还没结清的账单会收到催缴提醒；<b>长期逾期未结清，公司会被自动限流</b>，结清后自动恢复。</p>
+          <p class="para">账单上的流转费应收（流转分成）由平台<b>一次付清到本公司登记的收款账户</b>，付款后账单上显示「已到账」和付款日期；它和本公司的应付互不抵扣，没有登记收款账户时平台无法付款。</p>
         </div>
       </div>
     </div>
@@ -282,6 +341,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
       @pay="drawerBill && openPay(drawerBill)"
     />
     <BillPayDialog v-model="pay.visible" :bill="payBill" @done="onPaid" />
+    <PayeeDialog v-model="payeeDlg" :payee="payee" @saved="onPayeeSaved" />
   </div>
 </template>
 
@@ -290,6 +350,14 @@ function rowClass({ row }: { row: MonthlyBill }) {
 .total { color: var(--primary-text); }
 .netting { margin-top: var(--space-gap); }
 .to-ledger { margin-left: var(--space-2); vertical-align: baseline; }
+/* 收款账户：一行，已登记 / 未登记时是普通描边条，有应收又没登记时换成提醒色提示条 */
+.payee-bar { margin-top: var(--space-gap); align-items: center; }
+.payee-line { display: flex; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-aux); line-height: 1.6; color: var(--text-1); }
+.payee-i { flex: none; color: var(--text-2); }
+.payee-l { flex: none; font-weight: var(--font-weight-semibold); }
+.payee-t { flex: 1; min-width: 0; }
+.payee-t b { margin-right: var(--space-2); }
+.payee-hint { margin-left: var(--space-3); }
 .tbl-card { margin-top: var(--space-gap); }
 .tbl-tip { margin: var(--space-3) var(--space-4) 0; }
 .hint { font-size: var(--font-size-aux); color: var(--text-3); }

@@ -3,5 +3,8 @@
 -- billPay 用第三家演示公司的账单走「提交凭证 → 退回 → 重交 → 确认到账」；
 -- opsBillDispute / opsBillSettle 用第一家演示公司的账单走「异议 → 驳回」和「直接登记结算」。
 DELETE FROM bill_payment WHERE company_id IN ('C10001', 'C10003');
+-- payout 用第一家演示公司走「登记收款账户 → 平台登记流转分成付款」
+DELETE FROM bill_receivable_payout WHERE company_id = 'C10001';
+DELETE FROM company_payee WHERE company_id = 'C10001';
 UPDATE monthly_bill SET status = 'ISSUED', settled_at = NULL WHERE company_id IN ('C10001', 'C10003') AND status = 'SETTLED';
 SELECT bill_id, company_id, bill_month, status, dispute_deadline, settle_deadline FROM monthly_bill ORDER BY company_id;

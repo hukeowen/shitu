@@ -341,7 +341,7 @@ export default (h) => {
       await h.loginStaff(site.phone)
       await ui.click('请假 / 旷工') // 工作台「更多事项」
       await ui.see('在岗人员')
-      await ui.fill('输入工号', e.no)
+      await ui.fill('工号', e.no)
       await pressEnter()
       await ui.click(e.no)
       await ui.see('请假 / 旷工标记')

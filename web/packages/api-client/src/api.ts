@@ -72,8 +72,13 @@ import type {
   RosterBatchResult,
   RosterBatch,
   MonthlyBill,
-  BillDetail,
+  OpsBillDetail,
   TenantBillDetail,
+  CompanyPayee,
+  CompanyPayeeRequest,
+  ReceivablePayout,
+  ReceivablePayoutRequest,
+  ReceivablesSummary,
   BillPayment,
   BillPaymentRequest,
   BillsSummary,
@@ -400,6 +405,9 @@ export const tenantApi = {
   /** 提交付款凭证（老板）：金额须等于应付合计，同一张账单同时只能有一笔待确认 */
   submitBillPayment: (billId: string, req: BillPaymentRequest) => post<BillPayment>(`/tenant/bills/${billId}/payments`, req),
   disputeBill: (billId: string, content: string) => post<BillDispute>(`/tenant/bills/${billId}/disputes`, { content }),
+  /** 公司收款账户（老板）：平台把流转分成付到这个账户；没登记返回 null */
+  payee: () => get<CompanyPayee | null>('/tenant/payee'),
+  savePayee: (req: CompanyPayeeRequest) => put<CompanyPayee>('/tenant/payee', req),
   /** month：YYYY-MM */
   ledger: (month: string) => get<LedgerLine[]>('/tenant/ledger', { month }),
   ledgerPeople: () => get<CirculationPerson[]>('/tenant/ledger/people'),
@@ -462,6 +470,8 @@ export const opsApi = {
 
   /** 查看文件用 fetchFileUrl(opsApi.filePath, key) */
   filePath: '/ops/files',
+  /** 上传文件（流转分成付款回单）：JPG / PNG / PDF，≤ 10MB */
+  upload: (file: File) => upload<UploadedFile>('/ops/files', file),
 
   /** 题库 P-12 */
   quizVersions: () => get<QuizView[]>('/ops/quiz/versions'),
@@ -480,7 +490,7 @@ export const opsApi = {
   /** 对账 P-10（超管 / 财务） */
   bills: (params?: { companyId?: string; status?: BillStatus; month?: string; flag?: BillFlag; page?: number; pageSize?: number }) =>
     get<PageResult<MonthlyBill>>('/ops/bills', params),
-  bill: (billId: string) => get<BillDetail>(`/ops/bills/${billId}`),
+  bill: (billId: string) => get<OpsBillDetail>(`/ops/bills/${billId}`),
   replyDispute: (disputeId: number, accept: boolean, reply: string) =>
     post<void>(`/ops/disputes/${disputeId}/reply`, { accept, reply }),
   /** 没有付款凭证时直接登记结算 */
@@ -490,6 +500,10 @@ export const opsApi = {
   confirmBillPayment: (paymentId: number, remark?: string) => post<BillPayment>(`/ops/bill-payments/${paymentId}/confirm`, { remark }),
   /** 退回凭证：原因必填，企业可重新提交 */
   rejectBillPayment: (paymentId: number, remark: string) => post<BillPayment>(`/ops/bill-payments/${paymentId}/reject`, { remark }),
+  /** 待付流转分成汇总 */
+  receivablesSummary: () => get<ReceivablesSummary>('/ops/receivables-summary'),
+  /** 登记流转分成已付款：一次付清账单的应收流转费，公司须已登记收款账户，登记后不可撤销 */
+  registerReceivablePayout: (billId: string, req: ReceivablePayoutRequest) => post<ReceivablePayout>(`/ops/bills/${billId}/receivable-payout`, req),
   /** 重算某天计费（date：yyyy-MM-dd） */
   rerunDaily: (date: string) => request<DailyBillingResult>({ method: 'POST', url: '/ops/billing/daily', params: { date } }),
   /** 生成并下发某月账单（仅超管） */

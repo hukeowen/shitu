@@ -947,6 +947,8 @@ export interface MonthlyBill {
   overdueDays: number
   /** 最近一笔付款凭证的状态；没提交过为 null */
   paymentStatus: BillPaymentStatus | null
+  /** 平台付流转分成（应收流转费）的日期 yyyy-MM-dd；还没付为 null */
+  receivablePaidDate: string | null
 }
 
 export type BillPaymentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
@@ -989,6 +991,60 @@ export interface BillPayee {
   account: string
 }
 
+/** 公司收款账户（老板登记）：平台把流转分成（应收流转费）付到这个账户 */
+export interface CompanyPayee {
+  accountName: string
+  bankName: string
+  /** 完整账号 */
+  accountNo: string
+  /** 账号后 4 位 */
+  accountTail: string
+  updatedAt: string
+}
+
+/** 户名、开户行 2–100 字；账号 8–30 位数字（空格、短横线后端会去掉） */
+export interface CompanyPayeeRequest {
+  accountName: string
+  bankName: string
+  accountNo: string
+}
+
+/** 流转分成付款记录：平台线下转账后登记，一张账单一次付清应收流转费 */
+export interface ReceivablePayout {
+  id: number
+  billId: string
+  companyId: string
+  amount: number
+  /** yyyy-MM-dd */
+  paidDate: string
+  bankRef?: string
+  /** 付款回单文件 key（选填），查看用 fetchFileUrl */
+  voucherKey?: string
+  remark?: string
+  /** 付款时的收款账户快照 */
+  accountName: string
+  bankName: string
+  accountTail: string
+  paidBy: string
+  createdAt: string
+}
+
+/** 金额固定为账单的应收流转费，不用传 */
+export interface ReceivablePayoutRequest {
+  paidDate: string
+  bankRef?: string
+  voucherKey?: string
+  remark?: string
+}
+
+/** 待付流转分成汇总 */
+export interface ReceivablesSummary {
+  unpaidBills: number
+  unpaidAmount: number
+  /** 其中还没登记收款账户的公司数 */
+  withoutPayee: number
+}
+
 /** 对账管理汇总条 */
 export interface BillsSummary {
   paymentPending: number
@@ -996,8 +1052,8 @@ export interface BillsSummary {
   overdueAmount: number
 }
 
-/** 账单列表筛选：有凭证待确认 / 逾期未结清 */
-export type BillFlag = 'PAYMENT_PENDING' | 'OVERDUE'
+/** 账单列表筛选：有凭证待确认 / 逾期未结清 / 流转分成待付（已下发、应收大于 0、还没登记付款） */
+export type BillFlag = 'PAYMENT_PENDING' | 'OVERDUE' | 'RECEIVABLE_UNPAID'
 
 export interface BillDayLine {
   bizDate: string
@@ -1027,11 +1083,18 @@ export interface BillDetail {
   disputes: BillDispute[]
   /** 付款凭证，新的在前 */
   payments: BillPayment[]
+  /** 流转分成付款记录；平台还没付为 null */
+  receivablePayout: ReceivablePayout | null
 }
 
 /** 企业端账单详情：多带平台收款账户 */
 export interface TenantBillDetail extends BillDetail {
   payee: BillPayee
+}
+
+/** 中台账单详情：多带公司登记的收款账户（完整账号，转账用）；没登记为 null */
+export interface OpsBillDetail extends BillDetail {
+  companyPayee: CompanyPayee | null
 }
 
 export interface LedgerLine {

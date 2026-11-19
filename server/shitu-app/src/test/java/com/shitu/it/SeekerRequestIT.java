@@ -36,6 +36,8 @@ class SeekerRequestIT extends FlowItSupport {
 
     @Autowired
     ESignProvider esign;
+    @Autowired
+    com.shitu.framework.crypto.FieldCipher cipher;
 
     @Test
     void cancelRequest() throws Exception {
@@ -113,6 +115,15 @@ class SeekerRequestIT extends FlowItSupport {
         employ(c, seeker, job);
         String empId = jdbc.queryForObject("SELECT employment_id FROM employment WHERE user_id = ?", String.class, user);
         assertThat(empty(data(call(get(base), seeker, null)))).isTrue();
+
+        // 人员列表按手机号后四位找人：驻场可以（本来就能看完整手机号），项目经理不行
+        String tail = cipher.decrypt(jdbc.queryForObject("SELECT phone_enc FROM `user` WHERE user_id = ?", String.class, user)).substring(7);
+        assertThat(data(call(get("/api/v1/tenant/employments?active=true&keyword=" + tail), c.site(), null)).get("records").toString())
+                .as("驻场按后四位能查到").contains(empId);
+        assertThat(data(call(get("/api/v1/tenant/employments?active=true&keyword=" + tail), c.pm(), null)).get("records").toString())
+                .as("项目经理不能按后四位查").doesNotContain(empId);
+        assertThat(data(call(get("/api/v1/tenant/employments?active=true&keyword=0000"), c.site(), null)).get("records").toString())
+                .doesNotContain(empId);
         assertThat(code(call(post(base), seeker, Map.of("resignDate", LocalDate.now().minusDays(1).toString(), "reason", "回老家"))))
                 .as("不能选过去的日期").isNotEqualTo("0");
         assertThat(code(call(post(base), seeker, Map.of("resignDate", LocalDate.now().plusDays(31).toString(), "reason", "回老家"))))

@@ -83,3 +83,21 @@ export function fmtPct(v?: number | string | null): string {
   const n = Number(v)
   return Number.isFinite(n) ? `${Math.round(n * 10000) / 100}%` : String(v)
 }
+
+/** 复制到剪贴板；非 https / 没有剪贴板权限时降级用 execCommand（同 console utils/format.ts） */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  }
+}

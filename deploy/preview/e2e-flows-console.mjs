@@ -679,7 +679,7 @@ export default (h) => {
       // ---- 调岗：项目不变，选本项目的第一个岗位
       const find = async () => {
         await ui.goto('/admin/pm/staff')
-        await ui.fill('工号或完整手机号', no)
+        await ui.fill('工号', no)
         await ui.click('查询')
         await ui.see(no)
       }

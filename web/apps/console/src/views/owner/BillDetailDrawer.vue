@@ -9,7 +9,7 @@ import { fmtDate, fmtDateTime, fmtSigned, fmtYuan, toNum } from '@/utils/format'
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from './billPayment'
 
 /**
- * 账单详情：每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 付款记录 + 异议记录。
+ * 账单详情：流转分成付款（平台付给本公司的应收流转费）+ 每日计费明细（在岗 / 存量 / 增量 / 费用、免费期）+ 付款记录 + 异议记录。
  * blockedWhy：这张账单的异议被后端拒绝过的原因（置灰「提出异议」）；canPay / payLabel：能不能提交付款凭证、按钮文字（由列表页判断）
  */
 const props = defineProps<{ billId: string | null; canDispute: boolean; blockedWhy?: string; canPay?: boolean; payLabel?: string }>()
@@ -43,6 +43,9 @@ defineExpose({ reload: () => props.billId && load(props.billId) })
 
 const days = computed(() => [...(detail.value?.days ?? [])].sort((a, b) => a.bizDate.localeCompare(b.bizDate)))
 const freeDays = computed(() => days.value.filter((d) => d.inFreePeriod).length)
+/** 流转分成（应收这一边）：有应收才出这一块；payout 是平台登记的付款记录，没付为 null */
+const hasReceivable = computed(() => toNum(detail.value?.bill.transferReceivable) > 0)
+const payout = computed(() => detail.value?.receivablePayout ?? null)
 
 /** 导出每日计费明细（抽屉里已经拿到的整月数据）；金额写正数，应付 / 应收看列名 */
 const DAY_COLUMNS: CsvColumn<BillDayLine>[] = [
@@ -101,7 +104,25 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
             <div><dt>流转费 · 应收</dt><dd class="money">{{ fmtSigned(detail.bill.transferReceivable, 'in') }}</dd></div>
             <div><dt>应付合计</dt><dd class="money total">{{ fmtSigned(detail.bill.payable, 'out') }}</dd></div>
           </dl>
-          <p class="hint fine">应付合计 = 服务费 + 应付流转费；应收流转费由平台另行结算，<b>不与应付轧差</b>。</p>
+          <p class="hint fine">应付合计 = 服务费 + 应付流转费；应收流转费（流转分成）由平台付到本公司登记的收款账户，<b>不与应付轧差</b>。</p>
+        </section>
+
+        <section v-if="hasReceivable" class="blk">
+          <h4 class="blk-t">
+            流转分成付款
+            <span class="status-tag" :class="payout ? 'status-tag--success' : 'status-tag--neutral'">{{ payout ? `已到账 · ${fmtDate(payout.paidDate)}` : '平台待付款' }}</span>
+          </h4>
+          <template v-if="payout">
+            <dl class="desc-list">
+              <div><dt>付款金额</dt><dd class="money">{{ fmtYuan(toNum(payout.amount)) }}</dd></div>
+              <div><dt>付款日期</dt><dd>{{ fmtDate(payout.paidDate) }}</dd></div>
+              <div><dt>收款账户</dt><dd>{{ payout.accountName }} · {{ payout.bankName }} · 尾号 {{ payout.accountTail }}</dd></div>
+              <div><dt>银行流水号</dt><dd class="code">{{ payout.bankRef || '—' }}</dd></div>
+              <div v-if="payout.remark" class="payout-full"><dt>备注</dt><dd>{{ payout.remark }}</dd></div>
+            </dl>
+            <p v-if="payout.voucherKey" class="payout-file"><FileLink :file-key="payout.voucherKey" label="查看付款回单" /></p>
+          </template>
+          <p v-else class="hint">本月流转分成 {{ fmtYuan(toNum(detail.bill.transferReceivable)) }}，由平台对公转账到本公司登记的收款账户；它和本公司这张账单的应付款互不影响。</p>
         </section>
 
         <section class="blk">
@@ -203,6 +224,9 @@ function summary({ columns, data }: SummaryParam): (string | VNode)[] {
 .pay-desc { margin-top: var(--space-3); }
 .pay-desc dd { word-break: break-all; }
 .pay-remark { margin: var(--space-2) 0 0; line-height: 1.6; }
+.payout-full { grid-column: 1 / -1; }
+.payout-full dd { white-space: pre-wrap; word-break: break-all; }
+.payout-file { margin: var(--space-3) 0 0; }
 .overdue { margin-left: var(--space-2); font-size: var(--font-size-aux); color: var(--danger-text); }
 </style>
 
