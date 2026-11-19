@@ -1,6 +1,7 @@
 import { request } from './http'
 import type { CancelRequestMine, MyResign } from './types'
 import type { CancelRequestRow, CancelRequestStatus } from './types'
+import type { OpsHealth } from './types'
 import type {
   FeedbackCategory,
   FeedbackRow,
@@ -577,6 +578,8 @@ export const opsApi = {
   enginePublish: (id: number) => post<EngineVersion>(`/ops/engine/versions/${id}/publish`),
 
   quizFunnel: (days: number) => get<QuizFunnel>('/ops/reports/quiz-funnel', { days }),
+  /** 系统运行状态：定时任务最近运行、通知积压、短信失败 */
+  health: () => get<OpsHealth>('/ops/health-summary'),
   kycInterceptions: (result?: string) => get<KycInterception[]>('/ops/kyc-records', { result }),
   holidays: (year: number) => get<HolidayRow[]>('/ops/holidays', { year }),
   saveHolidays: (items: { date: string; workday: boolean; name: string }[]) => post<number>('/ops/holidays', { items }),

@@ -111,7 +111,7 @@ const resignState = computed<'none' | 'pending' | 'passed' | 'refused' | 'withdr
 const byStaff = computed(() => resign.value?.source === 'STAFF')
 /** yyyy-MM-dd → X 月 X 日 */
 function monthDay(s: string | undefined) {
-  const m = /^d{4}-(d{2})-(d{2})/.exec(s ?? '')
+  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(s ?? '')
   return m ? `${Number(m[1])} 月 ${Number(m[2])} 日` : '—'
 }
 const resignOpen = ref(false)

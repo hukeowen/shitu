@@ -197,6 +197,7 @@ public class OpsTenantController {
     // ------------------------------------------------------------------ 文件
 
     @Operation(summary = "查看营业执照 / 合同等文件")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
     @GetMapping("/files")
     public ResponseEntity<InputStreamResource> file(@RequestParam String key) {
         return files.viewForOps(key);

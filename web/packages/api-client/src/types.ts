@@ -1394,6 +1394,15 @@ export interface FraudAccount {
 }
 
 /** 答题漏斗（P-12）：最近 N 天，按人去重 */
+/** 系统运行状态（运营中台工作台） */
+export interface OpsHealth {
+  jobs: { name: string; title: string; lastRunAt?: string; minutesAgo?: number; expectedEveryMinutes: number; state: 'OK' | 'LATE' | 'NEVER' }[]
+  outbox: { pending: number; stuck: number; dead: number }
+  sms: { sentToday: number; failedToday: number; deferredPending: number }
+  issues: number
+  issueTexts: string[]
+}
+
 export interface QuizFunnel {
   days: number
   from: string

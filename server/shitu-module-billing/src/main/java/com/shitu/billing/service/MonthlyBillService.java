@@ -66,6 +66,8 @@ public class MonthlyBillService {
     private final OutboxWriter outbox;
     private final AuditLogger audit;
     private final Clock clock;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.PlatformTransactionManager txManager;
 
     public MonthlyBillService(JdbcTemplate jdbc, BizIdGenerator ids, SysParams params, OutboxWriter outbox, AuditLogger audit,
                               Clock clock) {
@@ -81,8 +83,11 @@ public class MonthlyBillService {
     @SchedulerLock(name = "monthly_bill", lockAtMostFor = "PT30M")
     public void scheduled() {
         YearMonth last = YearMonth.from(LocalDate.now(clock.withZone(Constants.ZONE))).minusMonths(1);
-        generate(last);
-        issueAll(last);
+        // 定时任务线程里直接调本类方法不经过事务代理：下发要写发件箱（必须在事务里），这里显式开事务。
+        // 生成和下发各一个事务：下发失败时已生成的账单保留为「已生成」，可在中台手动下发
+        org.springframework.transaction.support.TransactionTemplate tx = new org.springframework.transaction.support.TransactionTemplate(txManager);
+        tx.executeWithoutResult(s -> generate(last));
+        tx.executeWithoutResult(s -> issueAll(last));
     }
 
     /** 汇总生成（可重复执行：只覆盖还未下发的账单）。 */
@@ -180,7 +185,7 @@ public class MonthlyBillService {
         if ("PAYMENT_PENDING".equals(flag)) {
             where.append(" AND EXISTS (SELECT 1 FROM bill_payment p WHERE p.bill_id = b.bill_id AND p.status = 'PENDING')");
         } else if ("OVERDUE".equals(flag)) {
-            where.append(" AND ").append(UNPAID).append(" AND b.settle_deadline < ?");
+            where.append(" AND ").append(UNPAID).append(" AND (b.service_fee + b.transfer_payable) > 0 AND b.settle_deadline < ?");
             args.add(Date.valueOf(LocalDate.now(clock.withZone(Constants.ZONE))));
         } else if ("RECEIVABLE_UNPAID".equals(flag)) {
             where.append(" AND b.status IN ('ISSUED','CONFIRMED','SETTLED') AND b.transfer_receivable > 0 "
@@ -240,6 +245,10 @@ public class MonthlyBillService {
         BizException.check(!LocalDate.now(clock.withZone(Constants.ZONE)).isAfter(b.disputeDeadline()),
                 ErrorCode.SYS_BAD_REQUEST, "已过异议期（" + b.disputeDeadline() + "）");
         BizException.check(content != null && !content.isBlank() && content.length() <= 1000, ErrorCode.SYS_BAD_REQUEST, "请填写异议内容");
+        jdbc.queryForList("SELECT bill_id FROM monthly_bill WHERE bill_id = ? FOR UPDATE", billId);
+        Integer pendingVoucher = jdbc.queryForObject("SELECT COUNT(*) FROM bill_payment WHERE bill_id = ? AND status = 'PENDING'", Integer.class, billId);
+        BizException.check(pendingVoucher == null || pendingVoucher == 0, ErrorCode.SYS_BAD_REQUEST,
+                "这张账单已提交付款凭证，正在等平台确认；如需提异议，请先联系平台退回凭证");
         jdbc.update("INSERT INTO bill_dispute (company_id, bill_id, content, raised_by) VALUES (?, ?, ?, ?)",
                 companyId, billId, content.trim(), memberId);
         jdbc.update("UPDATE monthly_bill SET status = 'DISPUTED', version = version + 1 WHERE bill_id = ?", billId);
@@ -284,8 +293,8 @@ public class MonthlyBillService {
         BigDecimal pay = rs.getBigDecimal("transfer_payable");
         String status = rs.getString("status");
         LocalDate settle = rs.getDate("settle_deadline") == null ? null : rs.getDate("settle_deadline").toLocalDate();
-        // 逾期天数：已下发未结清、且过了结算截止日；异议处理中的不算逾期
-        long overdue = settle != null && ("ISSUED".equals(status) || "CONFIRMED".equals(status))
+        // 逾期天数：已下发未结清、应付大于 0、且过了结算截止日；异议处理中的、应付为 0 的不算逾期
+        long overdue = settle != null && service.add(pay).signum() > 0 && ("ISSUED".equals(status) || "CONFIRMED".equals(status))
                 ? java.time.temporal.ChronoUnit.DAYS.between(settle, LocalDate.now(Constants.ZONE)) : 0;
         return new Bill(rs.getString("bill_id"), rs.getString("company_id"), rs.getString("bill_month"), service, pay,
                 rs.getBigDecimal("transfer_receivable"), service.add(pay), status,

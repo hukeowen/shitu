@@ -98,6 +98,9 @@ public class ReceivablePayoutService {
         MonthlyBillService.Bill b = bills.get(billId, null);
         BizException.check(List.of("ISSUED", "CONFIRMED", "SETTLED").contains(b.status()), ErrorCode.SYS_BAD_REQUEST,
                 "DISPUTED".equals(b.status()) ? "账单有未处理的异议，金额可能调整，处理完再付款" : "账单还没下发，金额未定");
+        LocalDate todayNow = LocalDate.now(clock.withZone(Constants.ZONE));
+        BizException.check(!"ISSUED".equals(b.status()) || b.disputeDeadline() == null || b.disputeDeadline().isBefore(todayNow),
+                ErrorCode.SYS_BAD_REQUEST, "账单还在异议期内（到 " + b.disputeDeadline() + "），金额可能调整，异议期结束后再付款");
         BizException.check(b.transferReceivable().signum() > 0, ErrorCode.SYS_BAD_REQUEST, "这张账单没有流转应收，不需要付款");
         BizException.check(ofBill(billId).isEmpty(), ErrorCode.SYS_CONFLICT, "这张账单的流转分成已经登记过付款");
         Payee p = payee(b.companyId()).orElseThrow(() ->

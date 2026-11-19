@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { opsApi, useDict } from '@shitu/api-client'
+import { opsApi, useDict, type OpsHealth } from '@shitu/api-client'
 import { IconBanknote, IconBriefcase, IconBuildingComplex, IconChevronRight, IconCircleCheck, IconFileText, IconInbox, IconReceipt, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { BILLING_ROLES, MENU, PENDING_ROLES } from '@/router/menu'
 import { useAuthStore } from '@/stores/auth'
@@ -32,9 +32,29 @@ async function loadPayPending() {
     payLoading.value = false
   }
 }
+/** 系统运行状态：后台任务有没有在正常跑。拿不到时不显示这张卡，不影响其他内容 */
+const health = ref<OpsHealth | null>(null)
+const showJobs = ref(false)
+async function loadHealth() {
+  try {
+    health.value = await opsApi.health()
+  } catch {
+    health.value = null
+  }
+}
+const JOB_STATE: Record<string, { text: string; cls: string }> = {
+  OK: { text: '正常', cls: 'status-tag--success' },
+  LATE: { text: '超时未运行', cls: 'status-tag--danger' },
+  NEVER: { text: '尚未运行', cls: '' },
+}
+function ago(m?: number) {
+  if (m == null) return '—'
+  return m < 1 ? '刚刚' : m < 120 ? `${m} 分钟前` : m < 2880 ? `${Math.floor(m / 60)} 小时前` : `${Math.floor(m / 1440)} 天前`
+}
 function refresh() {
   void pending.refresh()
   void loadPayPending()
+  void loadHealth()
 }
 
 const auditCards = computed(() => {
@@ -77,11 +97,11 @@ onMounted(refresh)
         </p>
       </div>
       <div class="spacer" />
-      <el-button v-if="canPending || canBilling" :loading="pending.loading || payLoading" @click="refresh">刷新</el-button>
+      <el-button :loading="pending.loading || payLoading" @click="refresh">刷新</el-button>
     </div>
 
     <template v-if="canPending || canBilling">
-      <div v-loading="pending.loading" class="grid kpis" :class="cards.length > 3 ? 'g-4' : 'g-3'">
+      <div v-loading="pending.loading" class="grid kpis" :style="{ gridTemplateColumns: `repeat(${Math.min(Math.max(cards.length, 3), 5)}, minmax(0, 1fr))` }">
         <router-link v-for="c in cards" :key="c.key" :to="c.to" class="stat stat--icon stat--link">
           <div class="stat-l">{{ c.title }}</div>
           <component :is="c.icon" :size="20" class="stat-i" />
@@ -103,6 +123,34 @@ onMounted(refresh)
         <span>目前没有待处理的入驻审核、合同备案和岗位审核</span>
       </div>
     </template>
+
+    <div v-if="health" class="card health">
+      <div class="card__hd">
+        <h3>系统运行状态</h3>
+        <span v-if="health.issues === 0" class="status-tag status-tag--success">运行正常</span>
+        <span v-else class="status-tag status-tag--danger">{{ health.issues }} 项需要关注</span>
+        <span class="spacer" />
+        <el-button link type="primary" @click="showJobs = !showJobs">{{ showJobs ? '收起定时任务' : '查看定时任务' }}</el-button>
+      </div>
+      <div class="card__bd">
+        <ul v-if="health.issueTexts.length" class="health-issues" role="alert">
+          <li v-for="t in health.issueTexts" :key="t"><IconTriangleExclamationPoint :size="16" />{{ t }}</li>
+        </ul>
+        <div class="health-nums">
+          <div><span>待发通知</span><b>{{ health.outbox.pending }}</b></div>
+          <div><span>积压超 10 分钟</span><b :class="{ bad: health.outbox.stuck > 0 }">{{ health.outbox.stuck }}</b></div>
+          <div><span>重试失败</span><b :class="{ bad: health.outbox.dead > 0 }">{{ health.outbox.dead }}</b></div>
+          <div><span>今日短信已发</span><b>{{ health.sms.sentToday }}</b></div>
+          <div><span>今日短信失败</span><b :class="{ bad: health.sms.failedToday > 0 }">{{ health.sms.failedToday }}</b></div>
+        </div>
+        <el-table v-if="showJobs" :data="health.jobs" size="small" class="health-jobs">
+          <el-table-column label="定时任务" min-width="220"><template #default="{ row }">{{ row.title }}</template></el-table-column>
+          <el-table-column label="最近一次运行" min-width="200"><template #default="{ row }"><span class="tnum">{{ row.lastRunAt ? fmtDateTime(row.lastRunAt) : '—' }}</span><span v-if="row.lastRunAt" class="t-xs ago">{{ ago(row.minutesAgo) }}</span></template></el-table-column>
+          <el-table-column label="状态" width="120"><template #default="{ row }"><span class="status-tag" :class="JOB_STATE[row.state]?.cls">{{ JOB_STATE[row.state]?.text }}</span></template></el-table-column>
+        </el-table>
+        <p v-if="showJobs" class="t-xs health-note">「尚未运行」多见于刚上线的新任务和每月一次的任务，到点运行后会更新。</p>
+      </div>
+    </div>
 
     <div class="card mod">
       <div class="card__hd"><h3>我的功能</h3><span class="t-xs">根据账号角色显示</span></div>
@@ -128,6 +176,18 @@ onMounted(refresh)
 
 <style scoped>
 .kpis { gap: var(--space-gap); }
+.health { margin-top: var(--space-gap); }
+.health .card__hd { gap: var(--space-2); }
+.health-issues { margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-4); list-style: none; border-radius: var(--radius-control); background: var(--danger-soft); color: var(--danger-text); font-size: var(--font-size-aux); }
+.health-issues li { display: flex; align-items: center; gap: var(--space-2); line-height: 1.9; }
+.health-nums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); }
+.health-nums div { display: flex; flex-direction: column; gap: var(--space-1); }
+.health-nums span { font-size: var(--font-size-aux); color: var(--text-3); }
+.health-nums b { font-size: var(--font-size-section); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.health-nums b.bad { color: var(--danger-text); }
+.health-jobs { margin-top: var(--space-4); }
+.health-jobs .ago { margin-left: var(--space-2); color: var(--text-3); }
+.health-note { margin: var(--space-2) 0 0; color: var(--text-3); }
 .go { display: inline-flex; align-items: center; gap: 2px; margin-top: var(--space-2); font-size: var(--font-size-min); font-weight: var(--font-weight-medium); color: var(--primary-text); }
 .pend-err, .pend-ok { margin-top: var(--space-3); align-items: center; }
 .pend-t { flex: 1; min-width: 0; }

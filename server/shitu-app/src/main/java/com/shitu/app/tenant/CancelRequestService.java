@@ -91,7 +91,7 @@ public class CancelRequestService {
 
     /** 这条报名最近的一次取消申请。 */
     public Optional<Mine> mine(String userId, String applicationId) {
-        closeStale();
+        closeStale("r.application_id = ?", applicationId);
         return jdbc.query("SELECT id, application_id, reason, status, reply, created_at, handled_at FROM application_cancel_request "
                         + "WHERE application_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1",
                 (rs, i) -> new Mine(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
@@ -103,7 +103,7 @@ public class CancelRequestService {
 
     /** @param status PENDING 待处理；为空返回最近 200 条 */
     public List<Row> list(AuthPrincipal p, String status) {
-        closeStale();
+        closeStale("r.company_id = ?", p.companyId());
         DataScope.Scope s = scope.of(p);
         return jdbc.query("SELECT r.id, r.application_id, r.user_id, u.real_name_enc, j.title, r.project_id, pr.name, a.status, r.reason, "
                         + "r.status, r.reply, m.name, r.created_at, r.handled_at FROM application_cancel_request r "
@@ -151,10 +151,10 @@ public class CancelRequestService {
                 text.isEmpty() ? null : Map.of("reply", text));
     }
 
-    /** 报名已经因为别的原因结束的，待处理申请自动关闭。 */
-    private void closeStale() {
+    /** 报名已经因为别的原因结束的，待处理申请自动关闭。只处理调用方相关的范围（某条报名 / 某家公司），走索引。 */
+    private void closeStale(String scopeSql, String scopeArg) {
         jdbc.update("UPDATE application_cancel_request r JOIN application a ON a.application_id = r.application_id "
-                + "SET r.status = 'CLOSED', r.handled_at = ? WHERE r.status = 'PENDING' AND a.status NOT IN ('PENDING_INTERVIEW', 'PENDING_CONFIRM')",
-                LocalDateTime.now(clock));
+                + "SET r.status = 'CLOSED', r.handled_at = ? WHERE r.status = 'PENDING' AND " + scopeSql
+                + " AND a.status NOT IN ('PENDING_INTERVIEW', 'PENDING_CONFIRM')", LocalDateTime.now(clock), scopeArg);
     }
 }

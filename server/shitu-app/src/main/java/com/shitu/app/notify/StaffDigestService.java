@@ -50,6 +50,8 @@ public class StaffDigestService {
     private final OutboxWriter outbox;
     private final SysParams params;
     private final Clock clock;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.PlatformTransactionManager txManager;
 
     public StaffDigestService(JdbcTemplate jdbc, OutboxWriter outbox, SysParams params, Clock clock) {
         this.jdbc = jdbc;
@@ -62,7 +64,10 @@ public class StaffDigestService {
     @SchedulerLock(name = "staff_digest_evening", lockAtMostFor = "PT10M", lockAtLeastFor = "PT5M")
     public void scheduledEvening() {
         if (enabled()) {
-            log.info("驻场晚间汇总：发出 {} 条", evening(LocalDateTime.now(clock.withZone(Constants.ZONE))));
+            // 定时任务线程里直接调本类方法不经过事务代理，发件箱又必须在事务里写：显式开事务
+            Integer n = new org.springframework.transaction.support.TransactionTemplate(txManager)
+                    .execute(s -> evening(LocalDateTime.now(clock.withZone(Constants.ZONE))));
+            log.info("驻场晚间汇总：发出 {} 条", n);
         }
     }
 
@@ -70,7 +75,9 @@ public class StaffDigestService {
     @SchedulerLock(name = "staff_digest_morning", lockAtMostFor = "PT10M", lockAtLeastFor = "PT5M")
     public void scheduledMorning() {
         if (enabled()) {
-            log.info("驻场早间汇总：发出 {} 条", morning(LocalDateTime.now(clock.withZone(Constants.ZONE))));
+            Integer n = new org.springframework.transaction.support.TransactionTemplate(txManager)
+                    .execute(s -> morning(LocalDateTime.now(clock.withZone(Constants.ZONE))));
+            log.info("驻场早间汇总：发出 {} 条", n);
         }
     }
 

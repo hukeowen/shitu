@@ -277,6 +277,28 @@ class OpsConfigIT extends FlowItSupport {
     }
 
     @Test
+    void healthSummary() throws Exception {
+        JsonNode h = data(call(get("/api/v1/ops/health-summary"), ops, null));
+        assertThat(h.get("jobs").size()).as("每个定时任务一行").isEqualTo(14);
+        assertThat(h.get("jobs").get(0).get("title").asText()).isNotBlank();
+        assertThat(h.get("outbox").has("stuck")).isTrue();
+        assertThat(h.get("sms").has("failedToday")).isTrue();
+        assertThat(h.get("issues").asInt()).isEqualTo(h.get("issueTexts").size());
+        // 一条积压超过 10 分钟的事件会被报出来
+        int before = h.get("outbox").get("stuck").asInt();
+        jdbc.update("INSERT INTO outbox_event (event_type, aggregate_type, aggregate_id, payload, status, next_attempt_at, created_at) "
+                + "VALUES ('IT_STUCK', 'IT', 'x', '{}', 'PENDING', NOW() + INTERVAL 1 DAY, NOW() - INTERVAL 1 HOUR)");
+        try {
+            JsonNode after = data(call(get("/api/v1/ops/health-summary"), ops, null));
+            assertThat(after.get("outbox").get("stuck").asInt()).isEqualTo(before + 1);
+            assertThat(after.get("issueTexts").toString()).contains("积压超过 10 分钟");
+        } finally {
+            jdbc.update("DELETE FROM outbox_event WHERE event_type = 'IT_STUCK'");
+        }
+        assertThat(status(get("/api/v1/ops/health-summary"), company().owner(), null)).isEqualTo(403);
+    }
+
+    @Test
     void quizDraftAndFutureRuleCanBeDeleted() throws Exception {
         // ---------------------------------------------------------------- 题库草稿：只能删草稿
         JsonNode versions = data(call(get("/api/v1/ops/quiz/versions"), ops, null));

@@ -48,6 +48,8 @@ class BillCollectionIT {
     @Autowired
     FieldCipher cipher;
     @Autowired
+    com.shitu.app.notify.StaffDigestService digest;
+    @Autowired
     com.shitu.app.ops.ReceivablePayoutService receivables;
 
     final String tag = String.valueOf(100000 + RND.nextInt(899999));
@@ -98,6 +100,10 @@ class BillCollectionIT {
         assertThatThrownBy(() -> payments.submit(co, bill, cmd("120.00"), "M-TEST")).as("已有待确认的凭证")
                 .isInstanceOf(BizException.class);
         assertThat(bills.list(null, null, null, "PAYMENT_PENDING", 1, 100).records()).extracting(MonthlyBillService.Bill::billId).contains(bill);
+        assertThatThrownBy(() -> bills.raiseDispute(co, bill, "金额不对", "M-TEST")).as("有待确认凭证时不能提异议（即使还在异议期）")
+                .isInstanceOf(BizException.class);
+        assertThatThrownBy(() -> collection.settle(bill, "A1001")).as("有待确认凭证时不能直接登记结算")
+                .isInstanceOf(BizException.class).hasMessageContaining("付款凭证");
         int beforeWait = events(bill);
         collection.run(DUE.plusDays(30));
         assertThat(events(bill)).as("有待确认凭证时不再催款").isEqualTo(beforeWait);
@@ -109,6 +115,10 @@ class BillCollectionIT {
         assertThat(bills.get(bill, co).status()).as("退回后账单仍未结清").isEqualTo("ISSUED");
         assertThatThrownBy(() -> collection.confirm(p1.id(), null, "A1001")).as("处理过的凭证不能再确认").isInstanceOf(BizException.class);
         BillPaymentService.Payment p2 = payments.submit(co, bill, cmd("120.00"), "M-TEST");
+        jdbc.update("UPDATE monthly_bill SET service_fee = 90.00 WHERE bill_id = ?", bill);
+        assertThatThrownBy(() -> collection.confirm(p2.id(), null, "A1001")).as("账单金额变了，旧凭证不能确认")
+                .isInstanceOf(BizException.class).hasMessageContaining("不一致");
+        jdbc.update("UPDATE monthly_bill SET service_fee = 100.00 WHERE bill_id = ?", bill);
         collection.confirm(p2.id(), "已核对银行流水", "A1001");
         MonthlyBillService.Bill settled = bills.get(bill, co);
         assertThat(settled.status()).isEqualTo("SETTLED");
@@ -148,6 +158,8 @@ class BillCollectionIT {
         jdbc.update("UPDATE monthly_bill SET status = 'DISPUTED' WHERE bill_id = ?", disputed);
         collection.run(DUE.plusDays(30));
         assertThat(events(zero)).isZero();
+        assertThat(bills.get(zero, co3).overdueDays()).as("应付为 0 的账单不算逾期").isZero();
+        assertThat(bills.list(co3, null, null, "OVERDUE", 1, 100).records()).isEmpty();
         assertThat(events(disputed)).isZero();
         assertThat(status(co3)).isEqualTo("NORMAL");
         assertThat(status(co4)).isEqualTo("NORMAL");
@@ -198,12 +210,29 @@ class BillCollectionIT {
         receivables.savePayee(co, "收款测试公司", "工商银行昆山支行", "9558000011119999", "M-OWNER");
         assertThat(receivables.ofBill(bill).orElseThrow().accountTail()).isEqualTo("3456");
 
+        // 还在异议期内的已下发账单不能付（金额可能调整）
+        String inWindow = bill(co, "2031-06", "20.00", "0.00");
+        jdbc.update("UPDATE monthly_bill SET transfer_receivable = 60.00, dispute_deadline = ? WHERE bill_id = ?",
+                Date.valueOf(LocalDate.now().plusDays(2)), inWindow);
+        assertThatThrownBy(() -> receivables.register(inWindow, cmd, "A1001")).isInstanceOf(BizException.class).hasMessageContaining("异议期");
+        jdbc.update("UPDATE monthly_bill SET status = 'SETTLED' WHERE bill_id = ?", inWindow);
+        assertThat(receivables.register(inWindow, cmd, "A1001").amount()).as("已结算的可以付").isEqualByComparingTo("60.00");
+
         // 没有应收的账单、异议处理中的账单不能付
         String noReceivable = bill(co, "2031-04", "20.00", "0.00");
         assertThatThrownBy(() -> receivables.register(noReceivable, cmd, "A1001")).isInstanceOf(BizException.class).hasMessageContaining("没有流转应收");
         String disputed = bill(co, "2031-05", "20.00", "0.00");
         jdbc.update("UPDATE monthly_bill SET transfer_receivable = 80.00, status = 'DISPUTED' WHERE bill_id = ?", disputed);
         assertThatThrownBy(() -> receivables.register(disputed, cmd, "A1001")).isInstanceOf(BizException.class).hasMessageContaining("异议");
+    }
+
+    /** 定时任务入口直接调用（和调度线程一样不经过事务代理）：以前会因为发件箱要求事务而报错。 */
+    @Test
+    void scheduledEntryPointsRunWithoutProxy() {
+        org.assertj.core.api.Assertions.assertThatCode(() -> bills.scheduled()).as("月账单定时任务").doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThatCode(() -> collection.scheduled()).as("催收定时任务").doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThatCode(() -> digest.scheduledEvening()).as("晚间汇总").doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThatCode(() -> digest.scheduledMorning()).as("早间汇总").doesNotThrowAnyException();
     }
 
     // ==================================================================== fixtures

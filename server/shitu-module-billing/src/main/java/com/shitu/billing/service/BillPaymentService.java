@@ -50,6 +50,8 @@ public class BillPaymentService {
 
     @Transactional
     public Payment submit(String companyId, String billId, SubmitCommand cmd, String memberId) {
+        // 第一条语句就锁账单行：事务的一致性读视图要在拿到锁之后才建立，否则并发的两次提交互相看不到对方
+        jdbc.queryForList("SELECT bill_id FROM monthly_bill WHERE bill_id = ? AND company_id = ? FOR UPDATE", billId, companyId);
         MonthlyBillService.Bill b = bills.get(billId, companyId);
         BizException.check("ISSUED".equals(b.status()) || "CONFIRMED".equals(b.status()), ErrorCode.SYS_BAD_REQUEST,
                 "DISPUTED".equals(b.status()) ? "账单正在异议处理中，处理完再付款" : "当前状态的账单不需要付款");
@@ -64,8 +66,6 @@ public class BillPaymentService {
         BizException.check(cmd.bankRef() == null || cmd.bankRef().trim().length() <= 64, ErrorCode.SYS_BAD_REQUEST, "流水号最多 64 个字符");
         BizException.check(cmd.remark() == null || cmd.remark().trim().length() <= 255, ErrorCode.SYS_BAD_REQUEST, "备注最多 255 个字");
         BizException.check(notBlank(cmd.voucherKey()), ErrorCode.SYS_BAD_REQUEST, "请上传付款凭证");
-        // 锁住账单行，避免同时提交出两条待确认
-        jdbc.queryForList("SELECT bill_id FROM monthly_bill WHERE bill_id = ? FOR UPDATE", billId);
         Integer pending = jdbc.queryForObject("SELECT COUNT(*) FROM bill_payment WHERE bill_id = ? AND status = 'PENDING'",
                 Integer.class, billId);
         BizException.check(pending == null || pending == 0, ErrorCode.SYS_CONFLICT, "已有一条付款凭证在等待平台确认");
@@ -98,8 +98,13 @@ public class BillPaymentService {
     @Transactional
     public Payment confirm(long paymentId, String remark, String operatorId) {
         Payment p = pending(paymentId);
-        jdbc.update("UPDATE bill_payment SET status = 'CONFIRMED', reviewed_by = ?, reviewed_at = ?, review_remark = ? WHERE id = ?",
+        jdbc.queryForList("SELECT bill_id FROM monthly_bill WHERE bill_id = ? FOR UPDATE", p.billId());
+        MonthlyBillService.Bill b = bills.get(p.billId(), null);
+        BizException.check(p.amount().compareTo(b.payable()) == 0, ErrorCode.SYS_CONFLICT,
+                "账单应付金额已变为 " + b.payable().toPlainString() + " 元，和凭证金额 " + p.amount().toPlainString() + " 元不一致，请退回凭证让企业重新提交");
+        int n = jdbc.update("UPDATE bill_payment SET status = 'CONFIRMED', reviewed_by = ?, reviewed_at = ?, review_remark = ? WHERE id = ? AND status = 'PENDING'",
                 operatorId, LocalDateTime.now(clock), notBlank(remark) ? remark.trim() : null, paymentId);
+        BizException.check(n == 1, ErrorCode.SYS_CONFLICT, "这条付款凭证已处理过");
         bills.markSettled(p.billId(), operatorId);
         audit.log("BILL_PAYMENT_CONFIRM", "BILL", p.billId(), Map.of("paymentId", paymentId, "amount", p.amount().toPlainString()));
         return get(paymentId);
@@ -110,8 +115,9 @@ public class BillPaymentService {
     public Payment reject(long paymentId, String remark, String operatorId) {
         BizException.check(notBlank(remark) && remark.trim().length() <= 255, ErrorCode.SYS_BAD_REQUEST, "请填写退回原因（255 字以内）");
         Payment p = pending(paymentId);
-        jdbc.update("UPDATE bill_payment SET status = 'REJECTED', reviewed_by = ?, reviewed_at = ?, review_remark = ? WHERE id = ?",
+        int n = jdbc.update("UPDATE bill_payment SET status = 'REJECTED', reviewed_by = ?, reviewed_at = ?, review_remark = ? WHERE id = ? AND status = 'PENDING'",
                 operatorId, LocalDateTime.now(clock), remark.trim(), paymentId);
+        BizException.check(n == 1, ErrorCode.SYS_CONFLICT, "这条付款凭证已处理过");
         audit.log("BILL_PAYMENT_REJECT", "BILL", p.billId(), Map.of("paymentId", paymentId, "remark", remark.trim()));
         return get(paymentId);
     }

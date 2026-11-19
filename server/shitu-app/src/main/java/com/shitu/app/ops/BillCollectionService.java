@@ -83,7 +83,8 @@ public class BillCollectionService {
     public Summary summary() {
         Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM bill_payment WHERE status = 'PENDING'", Long.class);
         Map<String, Object> o = jdbc.queryForMap("SELECT COUNT(*) AS n, COALESCE(SUM(service_fee + transfer_payable), 0) AS amt "
-                + "FROM monthly_bill WHERE status IN ('ISSUED','CONFIRMED') AND settle_deadline < ?", Date.valueOf(today()));
+                + "FROM monthly_bill WHERE status IN ('ISSUED','CONFIRMED') AND (service_fee + transfer_payable) > 0 AND settle_deadline < ?",
+                Date.valueOf(today()));
         return new Summary(pending == null ? 0 : pending, ((Number) o.get("n")).longValue(), (BigDecimal) o.get("amt"));
     }
 
@@ -107,6 +108,10 @@ public class BillCollectionService {
     /** 不经凭证直接登记结算（线下已核对到账）。 */
     @Transactional
     public void settle(String billId, String operatorId) {
+        jdbc.queryForList("SELECT bill_id FROM monthly_bill WHERE bill_id = ? FOR UPDATE", billId);
+        Integer pending = jdbc.queryForObject("SELECT COUNT(*) FROM bill_payment WHERE bill_id = ? AND status = 'PENDING'", Integer.class, billId);
+        com.shitu.common.exception.BizException.check(pending == null || pending == 0, com.shitu.common.exception.ErrorCode.SYS_CONFLICT,
+                "企业已提交付款凭证，请在「付款凭证」里确认到账或退回，不要直接登记结算");
         bills.markSettled(billId, operatorId);
         restoreIfAutoThrottled(bills.get(billId, null));
     }
@@ -144,6 +149,14 @@ public class BillCollectionService {
     private void handle(Map<String, Object> r, LocalDate today, int before, int interval, int throttleDays, int[] n) {
         {
             String billId = (String) r.get("bill_id");
+            // 列表是事务外一次查出来的：轮到这一张时锁行重读，期间已结清、进入异议或刚提交了凭证的跳过
+            List<Map<String, Object>> now = jdbc.queryForList("SELECT b.status, b.last_reminded_on, (SELECT COUNT(*) FROM bill_payment p "
+                    + "WHERE p.bill_id = b.bill_id AND p.status = 'PENDING') AS pending FROM monthly_bill b WHERE b.bill_id = ? FOR UPDATE", billId);
+            if (now.isEmpty() || !List.of("ISSUED", "CONFIRMED").contains(now.get(0).get("status"))
+                    || ((Number) now.get(0).get("pending")).intValue() > 0) {
+                return;
+            }
+            r.put("last_reminded_on", now.get(0).get("last_reminded_on"));
             String companyId = (String) r.get("company_id");
             String month = (String) r.get("bill_month");
             String payable = ((BigDecimal) r.get("payable")).toPlainString();

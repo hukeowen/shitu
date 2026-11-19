@@ -164,7 +164,7 @@ public class ResignService {
     @Transactional
     public long requestBySeeker(String userId, LocalDate resignDate, String reason) {
         List<Map<String, Object>> emp = jdbc.queryForList("SELECT employment_id, company_id, project_id, start_date FROM employment "
-                + "WHERE user_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1", userId);
+                + "WHERE user_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1 FOR UPDATE", userId);
         BizException.check(!emp.isEmpty(), ErrorCode.SYS_BAD_REQUEST, "你当前没有在岗的工作");
         String employmentId = (String) emp.get(0).get("employment_id");
         LocalDate today = LocalDate.now(clock.withZone(Constants.ZONE));
