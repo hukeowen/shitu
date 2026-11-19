@@ -391,8 +391,11 @@ class Sprint2FlowIT {
 
     /** 指定年龄、随机生日与顺序码的合法身份证号（GB 11643 校验码）。 */
     static String idCard(int age) {
-        LocalDate birth = LocalDate.now().minusYears(age).minusDays(1 + RND.nextInt(300));
-        String first17 = "320583" + birth.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+        // 测试库长期累积，号码空间太小会偶发「身份证已被占用」：地区码随机取一个，把空间放大十几倍
+        String[] areas = {"320583", "320505", "320211", "310115", "330106", "440305", "110108", "510107", "420106", "370202",
+                "350203", "610113", "430104", "210102", "500105", "340104"};
+        LocalDate birth = LocalDate.now().minusYears(age).minusDays(1 + RND.nextInt(360));
+        String first17 = areas[RND.nextInt(areas.length)] + birth.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
                 + String.format("%03d", RND.nextInt(1000));
         int[] w = {7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2};
         char[] c = {'1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'};
