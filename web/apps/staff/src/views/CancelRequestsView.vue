@@ -65,7 +65,8 @@ const shown = computed(() => (tab.value === 'todo' ? todo.value : done.value))
 const countsReady = computed(() => !loading.value && !loadError.value && !forbidden.value)
 const nowDate = shNow()
 
-const who = (r: CancelRequestRow) => `${r.seekerName}（${r.jobTitle ?? '—'}）`
+/** 岗位名本身常带括号（如「长白班」），这里用书名号，避免括号套括号 */
+const who = (r: CancelRequestRow) => `${r.seekerName} 的「${r.jobTitle ?? '—'}」报名`
 /** 业务拒绝（不是断网）：原因留在卡片上 */
 function onFail(r: CancelRequestRow, e: unknown, act: string) {
   if (isApiError(e) && e.code !== 'NETWORK') blocked.value = { ...blocked.value, [r.id]: `暂时不能${act}：${errorMessage(e)}` }
@@ -80,7 +81,7 @@ async function approve(r: CancelRequestRow) {
   try {
     await showConfirmDialog({
       title: '同意取消报名',
-      message: `同意后，${who(r)}的这条报名会立即取消，求职者被释放、可以重新匹配，岗位名额退回。`,
+      message: `同意后，${who(r)}会立即取消，求职者被释放、可以重新匹配，岗位名额退回。`,
       confirmButtonText: '同意并取消',
       confirmButtonColor: 'var(--danger-text)',
       beforeClose: async (action) => {
@@ -107,7 +108,7 @@ async function reject(r: CancelRequestRow) {
   if (!dialog.value) return
   const v = await dialog.value.open({
     title: '不同意取消',
-    message: `${who(r)}申请取消报名。请写明不同意的原因，求职者会看到这段说明，报名继续有效。`,
+    message: `${who(r)}申请了取消。请写明不同意的原因，求职者会看到这段说明，报名继续有效。`,
     required: true,
     placeholder: '请填写不同意的原因（必填，求职者可见）',
     confirmText: '确认不同意',

@@ -58,11 +58,12 @@ function done() {
   emit('changed')
 }
 
-const who = (r: CancelRequestRow) => `${r.seekerName}（${r.jobTitle ?? '—'}）`
+/** 岗位名本身常带括号（如「长白班」），这里用书名号，避免括号套括号 */
+const who = (r: CancelRequestRow) => `${r.seekerName} 的「${r.jobTitle ?? '—'}」报名`
 
 async function approve(r: CancelRequestRow) {
   const s = boxSubmit(
-    `同意后，${who(r)}的这条报名会立即取消，求职者被释放、可以重新匹配，岗位名额退回。`,
+    `同意后，${who(r)}会立即取消，求职者被释放、可以重新匹配，岗位名额退回。`,
     '同意取消',
     () => tenantApi.decideCancelRequest(r.id, true),
     (why) => (blocked[r.id] = { name: r.seekerName, text: why }),
@@ -79,7 +80,7 @@ async function approve(r: CancelRequestRow) {
 
 async function reject(r: CancelRequestRow) {
   const s = boxSubmit(
-    `${who(r)}申请取消报名。请写明不同意的原因，求职者会看到这段说明，报名继续有效。`,
+    `${who(r)}申请了取消。请写明不同意的原因，求职者会看到这段说明，报名继续有效。`,
     '回复',
     (reply) => tenantApi.decideCancelRequest(r.id, false, reply),
     (why) => (blocked[r.id] = { name: r.seekerName, text: why }),
