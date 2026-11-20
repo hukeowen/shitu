@@ -183,7 +183,7 @@ function reset() {
     <div class="page-hd">
       <div>
         <h2>对账管理</h2>
-        <p>月账单 = 增长技术服务费 + 应付流转费（应收流转费不与应付轧差）· 下发 → 异议复核 → 企业提交付款凭证 → 确认到账结算；应收流转费（流转分成）由平台付给企业后登记</p>
+        <p>应付 = 增长技术服务费 + 应付流转费，企业提交凭证后确认到账 · 应收流转费（流转分成）由平台另付、不轧差</p>
       </div>
       <div class="spacer" />
       <el-button :loading="exporting" :disabled="!list.total.value" @click="doExport">导出</el-button>

@@ -122,3 +122,6 @@ ul, ol { list-style: none; }
 :root.has-tabbar .page-bottom-gap { height: 12px; }
 .nowrap { white-space: nowrap; }
 .t-muted { color: var(--text-3); }
+
+/* 不拆开换行的短语（项目名等）：放不下时整体换到下一行 */
+.nw { white-space: nowrap; }

@@ -235,7 +235,13 @@ class Sprint3FlowIT extends FlowItSupport {
         jdbc.update("UPDATE follow_up_reminder SET remind_at = ? WHERE status = 'PLANNED' AND window_id = "
                 + "(SELECT id FROM response_window WHERE user_id = ? AND status = 'OPEN') ORDER BY round_no LIMIT 1",
                 LocalDateTime.now().minusMinutes(1), uD);
-        assertThat(followUps.sendDue()).isGreaterThanOrEqualTo(1);
+        // 测试库不跑定时任务，往次运行留下的到期提醒会越积越多，而 sendDue 一次最多处理 200 条：循环到处理完为止
+        int sentTotal = 0;
+        for (int i = 0; i < 200 && jdbc.queryForObject("SELECT COUNT(*) FROM follow_up_reminder WHERE status = 'PLANNED' AND remind_at <= NOW()",
+                Integer.class) > 0; i++) {
+            sentTotal += followUps.sendDue();
+        }
+        assertThat(sentTotal).isGreaterThanOrEqualTo(1);
         while (dispatcher.dispatch() > 0) { }
         assertThat(data(call(get("/api/v1/tenant/messages"), c.site(), null)).toString()).contains("24h 跟进提醒");
     }

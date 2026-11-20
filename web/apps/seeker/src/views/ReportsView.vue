@@ -75,7 +75,7 @@ function rightMeta(a: MyApplication): string {
   if (a.status === 'PENDING_INTERVIEW' && a.notice) return `${formatShort(a.notice.interviewAt)} 面试`
   if (a.status === 'PENDING_INTERVIEW') return '等待驻场联系'
   if (a.status === 'TIMEOUT') return '系统自动作废'
-  if (a.endedAt && !ACTIVE.includes(a.status)) return formatShort(a.endedAt)
+  if (a.endedAt && !ACTIVE.includes(a.status)) return `${formatShort(a.endedAt)} 结束`
   return ''
 }
 function stateText(a: MyApplication): string {
@@ -121,12 +121,13 @@ function openComplain(a: MyApplication) {
           <p v-if="where(a)" class="item-sub">{{ where(a) }}</p>
           <p v-if="rightMeta(a)" class="item-meta">{{ rightMeta(a) }}</p>
           <dl class="facts">
-            <div class="kv"><dt>报名单号</dt><dd class="code">{{ a.applicationId }}</dd></div>
+            <div class="kv"><dt>报名编号</dt><dd class="code">{{ a.applicationId }}</dd></div>
             <div class="kv"><dt>报名时间</dt><dd>{{ formatServerTime(a.createdAt) }}</dd></div>
             <div v-if="!a.notice && a.address" class="kv"><dt>面试地点</dt><dd>{{ a.address }}</dd></div>
             <div v-if="a.notice && a.status !== 'PENDING_INTERVIEW'" class="kv"><dt>面试时间</dt><dd>{{ formatServerTime(a.notice.interviewAt) }}</dd></div>
             <div class="kv"><dt>当前状态</dt><dd>{{ stateText(a) }}</dd></div>
-            <div v-if="a.endReason" class="kv"><dt>原因</dt><dd>{{ label('LifecycleEvent', a.endReason) }}</dd></div>
+            <div v-if="a.endReason && a.endReason !== 'CANCEL_APPLICATION'" class="kv"><dt>原因</dt><dd>{{ label('LifecycleEvent', a.endReason) }}</dd></div>
+            <div v-else-if="a.endReason" class="kv"><dt>说明</dt><dd>驻场老师已取消这次报名，你可以重新匹配岗位</dd></div>
           </dl>
 
           <!-- 面试须知只给「待面试」；面试已通过的报名只留一个详情入口 -->

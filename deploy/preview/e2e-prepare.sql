@@ -8,3 +8,7 @@ DELETE FROM bill_receivable_payout WHERE company_id = 'C10001';
 DELETE FROM company_payee WHERE company_id = 'C10001';
 UPDATE monthly_bill SET status = 'ISSUED', settled_at = NULL WHERE company_id IN ('C10001', 'C10003') AND status = 'SETTLED';
 SELECT bill_id, company_id, bill_month, status, dispute_deadline, settle_deadline FROM monthly_bill ORDER BY company_id;
+
+-- 结算截止日不早于异议期结束后 3 天（和出账规则一致；演示账单是补发的，原来的截止日落在异议期里）
+UPDATE monthly_bill SET settle_deadline = dispute_deadline + INTERVAL 3 DAY
+ WHERE dispute_deadline IS NOT NULL AND settle_deadline < dispute_deadline + INTERVAL 3 DAY AND status IN ('ISSUED', 'DISPUTED', 'CONFIRMED');

@@ -22,8 +22,9 @@ import { fmtDuration, fmtPhone, fmtTime, parseLocal } from '@/utils/time'
  * M-12 24 小时响应提醒（按剩余时长排序，< 4 小时标红）+ M-09 私域待匹配一键流转至人才经纪人。
  * 合并三类 24h 窗口：私域待匹配（扫码注册未报名）、新报名待知悉、面试通过待确权。
  */
-/** arrived：尚未知悉但已到厂（少见），只出现在「全部」里，徽标与待办页一致显示「已到厂」 */
-type Kind = 'private' | 'ack' | 'arrived' | 'confirm'
+/** interview（已知悉、待面试）、arrived（已到厂、待录入结果）只出现在「全部」里，徽标与待办页一致；
+ * 它们同样有响应时限，工作台的「N 人即将超时」把它们算在内，这里也要列出来，数字才对得上 */
+type Kind = 'private' | 'ack' | 'interview' | 'arrived' | 'confirm'
 type FilterKey = 'all' | 'private' | 'ack' | 'confirm'
 interface Item {
   key: string
@@ -73,7 +74,7 @@ async function load() {
       .then((r) => (privates.value = r))
       .catch((e: unknown) => errs.push(errorMessage(e, '私域待匹配加载失败'))),
     tenantApi
-      .applications({ status: 'PENDING_INTERVIEW', unacknowledged: true, sort: 'DEADLINE', page: 1, pageSize: APP_PAGE })
+      .applications({ status: 'PENDING_INTERVIEW', sort: 'DEADLINE', page: 1, pageSize: APP_PAGE })
       .then((r) => (acks.value = r.records))
       .catch((e: unknown) => {
         if (isApiError(e) && e.status === 403) appsForbidden.value = true
@@ -106,7 +107,7 @@ const ts = (v?: string) => parseLocal(v)?.getTime() ?? null
 const items = computed<Item[]>(() => {
   const list: Item[] = [
     ...privates.value.map((p) => ({ key: `p-${p.userId}`, kind: 'private' as const, deadline: ts(p.deadline), p })),
-    ...acks.value.map((a) => ({ key: `a-${a.applicationId}`, kind: a.arrivedAt ? ('arrived' as const) : ('ack' as const), deadline: ts(a.responseDeadline), a })),
+    ...acks.value.map((a) => ({ key: `a-${a.applicationId}`, kind: a.arrivedAt ? ('arrived' as const) : a.acknowledgedAt ? ('interview' as const) : ('ack' as const), deadline: ts(a.responseDeadline), a })),
     ...confirms.value.map((a) => ({ key: `c-${a.applicationId}`, kind: 'confirm' as const, deadline: ts(a.responseDeadline), a })),
   ]
   return list.sort((x, y) => (x.deadline ?? Infinity) - (y.deadline ?? Infinity))
@@ -124,6 +125,7 @@ function remain(i: Item) {
 const KIND_TAG: Record<Kind, { text: string; tone: string }> = {
   private: { text: '私域待匹配', tone: tagTone(PRIVATE_PENDING_TAG) },
   ack: { text: STAGE_TEXT.ack, tone: tagTone(STAGE_TAG.ack) },
+  interview: { text: STAGE_TEXT.interview, tone: tagTone(STAGE_TAG.interview) },
   arrived: { text: STAGE_TEXT.arrived, tone: tagTone(STAGE_TAG.arrived) },
   confirm: { text: STAGE_TEXT.confirm, tone: tagTone(STAGE_TAG.confirm) },
 }
@@ -249,11 +251,12 @@ function run(a: SiteApplication, key: SiteApplicationAction) {
           <!-- 报名待知悉 / 待确权 -->
           <template v-else-if="i.a">
             <ul class="facts">
-              <li><IconBriefcase :size="16" /><span>{{ i.a.jobTitle ?? '—' }}<template v-if="i.a.projectName"> · {{ i.a.projectName }}</template></span></li>
+              <li><IconBriefcase :size="16" /><span>{{ i.a.jobTitle ?? '—' }}<template v-if="i.a.projectName"> · <span class="nw">{{ i.a.projectName }}</span></template></span></li>
               <li>
                 <IconClock :size="16" />
                 <span>
                   <template v-if="i.kind === 'ack'">{{ fmtTime(i.a.createdAt, nowDate) }} 报名 · 尚未推送面试信息</template>
+                  <template v-else-if="i.kind === 'interview'">已推送面试信息 · 待到厂面试</template>
                   <template v-else-if="i.kind === 'arrived'">已到厂 · 待录入面试结果</template>
                   <template v-else-if="i.a.contract?.status === 'PENDING_SIGN'">已确权 · 合同{{ label('ContractStatus', 'PENDING_SIGN') }}</template>
                   <template v-else>面试已通过 · 待入职确权</template>

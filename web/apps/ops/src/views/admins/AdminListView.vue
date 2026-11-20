@@ -157,13 +157,13 @@ onMounted(() => list.load())
       </div>
 
       <el-table v-loading="list.loading.value" :data="list.loading.value ? [] : list.rows.value" class="tbl-48" row-key="adminId">
-        <el-table-column label="用户名" min-width="140">
+        <el-table-column label="用户名" min-width="120">
           <template #default="{ row }">
             <span class="mono strong">{{ row.username }}</span>
             <span v-if="isSelf(row)" class="status-tag status-tag--info ml">我</span>
           </template>
         </el-table-column>
-        <el-table-column label="姓名" prop="displayName" min-width="140" show-overflow-tooltip />
+        <el-table-column label="姓名" prop="displayName" min-width="120" show-overflow-tooltip />
         <el-table-column label="角色" min-width="180">
           <template #default="{ row }"><DictTags type="OpsRole" :values="row.roles" highlight="SUPER" /></template>
         </el-table-column>

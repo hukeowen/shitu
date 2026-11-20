@@ -65,6 +65,8 @@ function clearSmsLimits() {
 async function loginSeeker(phone) {
   await ui.fresh('mobile')
   await ui.goto('/login')
+  // 偶尔上一个会话的登录态没清干净，登录页会直接跳回首页：再清一次
+  if (!(await ui.count('input'))) { await ui.fresh('mobile'); await ui.goto('/login') }
   clearSmsLimits()
   await ui.fill('手机号', phone)
   await ui.click('获取验证码')

@@ -100,7 +100,7 @@ const summary = computed(() => {
           <span class="status-tag" :class="APPLICATION_TONE[app.status]">{{ label('ApplicationStatus', app.status) }}</span>
         </div>
         <p v-if="where" class="item-sub">{{ where }}</p>
-        <p class="item-meta">报名单号 <span class="code">{{ app.applicationId }}</span></p>
+        <p class="item-meta">报名编号 <span class="code">{{ app.applicationId }}</span></p>
       </section>
 
       <section class="tipbar" :class="{ 'tipbar--ok': app.status === 'PENDING_CONFIRM' || app.status === 'EMPLOYED' }">
@@ -120,7 +120,8 @@ const summary = computed(() => {
           <div v-if="n?.address || app.address" class="kv"><dt>面试地点</dt><dd>{{ n?.address || app.address }}</dd></div>
           <div v-if="n?.contactName" class="kv"><dt>驻场老师</dt><dd>{{ n.contactName }}</dd></div>
           <div v-if="app.endedAt && app.status !== 'EMPLOYED' && app.status !== 'PENDING_CONFIRM'" class="kv"><dt>结束时间</dt><dd>{{ formatServerTime(app.endedAt) }}</dd></div>
-          <div v-if="app.endReason" class="kv"><dt>原因</dt><dd>{{ label('LifecycleEvent', app.endReason) }}</dd></div>
+          <div v-if="app.endReason && app.endReason !== 'CANCEL_APPLICATION'" class="kv"><dt>原因</dt><dd>{{ label('LifecycleEvent', app.endReason) }}</dd></div>
+          <div v-else-if="app.endReason" class="kv"><dt>说明</dt><dd>驻场老师已取消这次报名，你可以重新匹配岗位</dd></div>
         </dl>
       </section>
 
@@ -152,7 +153,7 @@ const summary = computed(() => {
           <span class="status-tag" :class="APPLICATION_TONE[app.status]">{{ label('ApplicationStatus', app.status) }}</span>
         </div>
         <p v-if="where" class="item-sub">{{ where }}</p>
-        <p class="item-meta">报名单号 <span class="code">{{ app.applicationId }}</span></p>
+        <p class="item-meta">报名编号 <span class="code">{{ app.applicationId }}</span></p>
       </section>
 
       <section class="acard">

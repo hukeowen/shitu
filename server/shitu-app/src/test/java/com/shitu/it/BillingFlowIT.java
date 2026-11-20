@@ -126,7 +126,12 @@ class BillingFlowIT {
         billB = bill(b);
         assertThat(billB.status()).isEqualTo("ISSUED");
         assertThat(billB.disputeDeadline()).isAfter(LocalDate.now());
-        assertThat(billB.settleDeadline()).isEqualTo(LocalDate.of(2026, 8, 15));
+        // 结算截止 = 次月 15 日，但不早于异议期结束后 3 天（这里是补发 7 月账单，异议期在今天之后，所以取后者）
+        LocalDate normal = LocalDate.of(2026, 8, 15);
+        LocalDate floor = billB.disputeDeadline().plusDays(3);
+        assertThat(billB.settleDeadline()).isEqualTo(floor.isAfter(normal) ? floor : normal);
+        assertThat(billB.settleDeadline()).as("企业还能提异议时不会被算逾期").isAfter(billB.disputeDeadline());
+        assertThat(billB.overdueDays()).isZero();
         assertThatThrownBy(() -> daily.run(LocalDate.of(2026, 7, 20))).as("已下发月份不能重算").isInstanceOf(BizException.class);
 
         // ---------------------------------------------------------------- 异议

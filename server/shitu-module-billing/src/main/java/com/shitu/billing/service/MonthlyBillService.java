@@ -44,6 +44,8 @@ public class MonthlyBillService {
     private static final String SELECT_BILL = "SELECT b.*, (SELECT p.status FROM bill_payment p WHERE p.bill_id = b.bill_id "
             + "ORDER BY p.id DESC LIMIT 1) AS payment_status, (SELECT r.paid_date FROM bill_receivable_payout r WHERE r.bill_id = b.bill_id) "
             + "AS receivable_paid_date FROM monthly_bill b";
+    /** 结算截止日距异议期结束至少几天 */
+    static final int SETTLE_GAP_DAYS = 3;
     /** 还没结清、需要公司付款的状态 */
     private static final String UNPAID = "b.status IN ('ISSUED','CONFIRMED')";
 
@@ -128,12 +130,18 @@ public class MonthlyBillService {
         LocalDate disputeDeadline = addWorkdays(today, params.getInt("bill.dispute_workdays", 5));
         LocalDate settle = month.plusMonths(1).atDay(Math.min(params.getInt("bill.settle_day_of_next_month", 15),
                 month.plusMonths(1).lengthOfMonth()));
+        // 结算截止日至少在异议期结束 3 天之后：遇到长假、或账单补发得晚，次月 15 日可能落在异议期里，
+        // 企业还能提异议就被算作逾期并催款，说不通
+        if (settle.isBefore(disputeDeadline.plusDays(SETTLE_GAP_DAYS))) {
+            settle = disputeDeadline.plusDays(SETTLE_GAP_DAYS);
+        }
+        final LocalDate settleDeadline = settle;
         List<Map<String, Object>> bills = jdbc.queryForList("SELECT bill_id, company_id, service_fee, transfer_payable "
                 + "FROM monthly_bill WHERE bill_month = ? AND status = 'GENERATED'", month.toString());
         for (Map<String, Object> b : bills) {
             jdbc.update("UPDATE monthly_bill SET status = 'ISSUED', issued_at = ?, dispute_deadline = ?, settle_deadline = ?, "
                             + "version = version + 1 WHERE bill_id = ? AND status = 'GENERATED'",
-                    LocalDateTime.now(clock), Date.valueOf(disputeDeadline), Date.valueOf(settle), b.get("bill_id"));
+                    LocalDateTime.now(clock), Date.valueOf(disputeDeadline), Date.valueOf(settleDeadline), b.get("bill_id"));
             BigDecimal payable = ((BigDecimal) b.get("service_fee")).add((BigDecimal) b.get("transfer_payable"));
             outbox.publish("MONTHLY_BILL_ISSUED", "BILL", (String) b.get("bill_id"), Map.of("companyId", b.get("company_id"),
                     "month", month.toString(), "payable", payable.toPlainString(), "disputeDeadline", disputeDeadline.toString()));

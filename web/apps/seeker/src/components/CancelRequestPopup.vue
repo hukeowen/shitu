@@ -61,7 +61,7 @@ async function submit() {
     <div class="sheet-head">
       <div class="flex1">
         <h3>申请取消报名</h3>
-        <p v-if="jobTitle || subtitle" class="sheet-sub">{{ [jobTitle, subtitle].filter(Boolean).join(' · ') }}</p>
+        <p v-if="jobTitle || subtitle" class="sheet-sub sheet-sub--wrap">{{ [jobTitle, subtitle].filter(Boolean).join(' · ') }}</p>
       </div>
       <button type="button" class="sheet-x" aria-label="关闭" @click="show = false"><IconX :size="20" /></button>
     </div>

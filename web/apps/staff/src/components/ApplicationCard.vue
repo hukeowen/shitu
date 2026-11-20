@@ -104,7 +104,7 @@ const blockedText = computed(() => (props.blocked ? `暂时不能${ACTION_TEXT[p
     </div>
 
     <ul class="facts">
-      <li><IconBriefcase :size="16" /><span>{{ app.jobTitle ?? '—' }}<template v-if="app.projectName"> · {{ app.projectName }}</template></span></li>
+      <li><IconBriefcase :size="16" /><span>{{ app.jobTitle ?? '—' }}<template v-if="app.projectName"> · <span class="nw">{{ app.projectName }}</span></template></span></li>
       <li><IconClock :size="16" /><span>{{ whenText }}</span></li>
       <li v-if="app.phone"><IconPhone :size="16" /><span>{{ fmtPhone(app.phone) }}<small> · 仅驻场可见完整号码</small></span></li>
     </ul>

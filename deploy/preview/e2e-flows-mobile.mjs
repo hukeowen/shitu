@@ -793,7 +793,7 @@ export default (h) => {
 
       await h.loginSeeker(s.phone)
       await ui.goto('/reports')
-      await ui.see('报名单号')
+      await ui.see('报名编号')
       await ui.shot(file) // 借当前页面的截图当凭证
       await ui.click('岗位与描述不符？投诉该岗位')
       await ui.click(cat[1])
@@ -917,7 +917,7 @@ export default (h) => {
       await ui.goto('/work')
       await ui.see(s.no)
       await ui.click('我的报备')
-      await ui.see('报名单号')
+      await ui.see('报名编号')
       await ui.click('查看报名详情')
       await ui.see('报名记录')
       await ui.click('查看我的工作')

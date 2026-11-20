@@ -28,7 +28,7 @@ const CHECKS = ['同一时段无重复有效报名', '岗位剩余名额充足',
       <section class="state-block head">
         <IconCircleCheck :size="48" :stroke-width="1.5" />
         <h1 class="state-block-t">报名成功</h1>
-        <p class="state-block-d">报名单号 <span class="code">{{ r.applicationId }}</span></p>
+        <p class="state-block-d">报名编号 <span class="code">{{ r.applicationId }}</span></p>
       </section>
 
       <section class="acard">

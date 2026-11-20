@@ -247,3 +247,5 @@ button.chip { font: inherit; font-size: var(--font-size-min); }
 .bar-why svg { flex: none; margin-top: 3px; }
 .bar-why.err { color: var(--danger-text); }
 .bottom-bar-gap.with-why { height: calc(128px + env(safe-area-inset-bottom)); }
+
+.sheet-sub--wrap { white-space: normal; overflow: visible; }

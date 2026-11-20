@@ -318,7 +318,7 @@ function rowClass({ row }: { row: MonthlyBill }) {
         <div class="card__bd">
           <dl class="kv"><dt>结算周期</dt><dd>按月对账</dd></dl>
           <dl class="kv"><dt>账单生成</dt><dd>每月最后一天自动生成</dd></dl>
-          <dl class="kv"><dt>结算截止</dt><dd>次月 15 日前</dd></dl>
+          <dl class="kv"><dt>结算截止</dt><dd>次月 15 日前（不早于异议期结束后 3 天）</dd></dl>
           <dl class="kv"><dt>异议期</dt><dd>下发后 5 个工作日内（节假日顺延）</dd></dl>
           <dl class="kv"><dt>付款方式</dt><dd>对公转账后提交付款凭证</dd></dl>
           <dl class="kv"><dt>流转分成收款</dt><dd>平台对公转账到登记的收款账户</dd></dl>

@@ -59,6 +59,8 @@ export function fmtRemain(ms: number | null): string {
   const d = Math.floor(total / 1440)
   const h = Math.floor((total % 1440) / 60)
   const m = total % 60
+  // 刚过期不到一分钟：写「刚刚超时」，不写「超时 0 分钟」
+  if (ms < 0 && total === 0) return '刚刚超时'
   const body = d > 0 ? `${d} 天 ${h} 小时` : h > 0 ? `${h} 小时 ${m} 分` : `${m} 分钟`
   return ms < 0 ? `超时 ${body}` : body
 }
