@@ -358,7 +358,7 @@ const progress = computed(() => {
         <!-- 匹配入口 CTA -->
         <section v-if="!matchLocked && status !== 'EMPLOYED'" class="acard lead">
           <h2>{{ isPrivate ? '先说说你想要什么活儿' : '还没找到活儿？' }}</h2>
-          <p class="lead-sub">7 道题，1 分钟，出 3 个岗位</p>
+          <p class="lead-sub">7 道题，1 分钟，最多出 3 个岗位</p>
           <van-button type="primary" block @click="startMatch">开始 AI 问薪</van-button>
           <button v-if="hasLastMatch" type="button" class="link last" @click="router.push('/match/result')">查看上次匹配结果<IconChevronRight :size="16" /></button>
         </section>

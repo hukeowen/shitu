@@ -11,6 +11,8 @@ export default (h) => ({
     const bill = h.sql(`SELECT b.bill_id, b.bill_month, b.transfer_receivable FROM monthly_bill b WHERE b.company_id = '${co}' AND b.status IN ('ISSUED', 'CONFIRMED', 'SETTLED') `
       + `AND b.transfer_receivable > 0 AND NOT EXISTS (SELECT 1 FROM bill_receivable_payout r WHERE r.bill_id = b.bill_id) ORDER BY b.bill_month DESC LIMIT 1`)[0]
     if (!bill) throw new Error('第一家演示公司没有待付流转分成的账单：先执行 e2e-prepare.sql')
+    // 异议期内的账单金额未定，平台不能付分成（opsBillDispute 刚把这张账单放回异议期）：把异议期挪到昨天
+    h.sql(`UPDATE monthly_bill SET dispute_deadline = LEAST(dispute_deadline, CURDATE() - INTERVAL 1 DAY) WHERE bill_id = '${bill[0]}' AND status = 'ISSUED'`)
     if (Number(one(`SELECT COUNT(*) FROM company_payee WHERE company_id = '${co}'`)) > 0) throw new Error('第一家演示公司已经登记过收款账户：先执行 e2e-prepare.sql')
     const [billId, month] = bill
     const tag = String(Date.now()).slice(-6)

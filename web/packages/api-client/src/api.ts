@@ -580,6 +580,8 @@ export const opsApi = {
   quizFunnel: (days: number) => get<QuizFunnel>('/ops/reports/quiz-funnel', { days }),
   /** 系统运行状态：定时任务最近运行、通知积压、短信失败 */
   health: () => get<OpsHealth>('/ops/health-summary'),
+  /** 平台账号编号 → 姓名，用于把各处的「操作人」显示成姓名 */
+  adminNames: () => get<Record<string, string>>('/ops/admin-names'),
   kycInterceptions: (result?: string) => get<KycInterception[]>('/ops/kyc-records', { result }),
   holidays: (year: number) => get<HolidayRow[]>('/ops/holidays', { year }),
   saveHolidays: (items: { date: string; workday: boolean; name: string }[]) => post<number>('/ops/holidays', { items }),

@@ -12,3 +12,8 @@ SELECT bill_id, company_id, bill_month, status, dispute_deadline, settle_deadlin
 -- 结算截止日不早于异议期结束后 3 天（和出账规则一致；演示账单是补发的，原来的截止日落在异议期里）
 UPDATE monthly_bill SET settle_deadline = dispute_deadline + INTERVAL 3 DAY
  WHERE dispute_deadline IS NOT NULL AND settle_deadline < dispute_deadline + INTERVAL 3 DAY AND status IN ('ISSUED', 'DISPUTED', 'CONFIRMED');
+
+-- 演示账单的异议截止日是固定日期，过了之后 opsBillDispute 就没有可提异议的账单：
+-- 把第一家演示公司那张已下发的账单的异议期顺延到至少后天，结算截止日跟着保持「异议期后 3 天」
+UPDATE monthly_bill SET dispute_deadline = CURDATE() + INTERVAL 2 DAY, settle_deadline = CURDATE() + INTERVAL 5 DAY
+ WHERE company_id = 'C10001' AND status = 'ISSUED' AND dispute_deadline < CURDATE() + INTERVAL 2 DAY;

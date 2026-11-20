@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 /** 后端时间为北京时间 ISO 字符串（不带时区）：LocalDateTime "2026-11-06T10:19:04.887"，LocalDate "2026-11-06"。直接切字符串，避免时区换算。 */
 export function fmtDateTime(v?: string | null): string {
   if (!v) return '—'
@@ -65,10 +66,14 @@ export function fmtMoney(v?: number | string | null): string {
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/** 操作人展示：系统动作（定时任务、种子数据）后端记为 SYSTEM，界面统一显示「系统」 */
+/** 平台账号编号 → 姓名；登录后加载一次（见 stores/auth），拿不到时退回显示编号 */
+export const adminNames = reactive<Record<string, string>>({})
+
+/** 操作人展示：系统动作（定时任务、种子数据）后端记为 SYSTEM，界面统一显示「系统」；平台账号显示姓名 */
 export function fmtOperator(v?: string | null, fallback = '系统'): string {
   if (!v) return fallback
-  return v.toUpperCase() === 'SYSTEM' ? '系统' : v
+  if (v.toUpperCase() === 'SYSTEM') return '系统'
+  return adminNames[v] ?? v
 }
 
 /** 处罚等级：0 无 / 1–3 级 */

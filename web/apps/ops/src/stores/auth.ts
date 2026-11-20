@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { opsApi, refreshSession, type AdminView, type OpsRole } from '@shitu/api-client'
+import { adminNames } from '@/utils/format'
 
 /** access token 只放内存；refresh token 由后端写 HttpOnly Cookie（docs/02 §10） */
 export const useAuthStore = defineStore('auth', {
@@ -17,6 +18,8 @@ export const useAuthStore = defineStore('auth', {
     async loadMe(): Promise<AdminView> {
       const me = await opsApi.me()
       this.me = me
+      // 操作人姓名表：失败不影响使用，只是继续显示编号
+      opsApi.adminNames().then((m) => Object.assign(adminNames, m)).catch(() => {})
       return me
     },
     /** 启动 / 刷新页面：内存无 token 时用 refresh Cookie 恢复一次，再拉取当前账号 */

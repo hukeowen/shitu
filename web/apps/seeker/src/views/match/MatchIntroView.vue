@@ -100,7 +100,7 @@ function start() {
     <template v-else>
       <div class="pad stack">
         <section class="acard lead">
-          <h2>{{ total }} 道题，给你 3 个岗位</h2>
+          <h2>{{ total }} 道题，给你最多 3 个岗位</h2>
           <p class="lead-sub">不用打字，全程点选。回答完成后，系统生成你的求职画像并进行岗位匹配。</p>
         </section>
 

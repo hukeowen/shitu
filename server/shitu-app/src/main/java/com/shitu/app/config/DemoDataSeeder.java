@@ -6,6 +6,7 @@ import com.shitu.common.enums.JobType;
 import com.shitu.common.enums.ShiftType;
 import com.shitu.framework.security.AuthPrincipal;
 import com.shitu.framework.tenant.TenantContext;
+import com.shitu.integration.storage.FileStorage;
 import com.shitu.job.JobService;
 import com.shitu.tenant.channel.ChannelCodeService;
 import com.shitu.tenant.client.ClientService;
@@ -20,6 +21,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -49,9 +53,11 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final ChannelCodeService channels;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final FileStorage storage;
 
     public DemoDataSeeder(CompanyService companies, MemberService members, ClientService clients, ProjectService projects,
-                          JobService jobs, ChannelCodeService channels, JdbcTemplate jdbc, Clock clock) {
+                          JobService jobs, ChannelCodeService channels, JdbcTemplate jdbc, Clock clock, FileStorage storage) {
+        this.storage = storage;
         this.companies = companies;
         this.members = members;
         this.clients = clients;
@@ -77,7 +83,7 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     private void seed() {
         CompanyService.Applied applied = companies.apply("13800000001", new CompanyService.ApplyCommand(
-                "昆山仕兔演示劳务派遣有限公司", "仕兔演示劳务", CREDIT, "320583DEMO", List.of("license/demo.png"), "郭伟"));
+                "昆山仕兔演示劳务派遣有限公司", "仕兔演示劳务", CREDIT, "320583DEMO", List.of(sampleFile("license", "demo/demo-license.png")), "郭伟"));
         String cid = applied.companyId();
         LocalDate today = LocalDate.now(clock);
         TenantContext.runAs(TenantContext.Mode.OPS, null, () ->
@@ -89,7 +95,7 @@ public class DemoDataSeeder implements ApplicationRunner {
             AuthPrincipal pm = new AuthPrincipal(AuthDomain.TENANT, pmId, cid, Set.of("PM"), null, "刘建国");
             ClientService.ClientView client = clients.createOrGet("立讯精密工业（昆山）有限公司", null, "苏州");
             ClientService.ContractView contract = clients.submitContract(cid, new ClientService.ContractCommand(
-                    client.clientId(), "contract/demo.pdf", today.minusDays(1), today.plusYears(1)));
+                    client.clientId(), sampleFile("contract", "demo/demo-contract.png"), today.minusDays(1), today.plusYears(1)));
             TenantContext.runAs(TenantContext.Mode.OPS, null, () -> clients.audit(contract.contractId(), true, "演示数据", "SYSTEM"));
             String projectId = projects.create(pm, new ProjectService.ProjectCommand("立讯精密昆山二期", client.clientId(),
                     contract.contractId(), "江苏", "苏州", "昆山", "昆山市锦溪镇长云路 1 号",
@@ -104,6 +110,19 @@ public class DemoDataSeeder implements ApplicationRunner {
                     cid, code);
             return null;
         });
+    }
+
+    /** 把随包带的样例图片（带「演示样例」水印）存进文件存储，返回 key；这样运营 / 公司后台点「查看」能打开。 */
+    private String sampleFile(String category, String resource) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(resource)) {
+            if (in == null) {
+                throw new IllegalStateException("缺少演示文件 " + resource);
+            }
+            byte[] bytes = in.readAllBytes();
+            return storage.put(category, "png", new java.io.ByteArrayInputStream(bytes), bytes.length, "image/png");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private void job(AuthPrincipal pm, String projectId, String title, JobType type, int min, int max, ShiftType shift,

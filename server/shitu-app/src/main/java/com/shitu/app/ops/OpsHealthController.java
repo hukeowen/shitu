@@ -65,6 +65,17 @@ public class OpsHealthController {
         this.jdbc = jdbc;
     }
 
+    @Operation(summary = "平台账号编号 → 姓名（各页面的「操作人」用它显示姓名；所有运营角色可读，只含编号和姓名）")
+    @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
+    @GetMapping("/admin-names")
+    public ApiResponse<Map<String, String>> adminNames() {
+        Map<String, String> names = new LinkedHashMap<>();
+        jdbc.query("SELECT admin_id, display_name FROM ops_admin ORDER BY admin_id", rs -> {
+            names.put(rs.getString(1), rs.getString(2));
+        });
+        return ApiResponse.ok(names);
+    }
+
     @Operation(summary = "系统运行状态：定时任务最近运行、通知积压、短信失败")
     @PreAuthorize("hasAnyRole('SUPER','OPERATOR','FINANCE','RISK')")
     @GetMapping("/health-summary")

@@ -21,7 +21,7 @@ const quad: QuadItem[] = [
 const steps = [
   { t: '回答 7 道题', d: '不用打字，点选即可' },
   { t: '生成你的求职画像', d: '薪资 / 班次 / 住宿 / 地域 / 经验' },
-  { t: '匹配 3 个岗位', d: '匹配度 ≥80% 才推给你' },
+  { t: '匹配最多 3 个岗位', d: '匹配度 ≥80% 才推给你' },
   { t: '报名 → 面试 → 入职', d: '驻场老师全程跟进' },
 ]
 
@@ -62,7 +62,7 @@ function onTap() {
 
       <section class="acard lead">
         <h2>还没找到活儿？</h2>
-        <p class="lead-sub">7 道题，1 分钟，出 3 个岗位</p>
+        <p class="lead-sub">7 道题，1 分钟，最多出 3 个岗位</p>
         <van-button type="primary" block @click="onTap">开始匹配</van-button>
       </section>
 
