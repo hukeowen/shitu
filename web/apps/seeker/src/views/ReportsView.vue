@@ -51,8 +51,11 @@ function retry() {
   loading.value = true
   void load()
 }
+/** 下拉刷新时让每张卡片里的取消申请状态重新加载 */
+const refreshTick = ref(0)
 async function onRefresh() {
   await load()
+  refreshTick.value++
   refreshing.value = false
 }
 
@@ -138,6 +141,7 @@ function openComplain(a: MyApplication) {
           <!-- 进行中的报名：申请取消报名的入口与申请状态 -->
           <CancelRequestBlock
             v-if="a.status === 'PENDING_INTERVIEW' || a.status === 'PENDING_CONFIRM'"
+            :key="`${a.applicationId}:${refreshTick}`"
             :application-id="a.applicationId"
             :job-title="a.jobTitle"
             :subtitle="where(a)"

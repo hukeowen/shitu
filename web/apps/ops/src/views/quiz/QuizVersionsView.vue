@@ -138,7 +138,6 @@ async function removeDraft(v: QuizView) {
     action: '删除',
     danger: true,
     api: () => opsApi.deleteQuizDraft(v.versionId),
-    onBlocked: (why) => (blocked.value = { ...blocked.value, [v.versionId]: why }),
   })
   if (!ok) return
   ElMessage.success('草稿已删除')

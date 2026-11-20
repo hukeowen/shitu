@@ -122,11 +122,12 @@ public class ReceivablePayoutService {
         return ofBill(billId).orElseThrow();
     }
 
-    /** 待付款的流转分成：已下发、应收大于 0、还没登记付款的账单。 */
+    /** 待付款的流转分成：金额已定（过了异议期或已确认 / 已结算）、应收大于 0、还没登记付款的账单。 */
     public Summary summary() {
         Map<String, Object> m = jdbc.queryForMap("SELECT COUNT(*) AS n, COALESCE(SUM(b.transfer_receivable), 0) AS amt, "
                 + "COALESCE(SUM(p.company_id IS NULL), 0) AS nopayee FROM monthly_bill b LEFT JOIN company_payee p ON p.company_id = b.company_id "
-                + "WHERE b.status IN ('ISSUED','CONFIRMED','SETTLED') AND b.transfer_receivable > 0 "
+                + "WHERE b.status IN ('ISSUED','CONFIRMED','SETTLED') AND (b.status <> 'ISSUED' OR b.dispute_deadline < CURDATE()) "
+                + "AND b.transfer_receivable > 0 "
                 + "AND NOT EXISTS (SELECT 1 FROM bill_receivable_payout r WHERE r.bill_id = b.bill_id)");
         return new Summary(((Number) m.get("n")).longValue(), (BigDecimal) m.get("amt"), ((Number) m.get("nopayee")).longValue());
     }

@@ -8,7 +8,7 @@ import StatusTag from '@/components/StatusTag.vue'
 import { useCompanyNames } from '@/composables/useCompanyNames'
 import { confirmInBox, isBlocked, remarkInBox } from '@/composables/boxSubmit'
 import { exportList, type CsvColumn } from '@/utils/exportCsv'
-import { copyText, fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtOperator } from '@/utils/format'
+import { copyText, fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtOperator, todayStr } from '@/utils/format'
 import ReceivablePayoutDialog from './ReceivablePayoutDialog.vue'
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, PAYOUT_STATUSES } from './billPayment'
 
@@ -141,6 +141,8 @@ const payoutBlocked = computed(() => {
   if (b.value.status === 'GENERATED') return '账单还没有下发，下发后才能登记付款'
   if (b.value.status === 'DISPUTED') return '账单在异议中，异议处理完后才能登记付款'
   if (!PAYOUT_STATUSES.includes(b.value.status)) return '账单当前状态不能登记付款'
+  if (b.value.status === 'ISSUED' && b.value.disputeDeadline && b.value.disputeDeadline.slice(0, 10) >= todayStr())
+    return `账单还在异议期内（到 ${b.value.disputeDeadline.slice(0, 10)}），金额可能调整，异议期结束后才能登记付款`
   if (!companyPayee.value) return '企业登记收款账户后才能登记付款'
   return ''
 })

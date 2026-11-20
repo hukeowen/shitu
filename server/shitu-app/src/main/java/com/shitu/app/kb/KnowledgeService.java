@@ -34,6 +34,26 @@ public class KnowledgeService {
 
     static final String PENDING = "HUMAN_PENDING";
     static final String IGNORED = "IGNORED";
+
+    /** 两段文字是否有共同的汉字双字词（相邻两个都是汉字）。 */
+    static boolean sharesHanBigram(String a, String b) {
+        java.util.Set<String> grams = new java.util.HashSet<>();
+        for (int i = 0; i + 1 < a.length(); i++) {
+            if (isHan(a.charAt(i)) && isHan(a.charAt(i + 1))) {
+                grams.add(a.substring(i, i + 2));
+            }
+        }
+        for (int i = 0; i + 1 < b.length(); i++) {
+            if (isHan(b.charAt(i)) && isHan(b.charAt(i + 1)) && grams.contains(b.substring(i, i + 2))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isHan(char c) {
+        return Character.UnicodeScript.of(c) == Character.UnicodeScript.HAN;
+    }
     /** ngram 自然语言模式的相关度阈值：太低会被"工资""上班"这类高频双字误命中。 */
     static final double MIN_SCORE = 0.2;
 
@@ -224,7 +244,10 @@ public class KnowledgeService {
                         + " AND MATCH(question, answer) AGAINST (? IN NATURAL LANGUAGE MODE) "
                         + "ORDER BY score DESC, (job_id IS NOT NULL) DESC LIMIT 1",
                 q, companyId, jobId, projectId, q);
-        if (!rows.isEmpty() && ((Number) rows.get(0).get("score")).doubleValue() >= MIN_SCORE) {
+        // 全文索引按双字切分，数字和字母也算词：问题里的「24」会命中答案里的「24 小时热水」。
+        // 所以除了分数，还要求问题和这条问答至少有一个共同的汉字双字词，否则不算命中、转人工
+        if (!rows.isEmpty() && ((Number) rows.get(0).get("score")).doubleValue() >= MIN_SCORE
+                && sharesHanBigram(q, rows.get(0).get("question") + " " + rows.get(0).get("answer"))) {
             return rows.get(0);
         }
         // 问题原文完全一致（全文索引对极短问题可能打分为 0）

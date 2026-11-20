@@ -188,7 +188,9 @@ public class MonthlyBillService {
             where.append(" AND ").append(UNPAID).append(" AND (b.service_fee + b.transfer_payable) > 0 AND b.settle_deadline < ?");
             args.add(Date.valueOf(LocalDate.now(clock.withZone(Constants.ZONE))));
         } else if ("RECEIVABLE_UNPAID".equals(flag)) {
-            where.append(" AND b.status IN ('ISSUED','CONFIRMED','SETTLED') AND b.transfer_receivable > 0 "
+            // 已下发但还在异议期内的金额未定、现在付不了，不算「待付」
+            where.append(" AND b.status IN ('ISSUED','CONFIRMED','SETTLED') AND (b.status <> 'ISSUED' OR b.dispute_deadline < CURDATE()) "
+                    + "AND b.transfer_receivable > 0 "
                     + "AND NOT EXISTS (SELECT 1 FROM bill_receivable_payout r WHERE r.bill_id = b.bill_id)");
         }
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM monthly_bill b" + where, Long.class, args.toArray());
