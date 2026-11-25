@@ -99,6 +99,27 @@ class Sprint5AdvanceIT extends FlowItSupport {
         String a2 = data(call(post("/api/v1/seeker/advance"), s, null)).asText();
         assertThat(code(call(post("/api/v1/tenant/advances/" + a2 + "/pm-review"), c.pm(), Map.of("approve", true))))
                 .as("未经初审不能终审").isEqualTo("SYS_4090");
+        // 审批人能看到在岗情况；有旷工只提醒，已提交离职申请时不让通过
+        jdbc.update("INSERT INTO duty_absence (company_id, employment_id, absence_date, absence_type, marked_by) VALUES (?, ?, ?, 'ABSENT', 'IT')",
+                c.companyId(), empId, Date.valueOf(today));
+        jdbc.update("INSERT INTO resign_request (employment_id, user_id, company_id, resign_date, status, requested_by, source) "
+                + "VALUES (?, ?, ?, ?, 'PENDING', ?, 'SEEKER')", empId, uid, c.companyId(), Date.valueOf(today.plusDays(5)), uid);
+        JsonNode listed = data(call(get("/api/v1/tenant/advances?status=SUBMITTED"), c.site(), null));
+        JsonNode chk = null;
+        for (JsonNode n : listed) {
+            if (a2.equals(n.get("advanceId").asText())) {
+                chk = n.get("check");
+            }
+        }
+        assertThat(chk).as("待初审的记录带在岗情况").isNotNull();
+        assertThat(chk.get("onDuty").asBoolean()).isTrue();
+        assertThat(chk.get("absentThisMonth").asInt()).isEqualTo(1);
+        assertThat(chk.get("blocking").asBoolean()).isTrue();
+        assertThat(chk.get("warnings").toString()).contains("离职申请").contains("旷工");
+        assertThat(code(call(post("/api/v1/tenant/advances/" + a2 + "/site-review"), c.site(), Map.of("approve", true))))
+                .as("有待审离职申请时不能通过").isEqualTo("SYS_4090");
+        jdbc.update("DELETE FROM resign_request WHERE user_id = ? AND status = 'PENDING'", uid);
+        jdbc.update("DELETE FROM duty_absence WHERE employment_id = ? AND marked_by = 'IT'", empId);
         data(call(post("/api/v1/tenant/advances/" + a2 + "/site-review"), c.site(), Map.of("approve", true)));
         data(call(post("/api/v1/tenant/advances/" + a2 + "/pm-review"), c.pm(), Map.of("approve", true)));
         data(call(post("/api/v1/tenant/advances/" + a2 + "/payout"), c.pm(), null));

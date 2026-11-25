@@ -275,6 +275,15 @@ async function copySign(link?: string) {
 function who(app: SiteApplication) {
   return `${app.seekerName}（${app.jobTitle ?? '—'}）`
 }
+/**
+ * 面试未通过 / 取消报名后人归谁（D-31，回到报名前的归属）：
+ * 报名前是本公司私域 → 还归本公司，回私域待匹配、重开 24 小时；报名前是公域 → 回公域。名额都退回 1 个（D-12）
+ */
+function ownerAfter(app: SiteApplication) {
+  return app.fromPublic
+    ? '· 人不再归本公司，回到公域，可以去匹配全平台的岗位'
+    : '· 人还归本公司（私域），回到「私域待匹配」，可以再给他匹配本公司别的岗位\n· 跟进时限重新算 24 小时，24 小时内没报上新岗位，会自动放到公域'
+}
 
 /**
  * 确认框里提交：点确认后框不关、确认按钮转圈（不能重复点），请求成功再关框。
@@ -283,7 +292,7 @@ function who(app: SiteApplication) {
  */
 function boxSubmit(action: SiteApplicationAction, text: string, api: (input: string) => Promise<unknown>, label?: string) {
   const why = ref('')
-  const message = () => h('div', [h('p', text), why.value ? h('p', { class: 'msgbox-why', role: 'alert' }, why.value) : null])
+  const message = () => h('div', [h('p', { style: 'white-space: pre-line' }, text), why.value ? h('p', { class: 'msgbox-why', role: 'alert' }, why.value) : null])
   const beforeClose = async (act: Action, box: MessageBoxState, done: () => void) => {
     // 提交中不响应取消、关闭和再次确认
     if (box.confirmButtonLoading) return
@@ -322,7 +331,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       })
       ElMessage.success('已标记面试通过，进入待确权')
     } else if (action === 'FAIL') {
-      const s = boxSubmit(action, `${who(app)} 面试未通过。本公司渠道来的求职者回到「私域待匹配」继续跟进，其他求职者回到公域。`, (remark) =>
+      const s = boxSubmit(action, `${who(app)} 面试未通过。\n之后会这样：\n${ownerAfter(app)}\n· 这个岗位的名额退回 1 个`, (remark) =>
         tenantApi.interviewResult(app.applicationId, false, remark),
       )
       await ElMessageBox.prompt(s.message, '面试未通过', {
@@ -336,7 +345,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       })
       ElMessage.success('已标记面试未通过')
     } else if (action === 'NO_SHOW') {
-      const s = boxSubmit(action, `确认 ${who(app)} 爽约？标记后归属清空，简历释放至全平台公域，此操作不可撤销。`, () => tenantApi.noShow(app.applicationId))
+      const s = boxSubmit(action, `确认 ${who(app)} 爽约？\n之后会这样：\n· 人马上不再归本公司，回到公域，可以去匹配全平台的岗位\n· 这个岗位的名额退回 1 个\n· 他的注册来源不变（以后在别家入职，来源公司照常分流转费）\n标记后不能撤销。`, () => tenantApi.noShow(app.applicationId))
       await ElMessageBox.confirm(s.message, '标记爽约', {
         type: 'warning',
         confirmButtonText: '确认爽约',
@@ -346,7 +355,7 @@ async function simple(action: SiteApplicationAction, app: SiteApplication) {
       })
       ElMessage.success('已标记爽约')
     } else if (action === 'CANCEL') {
-      const s = boxSubmit(action, `取消 ${who(app)} 的报名。用户无法自行取消，取消后可重新进入 AI 问薪匹配流程，此操作不可撤销。`, (reason) =>
+      const s = boxSubmit(action, `取消 ${who(app)} 的报名。\n之后会这样：\n${ownerAfter(app)}\n· 这个岗位的名额退回 1 个${app.status === 'PENDING_CONFIRM' ? '\n· 还没签的入职合同作废' : ''}\n求职者自己不能取消报名，只能由你们取消。取消后不能撤销。`, (reason) =>
         tenantApi.cancelApplication(app.applicationId, reason),
       )
       await ElMessageBox.prompt(s.message, '取消报名', {

@@ -76,10 +76,10 @@ export function flowSteps(a: AdvanceRow, fmt: (s?: string) => string): FlowStep[
       : { t: '驻场初审中', m: '已推送驻场老师审核', cls: 'now' },
     idx >= 2
       ? { t: '项目经理终审通过', m: '双级审批完成', cls: 'done' }
-      : { t: '项目经理终审', m: idx === 1 ? '已推送项目经理审核' : '待流转', cls: idx === 1 ? 'now' : '' },
+      : { t: '项目经理终审', m: idx === 1 ? '已推送项目经理审核' : '等前一步审完', cls: idx === 1 ? 'now' : '' },
     idx >= 3
       ? { t: '已拨款到账', m: a.paidAt ? fmt(a.paidAt) : '已到账', cls: 'done' }
-      : { t: '拨款到账', m: idx === 2 ? '等待财务拨款' : '待流转', cls: idx === 2 ? 'now' : '' },
+      : { t: '拨款到账', m: idx === 2 ? '等待财务拨款' : '等前一步审完', cls: idx === 2 ? 'now' : '' },
     settled
       ? { t: '已还清', m: '发薪日工资自动抵扣完成', cls: 'done' }
       : { t: repaying ? '抵扣中' : '发薪日自动抵扣', m: repaying ? '本月工资不足抵扣，剩余欠款结转下月' : idx >= 3 ? '下一个发薪日从工资中自动扣除' : '到账后于发薪日自动抵扣', cls: idx >= 3 ? 'now' : '' },
@@ -154,7 +154,7 @@ export function detailSteps(d: AdvanceDetail, fmt: (s?: string) => string): Flow
       out.push({ t: '审批未通过', m: '本次机会已退回', cls: 'fail' })
       return out
     } else {
-      out.push({ t: waitTitle[step], m: waiting ? '待流转' : waitMsg[step], cls: waiting ? '' : 'now' })
+      out.push({ t: waitTitle[step], m: waiting ? '等前一步审完' : waitMsg[step], cls: waiting ? '' : 'now' })
       waiting = true
     }
   }

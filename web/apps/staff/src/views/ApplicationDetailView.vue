@@ -129,7 +129,7 @@ function back() {
           <div class="flex1">
             <p class="sign-hint">签署链接 · 请求职者扫码或打开链接签署</p>
             <p class="sign-url">{{ contract.signUrl }}</p>
-            <van-button size="small" plain type="primary" class="copy" @click="copy(contract.signUrl)"><template #icon><IconCopy :size="16" /></template>复制链接</van-button>
+            <van-button plain type="primary" class="copy" @click="copy(contract.signUrl)"><template #icon><IconCopy :size="16" /></template>复制链接</van-button>
           </div>
         </div>
         <dl>

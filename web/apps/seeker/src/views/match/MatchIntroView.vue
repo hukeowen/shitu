@@ -33,14 +33,14 @@ const company = computed(() => profile.value?.boundCompanyName ?? '')
 const scope = computed(() => profile.value?.matchScope ?? 'NONE')
 const isOwn = computed(() => scope.value === 'OWN_COMPANY' || scope.value === 'INTERNAL_TRANSFER_ONLY')
 const scopeTitle = computed(() => {
-  if (scope.value === 'OWN_COMPANY') return company.value ? `本公司（${company.value}）岗位` : '本公司岗位'
-  if (scope.value === 'ALL_PLATFORM') return '全平台岗位'
+  if (scope.value === 'OWN_COMPANY') return company.value ? `${company.value}的岗位` : '本公司的岗位'
+  if (scope.value === 'ALL_PLATFORM') return '全平台的岗位'
   return label('MatchScope', scope.value)
 })
 const scopeDesc = computed(() => {
-  if (scope.value === 'OWN_COMPANY') return '由你的服务公司提供岗位，将在该公司全部项目中为你匹配'
-  if (scope.value === 'ALL_PLATFORM') return '将在平台全部劳务公司的岗位中为你匹配，按匹配度排序'
-  if (scope.value === 'INTERNAL_TRANSFER_ONLY') return '在岗期间仅可匹配本公司内部调岗岗位'
+  if (scope.value === 'OWN_COMPANY') return '你的服务公司在招的岗位，都会帮你看一遍'
+  if (scope.value === 'ALL_PLATFORM') return '平台上所有劳务公司在招的岗位都会帮你看一遍，条件最对得上的排前面'
+  if (scope.value === 'INTERNAL_TRANSFER_ONLY') return '你在岗期间，只能换本公司内部的岗位'
   return ''
 })
 const hasAnswers = computed(() => Object.keys(match.answers).length > 0)
@@ -101,12 +101,12 @@ function start() {
       <div class="pad stack">
         <section class="acard lead">
           <h2>{{ total }} 道题，给你最多 3 个岗位</h2>
-          <p class="lead-sub">不用打字，全程点选。回答完成后，系统生成你的求职画像并进行岗位匹配。</p>
+          <p class="lead-sub">不用打字，全程点选。答完就帮你找条件对得上的活。</p>
         </section>
 
         <section class="acard">
           <div class="acard-hd">
-            <h4>本次匹配范围</h4>
+            <h4>这次会给你找</h4>
             <span class="status-tag status-tag--info">{{ label('DomainTag', isOwn ? 'PRIVATE' : 'PUBLIC') }}</span>
           </div>
           <div class="sc-t">{{ scopeTitle }}</div>

@@ -40,8 +40,9 @@ const company = computed(() => profile.value?.boundCompanyName ?? '')
 const scopeText = computed(() => {
   const o = outcome.value
   if (!o) return ''
-  if (o.scope === 'OWN_COMPANY') return `${company.value || '本公司'}（${label('DomainTag', 'PRIVATE')}）`
-  if (o.scope === 'ALL_PLATFORM') return `${label('MatchScope', 'ALL_PLATFORM')}（${label('DomainTag', 'PUBLIC')}）`
+  if (o.scope === 'OWN_COMPANY') return `${company.value || '本公司'}的岗位`
+  if (o.scope === 'ALL_PLATFORM') return '全平台的岗位'
+  if (o.scope === 'INTERNAL_TRANSFER_ONLY') return '本公司内部能调的岗位'
   return label('MatchScope', o.scope)
 })
 // 后端只返回排序前 3 且 ≥80% 的岗位（D-39）；这里再截一次，保证最多 3 张卡
@@ -50,7 +51,7 @@ const results = computed(() => (outcome.value?.results ?? []).slice(0, 3))
 const employed = computed(() => profile.value?.status === 'EMPLOYED')
 const viewOnly = computed(() => locked.value || employed.value)
 
-// S-17 私域匹配度不足：已转专属顾问（人才经纪人），推荐结果在「专属顾问推荐」查看（T-203）
+// S-17 私域匹配度不足：已转专属顾问（内部叫人才经纪人，求职者端统一叫「专属顾问」），推荐结果在「专属顾问推荐」查看（T-203）
 const journey = useJourney()
 watch(
   () => (outcome.value && !outcome.value.matched && isPrivateScope.value ? outcome.value : null),
@@ -69,28 +70,28 @@ const brokerSteps = computed<Step[]>(() => {
   const c = brokerCase.value
   if (!c) {
     return [
-      { text: '画像与匹配记录已同步至经纪人', meta: '刚刚', state: 'done' },
-      { text: '经纪人电话联系你，了解需求', meta: '2 小时内', state: 'now' },
-      { text: '人工二次匹配推荐', meta: '24 小时内', state: '' },
-      { text: '仍不满意 → 可改为匹配全平台岗位', meta: '兜底路径', state: '' },
+      { text: '你的找活要求已交给专属顾问', meta: '刚刚', state: 'done' },
+      { text: '专属顾问打电话问你想要什么活', meta: '2 小时内', state: 'now' },
+      { text: '专属顾问帮你挑岗位', meta: '24 小时内', state: '' },
+      { text: '还不满意 → 可以改找全平台的岗位', meta: '保底', state: '' },
     ]
   }
   const open = c.status === 'OPEN' || c.status === 'CONTACTED' || c.status === 'RECOMMENDED'
   const recommended = c.recommendCount > 0
   const left = (due: string, done: string) => (untilText(due) ? `还剩 ${untilText(due)}` : done)
   return [
-    { text: '画像与匹配记录已同步至经纪人', meta: formatRelative(c.createdAt), state: 'done' },
+    { text: '你的找活要求已交给专属顾问', meta: formatRelative(c.createdAt), state: 'done' },
     c.contactedAt
-      ? { text: '经纪人已联系你', meta: formatServerTime(c.contactedAt), state: 'done' }
-      : { text: '经纪人电话联系你，了解需求', meta: open ? left(c.contactDueAt, '已超过 2 小时，平台已催办') : '—', state: open ? 'now' : '' },
+      ? { text: '专属顾问已联系你', meta: formatServerTime(c.contactedAt), state: 'done' }
+      : { text: '专属顾问打电话问你想要什么活', meta: open ? left(c.contactDueAt, '已超过 2 小时，平台已催办') : '—', state: open ? 'now' : '' },
     recommended
       ? { text: `已为你推荐 ${c.recommendCount} 个岗位`, meta: formatServerTime(c.firstRecommendedAt), state: 'done' }
-      : { text: '人工二次匹配推荐', meta: open ? left(c.resolveDueAt, '即将给出结果') : '—', state: open && c.contactedAt ? 'now' : '' },
+      : { text: '专属顾问帮你挑岗位', meta: open ? left(c.resolveDueAt, '即将给出结果') : '—', state: open && c.contactedAt ? 'now' : '' },
     c.status === 'RELEASED'
-      ? { text: '已为你开放全平台岗位匹配', meta: formatServerTime(c.closedAt), state: 'done' }
+      ? { text: '已帮你放开，可以找全平台的岗位了', meta: formatServerTime(c.closedAt), state: 'done' }
       : c.status === 'APPLIED'
         ? { text: '你已报名推荐的岗位', meta: formatServerTime(c.closedAt), state: 'done' }
-        : { text: '仍不满意 → 可改为匹配全平台岗位', meta: '兜底路径', state: '' },
+        : { text: '还不满意 → 可以改找全平台的岗位', meta: '保底', state: '' },
   ]
 })
 const BROKER_TAG: Record<BrokerProgress['status'], { text: string; cls: string }> = {
@@ -154,7 +155,7 @@ function rematch() {
       <header class="hd">
         <div class="flex1">
           <h1>{{ viewOnly ? `上次匹配到 ${results.length} 个岗位` : `为你锁定 ${results.length} 个岗位` }}</h1>
-          <p>匹配范围：{{ scopeText }} · {{ viewOnly ? '当前仅可查看' : '从中选 1 个报名' }}</p>
+          <p>找的是{{ scopeText }} · {{ viewOnly ? '现在只能看' : '从中选 1 个报名' }}</p>
         </div>
         <span class="status-tag status-tag--info">{{ label('DomainTag', isPrivateScope ? 'PRIVATE' : 'PUBLIC') }}</span>
       </header>
@@ -168,7 +169,7 @@ function rematch() {
       </section>
 
       <section v-if="portrait.length" class="acard">
-        <div class="acard-hd"><h4>你的求职画像</h4><span class="t-xs">仅用于岗位匹配，不对外展示</span></div>
+        <div class="acard-hd"><h4>你的找活要求</h4><span class="t-xs">只用来帮你找活，别人看不到</span></div>
         <ul class="chips portrait">
           <li v-for="p in portrait" :key="p" class="chip">{{ p }}</li>
         </ul>
@@ -177,7 +178,7 @@ function rematch() {
       <JobCard v-for="(j, i) in results" :key="j.jobId" :job="j" :top="i === 0" :view-only="viewOnly" @open="openJob" />
 
       <div class="note">
-        <b>{{ results.length < 3 ? '只显示匹配度达标的岗位，是刻意的。' : '只显示 3 个，是刻意的。' }}</b>平台不提供岗位列表浏览 —— 岗位只在完成 AI 问薪后以结果形式出现，匹配度 ≥80% 才推荐给你。<template v-if="!viewOnly">都不满意可重新匹配，次数不限。</template>
+        <b>{{ results.length < 3 ? '只给你看条件对得上的岗位。' : '只给你看 3 个，是故意的。' }}</b>这里没有岗位列表，答完 AI 问薪的题才会推荐，只推荐条件对得上的岗位。<template v-if="!viewOnly">都不满意可以重新匹配，次数不限。</template>
       </div>
       <van-button v-if="!viewOnly" block @click="rematch">都不满意，重新匹配</van-button>
       <van-button v-else-if="appliedLock" block @click="router.push('/reports')">查看我的报备</van-button>
@@ -191,22 +192,22 @@ function rematch() {
         <section class="acard">
           <div class="state-block none">
             <IconCircleExclamationPoint :size="48" :stroke-width="1.5" />
-            <div class="state-block-t">{{ isPrivateScope ? '暂无高匹配度岗位' : '暂时没有特别合适的岗位' }}</div>
+            <div class="state-block-t">{{ isPrivateScope ? '暂时没有条件对得上的岗位' : '暂时没有特别合适的岗位' }}</div>
             <template v-if="isPrivateScope">
-              <div class="state-block-d">当前范围内没有匹配度 ≥80% 的岗位。</div>
+              <div class="state-block-d">{{ company || '本公司' }}现在没有跟你条件对得上的岗位。</div>
               <div class="state-block-d">为避免推荐「货不对板」的岗位，我们不展示低匹配结果。</div>
             </template>
             <template v-else>
-              <div class="state-block-d">没有匹配度 ≥80% 的岗位，调整条件再试试。</div>
-              <div class="state-block-d">比如放宽地域、工种或班次要求。</div>
+              <div class="state-block-d">别急，好活还有很多。</div>
+              <div class="state-block-d">放宽地域、工种或班次要求，再试一次。</div>
             </template>
           </div>
         </section>
 
         <template v-if="isPrivateScope">
           <section class="acard">
-            <div class="acard-hd"><h4>已为你安排专属人才经纪人</h4><span class="status-tag" :class="brokerTag.cls">{{ brokerTag.text }}</span></div>
-            <div class="b-t">{{ brokerCase?.companyName || company || '本公司' }} · 人才经纪人</div>
+            <div class="acard-hd"><h4>已为你安排专属顾问</h4><span class="status-tag" :class="brokerTag.cls">{{ brokerTag.text }}</span></div>
+            <div class="b-t">{{ brokerCase?.companyName || company || '本公司' }} · 专属顾问</div>
             <p class="b-d">将在 2 小时内与你电话沟通，24 小时内给出推荐结果</p>
             <div class="divider"></div>
             <ul class="tl">

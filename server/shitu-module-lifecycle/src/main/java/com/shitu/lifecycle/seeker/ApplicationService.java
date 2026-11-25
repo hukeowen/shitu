@@ -53,7 +53,8 @@ public class ApplicationService {
     /** C 端：我的报备。 */
     public record MyApplication(String applicationId, String jobId, String jobTitle, String companyName,
                                 String projectName, String city, String address, ApplicationStatus status,
-                                LocalDateTime createdAt, LocalDateTime endedAt, String endReason, NoticeView notice) {
+                                LocalDateTime createdAt, LocalDateTime endedAt, String endReason, NoticeView notice,
+                                LocalDateTime responseDeadline) {
     }
 
     /** 驻场 / 项目经理：待办报名。手机号按角色：驻场完整、其他角色隐藏（R-13）。 */
@@ -124,13 +125,15 @@ public class ApplicationService {
             Map<String, Project> ps = projectsOf(list);
             Map<String, String> cn = companies.namesOf(list.stream().map(Application::getCompanyId).collect(Collectors.toSet()));
             Map<String, InterviewNotice> ns = latestNotices(list.stream().map(Application::getApplicationId).toList());
+            // 进行中的报名给求职者看驻场处理的截止时间（产品要求：超时限制必须让本人看得见）
+            Map<String, LocalDateTime> dl = list.stream().anyMatch(a -> a.getEndedAt() == null) ? deadlines(List.of(userId)) : Map.of();
             return list.stream().map(a -> {
                 Job j = js.get(a.getJobId());
                 Project p = ps.get(a.getProjectId());
                 return new MyApplication(a.getApplicationId(), a.getJobId(), j == null ? null : j.getTitle(),
                         cn.get(a.getCompanyId()), p == null ? null : p.getName(), p == null ? null : p.getCity(),
                         a.getInterviewAddress(), a.getStatus(), a.getCreatedAt(), a.getEndedAt(), a.getEndReason(),
-                        noticeView(ns.get(a.getApplicationId())));
+                        noticeView(ns.get(a.getApplicationId())), a.getEndedAt() == null ? dl.get(userId) : null);
             }).toList();
         });
     }

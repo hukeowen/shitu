@@ -67,8 +67,13 @@ ul, ol { list-style: none; }
 .tipbar--danger { background: var(--danger-soft); }
 .tipbar--danger > svg { color: var(--danger-text); }
 
-/* 文字链接：带右箭头的小入口 */
-.link { display: inline-flex; align-items: center; gap: 2px; min-height: 24px; padding: 0; border: 0; background: none; font-size: var(--font-size-aux); color: var(--primary-text); text-decoration: none; white-space: nowrap; }
+/* 文字链接：带右箭头的小入口。点击区至少 44 高（工人手指粗、常戴手套） */
+.link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0; border: 0; background: none; font-size: var(--font-size-aux); color: var(--primary-text); text-decoration: none; white-space: nowrap; }
+
+/* 卡片标题行里的链接：点击区 44，上下负边距抵掉多出来的高度，标题行不变高 */
+.acard-hd .link { margin: -10px 0; }
+/* 整张卡片已经可点时，卡片里的「查看…」只是个样子，不另撑点击区 */
+span.link { min-height: 24px; }
 
 /* 四宫格 */
 .quad { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-gap); }
@@ -120,6 +125,9 @@ ul, ol { list-style: none; }
 .chip { font-size: var(--font-size-min); line-height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-tag); background: var(--bg-fill); color: var(--text-2); border: 0; }
 .chip.chip-ok { display: inline-flex; align-items: center; gap: var(--space-1); background: var(--success-soft); color: var(--success-text); }
 button.chip { font: inherit; font-size: var(--font-size-min); }
+/* 吃住福利（包吃 / 包住 / 包吃包住）：比普通标签大一号、带底色，紧跟薪资 */
+.perk { margin-top: var(--space-2); }
+.chip-perk { display: inline-flex; align-items: center; height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-tag); background: var(--success-soft); color: var(--success-text); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); line-height: 28px; }
 /* 可点的小标签：外层撑到 44 高的点击区，里面放 .chip */
 .chip-tap { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; }
 .chip-tap .chip { display: inline-flex; align-items: center; gap: var(--space-1); }

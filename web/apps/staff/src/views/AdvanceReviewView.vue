@@ -5,8 +5,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceRow } from '@shitu/api-client'
 import { IconChevronRight, IconCircleExclamationPoint, IconLock, IconWallet } from '@shitu/ui-icons'
 import ReasonDialog from '@/components/ReasonDialog.vue'
+import AdvanceCheckBlock from '@/components/AdvanceCheckBlock.vue'
 import { useAuthStore } from '@/stores/auth'
-import { ADVANCE_TONE, advanceWording, approveText, canAct, canApprove, canPayout, canReject, payoutAdvance, reviewAdvance } from '@/utils/advance'
+import { ADVANCE_TONE, advanceWording, approveText, canAct, canApprove, canPayout, canReject, checkBlockText, payoutAdvance, reviewAdvance } from '@/utils/advance'
 import { fmtTime, fmtYuan } from '@/utils/time'
 
 /**
@@ -114,6 +115,7 @@ function back() {
               <IconChevronRight :size="16" class="chev" />
             </p>
           </router-link>
+          <AdvanceCheckBlock v-if="a.check" :check="a.check" :block-text="canAct(a) ? checkBlockText(a) : ''" compact />
           <dl class="facts">
             <div class="kv"><dt>申请时间</dt><dd>{{ fmtTime(a.createdAt, nowDate) }}</dd></div>
             <div class="kv"><dt>所属月份</dt><dd>{{ a.bizMonth }}</dd></div>
@@ -121,8 +123,8 @@ function back() {
           </dl>
           <div v-if="canAct(a)" class="acts">
             <van-button v-if="canReject(a)" plain type="danger" class="act" :disabled="!!blocked[a.advanceId]" @click="review(a, false)">驳回</van-button>
-            <van-button v-if="canApprove(a)" type="primary" class="act" :disabled="!!blocked[a.advanceId]" @click="review(a, true)">{{ approveText(a) }}</van-button>
-            <van-button v-if="canPayout(a)" type="primary" class="act" :disabled="!!blocked[a.advanceId]" @click="payout(a)">登记拨款</van-button>
+            <van-button v-if="canApprove(a)" type="primary" class="act" :disabled="!!blocked[a.advanceId] || !!checkBlockText(a)" @click="review(a, true)">{{ approveText(a) }}</van-button>
+            <van-button v-if="canPayout(a)" type="primary" class="act" :disabled="!!blocked[a.advanceId] || !!checkBlockText(a)" @click="payout(a)">登记拨款</van-button>
           </div>
           <p v-if="blocked[a.advanceId]" class="why" role="status">{{ blocked[a.advanceId] }}</p>
         </article>

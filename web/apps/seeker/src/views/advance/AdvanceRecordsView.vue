@@ -156,6 +156,7 @@ function logRef(e: DebtLogEntry): string {
               <IconInbox :size="48" :stroke-width="1.5" />
               <div class="state-block-t">暂无欠款流水</div>
               <div class="state-block-d">预支到账和每次工资抵扣都会记在这里</div>
+              <van-button type="primary" @click="router.replace('/advance')">去看看预支额度</van-button>
             </div>
           </template>
 

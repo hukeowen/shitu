@@ -190,7 +190,7 @@ const nowDate = shNow()
       <div v-if="loading" class="page-state in-sheet"><van-loading size="24" /></div>
       <div v-else-if="loadError" class="state-block state-block--sm">
         <p class="state-block-t">{{ loadError }}</p>
-        <van-button size="small" @click="load">重新加载</van-button>
+        <van-button @click="load">重新加载</van-button>
       </div>
       <div v-else-if="!records.length" class="state-block state-block--sm"><p class="state-block-t">本月无缺勤记录</p></div>
       <div v-else class="recs">
@@ -200,7 +200,7 @@ const nowDate = shNow()
             <b>{{ fmtDay(r.absenceDate) }}</b>
             <span>{{ r.remark || '无备注' }} · {{ fmtTime(r.createdAt, nowDate) }} 标记</span>
           </div>
-          <van-button size="small" plain type="danger" @click="revoke(r)">撤销</van-button>
+          <van-button plain type="danger" @click="revoke(r)">撤销</van-button>
         </div>
       </div>
     </template>

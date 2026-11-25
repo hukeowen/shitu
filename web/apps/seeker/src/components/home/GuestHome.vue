@@ -20,8 +20,8 @@ const quad: QuadItem[] = [
 
 const steps = [
   { t: '回答 7 道题', d: '不用打字，点选即可' },
-  { t: '生成你的求职画像', d: '薪资 / 班次 / 住宿 / 地域 / 经验' },
-  { t: '匹配最多 3 个岗位', d: '匹配度 ≥80% 才推给你' },
+  { t: '弄清你的找活要求', d: '薪资 / 班次 / 住宿 / 地域 / 经验' },
+  { t: '推荐最多 3 个岗位', d: '条件对得上的才推给你' },
   { t: '报名 → 面试 → 入职', d: '驻场老师全程跟进' },
 ]
 
@@ -45,9 +45,8 @@ function onTap() {
       <p class="home-sub">注册后即可匹配岗位</p>
       <div class="home-tags">
         <span class="status-tag"><i class="dot"></i>{{ label('UserStatus', 'GUEST') }}</span>
-        <span class="status-tag">匹配范围：{{ label('MatchScope', 'NONE') }}</span>
       </div>
-      <p class="home-desc">平台采用匹配逻辑，没有岗位列表。完成 AI 问薪后，岗位才会以匹配结果出现。</p>
+      <p class="home-desc">这里没有岗位列表。登录后答几道题，就给你推荐条件对得上的岗位。</p>
     </header>
 
     <div class="pad stack">

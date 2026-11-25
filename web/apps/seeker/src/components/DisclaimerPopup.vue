@@ -84,7 +84,7 @@ async function agree() {
     </div>
     <div v-else-if="doc" ref="box" class="body" tabindex="0" @scroll.passive="onScroll">
       <p v-for="(p, i) in doc.paragraphs" :key="i"><b>{{ i + 1 }}.</b> {{ p }}</p>
-      <p v-if="props.companyName">本次报名岗位的劳动关系归属于：<b>{{ props.companyName }}</b>，劳动合同、社保与工资发放由该公司负责。</p>
+      <p v-if="props.companyName">这个岗位跟 <b>{{ props.companyName }}</b> 签劳动合同（劳动关系在这家公司），社保和工资也由这家公司负责。</p>
       <p class="end">— 已到底部 —</p>
     </div>
 

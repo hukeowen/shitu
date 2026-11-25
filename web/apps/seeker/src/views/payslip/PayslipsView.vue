@@ -56,6 +56,7 @@ const open = (p: Payslip) => router.push(`/payslips/${p.payslipId}`)
         <div class="state-block-t">还没有工资条</div>
         <div class="state-block-d">劳务公司导入工资表后，每月工资条会在这里展示</div>
         <div class="state-block-d">工资由所属劳务公司核算发放，发薪后可在这里查看明细</div>
+        <van-button type="primary" @click="router.push('/work')">看看我的工作</van-button>
       </div>
 
       <div v-else class="pad stack">

@@ -10,7 +10,9 @@ const props = defineProps<{ job: MatchResultCard; top?: boolean; viewOnly?: bool
 const emit = defineEmits<{ open: [jobId: string] }>()
 const { label } = useDict()
 
-const chips = computed(() => [...dormChips(props.job), label('ShiftType', props.job.shiftType)])
+/** 包吃 / 包住 / 包吃包住：求职者最看重，单独高亮放在薪资下面 */
+const perk = computed(() => (props.job.mealProvided && props.job.dormProvided ? '包吃包住' : props.job.mealProvided ? '包吃' : props.job.dormProvided ? '包住' : ''))
+const chips = computed(() => [...dormChips(props.job).filter((c) => c !== perk.value), label('ShiftType', props.job.shiftType)])
 </script>
 
 <template>
@@ -21,6 +23,7 @@ const chips = computed(() => [...dormChips(props.job), label('ShiftType', props.
     </div>
     <!-- 每张卡都带「（综合）」：改版前即如此；后端校验文案把岗位薪资叫「月综合薪资」（JobService） -->
     <p class="salary"><b>{{ fmtSalary(job.salaryMin, job.salaryMax) }}</b><span>元/月（综合）</span></p>
+    <p v-if="perk" class="perk"><span class="chip-perk">{{ perk }}</span></p>
     <ul class="chips">
       <li v-for="c in chips" :key="c" class="chip">{{ c }}</li>
     </ul>

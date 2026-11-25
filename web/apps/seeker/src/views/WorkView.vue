@@ -303,7 +303,7 @@ const cta = computed(() => {
               </li>
             </ol>
             <p class="para">你当前尚未入职任何项目。完成 AI 问薪匹配后，可从推荐岗位中选择 1 个报名。</p>
-            <p v-if="profile.status === 'PRIVATE_PENDING' && profile.boundCompanyName" class="para">归属公司：<b class="strong">{{ profile.boundCompanyName }}</b></p>
+            <p v-if="profile.status === 'PRIVATE_PENDING' && profile.boundCompanyName" class="para">服务公司：<b class="strong">{{ profile.boundCompanyName }}</b></p>
             <router-link v-if="journey.pendingRecs.length" to="/recommendations" class="link more">
               专属顾问为你推荐了 {{ journey.pendingRecs.length }} 个岗位<IconChevronRight :size="16" />
             </router-link>

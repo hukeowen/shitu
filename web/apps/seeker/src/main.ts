@@ -13,7 +13,7 @@ import { useAuthStore } from './stores/auth'
 // 面向求职者的叫法：不出现「私域 / 公域 / 确权」等内部术语
 setDictOverrides({
   DomainTag: { PUBLIC: '自由求职', PRIVATE: '专属服务', TEMP_PRIVATE: '报名中' },
-  UserStatus: { PUBLIC_SEEKING: '求职中', PRIVATE_PENDING: '顾问跟进中', PENDING_CONFIRM: '待签约入职', EMPLOYED: '在岗' },
+  UserStatus: { GUEST: '还没登录', PUBLIC_SEEKING: '求职中', PRIVATE_PENDING: '顾问跟进中', PENDING_CONFIRM: '待签约入职', EMPLOYED: '在岗' },
   // 报名状态同理：「待确权」对求职者显示为「待签约入职」（报备页签、标签、台账、我的工作等全部走字典）
   ApplicationStatus: { PENDING_CONFIRM: '待签约入职' },
   // 预支状态：徽标与状态行统一叫「已还清」（字典原文「已抵扣」易与「已抵扣金额」混淆）

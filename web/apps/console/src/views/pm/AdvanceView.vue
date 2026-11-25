@@ -158,6 +158,33 @@ function who(a: AdvanceRow) {
   return `${a.seekerName ?? '员工'}（${projectName(a.projectId)}）${fmtYuan(a.amount)}`
 }
 
+/**
+ * 在岗核对（后端只给还没拨款的单子附上）：已不在岗 / 已提交离职 / 离职已批 → 红色，后端不让通过、不让拨款；
+ * 本月旷工、最近两周旷工、欠款没扣完 → 橙色，只提醒
+ */
+function checkTags(a: AdvanceRow): { text: string; tone: 'danger' | 'warning' }[] {
+  const c = a.check
+  if (!c) return []
+  const t: { text: string; tone: 'danger' | 'warning' }[] = []
+  if (!c.onDuty) t.push({ text: '已不在岗', tone: 'danger' })
+  if (c.resignStatus === 'PENDING') t.push({ text: '已提交离职', tone: 'danger' })
+  else if (c.resignStatus === 'SCHEDULED') t.push({ text: c.resignDate ? `${c.resignDate} 离职` : '离职已批', tone: 'danger' })
+  if (c.absentThisMonth > 0) t.push({ text: `本月旷工 ${c.absentThisMonth} 天`, tone: 'warning' })
+  else if (c.warnings.some((w) => w.startsWith('最近两周有旷工'))) t.push({ text: '最近两周有旷工', tone: 'warning' })
+  if (toNum(c.debt ?? 0) > 0) t.push({ text: '预支欠款未扣完', tone: 'warning' })
+  return t
+}
+/** 在岗核对不过关时，通过 / 登记拨款按钮置灰的原因；驳回不受影响 */
+function checkBlockText(a: AdvanceRow, act: Action): string {
+  if (!a.check?.blocking || act.endsWith('REJECT')) return ''
+  return act === 'PAYOUT' ? '这个人已离职或正在办离职，不能登记拨款，请先不要转账' : '这个人已离职或正在办离职，不能通过，请驳回'
+}
+/** 确认框里附上的提醒，让审批人点确认那一刻也看得到 */
+function warnText(a: AdvanceRow) {
+  const w = a.check?.warnings ?? []
+  return w.length ? ` 请注意：${w.join('；')}。` : ''
+}
+
 /** 后端拒绝过的操作：只置灰这一条的这个操作，原因用提醒色写在表格上方，刷新后重新判断 */
 const blocked = reactive<Record<string, { name: string; act: Action; text: string }>>({})
 
@@ -184,11 +211,11 @@ async function run(action: Action, a: AdvanceRow) {
         beforeClose: s.beforeClose,
       })
     } else if (action === 'PAYOUT') {
-      const s = boxSubmit(`确认已线下向 ${who(a)} 完成转账？登记后计入员工欠款，次月发薪时工资表导入自动抵扣，此操作不可撤销。`, '登记拨款', api, onBlocked)
+      const s = boxSubmit(`确认已线下向 ${who(a)} 完成转账？登记后计入员工欠款，次月发薪时工资表导入自动抵扣，此操作不可撤销。${warnText(a)}`, '登记拨款', api, onBlocked)
       await ElMessageBox.confirm(s.message, '登记拨款', { confirmButtonText: '已转账，登记拨款', cancelButtonText: '取消', type: 'warning', beforeClose: s.beforeClose })
     } else {
       const s = boxSubmit(
-        action === 'SITE_APPROVE' ? `初审通过 ${who(a)}，流转至项目经理终审。` : `终审通过 ${who(a)}，进入待拨款。`,
+        (action === 'SITE_APPROVE' ? `初审通过 ${who(a)}，流转至项目经理终审。` : `终审通过 ${who(a)}，进入待拨款。`) + warnText(a),
         LABEL[action],
         api,
         onBlocked,
@@ -318,23 +345,50 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="在岗情况" min-width="180">
+          <template #default="{ row }">
+            <template v-if="row.check">
+              <div class="duty">
+                <template v-if="row.check.onDuty">在岗 {{ row.check.dutyDays }} 天</template>
+                <span v-else class="bad">已不在岗</span>
+              </div>
+              <div class="sub tnum">
+                <template v-if="row.check.startDate">入职 {{ row.check.startDate }} · </template>本月请假 {{ row.check.leaveThisMonth }} / 旷工 {{ row.check.absentThisMonth }} 天
+              </div>
+              <el-tooltip v-if="checkTags(row).length" placement="top" :show-after="200">
+                <template #content>
+                  <div v-for="w in row.check.warnings" :key="w">· {{ w }}</div>
+                </template>
+                <div class="ck-tags" tabindex="0">
+                  <span v-for="t in checkTags(row)" :key="t.text" class="status-tag" :class="`status-tag--${t.tone}`">{{ t.text }}</span>
+                </div>
+              </el-tooltip>
+            </template>
+            <span v-else class="sub">—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" :width="opsWidth" align="right" class-name="ops-col">
           <template #default="{ row }">
             <div v-if="acts(row).length" class="acts">
-              <el-button
-                v-for="a in acts(row)"
-                :key="a"
-                size="small"
-                :type="a.endsWith('REJECT') ? 'danger' : 'primary'"
-                :plain="a.endsWith('REJECT')"
-                :class="{ 'btn-reject': a.endsWith('REJECT') }"
-                :disabled="blocked[row.advanceId]?.act === a"
-                @click="run(a, row)"
-              >
-                {{ LABEL[a] }}
-              </el-button>
+              <el-tooltip v-for="a in acts(row)" :key="a" :content="checkBlockText(row, a)" :disabled="!checkBlockText(row, a)" placement="top">
+                <span class="act-wrap">
+                  <el-button
+                    size="small"
+                    :type="a.endsWith('REJECT') ? 'danger' : 'primary'"
+                    :plain="a.endsWith('REJECT')"
+                    :class="{ 'btn-reject': a.endsWith('REJECT') }"
+                    :disabled="blocked[row.advanceId]?.act === a || !!checkBlockText(row, a)"
+                    @click="run(a, row)"
+                  >
+                    {{ LABEL[a] }}
+                  </el-button>
+                </span>
+              </el-tooltip>
             </div>
             <span v-else class="sub">—</span>
+            <div v-if="row.check?.blocking && acts(row).some((a: Action) => checkBlockText(row, a))" class="ops-why">
+              {{ acts(row).includes('PAYOUT') ? '已离职或在办离职，先别转账' : '已离职或在办离职，请驳回' }}
+            </div>
           </template>
         </el-table-column>
         <template #empty>
@@ -417,6 +471,12 @@ const opsWidth = computed(() => actionsColWidth(rows.value.map((a) => ({ labels:
 .chain .cn.rej { color: var(--danger-text); font-weight: var(--font-weight-semibold); }
 .acts { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: flex-end; white-space: nowrap; }
 .acts .el-button + .el-button { margin-left: 0; }
+.act-wrap { display: inline-flex; }
+.duty { font-size: var(--font-size-aux); color: var(--text-1); white-space: nowrap; }
+.bad { color: var(--danger-text); font-weight: var(--font-weight-semibold); }
+.ck-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); }
+.ck-tags .status-tag { white-space: nowrap; }
+.ops-why { margin-top: var(--space-1); font-size: var(--font-size-min); line-height: 18px; color: var(--danger-text); white-space: normal; text-align: right; }
 .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-gap); margin-top: var(--space-gap); align-items: start; }
 .rule-list { margin: 0; padding-left: var(--space-4); font-size: var(--font-size-aux); line-height: 1.9; color: var(--text-2); }
 .rule-list b { color: var(--text-1); font-weight: var(--font-weight-semibold); }

@@ -108,7 +108,7 @@ defineExpose({ open })
 
 <style scoped>
 .rd { padding: 8px 18px 4px; }
-.msg { font-size: var(--font-size-body); line-height: 1.7; color: var(--text-2); margin-bottom: 10px; }
+.msg { white-space: pre-line; font-size: var(--font-size-body); line-height: 1.7; color: var(--text-2); margin-bottom: 10px; }
 .presets { display: flex; flex-wrap: wrap; column-gap: var(--space-2); margin-bottom: var(--space-1); }
 /* 可点的小标签：外层按钮撑到 44 高当点击区，里面的标签保持原来大小 */
 .chip-tap { display: inline-flex; align-items: center; min-height: var(--control-height); padding: 0; border: 0; background: none; font: inherit; }

@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showDialog, showToast } from 'vant'
-import { errorMessage, isApiError, seekerApi, useDict, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
+import { errorMessage, isApiError, seekerApi, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
 import { IconCheck, IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useMatchSession } from '@/composables/useMatchSession'
@@ -10,7 +10,6 @@ import { CITY_COLUMNS, provinceOf } from '@/utils/cities'
 
 /** S-12 / S-13 答题（C-302）：一屏一题，点选作答，可返回修改；地域锁定题选「是」时选择城市。S-14 生成画像 */
 const router = useRouter()
-const { label } = useDict()
 const { match, profile, locked, appliedLock, lockText } = useMatchSession()
 
 const quiz = ref<QuizView | null>(null)
@@ -140,15 +139,17 @@ onBeforeUnmount(() => clearInterval(phaseTimer))
 const scopeName = computed(() => {
   const p = profile.value
   if (!p) return ''
-  if (p.matchScope === 'OWN_COMPANY') return `${p.boundCompanyName ?? '本公司'}（${label('DomainTag', 'PRIVATE')}）`
-  return label('MatchScope', p.matchScope)
+  if (p.matchScope === 'OWN_COMPANY') return `${p.boundCompanyName ?? '本公司'}的岗位`
+  if (p.matchScope === 'ALL_PLATFORM') return '全平台的岗位'
+  if (p.matchScope === 'INTERNAL_TRANSFER_ONLY') return '本公司内部能调的岗位'
+  return ''
 })
 const phases = computed(() => [
-  `解析回答，生成画像标签（${total.value}/${total.value}）`,
-  `确定匹配范围：${scopeName.value || '按当前归属'}`,
-  '过滤已满员 / 暂停招聘岗位',
-  '按匹配度与岗位权重排序',
-  '输出匹配结果',
+  `看完你的 ${total.value} 个回答`,
+  `只在${scopeName.value || '你能报的岗位'}里找`,
+  '去掉招满了、暂停招人的岗位',
+  '条件最对得上的排前面',
+  '把结果给你',
 ])
 
 async function submit() {
@@ -253,7 +254,7 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
       <div class="bottom-bar row">
         <van-button size="large" class="prev" :disabled="step === 0" @click="prev">上一题</van-button>
         <van-button type="primary" size="large" class="next" :disabled="!picked" @click="next">
-          {{ isLast ? '生成我的求职画像' : '下一题' }}
+          {{ isLast ? '看看有哪些活' : '下一题' }}
         </van-button>
       </div>
     </template>
@@ -271,15 +272,15 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
       <div v-if="analyzing" class="analyzing" role="status" aria-live="polite">
         <div class="acard">
         <van-loading size="32" class="a-spin" />
-        <div class="a-t">AI 正在分析你的求职画像</div>
-        <p class="a-d">正在从{{ scopeName || '可匹配范围' }}的在招岗位中筛选最匹配的岗位</p>
+        <div class="a-t">正在帮你找活…</div>
+        <p class="a-d">正在{{ scopeName || '你能报的岗位' }}里挑条件对得上的</p>
         <ul class="a-steps">
           <li v-for="(t, i) in phases" :key="i" :class="{ done: i < phase, now: i === phase }">
             <span class="mk"><IconCheck v-if="i < phase" :size="16" :stroke-width="2.25" /><i v-else></i></span>{{ t }}
           </li>
         </ul>
         <div class="bar a-bar"><i class="sig" :style="{ width: progress + '%' }"></i></div>
-        <div class="row-b a-foot"><span>匹配引擎运算中</span><span>{{ progress }}%</span></div>
+        <div class="row-b a-foot"><span>马上就好</span><span>{{ progress }}%</span></div>
         </div>
       </div>
     </transition>

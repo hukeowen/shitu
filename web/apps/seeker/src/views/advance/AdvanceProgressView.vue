@@ -99,7 +99,7 @@ const pct = computed(() => Math.round((row.value ? repaidRatio(row.value) : 0) *
         </section>
 
         <section class="acard">
-          <div class="acard-hd"><h4>审批流转</h4></div>
+          <div class="acard-hd"><h4>审批进度</h4></div>
           <ul class="tl">
             <li v-for="s in steps" :key="s.t" :class="s.cls">
               <div class="tl-t">{{ s.t }}<span class="status-tag" :class="nodeTag(s.cls).cls">{{ nodeTag(s.cls).t }}</span></div>

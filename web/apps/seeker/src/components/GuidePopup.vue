@@ -21,7 +21,7 @@ function start() {
     <div class="hd">
       <IconSparkles :size="32" />
       <h3>开始 AI 问薪匹配</h3>
-      <p>仕兔不提供岗位列表 —— 需要先了解你的期望，才能匹配出真正合适的岗位（最多 3 个）。</p>
+      <p>仕兔没有岗位列表。先回答几道题，说说你想要什么样的活，再给你推荐最合适的岗位（最多 3 个）。</p>
     </div>
     <div v-if="channel.inviter" class="via">
       <div class="avatar">{{ channel.inviter.slice(0, 1) }}</div>

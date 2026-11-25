@@ -17,17 +17,18 @@ import {
   IconUsers,
 } from '@shitu/ui-icons'
 import AppActions from '@/components/AppActions.vue'
-import ApplicationCard from '@/components/ApplicationCard.vue'
+import FollowUpCard from '@/components/FollowUpCard.vue'
+import { useFollowUps } from '@/composables/useFollowUps'
 import { useNow } from '@/composables/useNow'
 import { useAuthStore } from '@/stores/auth'
 import { useCancelRequestsStore } from '@/stores/cancelRequests'
 import { useInboxStore } from '@/stores/inbox'
 import { advanceWording, canAct } from '@/utils/advance'
 import { fetchInterviewBuckets, type InterviewBuckets } from '@/utils/status'
-import { fmtDuration, parseLocal } from '@/utils/time'
+import { fmtDuration } from '@/utils/time'
 
 /**
- * M-01 驻场工作台：白色身份头、4 个待办数字（待知悉 / 待面试 / 待确权 / 私域待匹配）、24h 超时提示条、待知悉报名卡片、更多事项。
+ * M-01 驻场工作台：白色身份头、4 个待办数字（待知悉 / 待面试 / 待确权 / 私域待匹配）、24h 超时提示条、今日待办（各类待跟进合在一起按剩余时间排，最急的 5 条）、更多事项。
  * 待知悉 / 待面试 / 已到厂三个数字与待办页签同源（utils/status 的分桶，互斥不重复计数）。
  */
 const auth = useAuthStore()
@@ -64,12 +65,15 @@ const canApps = computed(() => (me.value?.roles ?? []).some((r) => r === 'SITE' 
 // ---------- 数据 ----------
 const wb = ref<SiteWorkbench | null>(null)
 const wbError = ref('')
-const todayList = shallowRef<SiteApplication[]>([])
-const todayLoaded = ref(false)
-const todayError = ref('')
 const refreshing = ref(false)
-/** 24h 窗口的截止时间（待面试、待确权、私域待匹配三个阶段各取最早一条还没到期的），算「最短还剩」 */
-const deadlines = shallowRef<number[]>([])
+/**
+ * 今日待办：待知悉 / 待面试 / 已到厂 / 待确权 / 私域待匹配合成一个列表，按剩余时间从少到多（与跟进提醒页同一份加载逻辑），
+ * 首页只放最紧急的 TODAY_TOP 条，其余点「查看全部」去跟进提醒页
+ */
+const follow = useFollowUps(() => canApps.value)
+const { items: followItems, loadError: followError, loaded: followLoaded, blocked, onRejected, transfer } = follow
+const TODAY_TOP = 5
+const todayList = computed(() => followItems.value.slice(0, TODAY_TOP))
 
 /** 待知悉 / 待面试 / 已到厂分桶（仅驻场 / 项目经理可拉取） */
 const buckets = shallowRef<InterviewBuckets | null>(null)
@@ -78,22 +82,12 @@ const adv = computed(() => advanceWording(me.value?.roles))
 /** 待我审批的预支：驻场 = 待初审，项目经理 = 待终审（按 allowedActions） */
 const advTodo = ref<number | null>(null)
 
-const ts = (v?: string) => parseLocal(v)?.getTime() ?? null
-/**
- * 三个来源都按截止时间升序（报名列表 sort=DEADLINE 按用户最早的打开窗口排；私域待匹配接口 ORDER BY deadline），
- * 所以每个来源里第一条还没到期的就是这一阶段最近的截止时间。已到期但还没被扫描任务关掉的窗口最多滞留 1 分钟，
- * 多取几条（DEADLINE_PEEK）跳过它们。
- */
-const DEADLINE_PEEK = 5
-const firstAhead = (list: (number | null)[]) => list.find((d): d is number => d != null && d > now.value) ?? null
-
 async function loadData() {
   void inbox.refresh()
   void tenantApi
     .advances()
     .then((r) => (advTodo.value = r.filter(canAct).length))
     .catch(() => (advTodo.value = null))
-  const found: (number | null)[] = []
   const tasks: Promise<unknown>[] = [
     tenantApi
       .siteWorkbench()
@@ -104,40 +98,17 @@ async function loadData() {
       .catch((e: unknown) => {
         wbError.value = isApiError(e) && e.status === 403 ? '' : errorMessage(e, '待办数字加载失败')
       }),
-    tenantApi
-      .privatePending()
-      .then((r) => found.push(firstAhead(r.map((p) => ts(p.deadline)))))
-      .catch(() => undefined),
+    follow.load(),
   ]
   if (canApps.value) {
     void cancelReq.refresh()
-    todayError.value = ''
-    // 重试期间先回到加载中，不闪一下空状态
-    if (!todayList.value.length) todayLoaded.value = false
     tasks.push(
       fetchInterviewBuckets()
-        .then((b) => {
-          buckets.value = b
-          todayList.value = b.ack.slice(0, 3)
-        })
-        .catch((e: unknown) => {
-          buckets.value = null
-          todayList.value = []
-          todayError.value = errorMessage(e, '待知悉报名加载失败')
-        })
-        .finally(() => (todayLoaded.value = true)),
-      tenantApi
-        .applications({ status: 'PENDING_INTERVIEW', page: 1, pageSize: DEADLINE_PEEK, sort: 'DEADLINE' })
-        .then((r) => found.push(firstAhead(r.records.map((a) => ts(a.responseDeadline)))))
-        .catch(() => undefined),
-      tenantApi
-        .applications({ status: 'PENDING_CONFIRM', page: 1, pageSize: DEADLINE_PEEK, sort: 'DEADLINE' })
-        .then((r) => found.push(firstAhead(r.records.map((a) => ts(a.responseDeadline)))))
-        .catch(() => undefined),
+        .then((b) => (buckets.value = b))
+        .catch(() => (buckets.value = null)),
     )
   }
   await Promise.all(tasks)
-  deadlines.value = found.filter((d): d is number => d != null)
 }
 
 async function onRefresh() {
@@ -185,7 +156,7 @@ function go(to: string, open?: boolean) {
 const due = computed(() => wb.value?.windowsDueIn4h ?? 0)
 /** 还没超时的窗口里最短的剩余时间；都已超时或拿不到截止时间时不写 */
 const shortest = computed(() => {
-  const left = deadlines.value.map((d) => d - now.value).filter((ms) => ms > 0)
+  const left = followItems.value.map((i) => (i.deadline ?? 0) - now.value).filter((ms) => ms > 0)
   return left.length ? fmtDuration(Math.min(...left)) : null
 })
 
@@ -209,12 +180,8 @@ const entries = computed<Entry[]>(() => [
 
 // ---------- 报名操作 ----------
 const actions = ref<InstanceType<typeof AppActions> | null>(null)
-const blocked = ref<Record<string, { action: SiteApplicationAction; reason: string }>>({})
 function onAction(a: SiteApplication, action: SiteApplicationAction) {
   void actions.value?.run(action, a)
-}
-function onRejected(a: SiteApplication, action: SiteApplicationAction, reason: string) {
-  blocked.value = { ...blocked.value, [a.applicationId]: { action, reason } }
 }
 function onDone() {
   blocked.value = {}
@@ -251,7 +218,7 @@ async function onPull() {
           </div>
         </section>
 
-        <p v-if="wbError && !todayError" class="tipbar tipbar--danger" role="alert">
+        <p v-if="wbError" class="tipbar tipbar--danger" role="alert">
           <IconCircleExclamationPoint :size="18" />
           <span class="flex1 tipbar-d wb-err">{{ wbError }}，下拉可重试</span>
         </p>
@@ -281,33 +248,35 @@ async function onPull() {
           <IconChevronRight :size="16" class="chev" />
         </router-link>
 
-        <section v-if="canApps" class="todo-sec">
+        <section class="todo-sec" aria-label="今日待办">
           <div class="sec-hd">
-            <h2>待知悉报名</h2>
-            <span class="sec-sub">按剩余时间</span>
-            <router-link to="/todo?tab=ack" class="link">全部<IconChevronRight :size="16" /></router-link>
+            <h2>今日待办</h2>
+            <span class="sec-sub">{{ followItems.length > TODAY_TOP ? `共 ${followItems.length} 件，最急的在前` : '最急的在前' }}</span>
+            <router-link to="/reminders" class="link">查看全部<IconChevronRight :size="16" /></router-link>
           </div>
+          <p v-if="followError && todayList.length" class="tipbar tipbar--danger" role="alert">
+            <IconCircleExclamationPoint :size="18" /><span class="flex1 tipbar-d wb-err">{{ followError }}，下拉可重试</span>
+          </p>
           <div v-if="todayList.length" class="stack">
-            <ApplicationCard
-              v-for="a in todayList"
-              :key="a.applicationId"
-              :app="a"
+            <FollowUpCard
+              v-for="i in todayList"
+              :key="i.key"
+              :item="i"
               :now="now"
-              :blocked="blocked[a.applicationId]"
-              detail-link
-              @action="onAction"
-              @more="(x) => actions?.more(x)"
+              :blocked="blocked[i.a?.applicationId ?? i.p?.userId ?? '']"
+              @run="onAction"
+              @transfer="transfer"
             />
           </div>
-          <div v-else-if="todayError" class="acard state-block state-block--sm">
+          <div v-else-if="followError" class="acard state-block state-block--sm">
             <IconCircleExclamationPoint :size="32" />
-            <p class="state-block-t">{{ todayError }}</p>
-            <van-button size="small" @click="onRefresh">重新加载</van-button>
+            <p class="state-block-t">{{ followError }}</p>
+            <van-button @click="onRefresh">重新加载</van-button>
           </div>
-          <div v-else-if="todayLoaded" class="acard state-block state-block--sm">
+          <div v-else-if="followLoaded" class="acard state-block state-block--sm">
             <IconClipboardList :size="32" />
-            <p class="state-block-t">暂无待知悉的报名</p>
-            <p class="state-block-d">求职者报名后会在此提醒你，请在 24 小时内推送面试信息</p>
+            <p class="state-block-t">今天暂时没有要跟进的人</p>
+            <p class="state-block-d">新报名、面试通过和扫码注册的人会出现在这里，请在 24 小时内跟进</p>
           </div>
           <div v-else class="acard page-state small"><van-loading size="24" /></div>
         </section>

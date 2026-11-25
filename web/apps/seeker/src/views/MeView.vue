@@ -196,7 +196,7 @@ async function onLogout() {
         <dl>
           <div class="kv"><dt>用户 ID</dt><dd>{{ profile.userId }}</dd></div>
           <div class="kv"><dt>手机号</dt><dd>{{ profile.phoneMasked }}</dd></div>
-          <div class="kv"><dt>匹配范围</dt><dd>{{ label('MatchScope', profile.matchScope) }}</dd></div>
+          <div class="kv"><dt>能找的岗位</dt><dd>{{ label('MatchScope', profile.matchScope) }}</dd></div>
           <div class="kv"><dt>来源</dt><dd>{{ profile.sourceIsPlatform ? '平台自主注册' : '渠道注册' }}</dd></div>
           <div class="kv"><dt>注册时间</dt><dd>{{ formatServerTime(profile.registeredAt) }}</dd></div>
         </dl>

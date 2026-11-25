@@ -4,7 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, isApiError, tenantApi, useDict, type AdvanceDetail } from '@shitu/api-client'
 import { IconCircleExclamationPoint } from '@shitu/ui-icons'
 import ReasonDialog from '@/components/ReasonDialog.vue'
-import { ADVANCE_TONE, DECISION_TEXT, LEDGER_TEXT, STEP_TEXT, approveText, canAct, canApprove, canPayout, canReject, payoutAdvance, reviewAdvance } from '@/utils/advance'
+import AdvanceCheckBlock from '@/components/AdvanceCheckBlock.vue'
+import { ADVANCE_TONE, DECISION_TEXT, LEDGER_TEXT, STEP_TEXT, approveText, canAct, canApprove, canPayout, canReject, checkBlockText, payoutAdvance, reviewAdvance } from '@/utils/advance'
 import { fmtFull, fmtYuan, parseLocal } from '@/utils/time'
 
 /** M-11 预支单笔详情：申请信息、逐级审批记录（节点 / 结论 / 意见 / 时间）、拨款与抵扣流水，可在此初审（驻场）/ 终审（项目经理） */
@@ -59,6 +60,8 @@ const pendingSteps = computed(() => {
   return (['SITE', 'PM', 'PAYOUT'] as const).filter((s) => !done.has(s))
 })
 const hasBar = computed(() => !!adv.value && canAct(adv.value))
+/** 在岗核对不过关（已离职 / 正在办离职）：通过、登记拨款置灰，驳回仍可点 */
+const checkBlock = computed(() => (adv.value && canAct(adv.value) ? checkBlockText(adv.value) : ''))
 
 const dialog = ref<InstanceType<typeof ReasonDialog> | null>(null)
 async function review(approve: boolean) {
@@ -108,6 +111,7 @@ function back() {
             <span>预支金额</span>
             <b class="sum-amt">{{ fmtYuan(adv.amount) }}</b>
           </div>
+          <AdvanceCheckBlock v-if="adv.check" :check="adv.check" :block-text="checkBlock" />
         </section>
 
         <section class="acard">
@@ -158,16 +162,16 @@ function back() {
           </div>
         </section>
 
-        <div :class="hasBar ? (blocked ? 'bottom-bar-gap with-why' : 'bottom-bar-gap') : 'page-bottom-gap'" />
+        <div :class="hasBar ? (blocked || checkBlock ? 'bottom-bar-gap with-why' : 'bottom-bar-gap') : 'page-bottom-gap'" />
       </div>
     </van-pull-refresh>
 
     <div v-if="hasBar && adv" class="bottom-bar">
-      <p v-if="blocked" class="bar-why err" role="status">{{ blocked }}</p>
+      <p v-if="blocked || checkBlock" class="bar-why err" role="status">{{ blocked || checkBlock }}</p>
       <div class="bar-acts">
         <van-button v-if="canReject(adv)" size="large" plain type="danger" :disabled="!!blocked" @click="review(false)">驳回</van-button>
-        <van-button v-if="canApprove(adv)" size="large" type="primary" :disabled="!!blocked" @click="review(true)">{{ approveText(adv) }}</van-button>
-        <van-button v-if="canPayout(adv)" size="large" type="primary" :disabled="!!blocked" @click="payout">登记拨款</van-button>
+        <van-button v-if="canApprove(adv)" size="large" type="primary" :disabled="!!blocked || !!checkBlock" @click="review(true)">{{ approveText(adv) }}</van-button>
+        <van-button v-if="canPayout(adv)" size="large" type="primary" :disabled="!!blocked || !!checkBlock" @click="payout">登记拨款</van-button>
       </div>
     </div>
     <ReasonDialog ref="dialog" />
@@ -177,7 +181,7 @@ function back() {
 <style scoped>
 .advd { min-height: 100vh; }
 .sum { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--font-size-body); color: var(--text-2); }
-.sum-amt { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sum-amt { font-size: 30px; font-weight: var(--font-weight-semibold); line-height: 36px; color: var(--text-1); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .code { font-family: var(--font-mono); }
 /* 审批时间线：完成 / 进行中 / 驳回除了圆点颜色，文字里也写明（「· 通过」「待处理」「· 驳回」） */
 .tl { position: relative; padding-left: 20px; }

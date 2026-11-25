@@ -13,6 +13,7 @@ declare module 'vue' {
     CancelRequestPopup: typeof import('./src/components/CancelRequestPopup.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
     ComplaintPopup: typeof import('./src/components/ComplaintPopup.vue')['default']
+    DeadlineBar: typeof import('./src/components/DeadlineBar.vue')['default']
     DisclaimerPopup: typeof import('./src/components/DisclaimerPopup.vue')['default']
     GuestHome: typeof import('./src/components/home/GuestHome.vue')['default']
     GuidePopup: typeof import('./src/components/GuidePopup.vue')['default']

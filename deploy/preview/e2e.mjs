@@ -127,13 +127,13 @@ async function registerAndApply(channel) {
   await ui.click('登录 / 注册并开始匹配')
   await ui.see(channel ? '专属服务' : '自由求职')
   await ui.click('开始 AI 问薪')
-  await ui.see('本次匹配范围')
+  await ui.see('这次会给你找')
   await ui.clickSel('.bottom-bar .van-button--primary') // 开始回答
   for (const pick of ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线', '6,500 – 8,000 元', '两班倒可以', '必须包住', '没做过']) {
     await ui.click(pick, { wait: 2500 })
     await ui.sleep(500)
   }
-  await ui.click('生成我的求职画像')
+  await ui.click('看看有哪些活')
   await ui.see('为你锁定', 20000)
   await ui.click('查看并报名')
   await ui.see('面试信息')

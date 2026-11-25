@@ -157,6 +157,7 @@ void loadMore()
         <div v-if="!loading && !items.length && !error" class="state-block">
           <IconBell :size="48" :stroke-width="1.5" />
           <div class="state-block-t">暂无消息</div>
+          <van-button type="primary" @click="router.push('/')">回首页</van-button>
         </div>
         <section class="tipbar">
           <IconInfo :size="20" />

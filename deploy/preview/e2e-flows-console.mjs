@@ -87,13 +87,13 @@ export default (h) => {
     await ui.click('登录 / 注册并开始匹配')
     await ui.see('专属服务')
     await ui.click('开始 AI 问薪')
-    await ui.see('本次匹配范围')
+    await ui.see('这次会给你找')
     await ui.clickSel('.bottom-bar .van-button--primary')
     for (const pick of ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线', '6,500 – 8,000 元', '两班倒可以', '必须包住', '没做过']) {
       await ui.click(pick, { wait: 2500 })
       await ui.sleep(500)
     }
-    await ui.click('生成我的求职画像')
+    await ui.click('看看有哪些活')
     await ui.see('为你锁定', 20000)
     const userId = userIdOf(phone)
     if (!userId) throw new Error('库里没找到刚注册的求职者 ' + phone)
@@ -487,7 +487,7 @@ export default (h) => {
       const b = await apply()
       await openMore(b.appId)
       await ui.click('爽约')
-      await ui.see('简历释放至全平台公域')
+      await ui.see('回到公域，可以去匹配全平台的岗位')
       await ui.click('确认爽约')
       await ui.see('已标记爽约')
       expectDb(`SELECT status FROM application WHERE application_id = '${b.appId}'`, 'NO_SHOW')
@@ -610,7 +610,7 @@ export default (h) => {
         await ui.goto('/staff/reminders?f=private')
         await ui.see(spaced(p.phone))
         await ui.click('一键流转经纪人', { within: spaced(p.phone) })
-        await ui.see('转交本公司人才经纪人二次匹配')
+        await ui.see('交给本公司人才经纪人跟进')
         await ui.click('确认流转')
         await ui.see('已流转至人才经纪人')
       }

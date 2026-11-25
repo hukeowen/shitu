@@ -45,7 +45,7 @@ const unmatched = (scope) => ({ code: '0', message: 'ok', data: { sessionId: 'MS
 // 答题：每题点第一个不用选城市的选项，一直点到最后一题也选好
 const answerAll = `(async () => { for (let i = 0; i < 12; i++) {
   [...document.querySelectorAll('[role=radio]')].find((b) => !b.innerText.includes('城市')).click(); await ${wait(500)}
-  if ([...document.querySelectorAll('button')].some((b) => b.innerText.includes('生成我的求职画像') && !b.disabled)) return } })()`
+  if ([...document.querySelectorAll('button')].some((b) => b.innerText.includes('看看有哪些活') && !b.disabled)) return } })()`
 // 报名成功页读的是问薪暂存里的报名结果（同 routes.mjs 的 enterApplySuccess）
 const enterApplySuccess = `sessionStorage.setItem('shitu.match', ${JSON.stringify(JSON.stringify({
   owner: data.personas.acknowledged.userId, quizVersion: null, answers: {}, step: 0, applyResult: data.ids.applyResult }))}); location.assign('/apply/success')`
@@ -334,7 +334,7 @@ const noBarWhy = `document.querySelector('#app .bottom-bar .bar-why') ? '能发�
 const slotTexts = (...want) => `(() => { const got = [...document.querySelectorAll('#app .slots .slot b')].map((b) => b.innerText.trim()).join('、'); return got === ${JSON.stringify(want.join('、'))} ? '' : '本月额度四格应该是 ${want.join('、')}，页面是 ' + got })()`
 // 审批流转：每个节点都带文字状态
 const advNodes = `(() => { const nodes = [...document.querySelectorAll('#app .tl li')]
-  if (nodes.length < 2) return '审批流转不是时间线'
+  if (nodes.length < 2) return '审批进度不是时间线'
   const bad = nodes.find((e) => !/已完成|进行中|已驳回|已结束|未开始/.test(e.innerText))
   return bad ? '节点只靠颜色区分：' + bad.innerText.slice(0, 20) : '' })()`
 const popupIdle = `document.querySelector('.van-popup .van-button--loading') ? '被拒之后「提交申诉」还在转' : ''`
@@ -1548,7 +1548,7 @@ const quizPhone = `(async () => { const ph = document.querySelector('#app .phone
   if (!opts[0].querySelector('svg') || opts[1].querySelector('svg')) bad.push('选中的选项没有勾，或没选中的也有勾')
   for (const x of btns) want('底部按钮高', Math.round(x.getBoundingClientRect().height), 48)
   want('「下一题」底色', cs(btns[1]).backgroundColor, ${bgToken('--primary')})
-  if (!btns[0].innerText.includes('上一题') || !/下一题|生成我的求职画像/.test(btns[1].innerText)) bad.push('底部不是「上一题 / 下一题」')
+  if (!btns[0].innerText.includes('上一题') || !/下一题|看看有哪些活/.test(btns[1].innerText)) bad.push('底部不是「上一题 / 下一题」')
   return bad.join('；') })()`
 // 有版本的配置（第 11 类）：顶部信息条写「当前生效版本 · 草稿状态」；保存草稿 / 对比 / 发布 / 回滚四个按钮一直在、顺序固定
 const engBar = `(() => { const bar = document.querySelector('#app .ver-bar'); if (!bar) return '没有顶部信息条'
@@ -2002,7 +2002,7 @@ const STATES = [
   { app: 'seeker', screen: 'match-quiz', state: 'normal', persona: 'registered', path: '/match/quiz', width: NARROW, checks: [optionsTall] },
   { app: 'seeker', screen: 'match-quiz', state: 'selected', persona: 'registered', path: '/match/quiz',
     steps: [`document.querySelector('[role=radio]').click()`, click('上一题')], checks: [selectedMark, optionsTall] },
-  { app: 'seeker', screen: 'match-quiz', state: 'last', persona: 'registered', path: '/match/quiz', steps: [answerAll], checks: [bottomBar('生成我的求职画像')] },
+  { app: 'seeker', screen: 'match-quiz', state: 'last', persona: 'registered', path: '/match/quiz', steps: [answerAll], checks: [bottomBar('看看有哪些活')] },
   { app: 'seeker', screen: 'match-quiz', state: 'city', persona: 'registered', path: '/match/quiz',
     steps: [`(async () => { for (let i = 0; i < 12; i++) { const need = [...document.querySelectorAll('[role=radio]')].find((b) => b.innerText.includes('城市'))
       if (need) return need.click(); document.querySelector('[role=radio]').click(); await ${wait(500)} } })()`] },
@@ -2012,10 +2012,10 @@ const STATES = [
     rules: [{ url: '/seeker/quiz', action: 'respond', body: { code: '0', message: 'ok', data: { versionId: 1, name: '', questions: [] } } }] },
   { app: 'seeker', screen: 'match-quiz', state: 'locked', persona: 'acknowledged', path: '/match/quiz' },
   { app: 'seeker', screen: 'match-quiz', state: 'submitting', persona: 'registered', path: '/match/quiz', rules: [{ url: '/seeker/match', action: 'hang' }],
-    steps: [answerAll, click('生成我的求职画像'), wait(1500)], quick: true },
+    steps: [answerAll, click('看看有哪些活'), wait(1500)], quick: true },
   { app: 'seeker', screen: 'match-quiz', state: 'rejected', persona: 'registered', path: '/match/quiz',
     rules: [{ url: '/seeker/match', action: 'respond', body: refuse('LC_4003', '你已报名岗位，面试结果出来前不能重新匹配') }],
-    steps: [answerAll, click('生成我的求职画像')] },
+    steps: [answerAll, click('看看有哪些活')] },
   // 匹配结果
   { app: 'seeker', screen: 'match-result', state: 'normal', persona: 'matched', path: '/match/result', checks: [jobCards, salaryBig] },
   { app: 'seeker', screen: 'match-result', state: 'normal', persona: 'matched', path: '/match/result', width: NARROW, checks: [jobCards] },
@@ -2308,7 +2308,7 @@ const STATES = [
   { app: 'seeker', screen: 'advance-records', state: 'loading', persona: 'veteran', path: '/advance/records', rules: [{ url: ADV_API, action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'advance-records', state: 'error', persona: 'veteran', path: '/advance/records', rules: [{ url: ADV_API, action: 'fail' }], checks: [has('重新加载')] },
   // 审批进度
-  { app: 'seeker', screen: 'advance-progress', state: 'normal', persona: 'veteran', path: ADV, checks: [blocks('预支金额', '审批流转', '还款计划'), advNodes, moneyStyle, bodyText, noLegacy, has('进行中'), has('未开始')] },
+  { app: 'seeker', screen: 'advance-progress', state: 'normal', persona: 'veteran', path: ADV, checks: [blocks('预支金额', '审批进度', '还款计划'), advNodes, moneyStyle, bodyText, noLegacy, has('进行中'), has('未开始')] },
   { app: 'seeker', screen: 'advance-progress', state: 'normal', persona: 'veteran', path: ADV, width: NARROW, checks: [advNodes] },
   { app: 'seeker', screen: 'advance-progress', state: 'just-submitted', persona: 'veteran', path: ADV + '?new=1', checks: [has('申请已提交')] },
   { app: 'seeker', screen: 'advance-progress', state: 'repaying', persona: 'veteran', path: '/advance/YZ-SHOT-3', rules: partlyRepaid,

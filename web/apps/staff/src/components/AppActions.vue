@@ -36,6 +36,14 @@ const cfResend = ref(false)
 const reason = ref<InstanceType<typeof ReasonDialog> | null>(null)
 
 const who = (a: SiteApplication) => `${a.seekerName}（${a.jobTitle ?? '—'}）`
+/**
+ * 面试未通过 / 取消报名后人归谁（D-31，回到报名前的归属）：
+ * 报名前是本公司私域 → 还归本公司，回私域待匹配、重开 24 小时；报名前是公域 → 回公域。名额都退回 1 个（D-12）
+ */
+const ownerAfter = (a: SiteApplication) =>
+  a.fromPublic
+    ? '· 人不再归本公司，回到公域，可以去匹配全平台的岗位'
+    : '· 人还归本公司（私域），回到「私域待匹配」，可以再给他匹配本公司别的岗位\n· 跟进时限重新算 24 小时，24 小时内没报上新岗位，会自动放到公域'
 
 async function confirmThen(title: string, message: string, confirmText: string, fn: () => Promise<unknown>, danger = false): Promise<boolean> {
   try {
@@ -110,7 +118,7 @@ async function run(action: SiteApplicationAction, app: SiteApplication) {
     case 'FAIL':
       ok = await withReason({
         title: '面试未通过',
-        message: `${who(app)} 面试未通过：将立即清空当前归属，私域用户回到本公司私域待匹配，公域用户回到公域并可重新匹配。`,
+        message: `${who(app)} 面试未通过。\n之后会这样：\n${ownerAfter(app)}\n· 这个岗位的名额退回 1 个`,
         presets: ['技能不符', '体检不合格', '证件不全', '年龄 / 纹身不符', '本人放弃'],
         required: true,
         placeholder: '请填写未通过原因（必填）',
@@ -123,7 +131,7 @@ async function run(action: SiteApplicationAction, app: SiteApplication) {
     case 'NO_SHOW':
       ok = await withReason({
         title: '标记爽约',
-        message: `确认 ${who(app)} 爽约？标记后归属清空、简历当日释放至全平台公域（来源归属不变），此操作不可撤销。`,
+        message: `确认 ${who(app)} 爽约？\n之后会这样：\n· 人马上不再归本公司，回到公域，可以去匹配全平台的岗位\n· 这个岗位的名额退回 1 个\n· 他的注册来源不变（以后在别家入职，来源公司照常分流转费）\n标记后不能撤销。`,
         presets: ['未到场且电话无法接通', '电话告知不来了', '到场后自行离开'],
         placeholder: '爽约情况备注（选填）',
         confirmText: '确认爽约',
@@ -135,7 +143,7 @@ async function run(action: SiteApplicationAction, app: SiteApplication) {
     case 'CANCEL':
       ok = await withReason({
         title: '取消报名',
-        message: `取消 ${who(app)} 的报名。用户无法自行取消，取消后可重新进入 AI 问薪匹配流程，此操作不可撤销。`,
+        message: `取消 ${who(app)} 的报名。\n之后会这样：\n${ownerAfter(app)}\n· 这个岗位的名额退回 1 个${app.status === 'PENDING_CONFIRM' ? '\n· 还没签的入职合同作废' : ''}\n求职者自己不能取消报名，只能由你们取消。取消后不能撤销。`,
         presets: ['用户申请更换岗位', '用户误操作报名', '岗位已满 / 暂停招聘', '用户联系取消面试'],
         required: true,
         placeholder: '请填写取消原因（必填）',

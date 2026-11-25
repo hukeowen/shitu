@@ -524,6 +524,8 @@ export interface MyApplication {
   endReason?: string
   /** 驻场推送的面试信息（C-408） */
   notice?: InterviewNoticeView
+  /** 进行中的报名：驻场处理的截止时间（超时会被释放，要让本人看见倒计时） */
+  responseDeadline?: string | null
 }
 
 export interface InboxItem {
@@ -1190,7 +1192,24 @@ export interface AdvanceRow {
   createdAt: string
   /** SITE_APPROVE / SITE_REJECT / PM_APPROVE / PM_REJECT / PAYOUT */
   allowedActions: string[]
-  projectName?: string
+  projectName?: string  /** 公司侧还没拨款的记录才有：申请人在本公司的在岗情况，给审批人核对 */
+  check?: AdvanceCheck | null
+}
+
+/** 预支审批人要看的在岗情况；blocking 为 true 时后端不让通过 / 拨款 */
+export interface AdvanceCheck {
+  onDuty: boolean
+  startDate?: string | null
+  dutyDays: number
+  leaveThisMonth: number
+  absentThisMonth: number
+  lastAbsentDate?: string | null
+  /** PENDING 离职待审 / SCHEDULED 离职待生效 */
+  resignStatus?: string | null
+  resignDate?: string | null
+  debt?: number | null
+  warnings: string[]
+  blocking: boolean
 }
 
 export interface DebtLogEntry {

@@ -412,12 +412,12 @@ export default (h) => {
       const sessions = `SELECT COUNT(*) FROM match_session WHERE user_id = '${p.userId}'`
       const answer = async () => {
         for (const pick of PICKS) { await ui.click(pick, { wait: 2500 }); await ui.sleep(500) }
-        await ui.click('生成我的求职画像')
+        await ui.click('看看有哪些活')
         await ui.see('为你锁定', 20000)
       }
       await h.loginSeeker(p.phone)
       await ui.goto('/match')
-      await ui.see('本次匹配范围')
+      await ui.see('这次会给你找')
       const n0 = num(sessions)
       await ui.clickSel('.bottom-bar .van-button--primary') // 开始回答
       await answer()
@@ -481,7 +481,7 @@ export default (h) => {
       await ui.goto('/reports')
       await ui.see('爽约')
       await ui.goto('/match')
-      await ui.see('本次匹配范围')
+      await ui.see('这次会给你找')
     },
 
     /**
@@ -563,7 +563,7 @@ export default (h) => {
         const id = await applyAdvance()
         if (!id) throw new Error('驳回后本次机会应当退回，但求职者端不能再次申请')
         a = { ...a, advId: id, status: 'SUBMITTED' }
-        await ui.see('审批流转')
+        await ui.see('审批进度')
         await ui.click('查看全部预支记录')
         await ui.see(first)
         await ui.see(id)
@@ -575,7 +575,7 @@ export default (h) => {
         await ui.clickSel(link(a.advId)) // 卡片头部进详情
         await ui.see('审批记录')
         await ui.click('初审通过')
-        await ui.click('在岗正常，出勤稳定，同意')
+        await ui.click('同意预支')
         await ui.click('初审通过')
         await ui.see('初审已通过')
         expectDb(`SELECT status FROM advance_request WHERE advance_id = '${a.advId}'`, 'SITE_APPROVED')
@@ -618,11 +618,11 @@ export default (h) => {
         await h.loginStaff(pm)
         await ui.goto('/staff/advance')
         await ui.click('终审通过', { within: id })
-        await ui.click('情况属实，同意预支')
+        await ui.click('同意预支')
         await ui.click('终审通过')
         await ui.see('终审已通过')
         expectDb(`SELECT status FROM advance_request WHERE advance_id = '${id}'`, 'PM_APPROVED')
-        expectDb(`SELECT COUNT(*) FROM advance_approval WHERE advance_id = '${id}' AND step = 'PM' AND decision = 'APPROVE' AND opinion LIKE '%情况属实%'`, 1)
+        expectDb(`SELECT COUNT(*) FROM advance_approval WHERE advance_id = '${id}' AND step = 'PM' AND decision = 'APPROVE' AND opinion LIKE '%同意预支%'`, 1)
         await ui.click('全部记录')
         await ui.see(id)
       }

@@ -9,10 +9,12 @@ declare module 'vue' {
   export interface GlobalComponents {
     AbsencePopup: typeof import('./src/components/AbsencePopup.vue')['default']
     AcknowledgePopup: typeof import('./src/components/AcknowledgePopup.vue')['default']
+    AdvanceCheckBlock: typeof import('./src/components/AdvanceCheckBlock.vue')['default']
     AppActions: typeof import('./src/components/AppActions.vue')['default']
     ApplicationCard: typeof import('./src/components/ApplicationCard.vue')['default']
     CaptchaDialog: typeof import('./src/components/CaptchaDialog.vue')['default']
     ConfirmOnboardPopup: typeof import('./src/components/ConfirmOnboardPopup.vue')['default']
+    FollowUpCard: typeof import('./src/components/FollowUpCard.vue')['default']
     QrImage: typeof import('./src/components/QrImage.vue')['default']
     ReasonDialog: typeof import('./src/components/ReasonDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

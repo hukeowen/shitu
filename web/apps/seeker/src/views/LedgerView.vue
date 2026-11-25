@@ -139,6 +139,7 @@ function openApp(a: LedgerApplication) {
             <IconInbox :size="48" :stroke-width="1.5" />
             <div class="state-block-t">还没有面试记录</div>
             <div class="state-block-d">报名后，驻场老师确认并发来面试时间和地点，记录会出现在这里。</div>
+            <van-button type="primary" to="/match">去找活</van-button>
           </div>
         </template>
 
@@ -167,6 +168,7 @@ function openApp(a: LedgerApplication) {
           <div v-if="!works.length" class="state-block">
             <IconInbox :size="48" :stroke-width="1.5" />
             <div class="state-block-t">还没有入职记录</div>
+            <van-button type="primary" to="/match">去找活</van-button>
           </div>
         </template>
 
@@ -183,6 +185,7 @@ function openApp(a: LedgerApplication) {
             <IconInbox :size="48" :stroke-width="1.5" />
             <div class="state-block-t">还没有工资记录</div>
             <div class="state-block-d">劳务公司发布工资条后，每月工资会出现在这里。</div>
+            <van-button type="primary" to="/work">看看我的工作</van-button>
           </div>
         </template>
 

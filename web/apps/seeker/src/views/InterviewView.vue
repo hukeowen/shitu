@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage, seekerApi, useDict, type MyApplication } from '@shitu/api-client'
+import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication } from '@shitu/api-client'
 import { IconCheck, IconCircleExclamationPoint, IconClock, IconExternalLink, IconMapPin, IconPhone, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import CancelRequestBlock from '@/components/CancelRequestBlock.vue'
+import DeadlineBar from '@/components/DeadlineBar.vue'
 import { telHref } from '@/utils/format'
 import { amapLink } from '@/utils/map'
-import { APPLICATION_TONE } from '@/utils/status'
+import { APPLICATION_TONE, deadlineCopy } from '@/utils/status'
 import { formatServerTime, formatShort, untilText } from '@/utils/time'
 
 /**
@@ -22,13 +23,17 @@ const { label } = useDict()
 const app = ref<MyApplication | null>(null)
 const loading = ref(true)
 const loadError = ref('')
+/** 没有进行中的报名、也没在岗：可以重新匹配 */
+const canRematch = ref(false)
+const ENDED: ApplicationStatus[] = ['TIMEOUT', 'CANCELLED', 'INTERVIEW_FAILED', 'NO_SHOW']
 
-async function load() {
-  loading.value = true
+async function load(silent = false) {
+  loading.value = !silent
   loadError.value = ''
   try {
     const all = await seekerApi.myApplications()
     app.value = all.find((a) => a.applicationId === route.params.applicationId) ?? null
+    canRematch.value = !all.some((a) => a.status === 'PENDING_INTERVIEW' || a.status === 'PENDING_CONFIRM' || a.status === 'EMPLOYED')
   } catch (e) {
     loadError.value = errorMessage(e, '加载失败，请稍后重试')
   } finally {
@@ -36,6 +41,13 @@ async function load() {
   }
 }
 void load()
+/** 倒计时到点：后端扫描释放有延迟，稍等再静默刷新 */
+function onExpire() {
+  setTimeout(() => void load(true), 1500)
+}
+const ended = computed(() => !!app.value && ENDED.includes(app.value.status))
+const dlCopy = computed(() => deadlineCopy(app.value?.status, !!app.value?.notice))
+const showDeadline = computed(() => !!app.value?.responseDeadline && (app.value.status === 'PENDING_INTERVIEW' || app.value.status === 'PENDING_CONFIRM'))
 
 const n = computed(() => app.value?.notice)
 const where = computed(() => [app.value?.projectName, app.value?.companyName].filter(Boolean).join(' · '))
@@ -72,8 +84,8 @@ const summary = computed(() => {
       : { t: '面试已通过', d: '驻场老师正在为你办理入职，请留意电子合同的签署通知。' }
   }
   if (s === 'EMPLOYED') return { t: '已入职', d: '你已通过面试并办理入职，在岗信息请到「我的工作」查看。' }
-  if (s === 'TIMEOUT') return { t: label('ApplicationStatus', 'TIMEOUT'), d: '驻场未在时限内处理，本次报名已自动作废，你可以重新匹配岗位。' }
-  return { t: s ? label('ApplicationStatus', s) : '', d: '本次报名已结束，可重新进入 AI 问薪匹配岗位。' }
+  if (s === 'TIMEOUT') return { t: label('ApplicationStatus', 'TIMEOUT'), d: '驻场老师没在规定时间内处理，这次报名已自动取消，不怪你。' }
+  return { t: s ? label('ApplicationStatus', s) : '', d: '这次报名已经结束了。' }
 })
 </script>
 
@@ -85,7 +97,7 @@ const summary = computed(() => {
       <IconTriangleExclamationPoint :size="48" :stroke-width="1.5" />
       <div class="state-block-t">加载失败</div>
       <div class="state-block-d">{{ loadError }}</div>
-      <van-button type="primary" @click="load">重新加载</van-button>
+      <van-button type="primary" @click="load()">重新加载</van-button>
     </div>
     <div v-else-if="!app" class="state-block">
       <IconCircleExclamationPoint :size="48" :stroke-width="1.5" />
@@ -125,6 +137,14 @@ const summary = computed(() => {
         </dl>
       </section>
 
+      <DeadlineBar v-if="showDeadline" :deadline="app.responseDeadline" v-bind="dlCopy" @expire="onExpire" />
+
+      <section v-if="ended && canRematch" class="acard comfort">
+        <p class="comfort-t">别急，好活还有很多</p>
+        <p class="comfort-d">再答一遍 AI 问薪的题，马上给你推荐新的岗位</p>
+        <van-button type="primary" block @click="router.push('/match')">立即重新匹配</van-button>
+      </section>
+
       <CancelRequestBlock v-if="app.status === 'PENDING_CONFIRM'" card :application-id="app.applicationId" :job-title="app.jobTitle" :subtitle="where" />
 
       <van-button v-if="app.status === 'PENDING_CONFIRM' && hasPendingSign" type="primary" block class="btn-cta" @click="router.push('/contracts/sign')">去签署合同</van-button>
@@ -140,7 +160,8 @@ const summary = computed(() => {
         <div class="state-block-d">请留意站内消息和短信</div>
         <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
       </div>
-      <div class="pad">
+      <div class="pad stack">
+        <DeadlineBar v-if="showDeadline" :deadline="app.responseDeadline" v-bind="dlCopy" @expire="onExpire" />
         <CancelRequestBlock card :application-id="app.applicationId" :job-title="app.jobTitle" :subtitle="where" />
       </div>
       <div class="page-bottom-gap"></div>
@@ -155,6 +176,8 @@ const summary = computed(() => {
         <p v-if="where" class="item-sub">{{ where }}</p>
         <p class="item-meta">报名编号 <span class="code">{{ app.applicationId }}</span></p>
       </section>
+
+      <DeadlineBar v-if="showDeadline" :deadline="app.responseDeadline" v-bind="dlCopy" @expire="onExpire" />
 
       <section class="acard">
         <div class="acard-hd"><h4>面试时间</h4></div>
@@ -209,6 +232,9 @@ const summary = computed(() => {
 
 <style scoped>
 .iv { min-height: 100vh; }
+.comfort { text-align: center; }
+.comfort-t { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); line-height: 24px; color: var(--text-1); }
+.comfort-d { margin: var(--space-1) 0 var(--space-3); font-size: var(--font-size-body); line-height: 22px; color: var(--text-2); }
 .item-hd h1 { min-width: 0; font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }
 .code { font-family: var(--font-mono); color: var(--text-1); }
 .when { font-size: var(--font-size-title); font-weight: var(--font-weight-semibold); line-height: 26px; color: var(--text-1); }

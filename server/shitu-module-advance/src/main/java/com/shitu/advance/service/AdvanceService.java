@@ -51,7 +51,16 @@ public class AdvanceService {
 
     public record AdvanceRow(String advanceId, String userId, String seekerName, String projectId, BigDecimal amount,
                              String bizMonth, String status, BigDecimal repaidAmount, LocalDateTime paidAt,
-                             LocalDateTime createdAt, List<String> allowedActions, String projectName) {
+                             LocalDateTime createdAt, List<String> allowedActions, String projectName, Check check) {
+    }
+
+    /**
+     * 审批人要看的在岗情况（只在还没拨款的公司侧记录上给）：防止把钱批给已经自离、请了长假或正在办离职的人。
+     * warnings 是给人看的提醒，blocking 为 true 时后端不让通过。
+     */
+    public record Check(boolean onDuty, LocalDate startDate, int dutyDays, int leaveThisMonth, int absentThisMonth,
+                        LocalDate lastAbsentDate, String resignStatus, LocalDate resignDate, BigDecimal debt,
+                        List<String> warnings, boolean blocking) {
     }
 
     public record DebtLogEntry(String changeType, BigDecimal amount, BigDecimal balanceAfter, String advanceId, String payslipId,
@@ -213,6 +222,8 @@ public class AdvanceService {
         BizException.check(p.hasAnyRole("PM", "OWNER"), ErrorCode.LC_ACTOR_NOT_ALLOWED);
         Map<String, Object> a = lock(p, advanceId);
         BizException.check("PM_APPROVED".equals(a.get("status")), ErrorCode.SYS_CONFLICT, "只有终审通过的预支可以登记拨款");
+        Check c = check((String) a.get("user_id"), p.companyId());
+        BizException.check(!c.blocking(), ErrorCode.SYS_CONFLICT, String.join("；", c.warnings()) + "，不能拨款");
         String userId = (String) a.get("user_id");
         BigDecimal amount = (BigDecimal) a.get("amount");
         LocalDateTime now = LocalDateTime.now(clock);
@@ -269,6 +280,10 @@ public class AdvanceService {
         BizException.check(approve || (opinion != null && !opinion.isBlank()), ErrorCode.LC_REASON_REQUIRED, "驳回请填写原因");
         Map<String, Object> a = lock(p, advanceId);
         BizException.check(from.equals(a.get("status")), ErrorCode.SYS_CONFLICT, "该预支当前不在此审批环节");
+        if (approve) {
+            Check c = check((String) a.get("user_id"), p.companyId());
+            BizException.check(!c.blocking(), ErrorCode.SYS_CONFLICT, String.join("；", c.warnings()) + "，不能通过，请驳回");
+        }
         jdbc.update("UPDATE advance_request SET status = ?, version = version + 1 WHERE advance_id = ?", to, advanceId);
         jdbc.update("INSERT INTO advance_approval (company_id, advance_id, step, decision, opinion, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
                 p.companyId(), advanceId, stepName, approve ? "APPROVE" : "REJECT", opinion, p.subjectId());
@@ -338,11 +353,69 @@ public class AdvanceService {
                     : "SITE_APPROVED".equals(status) && p.hasRole("PM") ? List.of("PM_APPROVE", "PM_REJECT")
                     : "PM_APPROVED".equals(status) && p.hasAnyRole("PM", "OWNER") ? List.of("PAYOUT") : List.of();
             String name = p == null ? null : seekerName(uid);
+            Check check = p != null && REVIEWABLE.contains(status) ? check(uid, rs.getString("company_id")) : null;
             return new AdvanceRow(rs.getString("advance_id"), uid, name, rs.getString("project_id"), rs.getBigDecimal("amount"),
                     rs.getString("biz_month"), status, rs.getBigDecimal("repaid_amount"),
                     rs.getTimestamp("paid_at") == null ? null : rs.getTimestamp("paid_at").toLocalDateTime(),
-                    rs.getTimestamp("created_at").toLocalDateTime(), actions, projectName(rs.getString("project_id")));
+                    rs.getTimestamp("created_at").toLocalDateTime(), actions, projectName(rs.getString("project_id")), check);
         }, args);
+    }
+
+    /** 还要人审批 / 拨款的状态：这些记录给审批人附上在岗情况 */
+    private static final Set<String> REVIEWABLE = Set.of("SUBMITTED", "SITE_APPROVED", "PM_APPROVED");
+
+    /** 申请人在本公司的在岗情况：在不在岗、本月请假 / 旷工、离职申请、欠款。 */
+    Check check(String userId, String companyId) {
+        LocalDate today = today();
+        List<String> warnings = new java.util.ArrayList<>();
+        boolean blocking = false;
+        List<Map<String, Object>> emp = jdbc.queryForList("SELECT employment_id, project_id, start_date FROM employment "
+                + "WHERE user_id = ? AND company_id = ? AND end_date IS NULL", userId, companyId);
+        boolean onDuty = !emp.isEmpty();
+        LocalDate start = null;
+        int duty = 0, leave = 0, absent = 0;
+        LocalDate lastAbsent = null;
+        if (onDuty) {
+            String eid = (String) emp.get(0).get("employment_id");
+            start = ((Date) emp.get(0).get("start_date")).toLocalDate();
+            duty = dutyDays(new Emp(eid, companyId, (String) emp.get(0).get("project_id"), start), today);
+            for (Map<String, Object> r : jdbc.queryForList("SELECT absence_type, COUNT(*) n FROM duty_absence WHERE employment_id = ? "
+                    + "AND absence_date BETWEEN ? AND ? GROUP BY absence_type", eid, Date.valueOf(today.withDayOfMonth(1)), Date.valueOf(today))) {
+                int n = ((Number) r.get("n")).intValue();
+                if ("ABSENT".equals(r.get("absence_type"))) {
+                    absent = n;
+                } else {
+                    leave = n;
+                }
+            }
+            List<Date> last = jdbc.queryForList("SELECT MAX(absence_date) FROM duty_absence WHERE employment_id = ? AND absence_type = 'ABSENT'",
+                    Date.class, eid);
+            lastAbsent = last.isEmpty() || last.get(0) == null ? null : last.get(0).toLocalDate();
+        } else {
+            warnings.add("已经不在本公司在岗（已离职或任职已结束）");
+            blocking = true;
+        }
+        List<Map<String, Object>> rr = jdbc.queryForList("SELECT status, resign_date FROM resign_request WHERE user_id = ? AND company_id = ? "
+                + "AND status IN ('PENDING','SCHEDULED') ORDER BY id DESC LIMIT 1", userId, companyId);
+        String resignStatus = rr.isEmpty() ? null : (String) rr.get(0).get("status");
+        LocalDate resignDate = rr.isEmpty() ? null : ((Date) rr.get(0).get("resign_date")).toLocalDate();
+        if ("PENDING".equals(resignStatus)) {
+            warnings.add("已提交离职申请（离职日 " + resignDate + "），还没审核");
+            blocking = true;
+        } else if ("SCHEDULED".equals(resignStatus)) {
+            warnings.add("离职已审核通过，" + resignDate + " 离职");
+            blocking = true;
+        }
+        if (absent > 0) {
+            warnings.add("本月旷工 " + absent + " 天" + (lastAbsent == null ? "" : "（最近一次 " + lastAbsent + "）"));
+        } else if (onDuty && lastAbsent != null && !lastAbsent.isBefore(today.minusDays(14))) {
+            warnings.add("最近两周有旷工（" + lastAbsent + "）");
+        }
+        BigDecimal debt = jdbc.queryForObject("SELECT advance_debt FROM `user` WHERE user_id = ?", BigDecimal.class, userId);
+        if (debt != null && debt.signum() > 0) {
+            warnings.add("还有 " + debt.stripTrailingZeros().toPlainString() + " 元预支没从工资里扣完");
+        }
+        return new Check(onDuty, start, duty, leave, absent, lastAbsent, resignStatus, resignDate, debt, warnings, blocking);
     }
 
     private String projectName(String projectId) {

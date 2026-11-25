@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type KycView, type MyApplication, type MyWork } from '@shitu/api-client'
 import { BrandMark, IconBell, IconCheck, IconCircleCheck, IconChevronRight, IconClock, IconFilePenLine, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
+import DeadlineBar from '@/components/DeadlineBar.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
 import QuadGrid from '@/components/QuadGrid.vue'
 import type { QuadItem } from '@/components/quad'
@@ -13,7 +14,7 @@ import { useMatchSession } from '@/composables/useMatchSession'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
 import { formatRelative, formatServerTime, formatShort, parseServerTime } from '@/utils/time'
-import { STATUS_TONE } from '@/utils/status'
+import { STATUS_TONE, deadlineCopy } from '@/utils/status'
 
 /**
  * 登录后首页（C-201~C-203）：S-06 公域求职 / S-07 私域待匹配（24h 专属跟进）/ S-08 待面试 / S-09 待确权 / S-10 在岗。
@@ -88,10 +89,26 @@ watch(
 const ACTIVE: ApplicationStatus[] = ['PENDING_INTERVIEW', 'PENDING_CONFIRM', 'EMPLOYED']
 const app = ref<MyApplication | null>(null)
 const appLoading = ref(false)
+/** 上一次报名刚结束（超时 / 取消 / 面试未通过 / 爽约，7 天内）：首页给一句安慰和「立即重新匹配」 */
+const ENDED: ApplicationStatus[] = ['TIMEOUT', 'CANCELLED', 'INTERVIEW_FAILED', 'NO_SHOW']
+const lastEnded = ref<MyApplication | null>(null)
+/** 在首页上看着倒计时走完（专属跟进期 / 驻场联系超时）：同样给安慰 */
+const expiredHere = ref(false)
 async function loadApplication() {
   const s = status.value
   if (!s || !ACTIVE.includes(s as ApplicationStatus)) {
     app.value = null
+    lastEnded.value = null
+    if (s === 'PUBLIC_SEEKING' || s === 'PRIVATE_PENDING') {
+      try {
+        const list = await seekerApi.myApplications()
+        const latest = [...list].sort((a, b) => (parseServerTime(b.createdAt) ?? 0) - (parseServerTime(a.createdAt) ?? 0))[0]
+        const endedAt = parseServerTime(latest?.endedAt)
+        if (latest && ENDED.includes(latest.status) && endedAt != null && Date.now() - endedAt < 7 * 86400_000) lastEnded.value = latest
+      } catch {
+        /* 拿不到就不显示安慰语 */
+      }
+    }
     return
   }
   appLoading.value = true
@@ -149,17 +166,30 @@ function openMsg(m: InboxItem) {
 
 // 24h 响应窗口：私域待匹配 = 专属跟进；待面试 = 驻场联系；待确权 = 确权
 const deadline = computed(() => parseServerTime(profile.value?.responseDeadline))
-const cd = useCountdown(deadline, () => setTimeout(() => void reload(), 1500))
+const cd = useCountdown(deadline, () => {
+  expiredHere.value = true
+  setTimeout(() => void reload(), 1500)
+})
+/** 可以匹配、且上次报名刚结束或倒计时刚走完：匹配入口卡片换成安慰语 + 「立即重新匹配」 */
+const showComfort = computed(() => !matchLocked.value && !appliedLock.value && status.value !== 'EMPLOYED' && (!!lastEnded.value || expiredHere.value))
+const comfortDesc = computed(() => {
+  const a = lastEnded.value
+  if (a?.status === 'TIMEOUT') return `「${a.jobTitle || '上次报名的岗位'}」驻场老师没按时处理，报名已自动取消，不怪你。`
+  if (a) return `「${a.jobTitle || '上次报名的岗位'}」这次没成。`
+  return '等待时间已经过了，现在可以找全平台的岗位。'
+})
 
 const scopeText = computed(() => {
   const p = profile.value
   if (!p) return ''
   if (onboarding.value) return '办理入职中 · 不可再匹配'
   if (appliedLock.value) return `${label('DomainTag', p.domainTag)} · 不可再匹配`
-  if (p.matchScope === 'OWN_COMPANY' && company.value) return `仅${company.value}岗位`
-  return `匹配范围：${label('MatchScope', p.matchScope)}`
+  if (p.matchScope === 'OWN_COMPANY') return company.value ? `给你找${company.value}的岗位` : '给你找本公司的岗位'
+  if (p.matchScope === 'ALL_PLATFORM') return '给你找全平台的岗位'
+  if (p.matchScope === 'INTERNAL_TRANSFER_ONLY') return '只能本公司内部换岗'
+  return '暂时不能匹配'
 })
-/** 身份头第二个标签：身份加匹配范围（报名锁定期 scopeText 里已带身份） */
+/** 身份头第二个标签：身份加能找哪些岗位（报名锁定期 scopeText 里已带身份） */
 const identityText = computed(() => {
   const p = profile.value
   if (!p) return ''
@@ -262,21 +292,22 @@ const progress = computed(() => {
           <div>服务公司<b>{{ company || '—' }}</b></div>
           <div v-if="cd.active.value">顾问联系剩余<b>{{ cd.text.value }}</b></div>
         </div>
-        <p v-else class="home-desc">当前无归属公司，可匹配平台全部劳务公司岗位</p>
+        <p v-else class="home-desc">平台上所有劳务公司的岗位，你都可以找</p>
       </header>
 
       <div class="pad stack">
         <!-- S-07 24h 专属跟进窗口 -->
         <template v-if="status === 'PRIVATE_PENDING'">
+          <DeadlineBar v-if="cd.active.value" :deadline="profile.responseDeadline" v-bind="deadlineCopy('PRIVATE_PENDING')" />
           <section v-if="cd.active.value" class="tipbar tipbar--warn">
             <IconClock :size="20" />
             <div class="flex1">
-              <div class="tipbar-t">{{ company }}专属跟进期 · {{ cd.text.value }}</div>
+              <div class="tipbar-t">{{ company }}专属跟进期</div>
               <p class="tipbar-d">你的专属顾问来自 {{ company }}，窗口内驻场老师将主动联系你。若 24 小时内无人联系你，你可以自由匹配全平台岗位。</p>
             </div>
           </section>
           <section v-else-if="company" class="note">
-            你的专属顾问来自 <b>{{ company }}</b>，匹配范围为该公司旗下岗位。
+            你的专属顾问来自 <b>{{ company }}</b>，会给你找这家公司的岗位。
           </section>
         </template>
 
@@ -293,14 +324,16 @@ const progress = computed(() => {
               <div class="t-sm">{{ [app?.projectName, app?.companyName].filter(Boolean).join(' · ') }}</div>
               <div class="divider"></div>
               <template v-if="app?.notice">
+                <DeadlineBar v-if="cd.active.value" class="mb12" :deadline="profile.responseDeadline" v-bind="deadlineCopy('PENDING_INTERVIEW', true)" />
                 <InterviewNoticeCard :notice="app.notice" />
                 <van-button block class="mt12" @click="router.push(`/reports/${app.applicationId}`)">查看完整面试须知</van-button>
               </template>
               <template v-else>
                 <p class="wait">
-                  驻场老师会在 <b class="strong">{{ formatServerTime(profile.responseDeadline) }}</b> 前联系你，并推送面试时间、集合地点和所需证件。
+                  驻场老师会主动联系你，并推送面试时间、集合地点和所需证件。
                 </p>
-                <p v-if="cd.active.value" class="t-sm wait-d">剩余 {{ cd.text.value }}，超时未联系你可以重新选择岗位</p>
+                <DeadlineBar v-if="cd.active.value" class="mt12" :deadline="profile.responseDeadline" v-bind="deadlineCopy('PENDING_INTERVIEW')" />
+                <p v-if="cd.active.value" class="t-sm wait-d">到时间还没人联系你，这次报名会自动取消，你可以重新找活</p>
                 <dl v-if="app?.address" class="wait-kv">
                   <div class="kv"><dt>面试地点</dt><dd>{{ app.address }}</dd></div>
                 </dl>
@@ -311,6 +344,7 @@ const progress = computed(() => {
 
         <!-- S-09 待确权 -->
         <template v-if="status === 'PENDING_CONFIRM'">
+          <DeadlineBar v-if="cd.active.value" :deadline="profile.responseDeadline" v-bind="deadlineCopy('PENDING_CONFIRM')" />
           <!-- 驻场已完成入职确权、合同待签：最显眼的入口 -->
           <button v-if="pendingSign" type="button" class="acard signc" @click="router.push('/contracts/sign')">
             <div class="sign-hd">
@@ -356,7 +390,13 @@ const progress = computed(() => {
         </div>
 
         <!-- 匹配入口 CTA -->
-        <section v-if="!matchLocked && status !== 'EMPLOYED'" class="acard lead">
+        <section v-if="showComfort" class="acard lead">
+          <h2>别急，好活还有很多</h2>
+          <p class="lead-sub">{{ comfortDesc }}再答 7 道题，马上给你推荐新的岗位。</p>
+          <van-button type="primary" block @click="startMatch">立即重新匹配</van-button>
+          <button v-if="hasLastMatch" type="button" class="link last" @click="router.push('/match/result')">查看上次匹配结果<IconChevronRight :size="16" /></button>
+        </section>
+        <section v-else-if="!matchLocked && status !== 'EMPLOYED'" class="acard lead">
           <h2>{{ isPrivate ? '先说说你想要什么活儿' : '还没找到活儿？' }}</h2>
           <p class="lead-sub">7 道题，1 分钟，最多出 3 个岗位</p>
           <van-button type="primary" block @click="startMatch">开始 AI 问薪</van-button>
@@ -434,6 +474,7 @@ const progress = computed(() => {
 .bell .badge { position: absolute; top: 4px; right: 2px; min-width: 18px; height: 18px; padding: 0 var(--space-1); border-radius: 9px; background: var(--danger-text); color: var(--text-on-primary); font-size: var(--font-size-min); font-style: normal; line-height: 18px; text-align: center; }
 .jt { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .mt12 { margin-top: var(--space-3); }
+.mb12 { margin-bottom: var(--space-3); }
 .wait { font-size: var(--font-size-body); line-height: 24px; color: var(--text-2); }
 .wait-d { margin-top: var(--space-1); }
 .wait-kv { margin-top: var(--space-2); }

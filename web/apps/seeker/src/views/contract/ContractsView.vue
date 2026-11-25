@@ -61,6 +61,7 @@ function open(c: LaborContractView) {
         <IconInbox :size="48" :stroke-width="1.5" />
         <div class="state-block-t">还没有劳动合同</div>
         <div class="state-block-d">面试通过、驻场办理入职后，合同将在这里签署和留存</div>
+        <van-button type="primary" @click="router.push('/match')">去找活</van-button>
       </div>
 
       <div v-else class="pad stack">

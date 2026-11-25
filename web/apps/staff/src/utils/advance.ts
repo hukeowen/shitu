@@ -32,6 +32,19 @@ export const canReject = (a: AdvanceRow) => a.allowedActions.includes('SITE_REJE
 export const canPayout = (a: AdvanceRow) => a.allowedActions.includes('PAYOUT')
 /** 当前登录人对这一笔有事要办：审核或登记拨款 */
 export const canAct = (a: AdvanceRow) => canReview(a) || canPayout(a)
+/**
+ * 在岗核对不过关（已不在岗 / 已提交离职 / 离职已批）：后端不让通过、不让拨款，前端提前把按钮置灰并写明原因。
+ * 返回原因文字，没问题返回空串
+ */
+export function checkBlockText(a: AdvanceRow): string {
+  if (!a.check?.blocking) return ''
+  return canPayout(a) ? '这个人已离职或正在办离职，不能登记拨款，请先不要转账' : '这个人已离职或正在办离职，不能通过，请驳回'
+}
+/** 确认框里附上的提醒（旷工、离职、欠款等），让审批人在点通过的那一刻也看得到；没有提醒返回空串 */
+function warnText(a: AdvanceRow): string {
+  const w = a.check?.warnings ?? []
+  return w.length ? `\n\n请注意：\n${w.map((x) => `· ${x}`).join('\n')}` : ''
+}
 /** 通过按钮文案：初审通过 / 终审通过 */
 export const approveText = (a: AdvanceRow) => (reviewStep(a) === 'PM' ? '终审通过' : '初审通过')
 
@@ -97,8 +110,8 @@ export async function reviewAdvance(dialog: Dialog | null, a: AdvanceRow, approv
     approve
       ? {
           title: pm ? '终审通过' : '初审通过',
-          message: pm ? `${who}。驻场已初审通过；终审通过后进入待拨款，公司线下转账后登记拨款。` : `${who}。通过后推送项目经理终审。`,
-          presets: pm ? ['情况属实，同意预支'] : ['在岗正常，出勤稳定，同意'],
+          message: (pm ? `${who}。驻场已初审通过；终审通过后进入待拨款，公司线下转账后登记拨款。` : `${who}。通过后推送项目经理终审。`) + warnText(a),
+          presets: ['同意预支'],
           placeholder: pm ? '终审意见（选填）' : '初审意见（选填）',
           confirmText: pm ? '终审通过' : '初审通过',
           submit,
@@ -128,7 +141,7 @@ export async function payoutAdvance(a: AdvanceRow, amountText: string, onRejecte
   try {
     await showConfirmDialog({
       title: '登记拨款',
-      message: `确认已线下向 ${who} 完成转账？登记后计入员工欠款，次月发薪时工资表导入自动抵扣，此操作不可撤销。`,
+      message: `确认已线下向 ${who} 完成转账？登记后计入员工欠款，次月发薪时工资表导入自动抵扣，此操作不可撤销。${warnText(a)}`,
       confirmButtonText: '已转账，登记拨款',
       beforeClose: async (action) => {
         if (action !== 'confirm') return true
