@@ -231,6 +231,26 @@ class Sprint3FlowIT extends FlowItSupport {
         assertThat(code(call(put("/api/v1/tenant/employments/" + empId + "/absences"), c.pm(),
                 Map.of("date", LocalDate.now().plusDays(1).toString(), "type", "LEAVE")))).isEqualTo("SYS_4000");
 
+        // 批量标记（D-62③）：多天一次标完；入职前的日期只跳过那一格，已有标记被覆盖并计数
+        String d0 = LocalDate.now().toString();
+        String d1 = LocalDate.now().minusDays(1).toString();
+        String far = LocalDate.now().minusDays(40).toString();
+        Object startWas = jdbc.queryForObject("SELECT start_date FROM employment WHERE employment_id = ?", Object.class, empId);
+        jdbc.update("UPDATE employment SET start_date = ? WHERE employment_id = ?", LocalDate.now().minusDays(1), empId);
+        JsonNode batch = data(call(post("/api/v1/tenant/employments/absences/batch"), c.pm(),
+                Map.of("employmentIds", List.of(empId), "dates", List.of(d0, d1, far), "type", "LEAVE", "remark", "停线放假")));
+        jdbc.update("UPDATE employment SET start_date = ? WHERE employment_id = ?", startWas, empId);
+        assertThat(batch.get("marked").asInt()).isEqualTo(2);
+        assertThat(batch.get("overwritten").asInt()).as("今天原来标的旷工被覆盖").isEqualTo(1);
+        assertThat(batch.get("skipped")).hasSize(1);
+        assertThat(batch.get("skipped").get(0).get("reason").asText()).isEqualTo("这天还没入职");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM duty_absence WHERE employment_id = ? AND absence_type = 'LEAVE' AND remark = '停线放假'",
+                Integer.class, empId)).isEqualTo(2);
+        assertThat(code(call(post("/api/v1/tenant/employments/absences/batch"), c.pm(),
+                Map.of("employmentIds", List.of(empId), "dates", List.of(d0), "type", "SICK")))).isEqualTo("SYS_4000");
+        assertThat(code(call(post("/api/v1/tenant/employments/absences/batch"), c.pm(),
+                Map.of("employmentIds", List.of(), "dates", List.of(d0), "type", "LEAVE")))).isEqualTo("SYS_4000");
+
         // ---------------------------------------------------------------- 5. 24h 窗口内的跟进提醒（J-03）
         jdbc.update("UPDATE follow_up_reminder SET remind_at = ? WHERE status = 'PLANNED' AND window_id = "
                 + "(SELECT id FROM response_window WHERE user_id = ? AND status = 'OPEN') ORDER BY round_no LIMIT 1",

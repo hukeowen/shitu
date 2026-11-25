@@ -67,6 +67,7 @@ import type {
   LaborContractView,
   ConfirmOnboardRequest,
   StaffRow,
+  AbsenceBatchResult,
   DutyAbsenceView,
   MyWork,
   BrokerCaseRow,
@@ -384,6 +385,9 @@ export const tenantApi = {
   /** 请假 / 旷工标记，type 不传 = 撤销 */
   markAbsence: (employmentId: string, date: string, type?: 'LEAVE' | 'ABSENT', remark?: string) =>
     put<void>(`/tenant/employments/${employmentId}/absences`, { date, type, remark }),
+  /** 批量请假 / 旷工：多人 × 多天一次标完 */
+  markAbsenceBatch: (employmentIds: string[], dates: string[], type: 'LEAVE' | 'ABSENT', remark?: string) =>
+    post<AbsenceBatchResult>('/tenant/employments/absences/batch', { employmentIds, dates, type, remark }),
   absences: (employmentId: string, from: string, to: string) =>
     get<DutyAbsenceView[]>(`/tenant/employments/${employmentId}/absences`, { from, to }),
 

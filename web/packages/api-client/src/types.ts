@@ -827,6 +827,13 @@ export interface StaffRow {
   sourceCompanyName?: string
 }
 
+/** 批量标记结果：marked 标上的人天数，overwritten 其中覆盖了原有标记的，skipped 没标上的及原因 */
+export interface AbsenceBatchResult {
+  marked: number
+  overwritten: number
+  skipped: { employmentId: string; date: string; reason: string }[]
+}
+
 export interface DutyAbsenceView {
   id: number
   employmentId: string

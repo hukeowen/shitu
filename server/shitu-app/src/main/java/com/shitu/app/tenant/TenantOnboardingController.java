@@ -11,7 +11,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +51,12 @@ public class TenantOnboardingController {
 
     /** type：LEAVE 请假 / ABSENT 旷工 / null 撤销 */
     public record AbsenceRequest(@NotNull(message = "请选择日期") LocalDate date, String type, String remark) {
+    }
+
+    public record AbsenceBatchRequest(@NotEmpty(message = "请选择人员") List<String> employmentIds,
+                                      @NotEmpty(message = "请选择日期") List<LocalDate> dates,
+                                      @NotBlank(message = "请选择请假或旷工") String type,
+                                      @Size(max = 100, message = "备注不超过 100 字") String remark) {
     }
 
     private final OnboardingService onboarding;
@@ -130,6 +138,14 @@ public class TenantOnboardingController {
         onboarding.markAbsence(CurrentUser.get(), id, req.date(),
                 req.type() == null || req.type().isBlank() ? null : req.type(), req.remark());
         return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "批量请假 / 旷工标记（多人 × 多天；标不上的格子在 skipped 里说明原因）")
+    @PreAuthorize("hasAnyRole('SITE','PM')")
+    @PostMapping("/employments/absences/batch")
+    public ApiResponse<OnboardingService.AbsenceBatchResult> absenceBatch(@Valid @RequestBody AbsenceBatchRequest req) {
+        return ApiResponse.ok(onboarding.markAbsenceBatch(CurrentUser.get(), req.employmentIds(), req.dates(), req.type(),
+                req.remark() == null || req.remark().isBlank() ? null : req.remark().trim()));
     }
 
     @Operation(summary = "请假 / 旷工记录")

@@ -1,6 +1,6 @@
 // 手机两端追加的界面验收流程：求职者端（/）和驻场端（/staff/）。由 e2e.mjs 自动加载，写法和约定同 e2e.mjs。
 // 运行顺序就是下面的书写顺序：
-//   mack → mhire → mabsence → mcancel → mrematch → mnoshow → mincident → madvreject → madvpass → mstaffme → mnotice
+//   mack → mhire → mabsence → mabsbatch → mcancel → mrematch → mnoshow → mincident → madvreject → madvpass → mstaffme → mnotice
 //   → mkyc → mask → mcomplaint → mresume → mpayappeal → mtour → mlogout
 // 求职者都是流程自己用 registerAndApply 新注册的（姓名「验收××」，走第一家演示公司的渠道码）；
 // 预支和工资申诉用不了新人（要在岗满 7 天、要有工资条），和 e2e.mjs 的 advance / payroll 一样借用演示公司的在岗员工。
@@ -356,6 +356,57 @@ export default (h) => {
       await ui.clickSel('.van-dialog__confirm')
       await ui.see('已撤销')
       expectDb(`SELECT COUNT(*) FROM duty_absence WHERE ${today}`, 0)
+    },
+
+    /**
+     * 批量考勤（D-62③）：驻场在在岗人员页点「批量标记」，搜工号勾选员工，选日期（默认今天）标记旷工，确认框写明后果。先跑 mhire（或 hire）。
+     * 接口：POST /tenant/employments/absences/batch
+     */
+    async mabsbatch() {
+      const ui = h.ui
+      const e = hired()
+      const { site } = staffOf(e.companyId, e.projectId)
+      const remark = '验收批量 ' + tail()
+      const today = `employment_id = '${e.employmentId}' AND absence_date = CURDATE()`
+      await h.loginStaff(site.phone)
+      await ui.click('请假 / 旷工')
+      await ui.see('在岗人员')
+      await ui.click('批量标记')
+      await ui.see('已选 0 人')
+      await ui.fill('工号', e.no)
+      await pressEnter()
+      await ui.click(e.no)
+      await ui.see('已选 1 人')
+      await ui.click('选日期并标记')
+      await ui.see('批量标记请假 / 旷工')
+      await ui.click('旷工')
+      await ui.fill('停线放假', remark)
+      await ui.click('给 1 人标记旷工')
+      await ui.see('这些天不算在岗')
+      await ui.clickSel('.van-dialog__confirm')
+      await ui.see('已标记 1 人天')
+      expectDb(`SELECT CONCAT(absence_type, '/', remark) FROM duty_absence WHERE ${today}`, 'ABSENT/' + remark)
+      await ui.see('批量标记') // 标完退出勾选状态
+      // 多选日期：再加上昨天（员工今天才入职）→ 今天照标，昨天那一格跳过并说明原因。每月 1 日日历里点不到「昨天」，跳过这段
+      if (new Date().getDate() > 1) {
+        await ui.click('批量标记')
+        await ui.click(e.no)
+        await ui.click('选日期并标记')
+        await ui.click('日期')
+        await ui.see('选择日期（可多选）')
+        await ui.clickSel('.van-calendar__day:has(+ .van-calendar__day--multiple-selected)')
+        await ui.click('选好了')
+        await ui.click('给 1 人标记请假')
+        await ui.see('一共 2 人天')
+        await ui.clickSel('.van-dialog__confirm')
+        await ui.see('已标记 1 人天，有 1 条没标上')
+        await ui.see('这天还没入职')
+        await ui.see(`（${e.no}）`) // 结果里写的是人名和工号，不是内部编号
+        if (process.env.E2E_SHOTS) await ui.shot('/tmp/ab-4.png')
+        await ui.click('知道了')
+        expectDb(`SELECT GROUP_CONCAT(absence_type) FROM duty_absence WHERE employment_id = '${e.employmentId}'`, 'LEAVE')
+      }
+      sql(`DELETE FROM duty_absence WHERE ${today}`)
     },
 
     /**

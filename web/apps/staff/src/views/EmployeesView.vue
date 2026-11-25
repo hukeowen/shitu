@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, shallowRef, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
 import { errorMessage, isApiError, tenantApi, useDict, type StaffRow } from '@shitu/api-client'
 import { IconChevronRight, IconCircleExclamationPoint, IconLock, IconPhone, IconUsers } from '@shitu/ui-icons'
 import AbsencePopup from '@/components/AbsencePopup.vue'
+import BatchAbsencePopup from '@/components/BatchAbsencePopup.vue'
 import { fmtPhone } from '@/utils/time'
 
 /** 在岗人员（M-15 入口）：按工号 / 手机号后四位（驻场）/ 完整手机号搜索，点选员工标记请假 / 旷工 */
@@ -84,6 +86,48 @@ function openAbsence(r: StaffRow) {
   absShow.value = true
 }
 
+// ---------- 批量标记：勾选多个人（换搜索词也不丢已勾的），一次选多天 ----------
+const BATCH_MAX = 100
+const picking = ref(false)
+const picked = shallowRef(new Map<string, StaffRow>())
+const pickedRows = computed(() => [...picked.value.values()])
+const allLoadedPicked = computed(() => rows.value.length > 0 && rows.value.every((r) => picked.value.has(r.employmentId)))
+const batchShow = ref(false)
+function togglePicking() {
+  picking.value = !picking.value
+  picked.value = new Map()
+}
+function toggle(r: StaffRow) {
+  const m = new Map(picked.value)
+  if (m.has(r.employmentId)) m.delete(r.employmentId)
+  else if (m.size >= BATCH_MAX) return void showToast(`一次最多选 ${BATCH_MAX} 人`)
+  else m.set(r.employmentId, r)
+  picked.value = m
+}
+function toggleAll() {
+  const m = new Map(picked.value)
+  if (allLoadedPicked.value) rows.value.forEach((r) => m.delete(r.employmentId))
+  else {
+    for (const r of rows.value) {
+      if (m.size >= BATCH_MAX) {
+        showToast(`一次最多选 ${BATCH_MAX} 人`)
+        break
+      }
+      m.set(r.employmentId, r)
+    }
+  }
+  picked.value = m
+}
+function onCard(r: StaffRow) {
+  if (picking.value) toggle(r)
+  else openAbsence(r)
+}
+function onBatchDone() {
+  picking.value = false
+  picked.value = new Map()
+  reset()
+}
+
 function back() {
   if (window.history.state?.back) router.back()
   else void router.replace('/')
@@ -92,7 +136,7 @@ function back() {
 
 <template>
   <div class="emp">
-    <van-nav-bar title="在岗人员" left-arrow safe-area-inset-top fixed placeholder z-index="30" @click-left="back" />
+    <van-nav-bar title="在岗人员" left-arrow safe-area-inset-top fixed placeholder z-index="30" :right-text="forbidden ? '' : picking ? '取消' : '批量标记'" @click-left="back" @click-right="togglePicking" />
     <div class="sticky">
       <van-search v-model="keyword" :placeholder="rows.length && !rows.some((r) => r.phone) ? '输入工号' : '工号 / 手机号后四位 / 完整手机号'" shape="round" @search="onSearch" @clear="onClear" />
     </div>
@@ -120,18 +164,25 @@ function back() {
         class="pad stack list"
         @load="loadMore"
       >
-        <p v-if="rows.length" class="note">点选员工可按日标记<b>请假 / 旷工</b>，标记的日期不计入有效在岗日。共 {{ total }} 人在岗。</p>
+        <div v-if="rows.length && picking" class="note pick-note">
+          <span>勾选要标记的人，可以搜索后继续勾选。</span>
+          <button type="button" class="all" @click="toggleAll">{{ allLoadedPicked ? '取消全选' : `全选这 ${rows.length} 人` }}</button>
+        </div>
+        <p v-else-if="rows.length" class="note">点选员工可按日标记<b>请假 / 旷工</b>，标记的日期不计入有效在岗日。多人一起标，点右上角「批量标记」。共 {{ total }} 人在岗。</p>
         <article
           v-for="r in rows"
           :key="r.employmentId"
           role="button"
           tabindex="0"
           class="acard item"
-          @click="openAbsence(r)"
-          @keydown.enter="openAbsence(r)"
-          @keydown.space.prevent="openAbsence(r)"
+          :class="{ 'item--on': picking && picked.has(r.employmentId) }"
+          :aria-pressed="picking ? picked.has(r.employmentId) : undefined"
+          @click="onCard(r)"
+          @keydown.enter="onCard(r)"
+          @keydown.space.prevent="onCard(r)"
         >
           <div class="item-hd">
+            <van-checkbox v-if="picking" :model-value="picked.has(r.employmentId)" shape="square" class="ck" aria-hidden="true" tabindex="-1" />
             <h3>{{ r.name }}<span v-if="r.employeeNo" class="no">{{ r.employeeNo }}</span></h3>
             <span v-if="r.source !== 'OWN'" class="status-tag status-tag--public">{{ label('StaffSource', r.source) }}</span>
           </div>
@@ -141,7 +192,7 @@ function back() {
             <div><dt>在岗</dt><dd>{{ r.dutyDays }} 天</dd></div>
             <div><dt>本月缺勤</dt><dd :class="{ warn: r.absenceDaysThisMonth > 0 }">{{ r.absenceDaysThisMonth }} 天</dd></div>
           </dl>
-          <div class="ft">
+          <div v-if="!picking" class="ft">
             <a v-if="r.phone" :href="`tel:${r.phone}`" class="tel" @click.stop @keydown.stop><IconPhone :size="16" />{{ fmtPhone(r.phone) }}</a>
             <span v-else class="tel-none">手机号仅驻场可见</span>
             <span class="go">请假 / 旷工<IconChevronRight :size="16" /></span>
@@ -154,7 +205,12 @@ function back() {
         </div>
       </van-list>
     </van-pull-refresh>
+    <div v-if="picking" class="bbar">
+      <span class="bbar-n">已选 <b>{{ picked.size }}</b> 人</span>
+      <van-button type="primary" size="large" :disabled="!picked.size" class="bbar-go" @click="batchShow = true">选日期并标记</van-button>
+    </div>
     <AbsencePopup v-model:show="absShow" :row="absRow" @changed="reset" />
+    <BatchAbsencePopup v-model:show="batchShow" :rows="pickedRows" @done="onBatchDone" />
   </div>
 </template>
 
@@ -163,6 +219,17 @@ function back() {
 .sticky { position: sticky; top: calc(44px + env(safe-area-inset-top)); z-index: 20; border-bottom: 1px solid var(--divider); }
 .pr { min-height: calc(100vh - 110px); }
 .list { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.emp:has(.bbar) .list { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.pick-note { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.all { flex: none; min-height: 44px; padding: 0 var(--space-2); border: 0; background: none; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--primary-text); }
+.item--on { outline: 2px solid var(--primary); outline-offset: -2px; }
+.emp:has(.bbar) .meta { padding-bottom: 0; border-bottom: 0; }
+.item-hd .ck { flex: none; margin-right: var(--space-2); pointer-events: none; }
+.item-hd:has(.ck) h3 { flex: 1; min-width: 0; }
+.bbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom)); background: var(--bg-card); border-top: 1px solid var(--divider); }
+.bbar-n { flex: none; font-size: var(--font-size-body); color: var(--text-2); }
+.bbar-n b { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
+.bbar-go { flex: 1; }
 .item { display: block; width: 100%; text-align: left; color: inherit; cursor: pointer; }
 .item:active { background: var(--bg-hover); }
 .item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

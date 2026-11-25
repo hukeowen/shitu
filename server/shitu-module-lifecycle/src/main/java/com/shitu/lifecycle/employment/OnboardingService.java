@@ -343,6 +343,75 @@ public class OnboardingService {
                 Map.of("date", date.toString(), "type", type == null ? "" : type));
     }
 
+    /** 批量标记里没标上的一格：谁、哪天、为什么 */
+    public record AbsenceSkip(String employmentId, LocalDate date, String reason) {
+    }
+
+    /** marked 标上的格数（人 × 天），overwritten 其中原来已有标记、被这次覆盖的格数 */
+    public record AbsenceBatchResult(int marked, int overwritten, List<AbsenceSkip> skipped) {
+    }
+
+    public static final int ABSENCE_BATCH_MAX_PEOPLE = 100;
+    public static final int ABSENCE_BATCH_MAX_DAYS = 31;
+
+    /**
+     * 批量请假 / 旷工标记（D-62③）：多人 × 多天一次标完。没有权限的项目整单拒绝；
+     * 已离职的人、入职前或超出 31 天的日期只跳过那一格并告诉驻场，其余照常标上。
+     */
+    @Transactional
+    public AbsenceBatchResult markAbsenceBatch(AuthPrincipal p, List<String> employmentIds, List<LocalDate> dates,
+                                               String type, String remark) {
+        BizException.check(p.hasAnyRole(ActorRole.SITE.name(), ActorRole.PM.name()), ErrorCode.LC_ACTOR_NOT_ALLOWED);
+        BizException.check(DutyAbsence.LEAVE.equals(type) || DutyAbsence.ABSENT.equals(type), ErrorCode.SYS_BAD_REQUEST, "请选择请假或旷工");
+        List<String> ids = employmentIds == null ? List.of() : employmentIds.stream().distinct().toList();
+        List<LocalDate> days = dates == null ? List.of() : dates.stream().distinct().sorted().toList();
+        BizException.check(!ids.isEmpty() && !days.isEmpty(), ErrorCode.SYS_BAD_REQUEST, "请选择人员和日期");
+        BizException.check(ids.size() <= ABSENCE_BATCH_MAX_PEOPLE, ErrorCode.SYS_BAD_REQUEST,
+                "一次最多标记 " + ABSENCE_BATCH_MAX_PEOPLE + " 人");
+        BizException.check(days.size() <= ABSENCE_BATCH_MAX_DAYS, ErrorCode.SYS_BAD_REQUEST,
+                "一次最多标记 " + ABSENCE_BATCH_MAX_DAYS + " 天");
+        LocalDate today = LocalDate.now(clock.withZone(Constants.ZONE));
+        LocalDateTime now = LocalDateTime.now(clock);
+        int marked = 0;
+        int overwritten = 0;
+        List<AbsenceSkip> skipped = new java.util.ArrayList<>();
+        for (String id : ids) {
+            Employment e = employments.selectById(id);
+            BizException.check(e != null, ErrorCode.SYS_NOT_FOUND);
+            scope.checkProject(p, e.getProjectId());
+            List<String> done = new java.util.ArrayList<>();
+            for (LocalDate d : days) {
+                if (e.getEndDate() != null) {
+                    skipped.add(new AbsenceSkip(id, d, "已离职"));
+                } else if (d.isAfter(today)) {
+                    skipped.add(new AbsenceSkip(id, d, "日期还没到"));
+                } else if (d.isBefore(e.getStartDate())) {
+                    skipped.add(new AbsenceSkip(id, d, "这天还没入职"));
+                } else if (d.isBefore(today.minusDays(31))) {
+                    skipped.add(new AbsenceSkip(id, d, "超过 31 天不能补标"));
+                } else {
+                    overwritten += absences.delete(new LambdaQueryWrapper<DutyAbsence>().eq(DutyAbsence::getEmploymentId, id)
+                            .eq(DutyAbsence::getAbsenceDate, d));
+                    DutyAbsence a = new DutyAbsence();
+                    a.setCompanyId(e.getCompanyId());
+                    a.setEmploymentId(id);
+                    a.setAbsenceDate(d);
+                    a.setAbsenceType(type);
+                    a.setMarkedBy(p.subjectId());
+                    a.setRemark(remark);
+                    a.setCreatedAt(now);
+                    absences.insert(a);
+                    marked++;
+                    done.add(d.toString());
+                }
+            }
+            if (!done.isEmpty()) {
+                audit.log("ABSENCE_MARK", "EMPLOYMENT", id, Map.of("date", String.join(",", done), "type", type, "batch", true));
+            }
+        }
+        return new AbsenceBatchResult(marked, overwritten, skipped);
+    }
+
     // ================================================================== 查询
 
     public List<ContractView> contractsOfUser(String userId) {
