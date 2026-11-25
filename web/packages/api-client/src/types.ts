@@ -385,16 +385,31 @@ export interface QuizOption {
   needRegion?: boolean
 }
 
+/** JUDGE 判断题 / CHOICE 选择题 / NUMBER 数字题（年龄）/ MATRIX 矩阵题（班次 接受 / 不接受 / 看情况） */
+export type QuizQuestionType = 'JUDGE' | 'CHOICE' | 'NUMBER' | 'MATRIX'
+
+/** 矩阵题固定三列 */
+export type MatrixChoice = 'ACCEPT' | 'REJECT' | 'DEPENDS'
+
+/** 题型参数：数字题 min / max / unit；矩阵题 followUp（选「看情况」时的追问） */
+export interface QuizQuestionConfig {
+  min?: number
+  max?: number
+  unit?: string
+  followUp?: string
+}
+
 export interface QuizQuestion {
   seq: number
-  /** JUDGE 判断题 / CHOICE 选择题 */
-  questionType: 'JUDGE' | 'CHOICE'
+  questionType: QuizQuestionType
   stem: string
   hint?: string
   profileField: string
   /** HARD_FILTER 硬过滤 / SOFT_WEIGHT 软打分 */
   matchRole: 'HARD_FILTER' | 'SOFT_WEIGHT'
+  /** 单选题的选项；矩阵题的行（value 为班次）；数字题为空 */
   options: QuizOption[]
+  config?: QuizQuestionConfig | null
 }
 
 export interface QuizView {
@@ -407,9 +422,16 @@ export interface QuizView {
 
 export interface QuizAnswer {
   seq: number
-  code: string
+  /** 单选题的选项编码 */
+  code?: string
   /** 地域锁定题选「是」时的城市 */
   region?: string
+  /** 数字题 */
+  number?: number
+  /** 矩阵题：行编码 → 接受 / 不接受 / 看情况 */
+  matrix?: Record<string, MatrixChoice>
+  /** 矩阵题选「看情况」时的补充（可不填，≤ 50 字） */
+  notes?: Record<string, string>
 }
 
 export interface MatchResultCard {
@@ -440,6 +462,32 @@ export interface MatchOutcome {
   matched: boolean
   results: MatchResultCard[]
   engineVersion: number
+  quizVersion: number
+  /** 没问期望工资：工资按岗位到手工资高低排位（结果页小字说明） */
+  salaryByRank: boolean
+}
+
+/** 游客预览卡片：不含岗位编号、公司名称、地址（D-62 先答题后登录） */
+export interface MatchPreviewCard {
+  rank: number
+  title: string
+  salaryMin: number
+  salaryMax: number
+  city?: string
+  district?: string
+  mealProvided: boolean
+  dormProvided: boolean
+  reason: string
+  /** 如「昆山一家劳务公司」 */
+  companyHint: string
+}
+
+export interface MatchPreviewOutcome {
+  matched: boolean
+  /** 按渠道码所属公司的岗位预览（否则全平台） */
+  privateScope: boolean
+  results: MatchPreviewCard[]
+  salaryByRank: boolean
   quizVersion: number
 }
 

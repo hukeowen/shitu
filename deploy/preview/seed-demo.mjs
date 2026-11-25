@@ -154,12 +154,24 @@ let phoneSeq = 0
 const seekerPhone = () => ['139', '137', '150', '158', '186', '177'][rnd(6)] + pad(10000000 + rnd(80000000) + phoneSeq++, 8)
 
 let quiz = null
-/** 按目标岗位作答（工种、薪资档、班次都对上），这样每个人匹配到的首选就是要去的岗位，人员能分散到各岗位。 */
+/**
+ * 按目标岗位作答（工种、班次都对上；旧题库还对上薪资档），这样每个人匹配到的首选就是要去的岗位，人员能分散到各岗位。
+ * 题库 v2（D-62）：第 4 题年龄是数字题、第 5 题班次是矩阵题（目标岗位的班次选「接受」），不再问期望工资。
+ */
 async function answers(s, job) {
   quiz ??= (await s.get('/seeker/quiz')).questions
   const mid = (Number(job.salaryMin) + Number(job.salaryMax)) / 2
   return quiz.map((qq) => {
     const pick = (v) => qq.options.find((x) => x.value === v) ?? qq.options[0]
+    if (qq.questionType === 'NUMBER') {
+      const lo = Math.max(qq.config?.min ?? 16, Number(job.ageMin ?? 18))
+      const hi = Math.min(qq.config?.max ?? 65, Number(job.ageMax ?? 45))
+      return { seq: qq.seq, number: Math.min(hi, lo + 4 + rnd(Math.max(1, hi - lo - 4))) }
+    }
+    if (qq.questionType === 'MATRIX') {
+      const matrix = Object.fromEntries(qq.options.map((r) => [r.code, r.value === job.shiftType ? 'ACCEPT' : ['ACCEPT', 'DEPENDS', 'REJECT'][rnd(3)]]))
+      return { seq: qq.seq, matrix }
+    }
     let o
     switch (qq.profileField) {
       case 'accept_factory': o = pick('YES'); break
@@ -167,7 +179,11 @@ async function answers(s, job) {
       case 'expect_job_type': o = pick(job.jobType); break
       case 'expect_salary': o = qq.options.find((x) => mid >= x.min && mid <= x.max) ?? qq.options[1]; break
       case 'shift_pref': o = pick(job.shiftType); break
-      case 'dorm_req': o = pick(['REQUIRED', 'AIRCON', 'NONE'][rnd(3)]); break
+      case 'dorm_req': {
+        const want = rnd(3) ? ['NEEDED', 'REQUIRED', 'AIRCON'] : ['NOT_NEEDED', 'NONE']
+        o = qq.options.find((x) => want.includes(x.value)) ?? qq.options[0]
+        break
+      }
       default: o = qq.options[rnd(qq.options.length)]
     }
     return { seq: qq.seq, code: o.code }

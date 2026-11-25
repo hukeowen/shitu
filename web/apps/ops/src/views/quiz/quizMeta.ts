@@ -1,4 +1,4 @@
-import { dictLabel, type QuizOption, type QuizQuestion } from '@shitu/api-client'
+import { dictLabel, type QuizOption, type QuizQuestion, type QuizQuestionConfig, type QuizQuestionType } from '@shitu/api-client'
 
 /**
  * 题库画像字段（与后端 QuizService.KNOWN_FIELDS / ProfileBuilder 一致）。
@@ -12,6 +12,8 @@ export type ProfileField =
   | 'shift_pref'
   | 'dorm_req'
   | 'work_years'
+  | 'age'
+  | 'shift_matrix'
 
 export interface ValueOption {
   value: string
@@ -22,10 +24,12 @@ export interface FieldMeta {
   field: ProfileField
   label: string
   desc: string
-  /** 选项取值方式：枚举 value / 薪资区间 min-max / 年限数字 */
-  kind: 'enum' | 'range' | 'number'
+  /** 选项取值方式：枚举 value / 薪资区间 min-max / 年限数字 / 数字输入题（年龄）/ 矩阵题（班次三态） */
+  kind: 'enum' | 'range' | 'number' | 'input' | 'matrix'
   /** 必须为硬过滤题 */
   hardOnly?: boolean
+  /** 只能用这个题型（年龄 = 数字题，班次接受度 = 矩阵题，D-62） */
+  fixedType?: QuizQuestionType
   values?: () => ValueOption[]
 }
 
@@ -59,14 +63,31 @@ export const FIELDS: FieldMeta[] = [
     ],
   },
   { field: 'expect_job_type', label: '期望工种', desc: '软打分：工种匹配因子', kind: 'enum', values: fromDict('JobType', ['ELECTRONICS', 'GENERAL', 'WAREHOUSE', 'MACHINING', 'QC'], [{ value: 'ANY', label: '都可以' }]) },
-  { field: 'expect_salary', label: '期望薪资', desc: '软打分：薪资区间重叠度，选项填最低 / 最高金额（元/月）', kind: 'range' },
-  { field: 'shift_pref', label: '班次', desc: '软打分：班次匹配因子', kind: 'enum', values: fromDict('ShiftType', ['DAY', 'TWO_SHIFT', 'NIGHT', 'LONG_DAY']) },
+  { field: 'expect_salary', label: '期望薪资（旧）', desc: '题库 v2 起不再问（D-62）：不选这道题时，薪资按候选岗位的到手工资排位打分', kind: 'range' },
+  { field: 'shift_pref', label: '班次（单选，旧）', desc: '软打分：班次匹配因子；新题库用「班次接受度」矩阵题', kind: 'enum', values: fromDict('ShiftType', ['DAY', 'TWO_SHIFT', 'NIGHT', 'LONG_DAY']) },
+  {
+    field: 'age',
+    label: '年龄',
+    desc: '数字题：没实名时按填的年龄避开年龄要求不符的岗位（实名后以证件为准），范围只能在 16–65 岁之间',
+    kind: 'input',
+    fixedType: 'NUMBER',
+  },
+  {
+    field: 'shift_matrix',
+    label: '班次接受度',
+    desc: '矩阵题：每行一种班次，求职者选 接受 / 不接受 / 看情况（固定三列）；接受 100 分、看情况 60 分、不接受 0 分且该岗位不展示给他',
+    kind: 'matrix',
+    fixedType: 'MATRIX',
+    values: fromDict('ShiftType', ['DAY', 'TWO_SHIFT', 'NIGHT', 'LONG_DAY']),
+  },
   {
     field: 'dorm_req',
     label: '住宿',
     desc: '软打分：住宿匹配因子',
     kind: 'enum',
     values: () => [
+      { value: 'NEEDED', label: '需要住宿' },
+      { value: 'NOT_NEEDED', label: '不需要住宿（新）' },
       { value: 'REQUIRED', label: '必须包住' },
       { value: 'SMALL_ROOM', label: '4 人间以内' },
       { value: 'AIRCON', label: '要有空调' },
@@ -88,7 +109,19 @@ export function fieldLabel(f: string): string {
 export const QUESTION_TYPES: ValueOption[] = [
   { value: 'JUDGE', label: '判断题' },
   { value: 'CHOICE', label: '选择题' },
+  { value: 'NUMBER', label: '数字题' },
+  { value: 'MATRIX', label: '矩阵题' },
 ]
+/** 某个画像字段能选的题型：固定题型的字段只有一个，其余只能是判断 / 选择 */
+export function typesFor(field: string): ValueOption[] {
+  const fixed = fieldMeta(field)?.fixedType
+  return QUESTION_TYPES.filter((t) => (fixed ? t.value === fixed : t.value === 'JUDGE' || t.value === 'CHOICE'))
+}
+/** 矩阵题固定三列（求职者端按钮文字） */
+export const MATRIX_COLUMNS = ['接受', '不接受', '看情况']
+export const AGE_MIN = 16
+export const AGE_MAX = 65
+export const FOLLOW_UP_MAX = 30
 export const MATCH_ROLES: ValueOption[] = [
   { value: 'HARD_FILTER', label: '硬过滤' },
   { value: 'SOFT_WEIGHT', label: '软打分' },
@@ -120,12 +153,19 @@ export interface EditOption {
 }
 export interface EditQuestion {
   key: number
-  questionType: 'JUDGE' | 'CHOICE'
+  questionType: QuizQuestionType
   stem: string
   hint: string
   profileField: string
   matchRole: 'HARD_FILTER' | 'SOFT_WEIGHT'
+  /** 单选题的选项 / 矩阵题的行 */
   options: EditOption[]
+  /** 数字题 */
+  min: number | undefined
+  max: number | undefined
+  unit: string
+  /** 矩阵题选「看情况」时的追问 */
+  followUp: string
 }
 
 let seq = 0
@@ -144,14 +184,37 @@ export function toEditOption(o: QuizOption): EditOption {
   }
 }
 export function toEditQuestion(q: QuizQuestion): EditQuestion {
+  const t = q.questionType
   return {
     key: nextKey(),
-    questionType: q.questionType === 'JUDGE' ? 'JUDGE' : 'CHOICE',
+    questionType: t === 'JUDGE' || t === 'NUMBER' || t === 'MATRIX' ? t : 'CHOICE',
     stem: q.stem ?? '',
     hint: q.hint ?? '',
     profileField: q.profileField,
     matchRole: q.matchRole === 'HARD_FILTER' ? 'HARD_FILTER' : 'SOFT_WEIGHT',
     options: (q.options ?? []).map(toEditOption),
+    min: q.config?.min ?? undefined,
+    max: q.config?.max ?? undefined,
+    unit: q.config?.unit ?? '',
+    followUp: q.config?.followUp ?? '',
+  }
+}
+
+/** 把题目换成某个题型的默认内容（切换画像字段时用） */
+export function resetForType(q: EditQuestion) {
+  const meta = fieldMeta(q.profileField)
+  if (meta?.fixedType) q.questionType = meta.fixedType
+  else if (q.questionType === 'NUMBER' || q.questionType === 'MATRIX') q.questionType = 'CHOICE'
+  if (q.questionType === 'NUMBER') {
+    q.options = []
+    q.min ??= AGE_MIN
+    q.max ??= AGE_MAX
+    q.unit ||= '岁'
+  } else if (q.questionType === 'MATRIX') {
+    q.options = (meta?.values?.() ?? []).map((v) => ({ ...blankOption([]), code: v.value, label: v.label, value: v.value }))
+    q.followUp ||= '什么情况下可以？'
+  } else if (q.options.length < 2) {
+    while (q.options.length < 2) q.options.push(blankOption(q.options))
   }
 }
 
@@ -171,7 +234,7 @@ export function blankQuestion(field: string): EditQuestion {
   const opts: EditOption[] = []
   opts.push(blankOption(opts))
   opts.push(blankOption(opts))
-  return {
+  const q: EditQuestion = {
     key: nextKey(),
     questionType: 'CHOICE',
     stem: '',
@@ -179,7 +242,13 @@ export function blankQuestion(field: string): EditQuestion {
     profileField: field,
     matchRole: meta?.hardOnly ? 'HARD_FILTER' : 'SOFT_WEIGHT',
     options: opts,
+    min: undefined,
+    max: undefined,
+    unit: '',
+    followUp: '',
   }
+  resetForType(q)
+  return q
 }
 
 const trimOrUndef = (s: string) => (s.trim() ? s.trim() : undefined)
@@ -187,6 +256,9 @@ const trimOrUndef = (s: string) => (s.trim() ? s.trim() : undefined)
 export function toQuizQuestions(qs: EditQuestion[]): QuizQuestion[] {
   return qs.map((q, i) => {
     const meta = fieldMeta(q.profileField)
+    let config: QuizQuestionConfig | undefined
+    if (q.questionType === 'NUMBER') config = { min: q.min, max: q.max, unit: trimOrUndef(q.unit) }
+    else if (q.questionType === 'MATRIX' && q.followUp.trim()) config = { followUp: q.followUp.trim() }
     return {
       seq: i + 1,
       questionType: q.questionType,
@@ -194,7 +266,8 @@ export function toQuizQuestions(qs: EditQuestion[]): QuizQuestion[] {
       hint: trimOrUndef(q.hint),
       profileField: q.profileField,
       matchRole: q.matchRole,
-      options: q.options.map((o) => {
+      ...(config ? { config } : {}),
+      options: q.questionType === 'NUMBER' ? [] : q.options.map((o) => {
         const out: QuizOption = { code: o.code.trim(), label: o.label.trim() }
         const sub = trimOrUndef(o.sub)
         if (sub) out.sub = sub
@@ -240,6 +313,22 @@ export function validate(qs: EditQuestion[]): Issue[] {
     if (hard && softSeen) issues.push({ q: i, msg: `${n} 硬过滤题必须排在软打分题之前` })
     softSeen ||= !hard
     if (meta?.hardOnly && !hard) issues.push({ q: i, msg: `${n}「${meta.label}」应设为硬过滤`, warn: true })
+    if (meta && !typesFor(q.profileField).some((t) => t.value === q.questionType))
+      issues.push({ q: i, msg: `${n}「${meta.label}」只能用${typesFor(q.profileField).map((t) => t.label).join(' / ')}` })
+
+    if (q.questionType === 'NUMBER') {
+      if (q.min == null || q.max == null) issues.push({ q: i, msg: `${n} 数字题要填最小值和最大值` })
+      else if (q.min > q.max) issues.push({ q: i, msg: `${n} 最小值不能大于最大值` })
+      else if (q.profileField === 'age' && (q.min < AGE_MIN || q.max > AGE_MAX)) issues.push({ q: i, msg: `${n} 年龄范围只能在 ${AGE_MIN}–${AGE_MAX} 岁之间` })
+      if (q.unit.trim().length > 8) issues.push({ q: i, msg: `${n} 单位不超过 8 个字` })
+      return
+    }
+    if (q.questionType === 'MATRIX' && q.followUp.trim().length > FOLLOW_UP_MAX)
+      issues.push({ q: i, msg: `${n} 追问不超过 ${FOLLOW_UP_MAX} 个字` })
+    if (q.questionType === 'MATRIX') {
+      const vals = q.options.map((o) => o.value.trim())
+      if (new Set(vals).size !== vals.length) issues.push({ q: i, msg: `${n} 矩阵题的班次不能重复` })
+    }
 
     if (q.options.length < MIN_OPTIONS || q.options.length > MAX_OPTIONS)
       issues.push({ q: i, msg: `${n} 选项为 ${MIN_OPTIONS}–${MAX_OPTIONS} 个（当前 ${q.options.length} 个）` })
@@ -264,7 +353,8 @@ export function validate(qs: EditQuestion[]): Issue[] {
         else if (!/^\d{1,2}$/.test(o.value.trim())) issues.push({ q: i, msg: `${on} 年限需为 0–99 的整数` })
       } else {
         const allowed = meta.values?.().map((v) => v.value) ?? []
-        if (!o.value.trim()) issues.push({ q: i, msg: `${on} 未填画像值，选择后不影响匹配`, warn: true })
+        if (!o.value.trim() && meta.kind === 'matrix') issues.push({ q: i, msg: `${on} 要选一种班次` })
+        else if (!o.value.trim()) issues.push({ q: i, msg: `${on} 未填画像值，选择后不影响匹配`, warn: true })
         else if (allowed.length && !allowed.includes(o.value.trim()))
           issues.push({ q: i, msg: `${on} 画像值「${o.value}」不可识别（会导致 C 端匹配失败）` })
       }

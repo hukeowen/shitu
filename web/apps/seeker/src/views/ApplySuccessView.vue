@@ -76,7 +76,7 @@ const dlCopy = deadlineCopy('PENDING_INTERVIEW')
         <IconTriangleExclamationPoint :size="20" />
         <div class="flex1">
           <div class="tipbar-t">无法自行取消报名。</div>
-          <div class="tipbar-d">如误操作或需更换岗位，可在「我的报备」里申请取消报名，驻场老师同意后即可重新进入 AI 问薪。</div>
+          <div class="tipbar-d">如误操作或需更换岗位，可在「我的报名」里申请取消报名，驻场老师同意后即可重新进入 AI 问薪。</div>
         </div>
       </section>
 
@@ -85,7 +85,7 @@ const dlCopy = deadlineCopy('PENDING_INTERVIEW')
     </div>
 
     <div class="bottom-bar">
-      <van-button type="primary" size="large" block @click="router.replace('/reports')">查看我的报备</van-button>
+      <van-button type="primary" size="large" block @click="router.replace('/reports')">查看我的报名</van-button>
     </div>
   </div>
 </template>

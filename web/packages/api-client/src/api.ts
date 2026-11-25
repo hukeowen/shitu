@@ -43,6 +43,7 @@ import type {
   QuizQuestion,
   QuizView,
   MatchOutcome,
+  MatchPreviewOutcome,
   SeekerJobDetail,
   Disclaimer,
   KycView,
@@ -181,6 +182,16 @@ export const seekerApi = {
 
   /** 当前生效题库（C-302） */
   quiz: () => get<QuizView>('/seeker/quiz'),
+  /** 游客读题库（不记答题漏斗，D-62） */
+  publicQuiz: () => get<QuizView>('/seeker/public/quiz'),
+  /** 游客匹配预览：打码卡片，不落库；每 IP 每小时 20 次（SYS_4290） */
+  matchPreview: (answers: QuizAnswer[], channelCode?: string | null, location?: { lng: number; lat: number }) =>
+    post<MatchPreviewOutcome>('/seeker/public/match/preview', {
+      answers,
+      channelCode: channelCode ?? undefined,
+      lng: location?.lng,
+      lat: location?.lat,
+    }),
   /** 答题进度埋点：进到第 seq 题（只用于统计各题流失；失败不用管） */
   quizStep: (seq: number) => post<void>('/seeker/quiz/step', { seq }),
   /** 提交答案匹配；报名锁定期抛 LC_4003（C-301） */

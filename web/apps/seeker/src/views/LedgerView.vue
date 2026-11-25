@@ -8,7 +8,7 @@ import { fmtMonth, fmtYuan } from '@/utils/format'
 import { APPLICATION_TONE } from '@/utils/status'
 import { formatServerTime } from '@/utils/time'
 
-/** S-32 我的台账（C-506）：报名、面试、入职、工资四类记录，只读；明细分别跳到我的报备、工资条 */
+/** S-32 我的台账（C-506）：报名、面试、入职、工资四类记录，只读；明细分别跳到我的报名、工资条 */
 const { label } = useDict()
 const route = useRoute()
 const router = useRouter()

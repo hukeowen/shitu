@@ -11,7 +11,7 @@ import { useMatchStore } from '@/stores/match'
  *   APP_4010 未实名 → 去 S-21 实名页，实名通过后由实名页重试；
  *   APP_4011 未满 18 / APP_4008 失信 → 提示；
  *   APP_4001 名额已满 → 回结果页重新匹配；
- *   APP_4002 / LC_4003 已有报名 → 我的报备；
+ *   APP_4002 / LC_4003 已有报名 → 我的报名；
  *   APP_4004 不在匹配结果 → 回结果页。
  * 页面需渲染 <DisclaimerPopup v-model:show="flow.disclaimerOpen.value" @agreed="flow.retry" />。
  */

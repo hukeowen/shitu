@@ -20,11 +20,18 @@ watch(
 const total = computed(() => props.questions.length)
 const q = computed(() => props.questions[idx.value])
 const isLast = computed(() => idx.value >= total.value - 1)
-const kindText = computed(() => (q.value?.questionType === 'JUDGE' ? '判断题 · 切割大方向' : '选择题 · 细化需求'))
+const KIND: Record<string, string> = { JUDGE: '先确定大方向', CHOICE: '选一个最符合的', NUMBER: '填个数字', MATRIX: '每一行选一个' }
+const kindText = computed(() => KIND[q.value?.questionType ?? 'CHOICE'] ?? '')
 const pickedCode = computed(() => picked.value[idx.value])
+/** 矩阵题：行编码 → 列（预览里点着玩） */
+const cells = ref<Record<string, string>>({})
+const COLS = ['接受', '不接受', '看情况']
 
 function pick(code: string) {
   picked.value = { ...picked.value, [idx.value]: code }
+}
+function pickCell(row: string, col: string) {
+  cells.value = { ...cells.value, [idx.value + ':' + row]: col }
 }
 function prev() {
   if (idx.value > 0) idx.value--
@@ -49,7 +56,22 @@ function next() {
         </div>
         <h1 class="stem">{{ q.stem || '（未填写题干）' }}</h1>
         <p v-if="q.hint" class="stem-d">{{ q.hint }}</p>
-        <div class="opts" role="radiogroup" :aria-label="q.stem">
+        <div v-if="q.questionType === 'NUMBER'" class="num">
+          <span class="num-btn">−</span>
+          <span class="num-box"><span class="num-ph">比如 28</span><span v-if="q.config?.unit" class="num-unit">{{ q.config.unit }}</span></span>
+          <span class="num-btn">+</span>
+          <p class="num-tip">填 {{ q.config?.min ?? '?' }}–{{ q.config?.max ?? '?' }} {{ q.config?.unit ?? '' }}之间的数</p>
+        </div>
+        <div v-else-if="q.questionType === 'MATRIX'" class="mtx">
+          <div v-for="r in q.options" :key="r.code" class="mrow">
+            <div class="mrow-t">{{ r.label || '（未填写行文字）' }}<span v-if="r.sub" class="sub">{{ r.sub }}</span></div>
+            <div class="mcells">
+              <button v-for="c in COLS" :key="c" type="button" class="mcell" :class="{ sel: cells[idx + ':' + r.code] === c }" @click="pickCell(r.code, c)">{{ c }}</button>
+            </div>
+            <div v-if="cells[idx + ':' + r.code] === '看情况' && q.config?.followUp" class="mnote">{{ q.config.followUp }}（可不填）</div>
+          </div>
+        </div>
+        <div v-else class="opts" role="radiogroup" :aria-label="q.stem">
           <button
             v-for="o in q.options"
             :key="o.code"
@@ -77,7 +99,7 @@ function next() {
       <div class="bottom">
         <button type="button" class="btn prev" :disabled="idx === 0" @click="prev">上一题</button>
         <button type="button" class="btn btn--primary next" :disabled="!total" @click="next">
-          {{ isLast ? '生成我的求职画像' : '下一题' }}
+          {{ isLast ? '看看有哪些活' : '下一题' }}
         </button>
       </div>
     </div>
@@ -127,6 +149,19 @@ function next() {
 .flex1 { flex: 1; min-width: 0; word-break: break-all; }
 .sub { display: block; font-size: var(--font-size-aux); font-weight: var(--font-weight-regular); line-height: 20px; color: var(--text-3); }
 .qopt.sel .sub { color: var(--primary-text); }
+.num { display: grid; grid-template-columns: 52px 1fr 52px; gap: var(--space-2); margin-top: var(--space-5); }
+.num-btn { display: grid; place-items: center; min-height: 52px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); font-size: 22px; color: var(--text-1); }
+.num-box { display: flex; align-items: center; justify-content: center; gap: var(--space-1); border: 1px solid var(--primary); border-radius: var(--radius-card); background: var(--bg-card); }
+.num-ph { color: var(--text-3); }
+.num-unit { color: var(--text-2); }
+.num-tip { grid-column: 1 / -1; margin: 0; font-size: var(--font-size-aux); color: var(--text-3); text-align: center; }
+.mtx { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.mrow { padding: var(--space-2) var(--space-3); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.mrow-t { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
+.mcells { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-1); margin-top: var(--space-2); }
+.mcell { min-height: 40px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-family: inherit; font-size: var(--font-size-aux); color: var(--text-1); cursor: pointer; }
+.mcell.sel { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+.mnote { margin-top: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: var(--bg-page); font-size: var(--font-size-aux); color: var(--text-3); }
 .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-6); color: var(--text-3); text-align: center; }
 .empty-t { font-size: var(--font-size-section); font-weight: var(--font-weight-semibold); color: var(--text-1); }
 .empty-d { font-size: var(--font-size-aux); }

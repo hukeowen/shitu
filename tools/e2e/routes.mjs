@@ -56,6 +56,7 @@ const SEEKER = [
   ['/match', 'registered'],
   ['/match/quiz', 'registered'],
   ['/match/result', 'matched'],
+  ['/match/preview', 'guest'], // D-62 游客预览（没答题时是空状态）
   ['/jobs/:jobId', 'matched', (ids) => `/jobs/${ids.matchedJobId}`],
   ['/kyc', 'veteran'],
   ['/kyc/appeals', 'appealing'],
@@ -178,7 +179,7 @@ export const PAGE_TYPES = {
 // 按 design-system 的适用页面登记，不能用路径前缀猜测页面类型。
 const TYPE_ROUTES = {
   seeker: {
-    dashboard: ['/'], 'card-list': ['/reports', '/match/result', '/kyc/appeals', '/contracts', '/recommendations', '/ledger'],
+    dashboard: ['/'], 'card-list': ['/reports', '/match/result', '/match/preview', '/kyc/appeals', '/contracts', '/recommendations', '/ledger'],
     detail: ['/reports/:applicationId', '/jobs/:jobId', '/contracts/sign', '/contracts/:id', '/work', '/advance/:id'],
     form: ['/kyc', '/resume', '/feedback'], wizard: ['/match', '/match/quiz'],
     billing: ['/advance', '/advance/records', '/payslips', '/payslips/:id'],

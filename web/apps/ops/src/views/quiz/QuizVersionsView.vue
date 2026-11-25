@@ -103,7 +103,14 @@ const funnelOver = computed(() => funnelSteps.value.some((s) => s.over))
 const active = computed(() => rows.value.find((v) => v.status === 'ACTIVE') ?? null)
 const draft = computed(() => rows.value.find((v) => v.status === 'DRAFT') ?? null)
 const hardCount = (v: QuizView) => v.questions.filter((q) => q.matchRole === 'HARD_FILTER').length
-const judgeCount = (v: QuizView) => v.questions.filter((q) => q.questionType === 'JUDGE').length
+const TYPE_NAME: Record<string, string> = { JUDGE: '判断题', CHOICE: '选择题', NUMBER: '数字题', MATRIX: '矩阵题' }
+/** 「1 判断题 + 4 选择题 + 1 数字题 + 1 矩阵题」 */
+const typeSummary = (v: QuizView) =>
+  Object.entries(TYPE_NAME)
+    .map(([t, name]) => [v.questions.filter((q) => (q.questionType ?? 'CHOICE') === t).length, name] as const)
+    .filter(([n]) => n > 0)
+    .map(([n, name]) => `${n} ${name}`)
+    .join(' + ')
 
 const actLabels = (v: QuizView) => [v.status === 'DRAFT' ? '编辑' : '查看', ...(v.status === 'DRAFT' ? ['删除'] : []), ...(canPublish.value && v.status === 'DRAFT' ? ['发布'] : []), ...(canPublish.value && v.status === 'ARCHIVED' ? ['回滚至此版本'] : [])]
 const opsWidth = computed(() => actionsColWidth(rows.value.map((v) => ({ labels: actLabels(v) })), 80))
@@ -202,7 +209,7 @@ async function publish(v: QuizView) {
         <div class="stat-l">题目总数</div>
         <IconClipboardList :size="20" class="stat-i" />
         <div class="stat-v">{{ active?.questions.length ?? '—' }}</div>
-        <div class="stat-d">{{ active ? `${judgeCount(active)} 判断题 + ${active.questions.length - judgeCount(active)} 选择题` : '—' }}</div>
+        <div class="stat-d">{{ active ? typeSummary(active) || '—' : '—' }}</div>
       </div>
       <div class="stat stat--icon">
         <div class="stat-l">硬过滤题</div>
@@ -314,8 +321,8 @@ async function publish(v: QuizView) {
         <div class="card__hd"><h3>硬性约束</h3></div>
         <div class="card__bd">
           <ul class="rules">
-            <li>题目总数 <b>1–{{ MAX_QUESTIONS }}</b> 道，每题 <b>2–8</b> 个选项，选项编码与文字不能重复</li>
-            <li>全部为<b>判断题 / 选择题</b>，禁止文字输入</li>
+            <li>题目总数 <b>1–{{ MAX_QUESTIONS }}</b> 道，选择题每题 <b>2–8</b> 个选项（矩阵题 2–8 行），选项编码与文字不能重复</li>
+            <li>题型：<b>判断题 / 选择题 / 数字题（年龄 16–65）/ 矩阵题（班次 接受 / 不接受 / 看情况）</b>；不问期望工资，除「看情况」的可选补充外不让打字</li>
             <li><b>硬过滤题必须排在软打分题之前</b></li>
             <li>必须包含「进厂意愿」与「地域锁定」两道题；每个画像字段最多出现一次</li>
             <li>发布 / 回滚立即对全平台生效，仅超级管理员可操作；匹配快照记录每次匹配使用的题库版本</li>

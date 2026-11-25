@@ -32,13 +32,23 @@ public class QuizService {
 
     /** 画像只识别这些字段（ProfileBuilder）；题目必须覆盖进厂意愿和地域两道硬过滤题。 */
     static final Set<String> KNOWN_FIELDS = Set.of("accept_factory", "locked_region", "expect_job_type",
-            "expect_salary", "shift_pref", "dorm_req", "work_years");
+            "expect_salary", "shift_pref", "dorm_req", "work_years", "age", "shift_matrix");
 
+    /**
+     * @param options 单选题的选项；矩阵题的行（value 为班次）；数字题为空
+     * @param config  数字题 min / max / unit；矩阵题 followUp（选「看情况」时的追问）；单选题为 null
+     */
     public record QuestionView(int seq, String questionType, String stem, String hint, String profileField,
-                               String matchRole, List<ProfileBuilder.OptionDef> options) {
+                               String matchRole, List<ProfileBuilder.OptionDef> options,
+                               ProfileBuilder.QuestionConfig config) {
+        public QuestionView(int seq, String questionType, String stem, String hint, String profileField,
+                            String matchRole, List<ProfileBuilder.OptionDef> options) {
+            this(seq, questionType, stem, hint, profileField, matchRole, options, null);
+        }
+
         static QuestionView of(QuizQuestion q) {
             return new QuestionView(q.getSeq(), q.getQuestionType(), q.getStem(), q.getHint(), q.getProfileField(),
-                    q.getMatchRole(), q.getOptions());
+                    q.getMatchRole(), q.getOptions() == null ? List.of() : q.getOptions(), q.getConfig());
         }
     }
 
@@ -149,7 +159,7 @@ public class QuizService {
         int seq = 1;
         for (QuestionView q : qs) {
             insertQuestion(versionId, new QuestionView(seq++, q.questionType(), q.stem(), q.hint(), q.profileField(),
-                    q.matchRole(), q.options()));
+                    q.matchRole(), q.options(), q.config()));
         }
         audit.log("QUIZ_DRAFT_SAVE", "QUIZ_VERSION", String.valueOf(versionId), null);
         return get(versionId);
@@ -194,6 +204,15 @@ public class QuizService {
             BizException.check(KNOWN_FIELDS.contains(q.profileField()), ErrorCode.SYS_BAD_REQUEST,
                     "未知的画像字段：" + q.profileField());
             BizException.check(fields.add(q.profileField()), ErrorCode.SYS_BAD_REQUEST, "画像字段重复：" + q.profileField());
+            String typeErr = ProfileBuilder.checkQuestion(q.questionType(), q.profileField(), q.options(), q.config());
+            BizException.check(typeErr == null, ErrorCode.SYS_BAD_REQUEST, "第 " + q.seq() + " 题：" + typeErr);
+            boolean hard = "HARD_FILTER".equals(q.matchRole());
+            BizException.check(hard || "SOFT_WEIGHT".equals(q.matchRole()), ErrorCode.SYS_BAD_REQUEST, "题目作用不正确");
+            BizException.check(!(hard && softSeen), ErrorCode.SYS_BAD_REQUEST, "硬过滤题必须排在前面");
+            softSeen |= !hard;
+            if (ProfileBuilder.NUMBER.equals(q.questionType())) {
+                continue;
+            }
             BizException.check(q.options() != null && q.options().size() >= 2 && q.options().size() <= 8,
                     ErrorCode.SYS_BAD_REQUEST, "每题 2–8 个选项");
             Set<String> codes = new HashSet<>();
@@ -205,10 +224,6 @@ public class QuizService {
                 String err = ProfileBuilder.checkOption(q.profileField(), o);
                 BizException.check(err == null, ErrorCode.SYS_BAD_REQUEST, "第 " + q.seq() + " 题：" + err);
             }
-            boolean hard = "HARD_FILTER".equals(q.matchRole());
-            BizException.check(hard || "SOFT_WEIGHT".equals(q.matchRole()), ErrorCode.SYS_BAD_REQUEST, "题目作用不正确");
-            BizException.check(!(hard && softSeen), ErrorCode.SYS_BAD_REQUEST, "硬过滤题必须排在前面");
-            softSeen |= !hard;
         }
         BizException.check(fields.contains("accept_factory") && fields.contains("locked_region"),
                 ErrorCode.SYS_BAD_REQUEST, "必须包含「进厂意愿」与「地域锁定」两道硬过滤题");
@@ -223,7 +238,9 @@ public class QuizService {
         e.setHint(q.hint());
         e.setProfileField(q.profileField());
         e.setMatchRole(q.matchRole());
-        e.setOptions(q.options());
+        boolean number = ProfileBuilder.NUMBER.equals(e.getQuestionType());
+        e.setOptions(number || q.options() == null ? List.of() : q.options());
+        e.setConfig(q.config());
         questions.insert(e);
     }
 

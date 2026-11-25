@@ -19,7 +19,7 @@ const auth = useAuthStore()
         <h3 class="nf-t">页面不存在</h3>
         <p class="t-sm nf-d">你打开的地址可能已失效或输入有误</p>
         <van-button type="primary" block class="btn-cta" style="margin-top: 16px" @click="router.replace('/')">返回首页</van-button>
-        <van-button v-if="auth.isLoggedIn" block class="btn-cta" style="margin-top: 10px" @click="router.replace('/reports')">我的报备</van-button>
+        <van-button v-if="auth.isLoggedIn" block class="btn-cta" style="margin-top: 10px" @click="router.replace('/reports')">我的报名</van-button>
       </section>
     </div>
   </div>

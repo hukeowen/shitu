@@ -21,6 +21,8 @@ import java.util.Optional;
  * 3. 排序分 = 匹配度 × 岗位权重；同分按匹配度、剩余名额、岗位编号排序，保证结果确定可复现
  * 4. 取前 N 个（公域同一公司最多 maxPerCompanyPublic 个）；匹配度 ≥ 阈值的才展示
  * </pre>
+ * 题库 v2（D-62）：不问期望工资 → 工资因子 = 该岗位到手工资（月薪区间中值）在本次候选岗位里的排位；
+ * 班次按每种班次的「接受 / 看情况 / 不接受」打分，岗位班次被明确「不接受」时匹配度再打 {@link #REJECTED_SHIFT_FACTOR} 折。
  */
 public final class MatchScorer {
 
@@ -38,7 +40,11 @@ public final class MatchScorer {
      * @param results     排序后的前 N 个（含未达展示阈值的，用于快照与经纪人参考）
      * @param filtered    各硬过滤原因淘汰的岗位数
      */
-    public record Outcome(List<Scored> results, int candidates, Map<FilterReason, Integer> filtered) {
+    public record Outcome(List<Scored> results, int candidates, Map<FilterReason, Integer> filtered, boolean salaryByRank) {
+        public Outcome(List<Scored> results, int candidates, Map<FilterReason, Integer> filtered) {
+            this(results, candidates, filtered, false);
+        }
+
         public boolean anyDisplayed() {
             return results.stream().anyMatch(Scored::displayed);
         }
@@ -58,19 +64,40 @@ public final class MatchScorer {
         SHIFT.put(ShiftType.LONG_DAY, Map.of(ShiftType.LONG_DAY, 100, ShiftType.DAY, 80, ShiftType.TWO_SHIFT, 40, ShiftType.NIGHT, 20));
     }
 
+    /**
+     * 岗位班次被用户明确选了「不接受」：班次因子 0 分之外，匹配度再乘 0.7。
+     * 不做硬过滤的原因：用户说「不接受」的强度不一（很多人看到工资高会改主意），硬过滤会让经纪人报告（T-202，不受展示阈值限制）
+     * 也看不到这些岗位、没法去沟通；但乘 0.7 后匹配度最高 70，低于默认展示阈值 80，求职者自己的结果页不会出现他说了不接受的班次。
+     */
+    static final BigDecimal REJECTED_SHIFT_FACTOR = new BigDecimal("0.7");
+    /** 工资排位分：最低的岗位 70 分、最高的 100 分（排位只用来拉开顺序，不应让低薪岗位直接掉出展示阈值）。 */
+    static final int RANK_FLOOR = 70;
+    /** 排位在前 25% 且候选岗位工资有高有低时，推荐理由写「工资在同类岗位里偏高」。 */
+    static final double HIGH_PAY_PERCENTILE = 0.75;
+
+    /** 工资排位结果：score 为工资因子分，high 为「偏高」。 */
+    record SalaryRank(int score, boolean high) {
+    }
+
     private MatchScorer() {
     }
 
     public static Outcome match(MatchProfile p, List<JobCandidate> jobs, EngineConfig cfg, boolean publicScope) {
         Map<FilterReason, Integer> filtered = new LinkedHashMap<>();
-        List<Scored> scored = new ArrayList<>();
+        List<JobCandidate> passed = new ArrayList<>();
         for (JobCandidate j : jobs) {
             Optional<FilterReason> r = hardFilter(p, j);
             if (r.isPresent()) {
                 filtered.merge(r.get(), 1, Integer::sum);
                 continue;
             }
-            scored.add(score(p, j, cfg));
+            passed.add(j);
+        }
+        boolean byRank = p.salaryByRank();
+        Map<String, SalaryRank> ranks = byRank ? salaryRanks(passed) : Map.of();
+        List<Scored> scored = new ArrayList<>();
+        for (JobCandidate j : passed) {
+            scored.add(score(p, j, cfg, ranks.get(j.jobId())));
         }
         scored.sort(Comparator.comparing(Scored::sortScore).reversed()
                 .thenComparing(Comparator.comparing(Scored::matchScore).reversed())
@@ -89,7 +116,7 @@ public final class MatchScorer {
             perCompany.put(s.job().companyId(), n + 1);
             top.add(s);
         }
-        return new Outcome(List.copyOf(top), jobs.size(), Map.copyOf(filtered));
+        return new Outcome(List.copyOf(top), jobs.size(), Map.copyOf(filtered), byRank);
     }
 
     static Optional<FilterReason> hardFilter(MatchProfile p, JobCandidate j) {
@@ -117,23 +144,77 @@ public final class MatchScorer {
         return Optional.empty();
     }
 
+    /**
+     * 工资排位：按月薪区间中值去重排序，最低 {@link #RANK_FLOOR} 分、最高 100 分、中间线性；只有一种工资时都给 100。
+     * 候选 = 本次通过硬过滤的岗位（私域 = 本公司，公域 = 全平台），所以同一岗位在不同人、不同范围下排位可能不同，
+     * 每次匹配的因子分都落在 match_result.factor_scores 里，回放以快照为准。
+     */
+    static Map<String, SalaryRank> salaryRanks(List<JobCandidate> passed) {
+        List<BigDecimal> distinct = passed.stream().map(MatchScorer::payMid).distinct().sorted().toList();
+        Map<String, SalaryRank> out = new HashMap<>();
+        for (JobCandidate j : passed) {
+            if (distinct.size() <= 1) {
+                out.put(j.jobId(), new SalaryRank(100, false));
+                continue;
+            }
+            double pct = (double) distinct.indexOf(payMid(j)) / (distinct.size() - 1);
+            int score = (int) Math.round(RANK_FLOOR + (100 - RANK_FLOOR) * pct);
+            out.put(j.jobId(), new SalaryRank(score, passed.size() >= 3 && pct >= HIGH_PAY_PERCENTILE));
+        }
+        return out;
+    }
+
+    private static BigDecimal payMid(JobCandidate j) {
+        BigDecimal min = j.salaryMin() == null ? BigDecimal.ZERO : j.salaryMin();
+        BigDecimal max = j.salaryMax() == null ? min : j.salaryMax();
+        return min.add(max).divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
+    }
+
     static Scored score(MatchProfile p, JobCandidate j, EngineConfig cfg) {
+        return score(p, j, cfg, null);
+    }
+
+    /** @param rank 工资排位（没问期望工资时）；null = 按期望工资比较，或只有这一个岗位 */
+    static Scored score(MatchProfile p, JobCandidate j, EngineConfig cfg, SalaryRank rank) {
         EngineConfig.FactorWeights w = cfg.factorWeights();
         Double km = p.hasLocation() && j.hasLocation()
                 ? Geo.km(p.lat().doubleValue(), p.lng().doubleValue(), j.lat().doubleValue(), j.lng().doubleValue()) : null;
         FactorScores f = new FactorScores(
                 jobTypeScore(p, j),
-                salaryScore(p, j),
+                p.salaryByRank() ? (rank == null ? 100 : rank.score()) : salaryScore(p, j),
                 distanceScore(p, j, km, cfg),
-                SHIFT.getOrDefault(p.shift() == null ? ShiftType.NIGHT : p.shift(), Map.of()).getOrDefault(j.shift(), 0),
+                shiftScore(p, j),
                 dormScore(p, j),
                 j.minWorkYears() <= p.workYears() ? 100 : Math.max(0, 100 - 50 * (j.minWorkYears() - p.workYears())));
         int weighted = w.jobType() * f.jobType() + w.salary() * f.salary() + w.distance() * f.distance()
                 + w.shift() * f.shift() + w.dorm() * f.dorm() + w.experience() * f.experience();
         BigDecimal match = BigDecimal.valueOf(weighted).divide(BigDecimal.valueOf(w.total()), 2, RoundingMode.HALF_UP);
+        if (rejectsShift(p, j)) {
+            match = match.multiply(REJECTED_SHIFT_FACTOR).setScale(2, RoundingMode.HALF_UP);
+        }
         BigDecimal sort = match.multiply(j.jobWeight()).setScale(3, RoundingMode.HALF_UP);
         boolean displayed = match.compareTo(BigDecimal.valueOf(cfg.displayThreshold())) >= 0;
-        return new Scored(j, match, f, sort, displayed, ReasonText.of(p, j, f, km));
+        return new Scored(j, match, f, sort, displayed, ReasonText.of(p, j, f, km, rank != null && rank.high()));
+    }
+
+    /** 班次：v2 三态（接受 100 / 看情况 60 / 不接受 0，没列出的班次 60）；v1 单选按兼容表。 */
+    static int shiftScore(MatchProfile p, JobCandidate j) {
+        if (p.shiftTolerance() != null) {
+            MatchProfile.ShiftTolerance t = p.shiftTolerance().get(j.shift());
+            if (t == null) {
+                return 60;
+            }
+            return switch (t) {
+                case ACCEPT -> 100;
+                case DEPENDS -> 60;
+                case REJECT -> 0;
+            };
+        }
+        return SHIFT.getOrDefault(p.shift() == null ? ShiftType.NIGHT : p.shift(), Map.of()).getOrDefault(j.shift(), 0);
+    }
+
+    static boolean rejectsShift(MatchProfile p, JobCandidate j) {
+        return p.shiftTolerance() != null && p.shiftTolerance().get(j.shift()) == MatchProfile.ShiftTolerance.REJECT;
     }
 
     static int jobTypeScore(MatchProfile p, JobCandidate j) {

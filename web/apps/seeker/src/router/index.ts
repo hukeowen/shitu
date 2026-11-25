@@ -18,11 +18,14 @@ const router = createRouter({
       },
     },
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录 / 注册', guestOnly: true } },
-    { path: '/reports', component: () => import('@/views/ReportsView.vue'), meta: { tabbar: true, auth: true, title: '我的报备', proto: 'S-25' } },
+    { path: '/reports', component: () => import('@/views/ReportsView.vue'), meta: { tabbar: true, auth: true, title: '我的报名', proto: 'S-25' } },
     { path: '/reports/:applicationId', component: () => import('@/views/InterviewView.vue'), meta: { auth: true, title: '报名详情', proto: 'S-24' } },
-    // AI 问薪（C-301~C-306）：匹配是岗位的唯一入口（R-01）
-    { path: '/match', component: () => import('@/views/match/MatchIntroView.vue'), meta: { auth: true, title: 'AI 问薪', proto: 'S-11' } },
-    { path: '/match/quiz', component: () => import('@/views/match/QuizView.vue'), meta: { auth: true, title: 'AI 问薪', proto: 'S-12' } },
+    // AI 问薪（C-301~C-306）：匹配是岗位的唯一入口（R-01）。
+    // D-62 先答题后登录：开场、答题游客也能进；游客答完看打码预览，点「看完整岗位 / 报名」再登录，登录后在 /match/continue 正式匹配
+    { path: '/match', component: () => import('@/views/match/MatchIntroView.vue'), meta: { title: 'AI 问薪', proto: 'S-11' } },
+    { path: '/match/quiz', component: () => import('@/views/match/QuizView.vue'), meta: { title: 'AI 问薪', proto: 'S-12' } },
+    { path: '/match/preview', component: () => import('@/views/match/MatchPreviewView.vue'), meta: { title: '先看看有哪些活' } },
+    { path: '/match/continue', component: () => import('@/views/match/MatchContinueView.vue'), meta: { auth: true, title: '匹配结果' } },
     { path: '/match/result', component: () => import('@/views/match/MatchResultView.vue'), meta: { auth: true, title: '匹配结果', proto: 'S-16' } },
     // 岗位与报名（C-401~C-408）
     { path: '/jobs/:jobId', component: () => import('@/views/JobDetailView.vue'), meta: { auth: true, title: '岗位详情', proto: 'S-18' } },

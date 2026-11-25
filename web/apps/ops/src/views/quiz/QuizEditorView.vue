@@ -11,8 +11,12 @@ import { useAuthStore } from '@/stores/auth'
 import { fmtDateTime } from '@/utils/format'
 import QuizPreview from './QuizPreview.vue'
 import {
+  AGE_MAX,
+  AGE_MIN,
   FIELDS,
+  FOLLOW_UP_MAX,
   MATCH_ROLES,
+  MATRIX_COLUMNS,
   MAX_OPTIONS,
   MAX_QUESTIONS,
   QUESTION_TYPES,
@@ -21,13 +25,18 @@ import {
   blankOption,
   blankQuestion,
   fieldMeta,
+  resetForType,
+  typesFor,
   toEditQuestion,
   toQuizQuestions,
   validate,
   type EditQuestion,
 } from './quizMeta'
 
-/** P-12 题库版本详情：草稿可编辑（题目顺序、画像字段、匹配作用、选项），其余版本只读 */
+/**
+ * P-12 题库版本详情：草稿可编辑（题目顺序、画像字段、匹配作用、选项），其余版本只读。
+ * D-62 新题型：数字题（年龄：最小 / 最大 / 单位）、矩阵题（班次接受度：行 = 班次，固定三列 接受 / 不接受 / 看情况，可设追问）。
+ */
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -128,6 +137,7 @@ async function removeQuestion(i: number) {
 function onFieldChange(q: EditQuestion) {
   if (fieldMeta(q.profileField)?.hardOnly) q.matchRole = 'HARD_FILTER'
   if (q.profileField !== 'locked_region') q.options.forEach((o) => (o.needRegion = false))
+  resetForType(q)
 }
 function addOption(q: EditQuestion) {
   if (q.options.length < MAX_OPTIONS) q.options.push(blankOption(q.options))
@@ -313,8 +323,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             <el-form label-width="76px" label-position="left" size="default" :disabled="readonly" @submit.prevent>
               <div class="frow">
                 <el-form-item label="题型">
-                  <el-select v-model="q.questionType" class="w-type">
-                    <el-option v-for="t in QUESTION_TYPES" :key="t.value" :value="t.value" :label="t.label" />
+                  <el-select v-model="q.questionType" class="w-type" :disabled="readonly || !!fieldMeta(q.profileField)?.fixedType">
+                    <el-option v-for="t in (readonly ? QUESTION_TYPES : typesFor(q.profileField))" :key="t.value" :value="t.value" :label="t.label" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="画像字段">
@@ -345,11 +355,37 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               </el-form-item>
             </el-form>
 
-            <div class="opts">
+            <!-- 数字题：范围与单位 -->
+            <div v-if="q.questionType === 'NUMBER'" class="opts nconf">
+              <el-form label-width="76px" label-position="left" :disabled="readonly" @submit.prevent>
+                <div class="frow">
+                  <el-form-item label="最小值">
+                    <el-input-number v-model="q.min" :min="q.profileField === 'age' ? AGE_MIN : 0" :max="q.profileField === 'age' ? AGE_MAX : 999" :controls="!readonly" controls-position="right" />
+                  </el-form-item>
+                  <el-form-item label="最大值">
+                    <el-input-number v-model="q.max" :min="q.profileField === 'age' ? AGE_MIN : 0" :max="q.profileField === 'age' ? AGE_MAX : 999" :controls="!readonly" controls-position="right" />
+                  </el-form-item>
+                  <el-form-item label="单位">
+                    <el-input v-model="q.unit" maxlength="8" class="w-unit" :placeholder="readonly ? '—' : '如：岁'" />
+                  </el-form-item>
+                </div>
+              </el-form>
+              <p class="t-xs">求职者端是一个大数字输入框加 − / + 按钮，超出范围不能进下一题</p>
+            </div>
+
+            <div v-else class="opts">
+              <div v-if="q.questionType === 'MATRIX'" class="mconf">
+                <el-form label-width="76px" label-position="left" :disabled="readonly" @submit.prevent>
+                  <el-form-item label="追问">
+                    <el-input v-model="q.followUp" :maxlength="FOLLOW_UP_MAX" :show-word-limit="!readonly" :placeholder="readonly ? '—' : '选「看情况」时显示，如：什么情况下可以？（不填 = 不追问）'" />
+                  </el-form-item>
+                </el-form>
+                <p class="t-xs">每一行是一种班次，求职者对每行选「{{ MATRIX_COLUMNS.join(' / ') }}」（固定三列）；追问只做中性提问、可不填，不要给金额</p>
+              </div>
               <div class="orow ohd" :class="`k-${fieldMeta(q.profileField)?.kind ?? 'enum'}`">
-                <span>编码</span><span>选项文字</span><span>副标题</span>
+                <span>编码</span><span>{{ q.questionType === 'MATRIX' ? '行文字' : '选项文字' }}</span><span>副标题</span>
                 <template v-if="fieldMeta(q.profileField)?.kind === 'range'"><span>最低（元）</span><span>最高（元）</span></template>
-                <span v-else>{{ fieldMeta(q.profileField)?.kind === 'number' ? '年限（年）' : '画像值' }}</span>
+                <span v-else>{{ fieldMeta(q.profileField)?.kind === 'number' ? '年限（年）' : q.questionType === 'MATRIX' ? '班次' : '画像值' }}</span>
                 <span>{{ q.profileField === 'locked_region' ? '需选城市' : '' }}</span>
                 <span />
               </div>
@@ -378,7 +414,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
                 <span v-else />
               </div>
               <el-button v-if="!readonly" size="small" class="addopt" :disabled="q.options.length >= MAX_OPTIONS" @click="addOption(q)">
-                <IconPlus :size="14" />新增选项（{{ q.options.length }} / {{ MAX_OPTIONS }}）
+                <IconPlus :size="14" />{{ q.questionType === 'MATRIX' ? '新增一行' : '新增选项' }}（{{ q.options.length }} / {{ MAX_OPTIONS }}）
               </el-button>
             </div>
             <ul v-if="showIssues && issuesOf(i).length" class="qissues">
@@ -393,7 +429,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             <template v-if="qs.length < MAX_QUESTIONS && unusedFields.length">
               <el-button v-for="f in unusedFields" :key="f.field" size="small" @click="addQuestion(f.field)"><IconPlus :size="14" />{{ f.label }}</el-button>
             </template>
-            <span v-else class="t-xs">{{ qs.length >= MAX_QUESTIONS ? `已达 ${MAX_QUESTIONS} 题上限` : '7 个画像字段均已使用' }}</span>
+            <span v-else class="t-xs">{{ qs.length >= MAX_QUESTIONS ? `已达 ${MAX_QUESTIONS} 题上限` : '画像字段均已使用' }}</span>
           </div>
         </div>
       </div>
@@ -463,6 +499,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 .oops .el-button { min-width: 24px; min-height: 24px; }
 .oops .el-button + .el-button { margin-left: var(--space-1); }
 .addopt { margin-top: var(--space-2); }
+.orow.k-matrix { grid-template-columns: 64px minmax(140px, 2fr) minmax(72px, 1fr) minmax(130px, 1.4fr) 64px 84px; }
+.nconf .frow :deep(.el-form-item) { margin-bottom: var(--space-2); }
+.mconf { padding-bottom: var(--space-2); margin-bottom: var(--space-2); border-bottom: 1px solid var(--divider); }
+.mconf :deep(.el-form-item) { margin-bottom: var(--space-1); }
+.w-unit { width: 96px; }
 .addopt svg, .addq .el-button svg { margin-right: var(--space-1); }
 .qissues { margin: var(--space-3) 0 0; padding-left: 18px; font-size: var(--font-size-min); color: var(--danger-text); line-height: 1.8; }
 .addq .card__bd { padding: var(--space-3) var(--space-4); }

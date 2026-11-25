@@ -11,7 +11,7 @@ import { APPLICATION_TONE, deadlineCopy } from '@/utils/status'
 import { formatServerTime, formatShort, parseServerTime } from '@/utils/time'
 
 /**
- * S-25 我的报备（C-501）：全部 / 待面试 / 待签约入职（内部口径「待确权」）/ 已入职 / 已取消 / 已超时（D-09）。
+ * S-25 我的报名（C-501）：全部 / 待面试 / 待签约入职（内部口径「待确权」）/ 已入职 / 已取消 / 已超时（D-09）。
  * 「已取消」含取消、面试未通过、爽约（单条卡片标签仍显示精确状态）。求职者不能自行取消（R-04），进行中的报名可「申请取消报名」，由驻场处理。
  */
 const router = useRouter()
@@ -117,7 +117,7 @@ function openComplain(a: MyApplication) {
 
 <template>
   <div class="reports">
-    <van-nav-bar title="我的报备" fixed placeholder safe-area-inset-top z-index="50" />
+    <van-nav-bar title="我的报名" fixed placeholder safe-area-inset-top z-index="50" />
     <van-tabs v-model:active="tab" sticky offset-top="44" shrink class="seg-tabs">
       <van-tab v-for="k in TAB_ORDER" :key="k" :name="k" :title="`${tabLabel(k)} ${counts[k]}`" />
     </van-tabs>

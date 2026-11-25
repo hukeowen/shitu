@@ -2,15 +2,22 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showDialog, showToast } from 'vant'
-import { errorMessage, isApiError, seekerApi, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
+import { errorMessage, isApiError, seekerApi, type MatrixChoice, type QuizOption, type QuizQuestion, type QuizView } from '@shitu/api-client'
 import { IconCheck, IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import { useMatchSession } from '@/composables/useMatchSession'
+import { useChannelStore } from '@/stores/channel'
 import { CITY_COLUMNS, provinceOf } from '@/utils/cities'
+import { MATRIX_COLUMNS, NOTE_MAX, answerText, isAnswered, numberRange } from '@/utils/quiz'
 
-/** S-12 / S-13 答题（C-302）：一屏一题，点选作答，可返回修改；地域锁定题选「是」时选择城市。S-14 生成画像 */
+/**
+ * S-12 / S-13 答题（C-302）：一屏一题，可返回修改；地域锁定题选「是」时选择城市。S-14 生成画像。
+ * D-62 题型：单选（点选后自动下一题）、数字（年龄，大输入框 + 加减按钮）、矩阵（每种班次 接受 / 不接受 / 看情况，
+ * 选「看情况」可补一句，可不填）。游客也能答：答完看打码预览，登录后再看完整岗位。
+ */
 const router = useRouter()
-const { match, profile, locked, appliedLock, lockText } = useMatchSession()
+const { match, profile, locked, appliedLock, lockText, isGuest } = useMatchSession()
+const channel = useChannelStore()
 
 const quiz = ref<QuizView | null>(null)
 const loading = ref(true)
@@ -35,25 +42,74 @@ const total = computed(() => questions.value.length)
 const step = computed(() => Math.min(match.step, Math.max(0, total.value - 1)))
 const q = computed<QuizQuestion | undefined>(() => questions.value[step.value])
 const picked = computed(() => (q.value ? match.answers[q.value.seq] : undefined))
-// 进到哪道题就上报一次（平台用来看哪道题流失最多）；上报失败不影响答题
-watch(() => q.value?.seq, (seq) => { if (seq) seekerApi.quizStep(seq).catch(() => {}) }, { immediate: true })
+const done = computed(() => !!q.value && isAnswered(q.value, picked.value))
+// 进到哪道题就上报一次（平台用来看哪道题流失最多）；游客不上报（没有用户 ID，D-62）；上报失败不影响答题
+watch(() => q.value?.seq, (seq) => { if (seq && !isGuest.value) seekerApi.quizStep(seq).catch(() => {}) }, { immediate: true })
 const isLast = computed(() => step.value >= total.value - 1)
-const allAnswered = computed(() => questions.value.every((x) => !!match.answers[x.seq]))
+const allAnswered = computed(() => questions.value.every((x) => isAnswered(x, match.answers[x.seq])))
 /** 题型提示用求职者能看懂的话（不说「判断题 / 切割方向」；JUDGE 题也可能有 3 个选项） */
-const kindText = computed(() => (q.value?.questionType === 'JUDGE' ? '先确定大方向' : '选一个最符合的'))
+const kindText = computed(() => {
+  switch (q.value?.questionType) {
+    case 'JUDGE': return '先确定大方向'
+    case 'NUMBER': return '填个数字'
+    case 'MATRIX': return '每一行选一个'
+    default: return '选一个最符合的'
+  }
+})
 
 /** 已回答的题（S-13「已回答 · 可返回修改」） */
 const answeredChips = computed(() =>
   questions.value
     .map((x, i) => {
-      const a = match.answers[x.seq]
-      if (!a || i === step.value) return null
-      const opt = x.options.find((o) => o.code === a.code)
-      if (!opt) return null
-      return { i, text: a.region ? `锁定 ${a.region}` : opt.label }
+      if (i === step.value) return null
+      const text = answerText(x, match.answers[x.seq])
+      return text ? { i, text } : null
     })
     .filter((x): x is { i: number; text: string } => !!x),
 )
+
+// ---------- 数字题（年龄） ----------
+const range = computed(() => (q.value ? numberRange(q.value) : { min: 16, max: 65, unit: '' }))
+const numText = ref('')
+watch(
+  () => [q.value?.seq, q.value?.questionType] as const,
+  () => {
+    numText.value = q.value?.questionType === 'NUMBER' && picked.value?.number != null ? String(picked.value.number) : ''
+  },
+  { immediate: true },
+)
+const numError = computed(() => {
+  if (!numText.value) return ''
+  const n = Number(numText.value)
+  const { min, max, unit } = range.value
+  return Number.isInteger(n) && n >= min && n <= max ? '' : `请填 ${min}–${max} ${unit}之间的数`
+})
+function onNumInput(v: string) {
+  numText.value = v.replace(/\D/g, '').slice(0, 3)
+  if (!q.value) return
+  const n = Number(numText.value)
+  const { min, max } = range.value
+  match.putAnswer(q.value.seq, numText.value && Number.isInteger(n) && n >= min && n <= max ? { number: n } : null)
+}
+function bump(d: number) {
+  const { min, max } = range.value
+  const cur = numText.value ? Number(numText.value) : 25 - d
+  onNumInput(String(Math.min(max, Math.max(min, cur + d))))
+}
+
+// ---------- 矩阵题（班次 接受 / 不接受 / 看情况） ----------
+function pickCell(rowCode: string, v: MatrixChoice) {
+  if (!q.value) return
+  const cur = picked.value ?? {}
+  const matrix = { ...(cur.matrix ?? {}), [rowCode]: v }
+  match.putAnswer(q.value.seq, { matrix, notes: cur.notes })
+}
+function setNote(rowCode: string, text: string) {
+  if (!q.value) return
+  const cur = picked.value ?? {}
+  match.putAnswer(q.value.seq, { matrix: cur.matrix, notes: { ...(cur.notes ?? {}), [rowCode]: text.slice(0, NOTE_MAX) } })
+}
+const followUp = computed(() => q.value?.config?.followUp || '什么情况下可以？')
 
 let advanceTimer: ReturnType<typeof setTimeout> | undefined
 onBeforeUnmount(() => clearTimeout(advanceTimer))
@@ -72,8 +128,8 @@ function choose(opt: QuizOption) {
 
 function next() {
   if (!q.value) return
-  if (!match.answers[q.value.seq]) {
-    showToast('请先选择一个选项')
+  if (!done.value) {
+    showToast(q.value.questionType === 'NUMBER' ? numError.value || '请先填一个数' : q.value.questionType === 'MATRIX' ? '每一行都要选一个' : '请先选择一个选项')
     return
   }
   if (isLast.value) {
@@ -137,6 +193,8 @@ let phaseTimer: ReturnType<typeof setInterval> | undefined
 onBeforeUnmount(() => clearInterval(phaseTimer))
 
 const scopeName = computed(() => {
+  // 游客：有邀请公司就只看这家公司的岗位，否则全平台（与预览接口一致）
+  if (isGuest.value) return channel.inviter ? `${channel.inviter}的岗位` : '全平台的岗位'
   const p = profile.value
   if (!p) return ''
   if (p.matchScope === 'OWN_COMPANY') return `${p.boundCompanyName ?? '本公司'}的岗位`
@@ -154,7 +212,7 @@ const phases = computed(() => [
 
 async function submit() {
   if (!allAnswered.value) {
-    const i = questions.value.findIndex((x) => !match.answers[x.seq])
+    const i = questions.value.findIndex((x) => !isAnswered(x, match.answers[x.seq]))
     showToast('还有题目没有回答')
     if (i >= 0) jump(i)
     return
@@ -166,17 +224,18 @@ async function submit() {
   }, 520)
   const minWait = new Promise((r) => setTimeout(r, 2300))
   try {
-    await Promise.all([minWait, match.runMatch()])
+    // 游客：只看打码预览，不落库；登录用户：正式匹配
+    await Promise.all([minWait, isGuest.value ? match.runPreview(channel.submitCode()) : match.runMatch()])
     clearInterval(phaseTimer)
     phase.value = phases.value.length
     await new Promise((r) => setTimeout(r, 300))
-    await router.replace('/match/result')
+    await router.replace(isGuest.value ? '/match/preview' : '/match/result')
   } catch (e) {
     clearInterval(phaseTimer)
     analyzing.value = false
     if (isApiError(e, 'LC_4003')) {
       try {
-        await showConfirmDialog({ title: '暂不能重新匹配', message: e.message, confirmButtonText: '查看我的报备', cancelButtonText: '回首页' })
+        await showConfirmDialog({ title: '暂不能重新匹配', message: e.message, confirmButtonText: '查看我的报名', cancelButtonText: '回首页' })
         void router.replace('/reports')
       } catch {
         void router.replace('/')
@@ -199,7 +258,7 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
       <IconLock :size="48" :stroke-width="1.5" />
       <div class="state-block-t">暂不能重新匹配</div>
       <div class="state-block-d">{{ lockText }}</div>
-      <van-button v-if="appliedLock" type="primary" @click="router.replace('/reports')">查看我的报备</van-button>
+      <van-button v-if="appliedLock" type="primary" @click="router.replace('/reports')">查看我的报名</van-button>
     </div>
     <div v-else-if="loading" class="page-state"><van-loading size="28" vertical>题目加载中…</van-loading></div>
     <div v-else-if="loadError" class="state-block">
@@ -219,7 +278,57 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
         <h1 class="stem">{{ q.stem }}</h1>
         <p v-if="q.hint" class="stem-d">{{ q.hint }}</p>
 
-        <div class="opts" role="radiogroup" :aria-label="q.stem">
+        <!-- 数字题：大输入框 + 加减按钮 -->
+        <div v-if="q.questionType === 'NUMBER'" class="num">
+          <div class="num-row">
+            <button type="button" class="num-btn" aria-label="减一" :disabled="!!numText && Number(numText) <= range.min" @click="bump(-1)">−</button>
+            <label class="num-box" :class="{ err: !!numError }">
+              <input
+                :value="numText"
+                class="num-in"
+                type="tel"
+                inputmode="numeric"
+                maxlength="3"
+                :aria-label="q.stem"
+                placeholder="比如 28"
+                @input="onNumInput(($event.target as HTMLInputElement).value)"
+              />
+              <span v-if="range.unit" class="num-unit">{{ range.unit }}</span>
+            </label>
+            <button type="button" class="num-btn" aria-label="加一" :disabled="!!numText && Number(numText) >= range.max" @click="bump(1)">+</button>
+          </div>
+          <p class="num-tip" :class="{ err: !!numError }">{{ numError || `填 ${range.min}–${range.max} ${range.unit}之间的数` }}</p>
+        </div>
+
+        <!-- 矩阵题：每行一种班次，三个大按钮；选「看情况」可补一句（可不填） -->
+        <div v-else-if="q.questionType === 'MATRIX'" class="mtx">
+          <div v-for="r in q.options" :key="r.code" class="mrow" role="radiogroup" :aria-label="r.label">
+            <div class="mrow-t">{{ r.label }}<span v-if="r.sub" class="sub">{{ r.sub }}</span></div>
+            <div class="mcells">
+              <button
+                v-for="c in MATRIX_COLUMNS"
+                :key="c.value"
+                type="button"
+                class="mcell"
+                role="radio"
+                :aria-checked="picked?.matrix?.[r.code] === c.value"
+                :class="{ sel: picked?.matrix?.[r.code] === c.value }"
+                @click="pickCell(r.code, c.value)"
+              >{{ c.label }}</button>
+            </div>
+            <van-field
+              v-if="picked?.matrix?.[r.code] === 'DEPENDS'"
+              :model-value="picked?.notes?.[r.code] ?? ''"
+              class="mnote"
+              :placeholder="`${followUp}（可不填）`"
+              :maxlength="NOTE_MAX"
+              :border="false"
+              @update:model-value="(v: string) => setNote(r.code, v)"
+            />
+          </div>
+        </div>
+
+        <div v-else class="opts" role="radiogroup" :aria-label="q.stem">
           <button
             v-for="o in q.options"
             :key="o.code"
@@ -253,7 +362,7 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 
       <div class="bottom-bar row">
         <van-button size="large" class="prev" :disabled="step === 0" @click="prev">上一题</van-button>
-        <van-button type="primary" size="large" class="next" :disabled="!picked" @click="next">
+        <van-button type="primary" size="large" class="next" :disabled="!done" @click="next">
           {{ isLast ? '看看有哪些活' : '下一题' }}
         </van-button>
       </div>
@@ -303,6 +412,26 @@ const progress = computed(() => Math.min(100, Math.round((phase.value / phases.v
 .bottom-bar { gap: var(--space-3); }
 .prev { flex: 1; }
 .next { flex: 2; }
+.num { margin-top: var(--space-6); }
+.num-row { display: flex; align-items: stretch; gap: var(--space-3); }
+.num-btn { flex: none; width: 64px; min-height: 64px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-card); font-size: 28px; line-height: 1; color: var(--text-1); }
+.num-btn:active { background: var(--bg-hover); }
+.num-btn:disabled { opacity: .45; }
+.num-box { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--space-1); min-height: 64px; border: 1px solid var(--primary); border-radius: var(--radius-card); background: var(--bg-card); }
+.num-box.err { border-color: var(--danger-text, var(--warning-text)); }
+.num-in { width: 4.5em; min-width: 0; border: 0; background: none; text-align: center; font-size: 32px; font-weight: var(--font-weight-semibold); line-height: 40px; color: var(--text-1); }
+.num-in::placeholder { font-size: var(--font-size-section); font-weight: var(--font-weight-regular); color: var(--text-3); }
+.num-unit { font-size: var(--font-size-section); color: var(--text-2); }
+.num-tip { margin-top: var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
+.num-tip.err { color: var(--danger-text, var(--warning-text)); }
+.mtx { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.mrow { padding: var(--space-3) var(--space-4); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.mrow-t { font-size: var(--font-size-section); font-weight: var(--font-weight-medium); line-height: 24px; color: var(--text-1); }
+.mcells { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-top: var(--space-2); }
+.mcell { min-height: 48px; padding: 0 var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-card); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--text-1); }
+.mcell:active { background: var(--bg-hover); }
+.mcell.sel { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+.mnote { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--bg-page); }
 .city-tip { padding: var(--space-1) var(--space-4) var(--space-2); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); text-align: center; }
 
 /* 提交中：盖住题目和底部栏（顶栏留着），浅灰底上一张白卡片，逐步显示匹配进度 */

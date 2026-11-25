@@ -111,14 +111,36 @@ async function loginOps() {
   if ((await ui.url()).includes('/login')) throw new Error('运营中台登录后还停在登录页')
 }
 
-/** 新求职者注册（可带渠道码）→ 问薪 → 报名第一个匹配岗位（告知书、实名）。返回手机号、姓名、报名的公司。 */
+/**
+ * AI 问薪题库 v2（D-62：不问期望工资）：进厂 / 不限地域 / 普工 / 年龄 30 / 班次矩阵（夜班看情况并补一句）/ 要住宿 / 没做过。
+ * 答到最后一题为止，停在「看看有哪些活」按钮前；上次的答案还在时重新点一遍也一样。
+ */
+async function answerQuiz() {
+  for (const pick of ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线']) {
+    await ui.click(pick, { wait: 2500 })
+    await ui.sleep(500)
+  }
+  await ui.see('你今年多大')
+  await ui.fill('比如 28', '30')
+  await ui.click('下一题')
+  await ui.see('这几种班你能不能上')
+  for (const [row, pick] of [['两班倒', '接受'], ['夜班', '看情况'], ['长白班', '接受'], ['白班', '接受']]) await ui.click(pick, { within: row })
+  await ui.fill('什么情况下可以', '夜班补贴高就行')
+  await ui.click('下一题')
+  for (const pick of ['需要', '没做过']) {
+    await ui.click(pick, { wait: 2500 })
+    await ui.sleep(500)
+  }
+}
+
+/** 新求职者注册（可带渠道码）→ 先登录再问薪（老路径）→ 报名第一个匹配岗位（告知书、实名）。返回手机号、姓名、报名的公司。 */
 async function registerAndApply(channel) {
   const p = { phone: '139' + String(Date.now()).slice(-8), name: '验收' + hanzi() + hanzi(), idCard: idCard() }
   await ui.fresh('mobile')
   await ui.goto(channel ? '/r/' + channel : '/')
   await ui.sleep(3000) // 启动页
-  await ui.click('开始匹配')
-  await ui.click('立即匹配工作')
+  // D-62 起游客首页「开始匹配」直接进答题；这里走「先登录」的老路径（先答题的路径见 e2e-flows-guest.mjs）
+  await ui.click('已有账号？登录 / 注册')
   await ui.fill('手机号', p.phone)
   clearSmsLimits()
   await ui.click('获取验证码')
@@ -129,10 +151,7 @@ async function registerAndApply(channel) {
   await ui.click('开始 AI 问薪')
   await ui.see('这次会给你找')
   await ui.clickSel('.bottom-bar .van-button--primary') // 开始回答
-  for (const pick of ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线', '6,500 – 8,000 元', '两班倒可以', '必须包住', '没做过']) {
-    await ui.click(pick, { wait: 2500 })
-    await ui.sleep(500)
-  }
+  await answerQuiz()
   await ui.click('看看有哪些活')
   await ui.see('为你锁定', 20000)
   await ui.click('查看并报名')
@@ -149,7 +168,7 @@ async function registerAndApply(channel) {
   await ui.fill('请再输入一次', p.idCard)
   await ui.click('确认并提交报名')
   await ui.see('报名成功')
-  await ui.click('查看我的报备')
+  await ui.click('查看我的报名')
   await ui.see('待面试')
   p.companyId = sql('SELECT company_id FROM application ORDER BY created_at DESC LIMIT 1')[0][0]
   return p
@@ -546,7 +565,7 @@ const FLOWS = {
 // ==================================================================== 追加的流程文件
 // 同目录下的 e2e-flows-*.mjs 各自 export default (h) => ({ 流程名: async () => {} })，h 是下面这组共用工具；h.ui 是当前浏览器驱动。
 const H = { get ui() { return ui }, sql, redis, expectDb, dec, st, save, out, xlsx, fs, hanzi, idCard, spaced, clearSmsLimits, solveCaptcha, captchaAnswer,
-  loginSeeker, loginStaff, loginConsole, loginOps, registerAndApply, flows: FLOWS }
+  loginSeeker, loginStaff, loginConsole, loginOps, registerAndApply, answerQuiz, flows: FLOWS }
 for (const file of fs.readdirSync(new URL('.', import.meta.url)).filter((n) => /^e2e-flows-.*.mjs$/.test(n)).sort()) {
   const extra = (await import(new URL(file, import.meta.url))).default(H)
   for (const k of Object.keys(extra)) { if (FLOWS[k]) throw new Error('流程名重复：' + k + '（' + file + '）'); FLOWS[k] = extra[k] }

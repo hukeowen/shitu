@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { useDict } from '@shitu/api-client'
 import { BrandMark, IconChevronRight } from '@shitu/ui-icons'
 import QuadGrid from '@/components/QuadGrid.vue'
@@ -6,22 +7,26 @@ import type { QuadItem } from '@/components/quad'
 import { useChannelStore } from '@/stores/channel'
 import { useGuideStore } from '@/stores/guide'
 
-/** S-02 游客首页（C-102）：可浏览功能介绍与入口，不展示任何岗位；任何交互均弹 S-03（C-103） */
+/**
+ * S-02 游客首页（C-102）：可浏览功能介绍与入口，不展示任何岗位。
+ * D-62 先答题后登录：「开始匹配」/ AI 问薪直接进答题，答完先看预览，满意再登录；其余需要登录的入口仍弹 S-03（C-103）。
+ */
+const router = useRouter()
 const { label } = useDict()
 const channel = useChannelStore()
 const guide = useGuideStore()
 
 const quad: QuadItem[] = [
-  { key: 'match', title: 'AI 问薪', desc: '7 题定岗，出 3 个匹配岗位' },
-  { key: 'reports', title: '我的报备', desc: '报名、面试、入职进度' },
+  { key: 'match', title: 'AI 问薪', desc: '不用登录先答题，出 3 个匹配岗位' },
+  { key: 'reports', title: '我的报名', desc: '报名、面试、入职进度' },
   { key: 'advance', title: '薪资预支', desc: '入职满 7 天可申请' },
   { key: 'contracts', title: '电子合同', desc: '线上签约，随时查看' },
 ]
 
 const steps = [
-  { t: '回答 7 道题', d: '不用打字，点选即可' },
-  { t: '弄清你的找活要求', d: '薪资 / 班次 / 住宿 / 地域 / 经验' },
-  { t: '推荐最多 3 个岗位', d: '条件对得上的才推给你' },
+  { t: '回答 7 道题', d: '不用先登录，基本是点选' },
+  { t: '弄清你的找活要求', d: '工种 / 年龄 / 班次 / 住宿 / 地域 / 经验' },
+  { t: '推荐最多 3 个岗位', d: '满意再用手机号登录报名' },
   { t: '报名 → 面试 → 入职', d: '驻场老师全程跟进' },
 ]
 
@@ -32,7 +37,14 @@ const guarantees = [
   { k: '投诉', v: '岗位信息不实可一键投诉' },
 ]
 
-function onTap() {
+function startMatch() {
+  void router.push('/match')
+}
+function onTap(key?: string) {
+  if (key === 'match') {
+    startMatch()
+    return
+  }
   guide.open('/')
 }
 </script>
@@ -42,15 +54,16 @@ function onTap() {
     <header class="home-head">
       <div class="home-brand"><BrandMark :size="24" /><span>仕兔</span></div>
       <h1>你好，访客</h1>
-      <p class="home-sub">注册后即可匹配岗位</p>
+      <p class="home-sub">不用先登录，答完题就能看看有哪些活</p>
       <div class="home-tags">
         <span class="status-tag"><i class="dot"></i>{{ label('UserStatus', 'GUEST') }}</span>
       </div>
-      <p class="home-desc">这里没有岗位列表。登录后答几道题，就给你推荐条件对得上的岗位。</p>
+      <p class="home-desc">这里没有岗位列表。先答 7 道题，看看有哪些活，满意再登录报名。</p>
+      <button type="button" class="link login" @click="router.push('/login')">已有账号？登录 / 注册<IconChevronRight :size="16" /></button>
     </header>
 
     <div class="pad stack">
-      <button v-if="channel.inviter" type="button" class="tipbar inviter" @click="onTap">
+      <button v-if="channel.inviter" type="button" class="tipbar inviter" @click="startMatch">
         <div class="avatar">{{ channel.inviter.slice(0, 1) }}</div>
         <div class="flex1">
           <div class="tipbar-t">{{ channel.inviter }} 邀请你加入仕兔</div>
@@ -61,11 +74,11 @@ function onTap() {
 
       <section class="acard lead">
         <h2>还没找到活儿？</h2>
-        <p class="lead-sub">7 道题，1 分钟，最多出 3 个岗位</p>
-        <van-button type="primary" block @click="onTap">开始匹配</van-button>
+        <p class="lead-sub">先答 7 道题，看看有哪些活，满意再登录报名</p>
+        <van-button type="primary" block @click="startMatch">开始匹配</van-button>
       </section>
 
-      <QuadGrid :items="quad" @tap="onTap" />
+      <QuadGrid :items="quad" @tap="(it) => onTap(it.key)" />
 
       <section class="acard">
         <div class="acard-hd"><h4>平台怎么帮你找活儿</h4></div>
@@ -95,6 +108,7 @@ function onTap() {
 </template>
 
 <style scoped>
+.login { margin-top: var(--space-2); min-height: 44px; }
 .inviter { width: 100%; align-items: center; border: 0; text-align: left; }
 .inviter .avatar { background: var(--bg-card); }
 .inviter .chev { margin-top: 0; }

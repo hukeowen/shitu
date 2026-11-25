@@ -291,11 +291,11 @@ class Sprint2FlowIT {
         return jobId;
     }
 
-    /** 题库 v1：进厂 / 锁定本测试城市 / 电子 / 5500–6500 / 长白班 / 4 人间 / 1–3 年。 */
+    /** 题库 v2：进厂 / 锁定本测试城市 / 电子 / 30 岁 / 长白班接受 / 要住宿 / 1–3 年。 */
     private Map<String, Object> matchReq() {
         return Map.of("answers", List.of(
                 Map.of("seq", 1, "code", "A"), Map.of("seq", 2, "code", "A", "region", city), Map.of("seq", 3, "code", "A"),
-                Map.of("seq", 4, "code", "B"), Map.of("seq", 5, "code", "D"), Map.of("seq", 6, "code", "B"),
+                Map.of("seq", 4, "number", 30), Map.of("seq", 5, "matrix", FlowItSupport.SHIFT_OK), Map.of("seq", 6, "code", "A"),
                 Map.of("seq", 7, "code", "C")));
     }
 

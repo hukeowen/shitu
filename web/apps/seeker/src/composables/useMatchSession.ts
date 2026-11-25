@@ -1,16 +1,17 @@
 import { computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useMatchStore } from '@/stores/match'
+import { GUEST, useMatchStore } from '@/stores/match'
 
 /**
- * 问薪相关页面公用：把问薪暂存绑定到当前用户；给出锁定态（R-03：报名后面试结果出来前不能重新匹配）。
+ * 问薪相关页面公用：把问薪暂存绑定到当前用户（游客绑定到 guest，D-62 先答题后登录）；
+ * 给出锁定态（R-03：报名后面试结果出来前不能重新匹配）。
  */
 export function useMatchSession() {
   const auth = useAuthStore()
   const match = useMatchStore()
 
   watch(
-    () => auth.profile?.userId,
+    () => (auth.isLoggedIn ? auth.profile?.userId : GUEST),
     (id) => {
       if (id) match.bind(id)
     },
@@ -28,5 +29,7 @@ export function useMatchSession() {
     return '当前状态暂不能发起匹配'
   })
 
-  return { auth, match, profile, locked, appliedLock, lockText }
+  const isGuest = computed(() => !auth.isLoggedIn)
+
+  return { auth, match, profile, locked, appliedLock, lockText, isGuest }
 }

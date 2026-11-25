@@ -102,7 +102,7 @@ const summary = computed(() => {
     <div v-else-if="!app" class="state-block">
       <IconCircleExclamationPoint :size="48" :stroke-width="1.5" />
       <div class="state-block-t">报名记录不存在</div>
-      <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
+      <van-button type="primary" @click="router.replace('/reports')">返回我的报名</van-button>
     </div>
     <!-- 面试已通过 / 已入职 / 已结束：状态摘要，不出现倒计时、证件清点与取消提示 -->
     <div v-else-if="!pendingInterview" class="pad stack">
@@ -149,7 +149,7 @@ const summary = computed(() => {
 
       <van-button v-if="app.status === 'PENDING_CONFIRM' && hasPendingSign" type="primary" block class="btn-cta" @click="router.push('/contracts/sign')">去签署合同</van-button>
       <van-button v-else-if="app.status === 'EMPLOYED'" type="primary" block class="btn-cta" @click="router.push('/work')">查看我的工作</van-button>
-      <van-button block class="btn-cta" @click="router.replace('/reports')">返回我的报备</van-button>
+      <van-button block class="btn-cta" @click="router.replace('/reports')">返回我的报名</van-button>
       <div class="page-bottom-gap"></div>
     </div>
 
@@ -158,7 +158,7 @@ const summary = computed(() => {
         <IconClock :size="48" :stroke-width="1.5" />
         <div class="state-block-t">驻场老师还没有推送面试信息</div>
         <div class="state-block-d">请留意站内消息和短信</div>
-        <van-button type="primary" @click="router.replace('/reports')">返回我的报备</van-button>
+        <van-button type="primary" @click="router.replace('/reports')">返回我的报名</van-button>
       </div>
       <div class="pad stack">
         <DeadlineBar v-if="showDeadline" :deadline="app.responseDeadline" v-bind="dlCopy" @expire="onExpire" />

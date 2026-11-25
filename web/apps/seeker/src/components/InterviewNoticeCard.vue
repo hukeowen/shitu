@@ -5,7 +5,7 @@ import { amapLink } from '@/utils/map'
 import { telHref } from '@/utils/format'
 import { formatServerTime, untilText } from '@/utils/time'
 
-/** C-408 / S-24 驻场推送的面试信息（首页提醒卡、我的报备卡片内复用） */
+/** C-408 / S-24 驻场推送的面试信息（首页提醒卡、我的报名卡片内复用） */
 const props = defineProps<{ notice: InterviewNoticeView }>()
 const nav = computed(() => amapLink({ address: props.notice.address, name: props.notice.address }))
 const tel = computed(() => telHref(props.notice.contactPhone))

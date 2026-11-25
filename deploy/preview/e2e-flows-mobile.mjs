@@ -15,7 +15,6 @@ export default (h) => {
     C10002: { site: '13800000013', pm: '13800000012' },
     C10003: { site: '13800000023', pm: '13800000022' },
   }
-  const PICKS = ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线', '6,500 – 8,000 元', '两班倒可以', '必须包住', '没做过']
   const CONTACT = '0512-57701234'
   const tail = () => String(Date.now()).slice(-6)
   const one = (q) => sql(q)[0]?.[0]
@@ -169,7 +168,7 @@ export default (h) => {
   return {
     /**
      * 驻场端知悉：工作台数字进待办 → 知悉并推送（面试时间选择器、路线、自定义材料、联系电话）→ 修改面试信息重推
-     * → 求职者在「我的报备」看到面试须知、消息全部已读 → 驻场点开一条未读站内信。
+     * → 求职者在「我的报名」看到面试须知、消息全部已读 → 驻场点开一条未读站内信。
      * 接口：POST /tenant/applications/{id}/acknowledge（首次 + 重推）、POST /seeker/messages/read（全部）、POST /tenant/messages/read（单条）
      */
     async mack() {
@@ -411,7 +410,7 @@ export default (h) => {
       if (num(active)) throw new Error('mcancel 的求职者已经有进行中的报名，直接跑 mnoshow，或重跑 mcancel')
       const sessions = `SELECT COUNT(*) FROM match_session WHERE user_id = '${p.userId}'`
       const answer = async () => {
-        for (const pick of PICKS) { await ui.click(pick, { wait: 2500 }); await ui.sleep(500) }
+        await h.answerQuiz()
         await ui.click('看看有哪些活')
         await ui.see('为你锁定', 20000)
       }
@@ -437,7 +436,7 @@ export default (h) => {
         await ui.click('同意并继续')
       }
       await ui.see('报名成功')
-      await ui.click('查看我的报备')
+      await ui.click('查看我的报名')
       await ui.see('待面试')
       expectDb(active, 1)
       p.appId = one(`SELECT application_id FROM application WHERE user_id = '${p.userId}' AND status = 'PENDING_INTERVIEW'`)
@@ -579,7 +578,7 @@ export default (h) => {
         await ui.click('初审通过')
         await ui.see('初审已通过')
         expectDb(`SELECT status FROM advance_request WHERE advance_id = '${a.advId}'`, 'SITE_APPROVED')
-        expectDb(`SELECT COUNT(*) FROM advance_approval WHERE advance_id = '${a.advId}' AND step = 'SITE' AND decision = 'APPROVE' AND opinion LIKE '%出勤稳定%'`, 1)
+        expectDb(`SELECT COUNT(*) FROM advance_approval WHERE advance_id = '${a.advId}' AND step = 'SITE' AND decision = 'APPROVE' AND opinion LIKE '%同意预支%'`, 1)
       }
 
       const why2 = `验收终审驳回 ${tail()}：本月已有一笔预支待还`
@@ -777,7 +776,7 @@ export default (h) => {
     },
 
     /**
-     * 带图投诉：求职者在「我的报备」的报名卡片上投诉岗位，附一张图片凭证 → 运营中台按不属实驳回（不影响演示岗位）。先跑 mack（或 hire）。
+     * 带图投诉：求职者在「我的报名」的报名卡片上投诉岗位，附一张图片凭证 → 运营中台按不属实驳回（不影响演示岗位）。先跑 mack（或 hire）。
      * 接口：POST /seeker/complaints/images、POST /seeker/complaints
      */
     async mcomplaint() {
@@ -900,7 +899,7 @@ export default (h) => {
     },
 
     /**
-     * 在岗员工把只读的几屏点一遍：我的 → 我的合同 → 合同详情；我的工作 → 我的报备 → 报名详情；我的台账四个页签；
+     * 在岗员工把只读的几屏点一遍：我的 → 我的合同 → 合同详情；我的工作 → 我的报名 → 报名详情；我的台账四个页签；
      * 薪资预支（未满 7 天不能申请）→ 预支记录；实名认证、我的申诉。没有写接口。先跑 mhire（或 hire）。
      */
     async mtour() {
@@ -916,7 +915,7 @@ export default (h) => {
       await ui.see('签署记录')
       await ui.goto('/work')
       await ui.see(s.no)
-      await ui.click('我的报备')
+      await ui.click('我的报名')
       await ui.see('报名编号')
       await ui.click('查看报名详情')
       await ui.see('报名记录')

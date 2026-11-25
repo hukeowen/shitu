@@ -15,7 +15,7 @@ export default (h) => ({
     const reqStatus = () => one(`SELECT status FROM application_cancel_request WHERE application_id = '${app}' ORDER BY id DESC LIMIT 1`)
     const reply = '验收回复 ' + String(Date.now()).slice(-6) + '：名额已为你保留，面试完再决定'
 
-    // ---- 求职者第一次申请（registerAndApply 结束时停在「我的报备」）
+    // ---- 求职者第一次申请（registerAndApply 结束时停在「我的报名」）
     await ui.goto('/reports')
     await ui.click('不去了或报错了岗位？申请取消报名')
     await ui.see('驻场老师同意后报名才会取消')

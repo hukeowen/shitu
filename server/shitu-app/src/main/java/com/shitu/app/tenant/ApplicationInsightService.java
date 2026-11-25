@@ -85,6 +85,17 @@ public class ApplicationInsightService {
         if (p.shift() != null) {
             t.add(p.shift().label());
         }
+        if (p.shiftTolerance() != null) {
+            for (com.shitu.common.enums.ShiftType s : com.shitu.common.enums.ShiftType.values()) {
+                MatchProfile.ShiftTolerance st = p.shiftTolerance().get(s);
+                if (st == MatchProfile.ShiftTolerance.REJECT) {
+                    t.add("不接受" + s.label());
+                } else if (st == MatchProfile.ShiftTolerance.DEPENDS) {
+                    String note = p.shiftNotes() == null ? null : p.shiftNotes().get(s);
+                    t.add(s.label() + "看情况" + (note == null ? "" : "（" + note + "）"));
+                }
+            }
+        }
         if (p.dorm() != null) {
             t.add(switch (p.dorm()) {
                 case REQUIRED -> "必须包住";

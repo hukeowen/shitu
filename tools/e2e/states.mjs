@@ -42,10 +42,17 @@ const fakeCard = (rank, title, matchScore) => ({ rank, jobId: 'J-SHOT-' + rank, 
 const fakeOutcome = reply({ sessionId: 'MS-SHOT', scope: 'OWN_COMPANY', matched: true, engineVersion: 1, quizVersion: 1,
   results: [fakeCard(1, '第一张卡', 91), fakeCard(2, '不到线的卡', 76), fakeCard(3, '第三张卡', 80), fakeCard(4, '第四张卡', 88)] })
 const unmatched = (scope) => ({ code: '0', message: 'ok', data: { sessionId: 'MS-SHOT', scope, matched: false, results: [], engineVersion: 1, quizVersion: 1 } })
-// 答题：每题点第一个不用选城市的选项，一直点到最后一题也选好
-const answerAll = `(async () => { for (let i = 0; i < 12; i++) {
-  [...document.querySelectorAll('[role=radio]')].find((b) => !b.innerText.includes('城市')).click(); await ${wait(500)}
+// 答题：单选题点第一个不用选城市的选项；数字题（年龄）填 30；矩阵题（班次）每行点「接受」；一直答到最后一题也选好
+const answerAll = `(async () => { const next = () => [...document.querySelectorAll('.bottom-bar button')].find((b) => b.innerText.includes('下一题'))
+  for (let i = 0; i < 14; i++) {
+  const num = document.querySelector('.num-in')
+  if (num) { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(num, '30'); num.dispatchEvent(new Event('input', { bubbles: true })); await ${wait(200)}; next()?.click(); await ${wait(500)} }
+  else if (document.querySelector('.mrow')) { for (const r of document.querySelectorAll('.mrow')) r.querySelector('.mcell').click(); await ${wait(200)}; next()?.click(); await ${wait(500)} }
+  else { [...document.querySelectorAll('[role=radio]')].find((b) => !b.innerText.includes('城市')).click(); await ${wait(500)} }
   if ([...document.querySelectorAll('button')].some((b) => b.innerText.includes('看看有哪些活') && !b.disabled)) return } })()`
+// 游客预览（D-62）：3 张打码卡片
+const fakePreview = reply({ matched: true, privateScope: true, salaryByRank: true, quizVersion: 2, results: [1, 2, 3].map((rank) => ({ rank, title: ['SMT 操作工', '包装普工', '仓库分拣员'][rank - 1],
+  salaryMin: 5000 + rank * 100, salaryMax: 6500 + rank * 100, city: '苏州', district: '昆山', mealProvided: true, dormProvided: rank !== 3, reason: rank === 1 ? '工资在同类岗位里偏高 · 包吃住' : '包吃', companyHint: '苏州一家劳务公司' })) })
 // 报名成功页读的是问薪暂存里的报名结果（同 routes.mjs 的 enterApplySuccess）
 const enterApplySuccess = `sessionStorage.setItem('shitu.match', ${JSON.stringify(JSON.stringify({
   owner: data.personas.acknowledged.userId, quizVersion: null, answers: {}, step: 0, applyResult: data.ids.applyResult }))}); location.assign('/apply/success')`
@@ -1968,9 +1975,16 @@ const STATES = [
   { app: 'seeker', screen: 'splash', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}` },
   { app: 'seeker', screen: 'home-guest', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash], width: NARROW },
   { app: 'seeker', screen: 'home-guest', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}`, steps: [skipSplash] },
-  { app: 'seeker', screen: 'guide-popup', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash, click('开始匹配')] },
-  { app: 'seeker', screen: 'guide-popup', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash, click('开始匹配')], width: NARROW },
-  { app: 'seeker', screen: 'guide-popup', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}`, steps: [skipSplash, click('开始匹配')] },
+  // D-62 起「开始匹配」直接进答题；引导弹窗改由点要登录的入口（电子合同）弹出
+  { app: 'seeker', screen: 'guide-popup', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash, click('电子合同')] },
+  { app: 'seeker', screen: 'guide-popup', state: 'normal', persona: 'guest', path: '/', steps: [skipSplash, click('电子合同')], width: NARROW },
+  { app: 'seeker', screen: 'guide-popup', state: 'inviter', persona: 'guest', path: `/?ch=${data.companyCode}`, steps: [skipSplash, click('电子合同')] },
+  // 游客先答题（D-62）：开场 → 答题 → 打码预览
+  { app: 'seeker', screen: 'match-intro', state: 'guest', persona: 'guest', path: '/match', checks: [bottomBar('开始回答')] },
+  { app: 'seeker', screen: 'match-quiz', state: 'guest', persona: 'guest', path: '/match/quiz', checks: [quizProgress] },
+  { app: 'seeker', screen: 'match-preview', state: 'normal', persona: 'guest', path: '/match/quiz',
+    rules: [{ url: '/seeker/public/match/preview', action: 'respond', body: fakePreview }],
+    steps: [answerAll, click('看看有哪些活'), wait(3500)], checks: [has('看完整岗位 / 报名'), has('一家劳务公司'), has('按到手工资高低')] },
   { app: 'seeker', screen: 'login', state: 'normal', persona: 'guest', path: '/login', width: NARROW, checks: [loginCheckboxContrast] },
   { app: 'seeker', screen: 'login', state: 'inviter', persona: 'guest', path: `/login`, pre: `/?ch=${data.companyCode}` },
   { app: 'seeker', screen: 'login', state: 'rejected', persona: 'guest', path: '/login', steps: [click('登录 / 注册并开始匹配')], quick: true },
@@ -2071,10 +2085,10 @@ const STATES = [
     rules: [{ url: '/seeker/complaints', action: 'respond', body: refuse('APP_4004', '只能投诉你匹配到或报名过的岗位') }],
     steps: [click('投诉该岗位'), click('岗位信息不实'), click('提交投诉')], quick: true },
   // 报名成功
-  { app: 'seeker', screen: 'apply-success', state: 'normal', persona: 'acknowledged', path: '/reports', steps: [enterApplySuccess], checks: [bottomBar('查看我的报备')] },
+  { app: 'seeker', screen: 'apply-success', state: 'normal', persona: 'acknowledged', path: '/reports', steps: [enterApplySuccess], checks: [bottomBar('查看我的报名')] },
   { app: 'seeker', screen: 'apply-success', state: 'normal', persona: 'acknowledged', path: '/reports', steps: [enterApplySuccess], width: NARROW },
 
-  // 工单 08：我的报备
+  // 工单 08：我的报名
   { app: 'seeker', screen: 'reports', state: 'normal', persona: 'acknowledged', path: '/reports', checks: [tabUnderline, cardTags, tapTall('#app article a, #app article button'), tapArea('#app article .nav-link, #app article .cmp-link'), addrStacked] },
   { app: 'seeker', screen: 'reports', state: 'normal', persona: 'acknowledged', path: '/reports', width: NARROW, checks: [tabUnderline, cardTags] },
   { app: 'seeker', screen: 'reports', state: 'all-status', persona: 'acknowledged', path: '/reports', rules: [{ url: APPS_API, action: 'respond', body: fakeApps }],
@@ -2104,7 +2118,7 @@ const STATES = [
     steps: [`document.querySelector('#app [role=checkbox]').click()`],
     checks: [`document.querySelector('#app [role=checkbox][aria-checked=true] svg') && !document.querySelector('#app [role=checkbox][aria-checked=false] svg') ? '' : '勾选后没有出现勾'`] },
   { app: 'seeker', screen: 'interview', state: 'no-notice', persona: 'acknowledged', path: '/reports/BM-SHOT-2', rules: [{ url: APPS_API, action: 'respond', body: fakeApps }], checks: [has('还没有推送面试信息')] },
-  { app: 'seeker', screen: 'interview', state: 'not-found', persona: 'acknowledged', path: '/reports/BM-NONE', checks: [has('报名记录不存在'), has('返回我的报备')] },
+  { app: 'seeker', screen: 'interview', state: 'not-found', persona: 'acknowledged', path: '/reports/BM-NONE', checks: [has('报名记录不存在'), has('返回我的报名')] },
   { app: 'seeker', screen: 'interview', state: 'loading', persona: 'acknowledged', path: `/reports/${data.ids.seekerApplicationId}`, rules: [{ url: APPS_API, action: 'hang' }], checks: [spinnerPrimary] },
   { app: 'seeker', screen: 'interview', state: 'error', persona: 'acknowledged', path: `/reports/${data.ids.seekerApplicationId}`, rules: [{ url: APPS_API, action: 'fail' }], checks: [has('重新加载')] },
   // 顾问推荐：答复接口一律拦住，不落库

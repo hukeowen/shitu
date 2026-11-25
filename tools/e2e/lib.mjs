@@ -89,16 +89,21 @@ export async function companyCode(ownerToken) {
   return hit.code
 }
 
-/** 按当前题库生成一组能匹配到岗位的答案（接受进厂、不限地区 / 工种 / 住宿，其余选第一项）。 */
+/**
+ * 按当前题库生成一组能匹配到岗位的答案（接受进厂、不限地区 / 工种 / 住宿，其余选第一项）。
+ * 题库 v2（D-62）：年龄是数字题（填 30），班次是矩阵题（每种班次都「接受」）。
+ */
 export async function quizAnswers(t) {
   const q = await ok('读取题库', get('/seeker/quiz', t))
   return q.questions.map((qq) => {
+    if (qq.questionType === 'NUMBER') return { seq: qq.seq, number: Math.min(qq.config?.max ?? 65, Math.max(qq.config?.min ?? 16, 30)) }
+    if (qq.questionType === 'MATRIX') return { seq: qq.seq, matrix: Object.fromEntries(qq.options.map((r) => [r.code, 'ACCEPT'])) }
     const pick = (pred) => qq.options.find(pred) ?? qq.options[0]
     let o
     if (qq.profileField === 'accept_factory') o = pick((x) => x.value === 'YES')
     else if (qq.profileField === 'locked_region') o = pick((x) => x.value === 'ANY')
     else if (qq.profileField === 'expect_job_type') o = pick((x) => x.value === 'ANY')
-    else if (qq.profileField === 'dorm_req') o = pick((x) => x.value === 'NONE')
+    else if (qq.profileField === 'dorm_req') o = pick((x) => x.value === 'NONE' || x.value === 'NOT_NEEDED')
     else o = qq.options[0]
     return { seq: qq.seq, code: o.code }
   })

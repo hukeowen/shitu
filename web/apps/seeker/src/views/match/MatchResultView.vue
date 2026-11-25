@@ -2,12 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage, seekerApi, useDict, type BrokerProgress, type MatchOutcome } from '@shitu/api-client'
+import { domainHint } from '@/utils/domain'
 import { IconChevronRight, IconCircleExclamationPoint, IconInbox, IconLock, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import { formatRelative, formatServerTime, untilText } from '@/utils/time'
 import AppBar from '@/components/AppBar.vue'
 import JobCard from '@/components/JobCard.vue'
 import { useJourney } from '@/composables/useJourney'
 import { useMatchSession } from '@/composables/useMatchSession'
+import { answerText } from '@/utils/quiz'
 
 /**
  * S-16 匹配结果（C-304 / C-306）：固定 3 岗、只展示 ≥80%（D-39，可能少于 3 个）；报名前可无限次重新匹配。
@@ -108,14 +110,7 @@ const brokerTag = computed(() => (brokerCase.value ? BROKER_TAG[brokerCase.value
 const portrait = computed(() => {
   const qz = match.quiz
   if (!qz) return []
-  return qz.questions
-    .map((q) => {
-      const a = match.answers[q.seq]
-      const o = a && q.options.find((x) => x.code === a.code)
-      if (!o) return null
-      return a.region ? `锁定 ${a.region}` : o.label
-    })
-    .filter((x): x is string => !!x)
+  return qz.questions.map((q) => answerText(q, match.answers[q.seq])).filter((x): x is string => !!x)
 })
 if (!match.quiz) void match.loadQuiz().catch(() => undefined)
 
@@ -156,6 +151,7 @@ function rematch() {
         <div class="flex1">
           <h1>{{ viewOnly ? `上次匹配到 ${results.length} 个岗位` : `为你锁定 ${results.length} 个岗位` }}</h1>
           <p>找的是{{ scopeText }} · {{ viewOnly ? '现在只能看' : '从中选 1 个报名' }}</p>
+          <p class="tag-hint">{{ domainHint(isPrivateScope ? 'PRIVATE' : 'PUBLIC') }}</p>
         </div>
         <span class="status-tag status-tag--info">{{ label('DomainTag', isPrivateScope ? 'PRIVATE' : 'PUBLIC') }}</span>
       </header>
@@ -164,7 +160,7 @@ function rematch() {
         <IconLock :size="20" />
         <div class="flex1">
           <div class="tipbar-t">{{ lockText }}。</div>
-          <div class="tipbar-d">{{ employed ? '以下为上次的匹配结果，仅可查看岗位信息，不能报名。' : '以下岗位仅可查看、不能报名，报名进度请到「我的报备」查看。' }}</div>
+          <div class="tipbar-d">{{ employed ? '以下为上次的匹配结果，仅可查看岗位信息，不能报名。' : '以下岗位仅可查看、不能报名，报名进度请到「我的报名」查看。' }}</div>
         </div>
       </section>
 
@@ -177,11 +173,13 @@ function rematch() {
 
       <JobCard v-for="(j, i) in results" :key="j.jobId" :job="j" :top="i === 0" :view-only="viewOnly" @open="openJob" />
 
+      <p v-if="outcome.salaryByRank" class="fine">没问你想要多少工资，工资是按到手工资高低帮你排的：条件差不多的岗位，工资高的排前面。</p>
+
       <div class="note">
         <b>{{ results.length < 3 ? '只给你看条件对得上的岗位。' : '只给你看 3 个，是故意的。' }}</b>这里没有岗位列表，答完 AI 问薪的题才会推荐，只推荐条件对得上的岗位。<template v-if="!viewOnly">都不满意可以重新匹配，次数不限。</template>
       </div>
       <van-button v-if="!viewOnly" block @click="rematch">都不满意，重新匹配</van-button>
-      <van-button v-else-if="appliedLock" block @click="router.push('/reports')">查看我的报备</van-button>
+      <van-button v-else-if="appliedLock" block @click="router.push('/reports')">查看我的报名</van-button>
       <van-button v-else-if="employed" block @click="router.push('/work')">查看我的工作</van-button>
       <div class="page-bottom-gap"></div>
     </div>
@@ -248,6 +246,7 @@ function rematch() {
 .tl-t .status-tag { margin-left: var(--space-2); vertical-align: 1px; }
 .hd p { margin-top: 2px; font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .portrait { margin-top: 0; }
+.fine { font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .none { padding: var(--space-4) 0; }
 .none > svg { color: var(--warning-text); }
 .b-t { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: 22px; color: var(--text-1); }

@@ -9,7 +9,7 @@ import { formatServerTime } from '@/utils/time'
  * 进行中的报名（待面试 / 待签约入职）上的「申请取消报名」：入口 + 申请状态。
  * 待驻场处理：展示原因与提交时间；未获同意：展示驻场回复，可再次申请；
  * 其余（没申请过 / 已关闭 / 已同意）只给入口 —— 报名结束后由页面本身的结束状态说明。
- * card = 独立成卡（报名详情页）；否则嵌在报名卡片里（我的报备列表）。
+ * card = 独立成卡（报名详情页）；否则嵌在报名卡片里（我的报名列表）。
  */
 const props = defineProps<{ applicationId: string; jobTitle?: string; subtitle?: string; card?: boolean }>()
 

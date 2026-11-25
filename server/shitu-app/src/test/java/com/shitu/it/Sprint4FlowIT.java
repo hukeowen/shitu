@@ -260,7 +260,7 @@ class Sprint4FlowIT extends FlowItSupport {
     private Map<String, Object> badAnswers() {
         return Map.of("answers", java.util.List.of(
                 Map.of("seq", 1, "code", "C"), Map.of("seq", 2, "code", "A", "region", city), Map.of("seq", 3, "code", "A"),
-                Map.of("seq", 4, "code", "B"), Map.of("seq", 5, "code", "D"), Map.of("seq", 6, "code", "B"),
+                Map.of("seq", 4, "number", 30), Map.of("seq", 5, "matrix", SHIFT_OK), Map.of("seq", 6, "code", "A"),
                 Map.of("seq", 7, "code", "C")));
     }
 

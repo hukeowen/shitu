@@ -195,6 +195,87 @@ class MatchScorerTest {
         }
     }
 
+    @Nested
+    class 题库v2 {
+        MatchProfile v2(java.util.Map<ShiftType, MatchProfile.ShiftTolerance> t, Integer age) {
+            return new MatchProfile(FactoryWillingness.YES, null, JobType.ELECTRONICS, null, null, null,
+                    DormRequirement.REQUIRED, 1, age, null, null, t, null);
+        }
+
+        final java.util.Map<ShiftType, MatchProfile.ShiftTolerance> tol = java.util.Map.of(
+                ShiftType.DAY, MatchProfile.ShiftTolerance.ACCEPT, ShiftType.LONG_DAY, MatchProfile.ShiftTolerance.DEPENDS,
+                ShiftType.NIGHT, MatchProfile.ShiftTolerance.REJECT);
+
+        JobCandidate pay(String id, ShiftType shift, long min, long max) {
+            JobCandidate j = job(id, "C" + id);
+            return new JobCandidate(id, j.companyId(), j.title(), j.city(), null, null, j.jobType(), j.factoryJob(),
+                    bd(min), bd(max), shift, j.dormProvided(), j.dormRoomSize(), j.dormAircon(), j.mealProvided(),
+                    j.minWorkYears(), j.ageMin(), j.ageMax(), j.quotaRemaining(), true, false, BigDecimal.ONE);
+        }
+
+        @Test
+        void 班次三态_接受100_看情况60_不接受0且匹配度打七折() {
+            MatchProfile p = v2(tol, null);
+            assertThat(MatchScorer.shiftScore(p, pay("J1", ShiftType.DAY, 5000, 6000))).isEqualTo(100);
+            assertThat(MatchScorer.shiftScore(p, pay("J1", ShiftType.LONG_DAY, 5000, 6000))).isEqualTo(60);
+            assertThat(MatchScorer.shiftScore(p, pay("J1", ShiftType.NIGHT, 5000, 6000))).isZero();
+            assertThat(MatchScorer.shiftScore(p, pay("J1", ShiftType.TWO_SHIFT, 5000, 6000))).as("没列出的班次给中性分").isEqualTo(60);
+
+            MatchScorer.Scored day = MatchScorer.score(p, pay("J1", ShiftType.DAY, 5000, 6000), cfg);
+            MatchScorer.Scored night = MatchScorer.score(p, pay("J2", ShiftType.NIGHT, 5000, 6000), cfg);
+            assertThat(day.displayed()).isTrue();
+            assertThat(night.matchScore()).as("不接受的班次：不硬过滤，但匹配度低于展示阈值")
+                    .isEqualByComparingTo(day.matchScore().subtract(BigDecimal.TEN).multiply(new BigDecimal("0.7")).setScale(2));
+            assertThat(night.displayed()).isFalse();
+            assertThat(day.reason()).contains("白班");
+        }
+
+        @Test
+        void 不接受的班次不算硬过滤_经纪人仍能看到() {
+            MatchScorer.Outcome o = MatchScorer.match(v2(tol, null), List.of(pay("J1", ShiftType.NIGHT, 5000, 6000)), cfg, false);
+            assertThat(o.filtered()).isEmpty();
+            assertThat(o.results()).hasSize(1);
+            assertThat(o.anyDisplayed()).isFalse();
+        }
+
+        @Test
+        void 不问工资_按候选岗位到手工资排位_最高100() {
+            List<JobCandidate> jobs = List.of(pay("J1", ShiftType.DAY, 4000, 5000), pay("J2", ShiftType.DAY, 5000, 6000),
+                    pay("J3", ShiftType.DAY, 6000, 7000), pay("J4", ShiftType.DAY, 7000, 9000));
+            MatchScorer.Outcome o = MatchScorer.match(v2(tol, null), jobs, cfg, false);
+            assertThat(o.salaryByRank()).isTrue();
+            assertThat(o.results()).extracting(s -> s.job().jobId()).containsExactly("J4", "J3", "J2");
+            assertThat(o.results()).extracting(s -> s.factors().salary()).containsExactly(100, 90, 80);
+            assertThat(o.results().get(0).reason()).contains("工资在同类岗位里偏高");
+            assertThat(o.results().get(1).reason()).doesNotContain("偏高").doesNotContain("月薪");
+            var ranks = MatchScorer.salaryRanks(jobs);
+            assertThat(ranks.get("J1").score()).as("最低的也不至于掉出展示阈值").isEqualTo(70);
+        }
+
+        @Test
+        void 工资都一样时都给满分_不说偏高() {
+            List<JobCandidate> jobs = List.of(pay("J1", ShiftType.DAY, 5000, 6000), pay("J2", ShiftType.DAY, 5000, 6000),
+                    pay("J3", ShiftType.DAY, 5000, 6000));
+            MatchScorer.Outcome o = MatchScorer.match(v2(tol, null), jobs, cfg, false);
+            assertThat(o.results()).allMatch(s -> s.factors().salary() == 100 && !s.reason().contains("偏高"));
+        }
+
+        @Test
+        void 问了期望工资的旧画像不排位() {
+            MatchScorer.Outcome o = MatchScorer.match(profile(), List.of(pay("J1", ShiftType.LONG_DAY, 4000, 5000),
+                    pay("J2", ShiftType.LONG_DAY, 7000, 9000)), cfg, false);
+            assertThat(o.salaryByRank()).isFalse();
+            assertThat(o.results()).filteredOn(s -> s.job().jobId().equals("J2")).first()
+                    .satisfies(s -> assertThat(s.reason()).contains("月薪 7000–9000 元"));
+        }
+
+        @Test
+        void 自报年龄同样过滤() {
+            MatchScorer.Outcome o = MatchScorer.match(v2(tol, 50), List.of(pay("J1", ShiftType.DAY, 5000, 6000)), cfg, false);
+            assertThat(o.filtered()).containsEntry(FilterReason.AGE, 1);
+        }
+    }
+
     static JobCandidate with(JobCandidate j, String id, int quota, boolean recruiting, boolean blocked, BigDecimal weight,
                              int ageMin, int ageMax) {
         return new JobCandidate(id, j.companyId(), j.title(), j.city(), j.lng(), j.lat(), j.jobType(), j.factoryJob(),

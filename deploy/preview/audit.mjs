@@ -58,7 +58,7 @@ const siteCompany = v("SELECT company_id FROM company ORDER BY company_id LIMIT 
 
 const seekerCommon = ['/', '/messages', '/me', '/reports', '/recommendations', '/resume', '/ledger', '/feedback', '/kyc', '/kyc/appeals', '/match', '/match/result']
 const suites = [
-  { name: 'seeker-anon', app: '', mobile: true, paths: ['/', '/login', '/match', '/no-such-page', `/r/${v('SELECT code FROM channel_code LIMIT 1') ?? 'X'}`] },
+  { name: 'seeker-anon', app: '', mobile: true, paths: ['/', '/login', '/match', '/match/quiz', '/match/preview', '/no-such-page', `/r/${v('SELECT code FROM channel_code LIMIT 1') ?? 'X'}`] },
   sEmp && { name: 'seeker-employed', app: '', domain: 'seeker', phone: sEmp.phone, mobile: true, paths: [...seekerCommon, '/work', '/advance', '/advance/records',
     `/advance/${v(`SELECT advance_id FROM advance_request WHERE user_id='${sEmp.id}' LIMIT 1`)}`, '/payslips', `/payslips/${v(`SELECT payslip_id FROM payslip WHERE user_id='${sEmp.id}' LIMIT 1`)}`,
     '/contracts', `/contracts/${v(`SELECT contract_id FROM contract WHERE user_id='${sEmp.id}' LIMIT 1`)}`, `/reports/${v(`SELECT application_id FROM application WHERE user_id='${sEmp.id}' LIMIT 1`)}`] },

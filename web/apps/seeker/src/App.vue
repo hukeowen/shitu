@@ -45,9 +45,10 @@ onMounted(async () => {
   }, Math.max(0, (channel.code ? 2600 : 1500) - (Date.now() - start)))
 })
 
+/** D-62 先答题后登录：启动页「立即匹配工作」直接进答题，答完看预览，满意再登录 */
 function splashStart() {
   hideSplash()
-  void router.push('/login')
+  void router.push('/match')
 }
 </script>
 
@@ -58,7 +59,7 @@ function splashStart() {
   <div v-if="!ready && !splash" class="boot-loading"><van-loading size="28" vertical>加载中…</van-loading></div>
   <van-tabbar v-if="ready && showTabbar" route placeholder safe-area-inset-bottom>
     <van-tabbar-item to="/"><template #icon><IconHouse :size="22" /></template>首页</van-tabbar-item>
-    <van-tabbar-item to="/reports"><template #icon><IconClipboardList :size="22" /></template>我的报备</van-tabbar-item>
+    <van-tabbar-item to="/reports"><template #icon><IconClipboardList :size="22" /></template>我的报名</van-tabbar-item>
     <van-tabbar-item to="/me"><template #icon><IconUser :size="22" /></template>我的</van-tabbar-item>
     <van-tabbar-item to="/feedback"><template #icon><IconMessageSquare :size="22" /></template>问题反馈</van-tabbar-item>
   </van-tabbar>

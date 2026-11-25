@@ -77,8 +77,7 @@ export default (h) => {
     await ui.fresh('mobile')
     await ui.goto('/r/' + channel)
     await ui.sleep(3000) // 启动页
-    await ui.click('开始匹配')
-    await ui.click('立即匹配工作')
+    await ui.click('已有账号？登录 / 注册') // 先登录再答题的老路径
     await ui.fill('手机号', phone)
     clearSmsLimits()
     await ui.click('获取验证码')
@@ -89,10 +88,7 @@ export default (h) => {
     await ui.click('开始 AI 问薪')
     await ui.see('这次会给你找')
     await ui.clickSel('.bottom-bar .van-button--primary')
-    for (const pick of ['能接受，我就是找厂里的活儿', '不限，哪里合适去哪里', '普工 / 流水线', '6,500 – 8,000 元', '两班倒可以', '必须包住', '没做过']) {
-      await ui.click(pick, { wait: 2500 })
-      await ui.sleep(500)
-    }
+    await h.answerQuiz()
     await ui.click('看看有哪些活')
     await ui.see('为你锁定', 20000)
     const userId = userIdOf(phone)

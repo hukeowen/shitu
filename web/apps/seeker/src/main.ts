@@ -18,7 +18,7 @@ setDictOverrides({
   ApplicationStatus: { PENDING_CONFIRM: '待签约入职' },
   // 预支状态：徽标与状态行统一叫「已还清」（字典原文「已抵扣」易与「已抵扣金额」混淆）
   AdvanceStatus: { REPAID: '已还清' },
-  // 报名的结束原因（我的报备、我的台账）
+  // 报名的结束原因（我的报名、我的台账）
   LifecycleEvent: { CONFIRM_TIMEOUT: '办理入职超时', RELEASE_MANUAL: '已开放全平台岗位', BROKER_SLA_TIMEOUT: '顾问超时未跟进，已开放全平台岗位' },
 })
 

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type MyApplication, type MyResign, type MyWork } from '@shitu/api-client'
+import { domainHint } from '@/utils/domain'
 import { IconCheck, IconChevronRight, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import AppBar from '@/components/AppBar.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
@@ -177,6 +178,7 @@ const cta = computed(() => {
             <div class="home-tags">
               <span class="status-tag status-tag--info">{{ label('DomainTag', profile.domainTag) }}</span>
             </div>
+            <p v-if="domainHint(profile.domainTag)" class="tag-hint">{{ domainHint(profile.domainTag) }}</p>
             <dl class="home-meta">
               <div><dt>当前项目</dt><dd>{{ work.projectName || '—' }}</dd></div>
               <div><dt>在岗天数</dt><dd>第 {{ work.dutyDays }} 天</dd></div>
@@ -214,7 +216,7 @@ const cta = computed(() => {
               <IconChevronRight :size="20" class="chev" />
             </router-link>
             <router-link to="/reports" class="lrow">
-              <div class="lt"><b>我的报备</b><span>报名 / 面试 / 入职记录</span></div>
+              <div class="lt"><b>我的报名</b><span>报名 / 面试 / 入职记录</span></div>
               <IconChevronRight :size="20" class="chev" />
             </router-link>
           </section>
@@ -276,11 +278,11 @@ const cta = computed(() => {
                 <InterviewNoticeCard v-if="app.notice" :notice="app.notice" />
                 <p v-else class="para">驻场老师将尽快联系你，并推送面试时间、集合地点和所需证件。</p>
                 <van-button block class="mt" @click="router.push(app.notice ? `/reports/${app.applicationId}` : '/reports')">
-                  {{ app.notice ? '查看面试须知' : '查看我的报备' }}
+                  {{ app.notice ? '查看面试须知' : '查看我的报名' }}
                 </van-button>
               </template>
             </template>
-            <p v-else class="para">报名信息加载中或已变更，请到「我的报备」查看。</p>
+            <p v-else class="para">报名信息加载中或已变更，请到「我的报名」查看。</p>
 
             <template v-if="status === 'PENDING_CONFIRM'">
               <div class="divider"></div>

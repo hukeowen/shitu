@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type KycView, type LaborContractView, type MyWork } from '@shitu/api-client'
+import { domainHint } from '@/utils/domain'
 import {
   IconBell, IconBookOpen, IconBriefcase, IconChevronRight, IconClipboardList, IconFilePenLine, IconFileText, IconHeadset, IconIdCard,
   IconMessageSquare, IconReceipt, IconShieldCheck, IconTriangleExclamationPoint, IconWallet,
@@ -91,13 +92,13 @@ const recDesc = computed(() => {
 const idEntry = computed<{ chip: string; to: string; tip: string }>(() => {
   const s = profile.value?.status
   if (s === 'EMPLOYED') return { chip: '进入我的工作', to: '/work', tip: '所属劳务公司信息在「我的工作」中展示' }
-  if (s === 'PENDING_INTERVIEW' || s === 'PENDING_CONFIRM') return { chip: '查看报名进度', to: '/reports', tip: '面试与入职办理进度在「我的报备」中查看' }
+  if (s === 'PENDING_INTERVIEW' || s === 'PENDING_CONFIRM') return { chip: '查看报名进度', to: '/reports', tip: '面试与入职办理进度在「我的报名」中查看' }
   return { chip: '完善我的简历', to: '/resume', tip: '入职后，在岗信息会在「我的工作」中展示' }
 })
 const pendingSign = computed(() => contracts.value?.some((c) => c.status === 'PENDING_SIGN') ?? false)
 
 const rows = [
-  { key: 'reports', title: '我的报备', desc: '报名 / 面试进度', to: '/reports', icon: IconClipboardList },
+  { key: 'reports', title: '我的报名', desc: '报名 / 面试进度', to: '/reports', icon: IconClipboardList },
   { key: 'resume', title: '我的简历', desc: '期望工种、技能、紧急联系人与用工档案', to: '/resume', icon: IconFilePenLine },
   { key: 'ledger', title: '我的台账', desc: '报名、面试、入职、工资的全部记录', to: '/ledger', icon: IconBookOpen },
   { key: 'messages', title: '消息中心', desc: '面试 / 合同 / 状态变更通知', to: '/messages', icon: IconBell },
@@ -196,6 +197,7 @@ async function onLogout() {
         <dl>
           <div class="kv"><dt>用户 ID</dt><dd>{{ profile.userId }}</dd></div>
           <div class="kv"><dt>手机号</dt><dd>{{ profile.phoneMasked }}</dd></div>
+          <div v-if="domainHint(profile.domainTag)" class="kv"><dt>服务方式</dt><dd>{{ domainHint(profile.domainTag) }}</dd></div>
           <div class="kv"><dt>能找的岗位</dt><dd>{{ label('MatchScope', profile.matchScope) }}</dd></div>
           <div class="kv"><dt>来源</dt><dd>{{ profile.sourceIsPlatform ? '平台自主注册' : '渠道注册' }}</dd></div>
           <div class="kv"><dt>注册时间</dt><dd>{{ formatServerTime(profile.registeredAt) }}</dd></div>

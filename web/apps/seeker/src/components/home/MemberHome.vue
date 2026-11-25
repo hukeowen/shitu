@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage, seekerApi, useDict, type ApplicationStatus, type InboxItem, type KycView, type MyApplication, type MyWork } from '@shitu/api-client'
+import { domainHint } from '@/utils/domain'
 import { BrandMark, IconBell, IconCheck, IconCircleCheck, IconChevronRight, IconClock, IconFilePenLine, IconInbox, IconTriangleExclamationPoint } from '@shitu/ui-icons'
 import DeadlineBar from '@/components/DeadlineBar.vue'
 import InterviewNoticeCard from '@/components/InterviewNoticeCard.vue'
@@ -18,7 +19,7 @@ import { STATUS_TONE, deadlineCopy } from '@/utils/status'
 
 /**
  * 登录后首页（C-201~C-203）：S-06 公域求职 / S-07 私域待匹配（24h 专属跟进）/ S-08 待面试 / S-09 待确权 / S-10 在岗。
- * 四宫格（C-202）：AI 问薪全状态可点（报名锁定期给出锁定说明，R-03）、我的报备、薪资预支仅在岗、我的合同。
+ * 四宫格（C-202）：AI 问薪全状态可点（报名锁定期给出锁定说明，R-03）、我的报名、薪资预支仅在岗、我的合同。
  * 动态提醒（C-203）：待面试 → 面试信息卡；待确权 → 待签署合同卡；在岗 → 最新通知。专属顾问推荐（T-203）有待确认时展示横幅。
  */
 const auth = useAuthStore()
@@ -212,7 +213,7 @@ const quad = computed<QuadItem[]>(() => {
   else if (isPrivate.value && company.value) matchDesc = '匹配本公司岗位'
   return [
     { key: 'match', title: 'AI 问薪', desc: matchDesc, off: matchLocked.value },
-    { key: 'reports', title: '我的报备', desc: onboarding.value ? '报名与入职进度' : '报名与面试进度' },
+    { key: 'reports', title: '我的报名', desc: onboarding.value ? '报名与入职进度' : '报名与面试进度' },
     { key: 'advance', title: '薪资预支', desc: employed ? '在岗员工可申请' : '需已入职在岗', off: !employed },
     { key: 'contracts', title: '我的合同', desc: '电子合同随时查看' },
   ]
@@ -221,14 +222,14 @@ const quad = computed<QuadItem[]>(() => {
 async function startMatch() {
   if (matchLocked.value) {
     const msg = onboarding.value
-      ? '你已通过面试，办理入职期间不能重新匹配，也不能报名其他岗位。如不想入职，可在「我的报备」里申请取消报名，由驻场老师处理。'
+      ? '你已通过面试，办理入职期间不能重新匹配，也不能报名其他岗位。如不想入职，可在「我的报名」里申请取消报名，由驻场老师处理。'
       : appliedLock.value
-        ? '面试结果出来前不能重新匹配，也不能报名其他岗位。如需更换岗位，可在「我的报备」里申请取消报名，驻场老师同意后即可重新匹配。'
+        ? '面试结果出来前不能重新匹配，也不能报名其他岗位。如需更换岗位，可在「我的报名」里申请取消报名，驻场老师同意后即可重新匹配。'
         : status.value === 'EMPLOYED'
         ? '你已入职在岗，当前不能发起匹配。'
         : '当前状态暂不能发起匹配。'
     try {
-      await showConfirmDialog({ title: 'AI 问薪已锁定', message: msg, confirmButtonText: appliedLock.value ? '查看我的报备' : '知道了', showCancelButton: appliedLock.value, cancelButtonText: '知道了' })
+      await showConfirmDialog({ title: 'AI 问薪已锁定', message: msg, confirmButtonText: appliedLock.value ? '查看我的报名' : '知道了', showCancelButton: appliedLock.value, cancelButtonText: '知道了' })
       if (appliedLock.value) void router.push('/reports')
     } catch {
       /* 关闭 */
@@ -272,6 +273,7 @@ const progress = computed(() => {
           <span class="status-tag" :class="STATUS_TONE[profile.status]"><i class="dot"></i>{{ label('UserStatus', profile.status) }}</span>
           <span class="status-tag ell">{{ identityText }}</span>
         </div>
+        <p v-if="!onboarding && domainHint(profile.domainTag)" class="tag-hint">{{ domainHint(profile.domainTag) }}</p>
 
         <div v-if="status === 'PENDING_INTERVIEW'" class="home-meta">
           <div>应聘公司<b>{{ appCompany }}</b></div>
@@ -437,7 +439,7 @@ const progress = computed(() => {
         </section>
 
         <section v-if="appliedLock" class="acard">
-          <div class="acard-hd"><h4>报名进度</h4><router-link to="/reports" class="link">我的报备<IconChevronRight :size="16" /></router-link></div>
+          <div class="acard-hd"><h4>报名进度</h4><router-link to="/reports" class="link">我的报名<IconChevronRight :size="16" /></router-link></div>
           <div class="steps">
             <template v-for="(s, i) in progress" :key="s.t">
               <div class="st" :class="s.cls"><i><IconCheck v-if="s.cls === 'done'" :size="12" :stroke-width="2.5" /><template v-else>{{ i + 1 }}</template></i>{{ s.t }}</div>

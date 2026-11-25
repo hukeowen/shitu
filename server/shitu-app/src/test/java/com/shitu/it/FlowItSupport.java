@@ -122,10 +122,15 @@ abstract class FlowItSupport {
         return data(call(post("/api/v1/seeker/applications"), seeker, Map.of("jobId", jobId))).get("applicationId").asText();
     }
 
+    /** 题库 v2 第 5 题：白班 / 长白班接受，两班倒看情况，夜班不接受（测试岗位都是长白班）。 */
+    static final Map<String, String> SHIFT_OK = Map.of("DAY", "ACCEPT", "TWO_SHIFT", "DEPENDS", "NIGHT", "REJECT",
+            "LONG_DAY", "ACCEPT");
+
+    /** 题库 v2：进厂 / 锁定本测试城市 / 电子 / 30 岁 / 班次见上 / 要住宿 / 1–3 年。 */
     Map<String, Object> matchReq() {
         return Map.of("answers", List.of(
                 Map.of("seq", 1, "code", "A"), Map.of("seq", 2, "code", "A", "region", city), Map.of("seq", 3, "code", "A"),
-                Map.of("seq", 4, "code", "B"), Map.of("seq", 5, "code", "D"), Map.of("seq", 6, "code", "B"),
+                Map.of("seq", 4, "number", 30), Map.of("seq", 5, "matrix", SHIFT_OK), Map.of("seq", 6, "code", "A"),
                 Map.of("seq", 7, "code", "C")));
     }
 

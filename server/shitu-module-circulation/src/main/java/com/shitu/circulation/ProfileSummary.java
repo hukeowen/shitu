@@ -11,6 +11,33 @@ final class ProfileSummary {
     private ProfileSummary() {
     }
 
+    /** 题库 v2 班次三态：「白班、长白班可以；夜班不接受；两班倒看情况（要包住）」。 */
+    static List<String> shiftTolerance(MatchProfile p) {
+        if (p.shiftTolerance() == null) {
+            return List.of();
+        }
+        java.util.Map<MatchProfile.ShiftTolerance, List<String>> by = new java.util.EnumMap<>(MatchProfile.ShiftTolerance.class);
+        for (com.shitu.common.enums.ShiftType s : com.shitu.common.enums.ShiftType.values()) {
+            MatchProfile.ShiftTolerance t = p.shiftTolerance().get(s);
+            if (t == null) {
+                continue;
+            }
+            String note = p.shiftNotes() == null ? null : p.shiftNotes().get(s);
+            by.computeIfAbsent(t, k -> new ArrayList<>()).add(note == null ? s.label() : s.label() + "（" + note + "）");
+        }
+        List<String> out = new ArrayList<>();
+        if (by.containsKey(MatchProfile.ShiftTolerance.ACCEPT)) {
+            out.add(String.join("、", by.get(MatchProfile.ShiftTolerance.ACCEPT)) + "可以");
+        }
+        if (by.containsKey(MatchProfile.ShiftTolerance.DEPENDS)) {
+            out.add(String.join("、", by.get(MatchProfile.ShiftTolerance.DEPENDS)) + "看情况");
+        }
+        if (by.containsKey(MatchProfile.ShiftTolerance.REJECT)) {
+            out.add(String.join("、", by.get(MatchProfile.ShiftTolerance.REJECT)) + "不接受");
+        }
+        return out;
+    }
+
     static String of(MatchProfile p, int matchCount, String trigger) {
         List<String> parts = new ArrayList<>();
         parts.add(switch (p.factory()) {
@@ -27,6 +54,7 @@ final class ProfileSummary {
         if (p.shift() != null) {
             parts.add("可接受" + p.shift().label());
         }
+        parts.addAll(shiftTolerance(p));
         if (p.dorm() != null) {
             parts.add(switch (p.dorm()) {
                 case REQUIRED -> "必须包住";

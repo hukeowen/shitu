@@ -58,8 +58,27 @@ public class MatchService {
                              int quotaRemaining, String reason) {
     }
 
+    /**
+     * @param salaryByRank 没问期望工资（题库 v2），工资按岗位到手工资高低排位：结果页要用小字说明
+     */
     public record MatchOutcome(String sessionId, MatchScope scope, boolean matched, List<ResultCard> results,
-                               int engineVersion, int quizVersion) {
+                               int engineVersion, int quizVersion, boolean salaryByRank) {
+    }
+
+    /**
+     * 游客预览卡片（D-62 先答题后登录）：只给看得懂「有没有合适的活」的信息，
+     * 不含岗位编号、公司名称、地址、联系方式——想看完整岗位或报名必须登录（R-01 仍然成立：报名只认登录后的匹配结果）。
+     *
+     * @param companyHint 打码后的公司提示，如「昆山一家劳务公司」
+     */
+    public record PreviewCard(int rank, String title, BigDecimal salaryMin, BigDecimal salaryMax, String city,
+                              String district, boolean mealProvided, boolean dormProvided, String reason,
+                              String companyHint) {
+    }
+
+    /** @param privateScope 按渠道码所属公司的岗位预览（否则全平台） */
+    public record PreviewOutcome(boolean matched, boolean privateScope, List<PreviewCard> results, boolean salaryByRank,
+                                 int quizVersion) {
     }
 
     private final QuizService quiz;
@@ -136,8 +155,53 @@ public class MatchService {
                 results.insert(mr);
             }
             return new MatchOutcome(s.getSessionId(), scope, outcome.anyDisplayed(),
-                    cards(outcome.displayed(), c), engine.versionId(), q.versionId());
+                    cards(outcome.displayed(), c), engine.versionId(), q.versionId(), outcome.salaryByRank());
         });
+    }
+
+    /**
+     * 游客预览（D-62）：用当前题库与引擎参数打分，但<b>不落任何数据</b>（不建会话、不记匹配次数、不进漏斗），
+     * 只返回打码后的前几张卡片。登录后由前端用同一份答案调用 {@link #match} 得到正式结果。
+     *
+     * @param companyId 渠道码所属公司（私域预览）；null = 全平台
+     */
+    public PreviewOutcome preview(String companyId, List<ProfileBuilder.Answer> answers, BigDecimal lng, BigDecimal lat) {
+        return TenantContext.runAsSystem(() -> {
+            QuizService.QuizView q = quiz.active();
+            QuizService.ActiveEngine engine = quiz.activeEngine();
+            List<ProfileBuilder.QuestionDef> defs = quiz.questionsOf(q.versionId()).stream().map(QuizQuestion::toDef).toList();
+            MatchProfile profile;
+            try {
+                profile = ProfileBuilder.build(defs, answers, null, lng, lat);
+            } catch (ProfileBuilder.InvalidAnswerException e) {
+                throw new BizException(ErrorCode.SYS_BAD_REQUEST, e.getMessage());
+            }
+            Candidates c = candidates(companyId);
+            MatchScorer.Outcome outcome = MatchScorer.match(profile, c.list(), engine.config(), companyId == null);
+            List<PreviewCard> out = new java.util.ArrayList<>();
+            int rank = 1;
+            for (MatchScorer.Scored s : outcome.displayed()) {
+                Job j = c.jobs().get(s.job().jobId());
+                Project p = c.projects().get(j.getProjectId());
+                String city = p == null ? null : p.getCity();
+                out.add(new PreviewCard(rank++, j.getTitle(), j.getSalaryMin(), j.getSalaryMax(), city,
+                        p == null ? null : p.getDistrict(), Boolean.TRUE.equals(j.getMealProvided()),
+                        Boolean.TRUE.equals(j.getDormProvided()), s.reason(), companyHint(city)));
+            }
+            return new PreviewOutcome(outcome.anyDisplayed(), companyId != null, out, outcome.salaryByRank(), q.versionId());
+        });
+    }
+
+    /** 「昆山一家劳务公司」：只说城市，不说是哪家。 */
+    static String companyHint(String city) {
+        if (city == null || city.isBlank()) {
+            return "一家劳务公司";
+        }
+        String c = city.trim();
+        if (c.length() > 2 && c.endsWith("市")) {
+            c = c.substring(0, c.length() - 1);
+        }
+        return c + "一家劳务公司";
     }
 
     /** 最近一次匹配（结果页刷新、返回时恢复）。 */
@@ -156,8 +220,9 @@ public class MatchService {
             List<ResultCard> cards = rs.stream().filter(r -> byId.containsKey(r.getJobId()))
                     .map(r -> card(r.getRankNo(), byId.get(r.getJobId()), pr, cn, r.getMatchScore(), r.getReasonText()))
                     .toList();
+            boolean byRank = s.getProfile() != null && profileOf(s).salaryByRank();
             return Optional.of(new MatchOutcome(s.getSessionId(), MatchScope.valueOf(s.getScope()),
-                    "MATCHED".equals(s.getStatus()), cards, s.getEngineVersionId(), s.getQuizVersionId()));
+                    "MATCHED".equals(s.getStatus()), cards, s.getEngineVersionId(), s.getQuizVersionId(), byRank));
         });
     }
 

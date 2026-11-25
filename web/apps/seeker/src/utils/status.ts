@@ -10,7 +10,7 @@ export const STATUS_TONE: Record<UserStatus, string> = {
   EMPLOYED: 'status-tag--success',
 }
 
-/** 报名状态的标签色调（我的报备、面试详情、我的台账共用） */
+/** 报名状态的标签色调（我的报名、面试详情、我的台账共用） */
 export const APPLICATION_TONE: Record<ApplicationStatus, string> = {
   PENDING_INTERVIEW: 'status-tag--pending',
   PENDING_CONFIRM: 'status-tag--pending',

@@ -192,9 +192,7 @@ public class BrokerService {
         boolean relaxed = false;
         if (top.isEmpty()) {
             // 按用户原条件一个都过不了硬过滤：放宽进厂意愿与地域锁定，给经纪人可以去沟通的备选（T-202 从本公司全部岗位中选）
-            MatchProfile loose = new MatchProfile(MatchProfile.FactoryWillingness.YES, null, profile.jobType(),
-                    profile.salaryMin(), profile.salaryMax(), profile.shift(), profile.dorm(), profile.workYears(),
-                    profile.age(), profile.lng(), profile.lat());
+            MatchProfile loose = profile.loosened();
             top = MatchScorer.match(loose, cands.list(), cfg, false).results();
             relaxed = !top.isEmpty();
         }

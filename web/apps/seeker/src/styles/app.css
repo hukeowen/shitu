@@ -2,7 +2,7 @@
 html, body { background: var(--bg-page); min-height: 100%; overflow-x: hidden; -webkit-text-size-adjust: 100%; font-size: var(--font-size-body); line-height: 1.5; }
 body { -webkit-tap-highlight-color: transparent; }
 #app { min-height: 100vh; max-width: 750px; margin: 0 auto; background: var(--bg-page); }
-/* 带底部标签栏的页面（首页 / 我的报备 / 我的 / 问题反馈）：页面最小高度要扣掉标签栏占位，
+/* 带底部标签栏的页面（首页 / 我的报名 / 我的 / 问题反馈）：页面最小高度要扣掉标签栏占位，
    否则「100vh + 标签栏占位」会让内容很少的页面也多出一段空白滚动 */
 :root { --tabbar-h: calc(50px + env(safe-area-inset-bottom)); --page-h-tabbar: calc(100vh - var(--tabbar-h)); }
 @supports (height: 100dvh) {
@@ -44,6 +44,8 @@ ul, ol { list-style: none; }
 .home-sub { margin-top: 2px; font-size: var(--font-size-aux); color: var(--text-3); }
 .home-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
 .home-tags .status-tag { max-width: 100%; }
+/* 「专属服务 / 自由求职」标签旁的白话说明（D-62） */
+.tag-hint { margin-top: var(--space-1); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-3); }
 .home-tags .ell { display: block; height: auto; line-height: 22px; overflow: hidden; text-overflow: ellipsis; }
 .home-desc { margin-top: var(--space-3); font-size: var(--font-size-aux); line-height: 20px; color: var(--text-2); }
 .home-meta { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--divider); }
